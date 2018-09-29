@@ -287,7 +287,7 @@ func (p *Process) processTxsAcquire(txsAcquireCh <-chan *core.RetChan, seq int) 
 	log.INFO(p.logExtraInfo(), "交易获取协程", "启动", "当前身份", p.role.String(), "高度", p.number)
 	defer log.INFO(p.logExtraInfo(), "交易获取协程", "退出", "当前身份", p.role.String(), "高度", p.number)
 
-	outTime := time.NewTimer(time.Second * 2)
+	outTime := time.NewTimer(time.Second * 5)
 	select {
 	case txsResult := <-txsAcquireCh:
 
@@ -431,7 +431,7 @@ func (p *Process) sendVote(validate bool) {
 		Receipts:  p.curProcessReq.receipts,
 		State:     p.curProcessReq.stateDB,
 	}
-	log.INFO(p.logExtraInfo(), "发出区块共识结果消息", result, "高度", p.number)
+	//log.INFO(p.logExtraInfo(), "发出区块共识结果消息", result, "高度", p.number)
 	mc.PublishEvent(mc.BlkVerify_VerifyConsensusOK, &result)
 }
 
