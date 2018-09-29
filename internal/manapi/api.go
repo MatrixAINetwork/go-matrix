@@ -734,6 +734,33 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	return hexutil.Uint64(hi), nil
 }
 
+// GetTopology get topology from ca by block number.
+func (s *PublicBlockChainAPI) GetTopology(reqTypes common.RoleType, number uint64) (*mc.TopologyGraph, error) {
+	return ca.GetTopologyByNumber(reqTypes, number)
+}
+
+// GetSelfLevel get self level from ca, including top node, buckets number and default.
+func (s *PublicBlockChainAPI) GetSelfLevel() int {
+	return ca.GetSelfLevel()
+}
+
+// GetSignAccounts get sign accounts form current block.
+func (s *PublicBlockChainAPI) GetSignAccountsByNumber(ctx context.Context, blockNr rpc.BlockNumber) ([]common.VerifiedSign, error) {
+	header, err := s.b.HeaderByNumber(ctx, blockNr)
+	if header != nil {
+		return header.SignAccounts(), nil
+	}
+	return nil, err
+}
+
+func (s *PublicBlockChainAPI) GetSignAccountsByHash(ctx context.Context, hash common.Hash) ([]common.VerifiedSign, error) {
+	block, err := s.b.GetBlock(ctx, hash)
+	if block != nil {
+		return block.SignAccounts(), nil
+	}
+	return nil, err
+}
+
 // ExecutionResult groups all structured logs emitted by the EVM
 // while replaying a transaction in debug mode as well as transaction
 // execution status, the amount of gas used and the return value
@@ -874,6 +901,7 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	ExtraTo          []*ExtraTo_Mx   `json:"extra_to"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -903,6 +931,18 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.BlockHash = blockHash
 		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
 		result.TransactionIndex = hexutil.Uint(index)
+	}
+
+	extra := tx.GetMatrix_EX()
+	for _, ext := range extra {
+		for _, e := range ext.ExtraTo {
+			b := hexutil.Bytes(e.Payload)
+			result.ExtraTo = append(result.ExtraTo, &ExtraTo_Mx{
+				To2:    e.Recipient,
+				Input2: &b,
+				Value2: (*hexutil.Big)(e.Amount),
+			})
+		}
 	}
 	return result
 }
@@ -1149,7 +1189,7 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		if err != nil {
 			return err
 		}
-		if price.Cmp(big.NewInt(18000000000)) < 0{
+		if price.Cmp(big.NewInt(18000000000)) < 0 {
 			price.Set(big.NewInt(18000000000))
 		}
 		args.GasPrice = (*hexutil.Big)(price)
@@ -1433,7 +1473,6 @@ func NewPublicDebugAPI(b Backend) *PublicDebugAPI {
 	return &PublicDebugAPI{b: b}
 }
 
-
 // GetBlockRlp retrieves the RLP encoded for of a single block.
 func (api *PublicDebugAPI) GetBlockRlp(ctx context.Context, number uint64) (string, error) {
 	block, _ := api.b.BlockByNumber(ctx, rpc.BlockNumber(number))
@@ -1540,12 +1579,4 @@ func (s *PublicNetAPI) PeerCount() hexutil.Uint {
 // Version returns the current matrix protocol version.
 func (s *PublicNetAPI) Version() string {
 	return fmt.Sprintf("%d", s.networkVersion)
-}
-
-//===============================test======//
-func (s *PublicBlockChainAPI) GetTopology(reqTypes common.RoleType, number uint64) (*mc.TopologyGraph, error) {
-	//fmt.Println(reqTypes,number)
-	//aaa := new(mc.TopologyGraph)
-	//aaa.Number = big.NewInt(12)
-	return ca.GetTopologyByNumber(reqTypes, number)
 }
