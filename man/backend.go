@@ -161,7 +161,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Matrix, error) {
 		ca:             ctx.Ca,
 		msgcenter:      ctx.MsgCenter,
 		hd:             ctx.HD,
-		signHelper:     signhelper.NewSignHelper(),
+		signHelper:     ctx.SignHelper,
 
 		engine:        CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
 		shutdownChan:  make(chan bool),
@@ -231,25 +231,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Matrix, error) {
 	man.APIBackend.gpo = gasprice.NewOracle(man.APIBackend, gpoParams)
 	depoistInfo.NewDepositInfo(man.APIBackend)
 	man.broadTx = broadcastTx.NewBroadCast(man.APIBackend) //YY
-
-	wallets := man.AccountManager().Wallets()
-	if len(wallets) <= 0 {
-		log.Error("man", "no wallets", "")
-		return man, nil
-	}
-	accountList := wallets[0].Accounts()
-	if len(accountList) <= 0 {
-		log.Error("man", "no account", "")
-		return man, nil
-	}
-	//log.Info("man", "account:", accountList[0].Address.String())
-	//log.Info("man", "ca account:", ca.Validatoraccountlist[0])
-	//ca.SetAddr(accountList[0].Address)
-	err = man.signHelper.SetAccountManager(man.accountManager, accountList[0].Address, "xxx")
-	if err != nil {
-		return nil, err
-	}
-
 	man.leaderServer, err = verifier.NewLeaderIdentityService(man, "leader服务")
 
 	man.topNode = topnode.NewTopNodeService(man.blockchain.DPOSEngine())
@@ -535,7 +516,7 @@ func (s *Matrix) FetcherNotify(hash common.Hash, number uint64) {
 	for _, id := range ids {
 		peer := s.protocolManager.Peers.Peer(id.String()[:16])
 		if peer == nil {
-			log.Info("==========YY===========", "get PeerID is nil by Validator ID")
+			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id",id.String(),"Peers:",s.protocolManager.Peers.peers)
 			continue
 		}
 		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)
