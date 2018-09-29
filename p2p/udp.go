@@ -69,7 +69,7 @@ func UdpSend(data interface{}) {
 
 	ids := make([]discover.NodeID, 0)
 	if ca.InDuration() {
-		ids = ca.GetRolesByGroupOnlyBackup(common.RoleValidator)
+		ids = ca.GetRolesByGroupOnlyBackup(common.RoleValidator|common.RoleBackupValidator)
 	} else {
 		ids = ca.GetRolesByGroup(common.RoleValidator)
 	}
