@@ -97,9 +97,12 @@ func (b *Bucket) Start() {
 				b.role = common.RoleNil
 				break
 			}
-			if b.role != h.Role {
+
+			if b.role != h.Role && b.role == common.RoleNil {
 				fNodes := ca.GetFrontNodes()
 				b.disconnectPeers(fNodes)
+			}
+			if b.role != h.Role {
 				b.role = h.Role
 			}
 
@@ -146,7 +149,7 @@ func (b *Bucket) Start() {
 			case b.rings.Next().Value.(int64):
 				b.disconnectMiner()
 			case b.rings.Prev().Value.(int64):
-				miners := ca.GetRolesByGroupWithBackup(common.RoleMiner)
+				miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupValidator)
 				b.outer(MaxLink, miners)
 			}
 		case <-b.quit:
@@ -181,7 +184,7 @@ func (b *Bucket) nodesCount() (count int) {
 
 // DisconnectMiner older disconnect miner.
 func (b *Bucket) disconnectMiner() {
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner)
+	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
 	for _, miner := range miners {
 		ServerP2p.RemovePeer(discover.NewNode(miner, nil, 0, 0))
 	}
@@ -230,7 +233,7 @@ func (b *Bucket) maintainInner() {
 // MaintainOuter maintain bucket outer.
 func (b *Bucket) maintainOuter() {
 	count := 0
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner)
+	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
 	b.log.Info("maintainOuter", "peer info", miners)
 	for _, peer := range ServerP2p.Peers() {
 		for _, miner := range miners {
@@ -264,20 +267,6 @@ func (b *Bucket) peerBucket(node discover.NodeID) (int64, error) {
 	m := big.Int{}
 	return m.Mod(addr.Hash().Big(), big.NewInt(4)).Int64(), nil
 }
-
-//func (b *Bucket) deleteIdsById(nodeId discover.NodeID) {
-//	if len(b.ids) <= 0 {
-//		return
-//	}
-//	temp := 0
-//	for index, node := range b.ids {
-//		if node == nodeId {
-//			temp = index
-//			break
-//		}
-//	}
-//	b.ids = append(b.ids[:temp], b.ids[temp+1:]...)
-//}
 
 func (b *Bucket) linkBucketPeer() {
 	if len(b.ids) <= 64 {
@@ -330,32 +319,6 @@ func (b *Bucket) bucketAdd(nodeId discover.NodeID) {
 	}
 	b.bucket[mod] = append(b.bucket[mod], nodeId)
 }
-
-//// BucketDel delete from bucket.
-//func (b *Bucket) bucketDel(nodeId discover.NodeID) {
-//	b.lock.Lock()
-//
-//	addr, err := ca.ConvertNodeIdToAddress(nodeId)
-//	if err != nil {
-//		b.log.Error("bucket delete", "error:", err)
-//		return
-//	}
-//	m := big.Int{}
-//	mod := m.Mod(addr.Hash().Big(), big.NewInt(4)).Int64()
-//
-//	if len(b.bucket[mod]) <= 0 {
-//		return
-//	}
-//	temp := 0
-//	for index, node := range b.bucket[mod] {
-//		if node == nodeId {
-//			temp = index
-//			break
-//		}
-//	}
-//	b.bucket[mod] = append(b.bucket[mod][:temp], b.bucket[mod][temp+1:]...)
-//	b.lock.Unlock()
-//}
 
 // inner adjust inner network.
 func (b *Bucket) inner(num int, bucket int64) {
