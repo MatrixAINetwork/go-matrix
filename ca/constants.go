@@ -26,3 +26,8 @@ const (
 	LevelDBTopologyGraph = "TopologyGraph"
 	LevelDBOriginalRole  = "OriginalRole"
 )
+const (
+	TopNode     = 5
+	DefaultNode = 6
+	ErrNode     = 0
+)

@@ -253,6 +253,12 @@ func initCurrentTopology(tp common.NetTopology) {
 			if v.Account == ide.addr {
 				ide.currentRole = common.GetRoleTypeFromPosition(v.Position)
 			}
+			id, err := ConvertAddressToNodeId(v.Account)
+			if err != nil {
+				ide.log.Error("convert error", "ca", err)
+				continue
+			}
+			maintainIdList(id)
 		}
 	case common.NetTopoTypeAll:
 		ide.position = make([]uint16, 0)
@@ -263,6 +269,12 @@ func initCurrentTopology(tp common.NetTopology) {
 			if v.Account == ide.addr {
 				ide.currentRole = common.GetRoleTypeFromPosition(v.Position)
 			}
+			id, err := ConvertAddressToNodeId(v.Account)
+			if err != nil {
+				ide.log.Error("convert error", "ca", err)
+				continue
+			}
+			maintainIdList(id)
 		}
 	}
 	log.INFO("当前拓扑信息", "ide.topology", ide.topology)
@@ -273,13 +285,13 @@ func initNowTopologyResult() {
 	ide.addrByGroup = make(map[common.RoleType][]common.Address)
 	for po, addr := range ide.topology {
 		role := common.GetRoleTypeFromPosition(po)
-		ide.addrByGroup[role] = append(ide.addrByGroup[role], addr)
-		id, err := ConvertAddressToNodeId(addr)
-		if err != nil {
-			ide.log.Error("convert error", "ca", err)
-			continue
+		if role == common.RoleBackupValidator {
+			role = common.RoleValidator
 		}
-		maintainIdList(id)
+		if role == common.RoleBackupMiner {
+			role = common.RoleMiner
+		}
+		ide.addrByGroup[role] = append(ide.addrByGroup[role], addr)
 	}
 	for _, b := range params.BroadCastNodes {
 		ide.addrByGroup[common.RoleBroadcast] = append(ide.addrByGroup[common.RoleBroadcast], b.Address)
@@ -540,6 +552,21 @@ func GetAddress() common.Address {
 		}
 	}
 	return common.Address{}
+}
+
+// GetSelfLevel
+func GetSelfLevel() int {
+	switch {
+	case ide.currentRole > common.RoleBucket:
+		return TopNode
+	case ide.currentRole == common.RoleBucket:
+		m := big.Int{}
+		return int(m.Mod(ide.addr.Hash().Big(), big.NewInt(4)).Int64())+1
+	case ide.currentRole <= common.RoleDefault:
+		return DefaultNode
+	default:
+		return ErrNode
+	}
 }
 
 // GetTopologyByNumber
