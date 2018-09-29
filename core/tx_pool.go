@@ -51,6 +51,8 @@ const (
 	RecvTxbyN //YY
 	RecvErrTx //YY
 	BroadCast //YY
+	GetConsensusTxbyN
+	RecvConsensusTxbyN
 )
 
 //YY
@@ -128,20 +130,7 @@ var (
 // TxStatus is the current status of a transaction as seen by the pool.
 type TxStatus uint
 
-//YY TODO 根据全局锁来确定是否需要这么使用
-//type mapNSstruct struct {
-//	lk sync.RWMutex
-//	mapNS map[uint32]*big.Int
-//}
-//
-//func (m *mapNSstruct)FindData(n uint32) *big.Int {
-//	m.lk.RUnlock()
-//	defer m.lk.RUnlock()
-//	return m.mapNS[n]
-//}
-
-var mapNS = make(map[uint32]*big.Int) //YY
-//var mapSNForTx = make(map[*big.Int][]uint32)                  //YY  用来存放本地不存在的SN
+var mapNs sync.Map  //YY
 var mapCaclErrtxs = make(map[common.Hash][]common.Address) //YY  用来统计错误的交易
 var mapDelErrtxs = make(map[common.Hash]*big.Int)          //YY  用来删除mapErrorTxs
 var mapErrorTxs = make(map[*big.Int]*types.Transaction)    //YY  存放所有的错误交易（20个区块自动删除）
@@ -259,9 +248,9 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	PriceBump:  10,
 
 	AccountSlots: 16,
-	GlobalSlots:  4096 * 5, //YY 2018-08-30 改为乘以5
-	AccountQueue: 64,
-	GlobalQueue:  1024,
+	GlobalSlots:  4096 * 5 * 5 * 10, //YY 2018-08-30 改为乘以5
+	AccountQueue: 64 * 1000,
+	GlobalQueue:  1024 * 60,
 
 	Lifetime: 3 * time.Hour,
 }
@@ -429,14 +418,16 @@ func (pool *TxPool) loop() {
 				pool.blockTiming() //YY
 				//将广播区块写入db  hezi
 				if head.Number().Uint64()%common.GetBroadcastInterval() == 0 {
-					tmpdt := make(map[string][]byte)
 					pubmap := make(map[common.Address][]byte)
 					primap := make(map[common.Address][]byte)
 					Heartmap := make(map[common.Address][]byte)
 					CallNamemap := make(map[common.Address][]byte)
 
 					var hash_key common.Hash
+					log.Info("Block insert message", "height", head.Number().Uint64(), "head.Hash=", head.Hash())
 					for _, tx := range head.Transactions() {
+						tmpdt := make(map[string][]byte)
+
 						if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
 							from, _ := types.Sender(pool.signer, tx)
 							json.Unmarshal(tx.Data(), &tmpdt)
@@ -497,9 +488,9 @@ func (pool *TxPool) loop() {
 
 				}
 				pool.mu.Unlock()
-				log.INFO("==========", "getPendingTx:befer", 0)
+				//log.INFO("==========", "getPendingTx:befer", 0)
 				pool.getPendingTx() //YY
-				log.INFO("==========", "getPendingTx:after", 1)
+				//log.INFO("==========", "getPendingTx:after", 1)
 			}
 		// Be unsubscribed due to system stopped
 		case <-pool.chainHeadSub.Err():
@@ -659,7 +650,7 @@ func (pool *TxPool) packageSNList() {
 					continue
 				}
 				tmpnum := byte4Number.catNumber(nodeNum)
-				log.Info("======YY======", "packageSNList():flood:sssssss", tx.GetTxS(), "txNonce:", tx.Nonce(), "txN", tmpnum)
+				//log.Info("======YY======", "packageSNList():flood:sssssss", tx.GetTxS(), "txNonce:", tx.Nonce(), "txN", tmpnum)
 				pool.setTxNum(tx, tmpnum)
 				tmpsnlst[tmpnum] = s
 				pool.setnTx(tmpnum, tx)
@@ -710,11 +701,21 @@ func (pool *TxPool) ProcessMsg(m NetworkMsgData) {
 		json.Unmarshal(msgdata.MsgData, &listN)
 		nodeid := m.NodeId
 		pool.msg_GetTxByN(*listN, nodeid)
+	case GetConsensusTxbyN: //add hezi
+		listN := new([]uint32)
+		json.Unmarshal(msgdata.MsgData, &listN)
+		nodeid := m.NodeId
+		pool.msg_GetConsensusTxByN(*listN, nodeid)
 	case RecvTxbyN: //YY
 		nodeid := m.NodeId
 		ntx := make(map[uint32]*types.Floodtxdata, 0)
 		json.Unmarshal(msgdata.MsgData, &ntx)
 		pool.msg_RecvFloodTx(ntx, nodeid)
+	case RecvConsensusTxbyN://add hezi
+		nodeid := m.NodeId
+		ntx := make(map[uint32]*types.Transaction, 0)
+		json.Unmarshal(msgdata.MsgData, &ntx)
+		pool.msg_RecvConsensusFloodTx(ntx, nodeid)
 	case RecvErrTx: //YY
 		nodeid := m.NodeId
 		listS := new([]*big.Int)
@@ -740,17 +741,9 @@ func (pool *TxPool) sendMsg(data MsgStruct) {
 	case SendFloodSN:
 		if selfRole == common.RoleValidator || selfRole == common.RoleMiner {
 			log.Info("===Transaction flood", "selfRole", selfRole)
-			if !ca.InDuration() {
-				//不处于换届
-				log.Info("===不处于换届", "selfRole", selfRole)
-				p2p.SendToGroup(common.RoleValidator|common.RoleBroadcast, common.NetworkMsg, []interface{}{data})
-			} else {
-				//换届中(只给备选validate和广播节点洪泛交易)
-				log.Info("===换届中", "selfRole", selfRole)
-				p2p.SendToGroup(common.RoleBackupValidator|common.RoleBroadcast, common.NetworkMsg, []interface{}{data})
-			}
+			p2p.SendToGroupWithBackup(common.RoleValidator|common.RoleBackupValidator|common.RoleBroadcast, common.NetworkMsg, []interface{}{data})
 		}
-	case GetTxbyN, RecvTxbyN, BroadCast: //YY
+	case GetTxbyN, RecvTxbyN, BroadCast,GetConsensusTxbyN,RecvConsensusTxbyN: //YY
 		//给固定的节点发送根据N获取Tx的请求
 		log.Info("===sendMSG ======YY====", "Msgtype", data.Msgtype)
 		p2p.SendToSingle(data.NodeId, common.NetworkMsg, []interface{}{data})
@@ -1040,7 +1033,6 @@ func (pool *TxPool) stats() (int, int) {
 func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-
 	pending := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.pending {
 		pending[addr] = list.Flatten()
@@ -1049,8 +1041,7 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 	for addr, list := range pool.queue {
 		queued[addr] = list.Flatten()
 	}
-	log.Info("============YY========", "Content()::mapNS", len(mapNS))
-	//log.Info("============YY========","Content()::mapNS",mapNS)
+	//log.Info("============YY========","Content()::mapNS",len(mapNS))
 	log.Info("============YY========", "Content()::SContainer", len(pool.SContainer))
 	log.Info("============YY========", "Content()::NContainer", len(pool.NContainer))
 	//log.Info("============YY========","Content()::NContainer",pool.NContainer)
@@ -1098,14 +1089,12 @@ func (pool *TxPool) msg_CheckTx(mapSN map[uint32]*big.Int, nid discover.NodeID) 
 			log.Info("========YY===:continue", "s", s, "n", n)
 			continue
 		}
-		mapNS[n] = s
+		mapNs.Store(n,s)
 		tx := pool.getTxbyS(s)
-		log.Info("========YY=== ", "11111111111", 1111111111)
 		//tx := pool.SContainer [s]
 		if tx == nil {
 			listN = append(listN, n)
 		} else {
-			log.Info("========YY=== ", "11111111111", 22222222222)
 			isExist := true
 			for _, txn := range tx.N { //如果有重复的N就不添加了
 				if txn == n {
@@ -1116,9 +1105,8 @@ func (pool *TxPool) msg_CheckTx(mapSN map[uint32]*big.Int, nid discover.NodeID) 
 			if isExist {
 				pool.setTxNum(tx, n)
 			}
-			log.Info("========YY=== ", "11111111111", 3333333333)
+
 			pool.setnTx(n, tx)
-			log.Info("========YY=== ", "11111111111", 44444444444)
 		}
 	}
 	pool.selfmlk.Unlock()
@@ -1127,8 +1115,6 @@ func (pool *TxPool) msg_CheckTx(mapSN map[uint32]*big.Int, nid discover.NodeID) 
 		msData, _ := json.Marshal(listN)
 		pool.sendMsg(MsgStruct{Msgtype: GetTxbyN, NodeId: nid, MsgData: msData})
 	}
-	log.Info("========YY=== ", "msg_checkTx:end", 5555555555)
-
 }
 
 //YY 接收生成的广播交易
@@ -1156,7 +1142,7 @@ func (pool *TxPool) AddBroadTx(tx *types.Transaction, bType bool) (err error) {
 func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Address, retch chan *RetChan) {
 	log.Info("**************ReturnAllTxsByN IN")
 	defer log.Info("**************ReturnAllTxsByN OUT")
-	log.Info("========YY===1", "ReturnAllTxsByN", "begin")
+	log.Info("========YY===1", "ReturnAllTxsByN:len(listN)", len(listN))
 	if len(listN) <= 0 {
 		retch <- &RetChan{nil, nil, resqe}
 		return
@@ -1173,10 +1159,12 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 			ns = append(ns, n)
 		}
 	}
-	log.Info("========YY===3", "ReturnAllTxsByN:len(ns)", len(ns))
+	log.Info("========YY===3", "ReturnAllTxsByN:len(ns)", len(ns), "len(txs):", len(txs))
 	if len(ns) > 0 {
 		log.Info("========YY===4", "ReturnAllTxsByN", 0)
+		txs = make([]*types.Transaction, 0)
 		nid, err1 := ca.ConvertAddressToNodeId(addr)
+		log.Info("leader node", "addr::", addr, "id::", nid.String())
 		if err1 != nil {
 			log.Info("========YY===5", "ReturnAllTxsByN:discover=err", err1)
 			retch <- &RetChan{nil, err1, resqe}
@@ -1189,71 +1177,163 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 			return
 		}
 		// 发送缺失交易N的列表
-		pool.sendMsg(MsgStruct{Msgtype: GetTxbyN, NodeId: nid, MsgData: msData})
-		rettime := time.NewTicker(1 * time.Second) // 1秒后没有收到需要的交易则返回
-		isOver := false
+		//pool.sendMsg(MsgStruct{Msgtype: GetTxbyN, NodeId: nid, MsgData: msData})
+		pool.sendMsg(MsgStruct{Msgtype: GetConsensusTxbyN, NodeId: nid, MsgData: msData}) //modi hezi(共识要的交易都带s)
+		rettime := time.NewTimer(3 * time.Second) // 2秒后没有收到需要的交易则返回
+	forBreak:
 		for {
-			tmpTime := time.NewTicker(200 * time.Millisecond) //200毫秒轮训一次
 			select {
 			case <-rettime.C:
-				isOver = true
-			case <-tmpTime.C:
-			}
-			tmpns := make([]uint32, 0)
-			for _, n := range ns {
-				tx := pool.getTxbyN(n)
-				if tx != nil {
-					txs = append(txs, tx)
-				} else {
-					tmpns = append(tmpns, n)
+				log.Info("========YY===", "ReturnAllTxsByN:Time Out=", 0)
+				break forBreak
+			case <-time.After(100 * time.Millisecond): //100毫秒轮训一次
+				tmpns := make([]uint32, 0)
+				for _, n := range ns {
+					tx := pool.getTxbyN(n)
+					if tx == nil {
+						tmpns = append(tmpns, n)
+					}
 				}
-			}
-			ns = tmpns
-			if isOver || len(ns) == 0 {
-				break
+				ns = tmpns
+				if len(ns) == 0 {
+					log.Info("========YY===", "ReturnAllTxsByN:recvTx Over=", 0)
+					break forBreak
+				}
 			}
 		}
 		var txerr error
 		if len(ns) > 0 {
-			txs = make([]*types.Transaction, 0)
 			txerr = errors.New("loss tx")
+		}else{
+			for _, n := range listN {
+				tx := pool.getTxbyN(n)
+				if tx != nil {
+					txs = append(txs, tx)
+				} else {
+			txerr = errors.New("loss tx")
+					txs = make([]*types.Transaction, 0)
+					break
+				}
+			}
 		}
 		retch <- &RetChan{txs, txerr, resqe}
-		log.Info("========YY===end if", "ReturnAllTxsByN", 0)
+		log.Info("========YY===end if", "ReturnAllTxsByN:len(ns)", len(ns))
 	} else {
 		retch <- &RetChan{txs, nil, resqe}
 		log.Info("========YY===end else", "ReturnAllTxsByN", 0)
 	}
 }
 
+// (共识要交易)根据N值获取对应的交易(modi hezi)
+func (pool *TxPool) msg_GetConsensusTxByN(listN []uint32, nid discover.NodeID) {
+	log.Info("==========YY", "msg_GetConsensusTxByN:len(listN)", len(listN))
+	if len(listN) <= 0 {
+		return
+	}
+	mapNtx := make(map[uint32]*types.Transaction)
+	for _, n := range listN {
+		tx := pool.getTxbyN(n) //TODO　循环调用这个方法，然后方法中有锁 这样的情况是否允许
+		if tx != nil {
+			//ftx := types.GetFloodData(tx)
+			mapNtx[n] = tx
+		} else {
+			log.Info("===========YY==tx is nil")
+		}
+	}
+	msData, _ := json.Marshal(mapNtx)
+	log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx),"nodeid",nid.String())
+	pool.sendMsg(MsgStruct{Msgtype: RecvConsensusTxbyN, NodeId: nid, MsgData: msData})
+	log.Info("========YY===3", "GetConsensusTxByN", 0)
+}
 //YY 根据N值获取对应的交易(洪泛)
 func (pool *TxPool) msg_GetTxByN(listN []uint32, nid discover.NodeID) {
+	log.Info("==========YY", "msg_GetTxByN:len(listN)", len(listN))
 	if len(listN) <= 0 {
 		return
 	}
 	mapNtx := make(map[uint32]*types.Floodtxdata)
 	for _, n := range listN {
 		tx := pool.getTxbyN(n) //TODO　循环调用这个方法，然后方法中有锁 这样的情况是否允许
-		log.Info("=============msg_GetTxByN:getTxbyN after")
 		if tx != nil {
 			ftx := types.GetFloodData(tx)
 			mapNtx[n] = ftx
+		} else {
+			log.Info("===========YY==tx is nil")
 		}
 	}
 	msData, _ := json.Marshal(mapNtx)
 
-	log.Info("========YY===2", "msg_GetTxByN", 0)
+	log.Info("========YY===2", "msg_GetTxByN:ntxMap", len(mapNtx))
 	pool.sendMsg(MsgStruct{Msgtype: RecvTxbyN, NodeId: nid, MsgData: msData})
 	log.Info("========YY===3", "msg_GetTxByN", 0)
 }
 
+//此接口传的交易带s(modi hezi)
+func (pool *TxPool) msg_RecvConsensusFloodTx(mapNtx map[uint32]*types.Transaction, nid discover.NodeID) {
+	pool.selfmlk.Lock()
+	log.INFO("===========","msg_RecvConsensusFloodTx",len(mapNtx))
+	errorTxs := make([]*big.Int, 0)
+	for n, tx := range mapNtx {
+		mapNs.Store(n,tx.GetTxS())
+		ts,ok:=mapNs.Load(n)
+		if !ok{
+			continue
+		}
+		s:=ts.(*big.Int)
+		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
+			continue
+		}
+		isExist := true
+		for _, txn := range tx.N { //如果有重复的N我就不添加了
+			if txn == n {
+				isExist = false
+				break
+			}
+		}
+		if isExist {
+			tmptx := pool.getTxbyS(s)
+			if tmptx != nil {
+				tx = tmptx
+			}
+			pool.setTxNum(tx, n)
+			pool.setnTx(n, tx)
+		}
+		//tx.SetTxS(s)
+		err := pool.addTx(tx, false)
+		if err != nil && err != ErrKownTransaction {
+			log.Info("========YY===3", "msg_RecvConsensusFloodTx::Error=", err)
+			log.Info("========YY===4", "msg_RecvConsensusFloodTx::Tx=", tx)
+			if _, ok := mapErrorTxs[s]; !ok {
+				errorTxs = append(errorTxs, s)
+				mapErrorTxs[s] = tx
+				mapDelErrtxs[tx.Hash()] = s
+			}
+			//对于添加失败的交易要调用删除map方法
+			pool.mu.Lock()
+			pool.deleteMap(tx)
+			pool.mu.Unlock()
+		}
+	}
+	pool.selfmlk.Unlock()
+	if len(errorTxs) > 0 {
+		//TODO S在这如何进行签名？？如何获得本节点账户信息
+		msData, _ := json.Marshal(errorTxs)
+		pool.sendMsg(MsgStruct{Msgtype: RecvErrTx, NodeId: nid, MsgData: msData})
+		//pool.msg_RecvErrTx(common.Address{}, errorTxs)
+	}
+}
 //YY 接收洪泛的交易（根据N请求到的交易）
 func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid discover.NodeID) {
 	errorTxs := make([]*big.Int, 0)
 	pool.selfmlk.Lock()
 	log.Info("=======YY===", "msg_RecvFloodTx: len(mapNtx)=", len(mapNtx))
+	//aa := 0
 	for n, ftx := range mapNtx {
-		s := mapNS[n]
+		ts,ok:=mapNs.Load(n)
+		if !ok{
+			continue
+		}
+		s:=ts.(*big.Int)
 		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
 			continue
 		}
@@ -1275,6 +1355,8 @@ func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid di
 		}
 		tx.SetTxS(s)
 		err := pool.addTx(tx, false)
+		//aa += 1
+		//log.Info("========YY===3", "msg_RecvFloodTx::addTx:nid=",nid.String(),"err:", err,"count:",aa)
 		if err != nil && err != ErrKownTransaction {
 			log.Info("========YY===3", "msg_RecvFloodTx::Error=", err)
 			log.Info("========YY===4", "msg_RecvFloodTx::Tx=", tx)
@@ -1346,13 +1428,13 @@ func (pool *TxPool) msg_RecvErrTx(addr common.Address, listS []*big.Int) {
 
 //YY 刪除新增加的map中的数据
 func (pool *TxPool) deleteMap(tx *types.Transaction) {
-	//log.Info("========YY===1","begin deleteMap")
+	//log.Info("========YY===1","begin deleteMap",0)
 	//在调用的地方已经加锁了所以在此不用加锁
 	s := tx.GetTxS()
 	listn := tx.N
 	for _, n := range listn {
 		pool.deletnTx(n)
-		delete(mapNS, n)
+		mapNs.Delete(n)
 	}
 	//delete(mapSNForTx,s)
 	delete(mapTxsTiming, tx.Hash())
@@ -1475,7 +1557,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	//local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-	if /*!local && */pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
+	if /*!local && */ pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
 	// Ensure the transaction adheres to nonce ordering
@@ -1571,7 +1653,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 
 	}
 
-	log.Info("=====hezi====CommonTx add tx")
+	//log.Info("=====hezi====CommonTx add tx")
 	//普通交易
 	hash := tx.Hash()
 	// If the transaction is already known, discard it
@@ -1629,13 +1711,13 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		if selfRole == common.RoleMiner || selfRole == common.RoleValidator {
 			tx_s := tx.GetTxS()
 			pool.setsTx(tx_s, tx)
-			log.Info("=====hezi====", "add pending finish", 0)
+			//log.Info("=====hezi====", "add pending finish", 0)
 			if len(tx.N) == 0 {
 				gSendst.notice <- tx.GetTxS()
 			}
 		} else if selfRole == common.RoleDefault {
 			// We've directly injected a replacement transaction, notify subsystems
-			log.Info("======hezi====send NewTxsEvent")
+			//log.Info("======hezi====send NewTxsEvent")
 
 			//========================for test hezi=================================//
 			//if tx != nil {
@@ -1658,7 +1740,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 	pool.journalTx(from, tx)
 
-	log.Trace("Pooled new future transaction", "hash", hash, "from", from, "to", tx.To())
+	//log.Trace("Pooled new future transaction", "hash", hash, "from", from, "to", tx.To())
 	return replace, nil
 }
 
@@ -1935,7 +2017,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 		for _, tx := range list.Ready(pool.pendingState.GetNonce(addr)) {
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
-				log.Trace("Promoting queued transaction", "hash", hash)
+				//log.Trace("Promoting queued transaction", "hash", hash)
 				promoted = append(promoted, tx)
 			}
 		}
@@ -1963,13 +2045,13 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 				tx_s := tx.GetTxS()
 				pool.setsTx(tx_s, tx)
 				//pool.setsTx(tx.GetTxS(), tx)
-				log.Info("=====hezi====", "promoted:Nlist", tx.N)
+				//log.Info("=====hezi====", "promoted:Nlist", tx.N)
 				if len(tx.N) == 0 {
 					gSendst.notice <- tx.GetTxS()
 				}
 			}
 		} else if selfRole == common.RoleDefault {
-			log.Info("======hezi====send NewTxsEvent")
+			//log.Info("======hezi====send NewTxsEvent")
 			//========================for test hezi=================================//
 			//for _, tx := range promoted {
 			//	sendtxsch <- tx
@@ -2107,7 +2189,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.deleteMap(tx)
 			//===========end===========
 			hash := tx.Hash()
-			log.Trace("Removed old pending transaction", "hash", hash)
+			//log.Trace("Removed old pending transaction", "hash", hash)
 			pool.all.Remove(hash)
 			pool.priced.Removed()
 		}
