@@ -17,10 +17,12 @@ package params
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 
+	"fmt"
 	"github.com/matrix/go-matrix/log"
+	"github.com/pkg/errors"
+	"os"
 )
 
 const (
@@ -39,21 +41,33 @@ var (
 	SignAccount         = "0xc47d9e507c1c5cb65cc7836bb668549fc8f547df"
 	SignAccountPassword = "12345"
 	HcMethod            = HCP2P
+
+	NoBootNode      = errors.New("无boot节点")
+	NoBroadCastNode = errors.New("无广播节点")
 )
 
 const (
 	//TODO: VotePoolTimeout
-	VotePoolTimeout    = 30 * 1000
+	VotePoolTimeout    = 37 * 1000
 	VotePoolCountLimit = 5
 )
 
-func init() {
-	fmt.Println("PARAMS INIT")
+func Config_Init(Config_PATH string) {
+	log.INFO("Config_Init 函数", "Config_PATH", Config_PATH)
+
 	JsonParse := NewJsonStruct()
 	v := Config{}
-	JsonParse.Load("./man.json", &v)
+	JsonParse.Load(Config_PATH, &v)
 	MainnetBootnodes = v.BootNode
+	if len(MainnetBootnodes) <= 0 {
+		fmt.Println("无bootnode节点")
+		os.Exit(-1)
+	}
 	BroadCastNodes = v.BroadNode
+	if len(BroadCastNodes) <= 0 {
+		fmt.Println("无广播节点")
+		os.Exit(-1)
+	}
 }
 
 type Config struct {
@@ -71,11 +85,14 @@ func NewJsonStruct() *JsonStruct {
 func (jst *JsonStruct) Load(filename string, v interface{}) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Error("ATTTTTTTTTTTTTTTTTTTEEEEEEEEEEEEEEBNNNNNNNNNNNNNTTTTTTTTTTTTTIIIIIIIIIIIOOOOOOOOOOOOOOONNNNNNNNNNNNNN", "filename", filename)
+		fmt.Println("读取通用配置文件失败 err", err, "file", filename)
+		os.Exit(-1)
 		return
 	}
 	err = json.Unmarshal(data, v)
 	if err != nil {
+		fmt.Println("通用配置文件数据获取失败 err", err)
+		os.Exit(-1)
 		return
 	}
 }
