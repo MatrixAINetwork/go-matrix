@@ -13,6 +13,7 @@
 //FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package reelection
 
 import (
@@ -76,7 +77,11 @@ func (self *ReElection) ToNativeMinerStateUpdate(height uint64, allNative AllNat
 	//测试
 	//DiffFromBlock := common.NetTopology{}
 	//aim := 0x04 + 0x08
-	TopoGrap, _ := GetCurrentTopology(height-1, common.RoleMiner)
+	TopoGrap, err:= GetCurrentTopology(height-1, common.RoleMiner)
+	if err!=nil{
+		log.ERROR(Module,"从CA获取验证者拓扑图错误 err",err)
+		return allNative,err
+	}
 	online, offline := self.CalOnline(DiffFromBlock, TopoGrap)
 	log.INFO(Module, "ToNativeMinerStateUpdate online", online, "offline", offline)
 	allNative.MasterMiner, allNative.BackUpMiner = deleteOfflineNode(offline, allNative.MasterMiner, allNative.BackUpMiner)
@@ -102,7 +107,11 @@ func (self *ReElection) ToNativeValidatorStateUpdate(height uint64, allNative Al
 	//测试
 	//DiffFromBlock := common.NetTopology{}
 	//aim := 0x01 + 0x02
-	TopoGrap, _ := GetCurrentTopology(height-1, common.RoleValidator)
+	TopoGrap, err := GetCurrentTopology(height-1, common.RoleValidator)
+	if err!=nil{
+		log.ERROR(Module,"从ca获取验证者拓扑图失败",err)
+		return allNative,err
+	}
 	online, offline := self.CalOnline(DiffFromBlock, TopoGrap)
 	log.INFO(Module, "ToNativeValidatorStateUpdate online", online, "offline", offline)
 	allNative.MasterValidator, allNative.BackUpValidator = deleteOfflineNode(offline, allNative.MasterValidator, allNative.BackUpValidator)
