@@ -634,7 +634,6 @@ func (req *findnode) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte
 	for _, n := range closest {
 		if netutil.CheckRelayIP(from.IP, n.IP) == nil {
 			if n.ID == req.Target {
-				log.Info("req target coming", "id:", req.Target)
 				temp := append([]rpcNode{}, nodeToRPC(n))
 				p.Nodes = append(temp, p.Nodes[0:]...)
 			} else {
