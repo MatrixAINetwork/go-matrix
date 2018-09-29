@@ -119,6 +119,25 @@ func SendToSingle(to discover.NodeID, msgCode uint64, data interface{}) error {
 }
 
 // SendToGroup send message to a group.
+func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{}) error {
+	ids := ca.GetRolesByGroupWithBackup(to)
+	peers := ServerP2p.Peers()
+	for _, id := range ids {
+		for _, peer := range peers {
+			if id == peer.ID() {
+				err := Send(peer.MsgReadWriter(), msgCode, data)
+				if err != nil {
+					log.Error("send to group with backup", "error:", err)
+				}
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// SendToGroup send message to a group.
 func SendToGroup(to common.RoleType, msgCode uint64, data interface{}) error {
 	ids := ca.GetRolesByGroup(to)
 	//log.INFO("message.go", "GetRolesByGroup", ids)
