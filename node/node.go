@@ -29,6 +29,7 @@ import (
 	"github.com/matrix/go-matrix/mc"
 
 	"github.com/matrix/go-matrix/accounts"
+	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
@@ -71,8 +72,9 @@ type Node struct {
 	wsListener net.Listener // Websocket RPC listener socket to server API requests
 	wsHandler  *rpc.Server  // Websocket RPC request handler to process the API requests
 
-	MsgCenter *mc.Center
-	hd        *hd.HD
+	MsgCenter  *mc.Center
+	hd         *hd.HD
+	signHelper *signhelper.SignHelper
 
 	stop chan struct{} // Channel to wait for termination notifications
 	lock sync.RWMutex
@@ -119,7 +121,7 @@ func New(conf *Config) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	signHelper := signhelper.NewSignHelper()
 	return &Node{
 		accman:            am,
 		ephemeralKeystore: ephemeralKeystore,
@@ -131,6 +133,7 @@ func New(conf *Config) (*Node, error) {
 		eventmux:          new(event.TypeMux),
 		log:               conf.Logger,
 		hd:                hd,
+		signHelper:        signHelper,
 	}, nil
 }
 
@@ -190,6 +193,7 @@ func (n *Node) Start() error {
 			AccountManager: n.accman,
 			MsgCenter:      n.MsgCenter,
 			HD:             n.hd,
+			SignHelper:     n.signHelper,
 		}
 		for kind, s := range services { // copy needed for threaded access
 			ctx.services[kind] = s
@@ -565,6 +569,9 @@ func (n *Node) InstanceDir() string {
 // AccountManager retrieves the account manager used by the protocol stack.
 func (n *Node) AccountManager() *accounts.Manager {
 	return n.accman
+}
+func (n *Node) SignalHelper() *signhelper.SignHelper {
+	return n.signHelper
 }
 
 // IPCEndpoint retrieves the current IPC endpoint used by the protocol stack.
