@@ -741,7 +741,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		log.Info("=====xiangzi==", "ProcessMsg", m)
-		pm.txpool.ProcessMsg(core.NetworkMsgData{NodeId: p.ID(), Data: m})
+		go pm.txpool.ProcessMsg(core.NetworkMsgData{NodeId: p.ID(), Data: m})
 
 	case msg.Code == common.AlgorithmMsg:
 		var m hd.NetData
@@ -751,7 +751,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		addr, err := ca.ConvertNodeIdToAddress(p.ID())
 		if err != nil {
-			log.Error("convert message", "error", err)
+			log.Error("convert message", "error", err, "pid", p.ID().String())
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		return mc.PublishEvent(mc.P2P_HDMSG, &hd.AlgorithmMsg{Account: addr, Data: m})
