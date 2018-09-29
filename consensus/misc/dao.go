@@ -1,0 +1,85 @@
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+package misc
+
+import (
+	"bytes"
+	"errors"
+	"math/big"
+
+	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/params"
+)
+
+var (
+	// ErrBadProDAOExtra is returned if a header doens't support the DAO fork on a
+	// pro-fork client.
+	ErrBadProDAOExtra = errors.New("bad DAO pro-fork extra-data")
+
+	// ErrBadNoDAOExtra is returned if a header does support the DAO fork on a no-
+	// fork client.
+	ErrBadNoDAOExtra = errors.New("bad DAO no-fork extra-data")
+)
+
+// VerifyDAOHeaderExtraData validates the extra-data field of a block header to
+// ensure it conforms to DAO hard-fork rules.
+//
+// DAO hard-fork extension to the header validity:
+//   a) if the node is no-fork, do not accept blocks in the [fork, fork+10) range
+//      with the fork specific extra-data set
+//   b) if the node is pro-fork, require blocks in the specific range to have the
+//      unique extra-data set.
+func VerifyDAOHeaderExtraData(config *params.ChainConfig, header *types.Header) error {
+	// Short circuit validation if the node doesn't care about the DAO fork
+	if config.DAOForkBlock == nil {
+		return nil
+	}
+	// Make sure the block is within the fork's modified extra-data range
+	limit := new(big.Int).Add(config.DAOForkBlock, params.DAOForkExtraRange)
+	if header.Number.Cmp(config.DAOForkBlock) < 0 || header.Number.Cmp(limit) >= 0 {
+		return nil
+	}
+	// Depending on whether we support or oppose the fork, validate the extra-data contents
+	if config.DAOForkSupport {
+		if !bytes.Equal(header.Extra, params.DAOForkBlockExtra) {
+			return ErrBadProDAOExtra
+		}
+	} else {
+		if bytes.Equal(header.Extra, params.DAOForkBlockExtra) {
+			return ErrBadNoDAOExtra
+		}
+	}
+	// All ok, header has the same extra-data we expect
+	return nil
+}
+
+// ApplyDAOHardFork modifies the state database according to the DAO hard-fork
+// rules, transferring all balances of a set of DAO accounts to a single refund
+// contract.
+func ApplyDAOHardFork(statedb *state.StateDB) {
+	// Retrieve the contract to refund balances into
+	if !statedb.Exist(params.DAORefundContract) {
+		statedb.CreateAccount(params.DAORefundContract)
+	}
+
+	// Move every DAO account and extra-balance account funds into the refund contract
+	for _, addr := range params.DAODrainList() {
+		statedb.AddBalance(params.DAORefundContract, statedb.GetBalance(addr))
+		statedb.SetBalance(addr, new(big.Int))
+	}
+}
