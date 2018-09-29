@@ -4,6 +4,30 @@
 ### About
 The MATRIX repository is based on go-ethereum which contains protocol changes to support the MATRIX protocol and a few other distinct features. This implements the MATRIX cryptocurrency, which maintains a separate ledger from the ETHEREUM network, for several reasons, the most immediate of which is that the consensus protocol is different.
 
+### Documentation Guide
+
++ If you want to know more about MATRIX Web Wallet, please check out ['Guide to Web Wallet'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_WEB_WALLET/Guide_to_Web_Wallet.md)
+
++ If you want to know more about MATRIX Block Explorer, please check out ['Guide to BlockChain Explorer'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_Blockchain_Explorer/Guide_to_Blockchain_Explorer.md)
+
+URL: [BlockChain Explorer](http://47.105.142.166:3000/home)
+
++ If you want to know more about How to deploy MATRIX, please check out ['User Guide'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_User_guide/User%20Guide.md)
+
++ If you want to better understand what a specific term refers to, please check out ['glossary'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/Glossary/Glossary.md)
+
+
+### 文档指引
+
++ 如果你想了解 MATRIX 网页钱包的操作方法，请查看[《MATRIX 网页钱包教程》](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3/%E7%BD%91%E9%A1%B5%E9%92%B1%E5%8C%85%E6%89%8B%E5%86%8C.md)
+
++ 如果你想了解 MATRIX 区块链浏览器的操作方法，请查看[《MATRIX 区块链浏览器指南》](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3/%E5%8C%BA%E5%9D%97%E9%93%BE%E6%B5%8F%E8%A7%88%E5%99%A8%E6%8C%87%E5%8D%97.md)
+
+地址：[区块链浏览器](http://47.105.142.166:3000/home)
+
++ MATRIX 部署手册请查看[《部署手册》](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3/%E9%83%A8%E7%BD%B2%E6%89%8B%E5%86%8C.md)
+
+
 ### Getting Started
 Welcome! This guide is intended to get you running on the MATRIX testnet. To ensure your client behaves gracefully throughout the setup process, please check your system meets the following requirements:
 
@@ -14,6 +38,13 @@ Welcome! This guide is intended to get you running on the MATRIX testnet. To ens
 | RAM     | 8G                                           |
 | Free HD | 500G                                         |
 
+
+### Highlights
+
++ High-performace TPS
++ Highly-regulated network hierarchy
++ Support various transaction type: One2Multiple, Offline, Smartcontract, AI transactions as well as support rich texts, images and videos
++ AI Features: Formal Verification（Trial）、Natural Language Input、AI server
 
 
 ### Build from Source
@@ -44,7 +75,6 @@ One of the quickest ways to get MATRIX up and running on your machine is by usin
 This will start gman in fast-sync mode with a DB memory allowance of 1GB just as the above command does.  It will also create a persistent volume in your home directory for saving your blockchain as well as map the default ports. There is also an `alpine` tag available for a slim version of the image.
 
 Do not forget `--rpcaddr 0.0.0.0`, if you want to access RPC from other containers and/or hosts. By default, `gman` binds to the local interface and RPC endpoints is not accessible from the outside.
-
 
 
 ### Operating a private network
@@ -311,27 +341,6 @@ step 4: start up all miner nodes (see genesis.json for configurations of validat
 ./gman --identity "MyNodeName" --datadir ./chaindata/ --rpc --rpcaddr 0.0.0.0 --rpccorsdomain "*" --networkid 1 --password ./chaindata/password.txt
 
 Note:  password.txt contains your password of the wallet, which can also be placed under /chaindata.
-
-
-
-### Documentation Guide
-
-+ If you want to know more about MATRIX Web Wallet, please check out ['Guide to Web Wallet'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_WEB_WALLET/Guide_to_Web_Wallet.md)
-
-+ If you want to know more about MATRIX Block Explorer, please check out ['Guide to BlockChain Explorer'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_Blockchain_Explorer/Guide_to_Blockchain_Explorer.md)
-
-+ If you want to know more about How to deploy MATRIX, please check out ['User Guide'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_User_guide/User%20Guide.md)
-
-+ If you want to better understand what a specific term refers to, please check out ['glossary'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/Glossary/Glossary.md)
-
-
-### 文档指引
-
-+ 如果你想了解 MATRIX 网页钱包的操作方法，请查看[《MATRIX 网页钱包教程》](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3/%E7%BD%91%E9%A1%B5%E9%92%B1%E5%8C%85%E6%89%8B%E5%86%8C.md)
-
-+ 如果你想了解 MATRIX 区块链浏览器的操作方法，请查看[《MATRIX 区块链浏览器指南》](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3/%E5%8C%BA%E5%9D%97%E9%93%BE%E6%B5%8F%E8%A7%88%E5%99%A8%E6%8C%87%E5%8D%97.md)
-
-+ MATRIX 部署手册请查看[《部署手册》](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/%E4%B8%AD%E6%96%87%E6%96%87%E6%A1%A3/%E9%83%A8%E7%BD%B2%E6%89%8B%E5%86%8C.md)
 
 
 
