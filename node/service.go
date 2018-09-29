@@ -24,6 +24,7 @@ import (
 	"github.com/matrix/go-matrix/ca"
 
 	"github.com/matrix/go-matrix/accounts"
+	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/hd"
@@ -42,6 +43,7 @@ type ServiceContext struct {
 	Ca             *ca.Identity
 	MsgCenter      *mc.Center
 	HD             *hd.HD
+	SignHelper     *signhelper.SignHelper
 }
 
 func (ctx *ServiceContext) GetConfig() *Config {
