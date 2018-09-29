@@ -4,6 +4,19 @@
 ### About
 The MATRIX repository is based on go-ethereum which contains protocol changes to support the MATRIX protocol and a few other distinct features. This implements the MATRIX cryptocurrency, which maintains a separate ledger from the ETHEREUM network, for several reasons, the most immediate of which is that the consensus protocol is different.
 
+### Highlights
+
++ High-performace TPS
++ Highly-regulated network hierarchy
++ Support various transaction type: One2Multiple, Offline, Smartcontract, AI transactions as well as support for rich texts, images and videos
++ AI Features: Formal Verification（Trial）、Natural Language Input、AI server
+
++ 高性能 TPS
++ 一对多交易
++ 智慧合约
++ 人工智能支持
++ AI server
+
 ### Documentation Guide
 
 + If you want to know more about MATRIX Web Wallet, please check out ['Guide to Web Wallet'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_WEB_WALLET/Guide_to_Web_Wallet.md)
@@ -38,13 +51,6 @@ Welcome! This guide is intended to get you running on the MATRIX testnet. To ens
 | RAM     | 8G                                           |
 | Free HD | 500G                                         |
 
-
-### Highlights
-
-+ High-performace TPS
-+ Highly-regulated network hierarchy
-+ Support various transaction type: One2Multiple, Offline, Smartcontract, AI transactions as well as support for rich texts, images and videos
-+ AI Features: Formal Verification（Trial）、Natural Language Input、AI server
 
 
 ### Build from Source
