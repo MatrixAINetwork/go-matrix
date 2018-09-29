@@ -137,7 +137,7 @@ func (c *Console) init(preload []string) error {
 	}
 	flatten := "var man = web3.man; var personal = web3.personal; "
 	for api := range apis {
-		if api == "web3" || api == "man"{
+		if api == "web3" {
 			continue // manually mapped or ignore
 		}
 		if file, ok := web3ext.Modules[api]; ok {

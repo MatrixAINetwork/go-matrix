@@ -298,7 +298,7 @@ func (self *LeaderIdentity) dealCacheMsg() {
 
 func (self *LeaderIdentity) getBootPeerCount() int {
 	var nodeCount, bCount int
-	nodes, err := ca.GetTopologyByNumber(0, common.RoleValidator|common.RoleMiner)
+	nodes, err := ca.GetTopologyByNumber(common.RoleValidator|common.RoleMiner, 0)
 	if err != nil {
 		nodeCount = 0
 	} else {

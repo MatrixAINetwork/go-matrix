@@ -49,9 +49,9 @@ func (s state) String() string {
 }
 
 var (
-	waitingBlockReqTimer   = 20 * time.Second
-	waitingDPOSResultTimer = 20 * time.Second
-	reelectLeaderTimer     = 20 * time.Second
+	waitingBlockReqTimer   = 40 * time.Second
+	waitingDPOSResultTimer = 40 * time.Second
+	reelectLeaderTimer     = 40 * time.Second
 
 	ErrInvalidState = errors.New("不支持的状态")
 )
@@ -120,7 +120,12 @@ func (self *controller) run() {
 	self.curLeader.Set(leaders.leader)
 	self.curTurns = leaders.turns
 	self.state = waitingBlockReq
-	self.timer = time.NewTimer(waitingBlockReqTimer)
+	if self.number == 1 && self.curTurns == 0 {
+		self.timer = time.NewTimer(waitingBlockReqTimer + 60*time.Second)
+	} else {
+		self.timer = time.NewTimer(waitingBlockReqTimer)
+	}
+
 	for {
 		select {
 		case msg := <-self.blockVerifyStateCh:
@@ -231,7 +236,11 @@ func (self *controller) stateChangeToWaitingDPOSResult() {
 		return
 	}
 
-	self.timer = time.NewTimer(waitingDPOSResultTimer)
+	if self.number == 1 && self.curTurns == 0 {
+		self.timer = time.NewTimer(waitingDPOSResultTimer + 60*time.Second)
+	} else {
+		self.timer = time.NewTimer(waitingDPOSResultTimer)
+	}
 	self.state = waitingDPOSResult
 
 	return
