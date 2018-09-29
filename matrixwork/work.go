@@ -95,6 +95,12 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		if tx == nil {
 			break
 		}
+
+		if tx.N == nil{
+			log.Info("===========tx.N is nil")
+			txs.Pop()
+			continue
+		}
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -110,7 +116,6 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		}
 		// Start executing the transaction
 		env.State.Prepare(tx.Hash(), common.Hash{}, env.tcount)
-
 		err, logs := env.commitTransaction(tx, bc, coinbase, env.gasPool)
 		switch err {
 		case core.ErrGasLimitReached:
@@ -134,7 +139,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			if tx.N != nil {
 				listN = append(listN, tx.N[0])
 				retTxs = append(retTxs, tx)
-				log.INFO("=======", "commitTransactions", listN)
+				//log.INFO("=======", "commitTransactions:len(listN)", len(listN))
 			}
 			//==================================
 			coalescedLogs = append(coalescedLogs, logs...)
@@ -175,6 +180,7 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
+		log.Info("*************","ApplyTransaction:err",err)
 		env.State.RevertToSnapshot(snap)
 		return err, nil
 	}
@@ -194,31 +200,41 @@ type retStruct struct {
 
 func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPool, bc *core.BlockChain) ([]uint32, []*types.Transaction) {
 
-	ret := make(chan *retStruct, 1)
-	tm := time.NewTimer(time.Second * 5)
-	go func(ret1 chan *retStruct) {
-		log.ERROR("Tx", "LostCnt", lostCnt)
-		log.Info("===========", "ProcessTransactions:befor", 0)
-		pending, err := tp.Pending()
-		log.Info("===========", "ProcessTransactions:after", 1)
-		if err != nil {
-			log.Error("Failed to fetch pending transactions", "err", err)
-			ret1 <- &retStruct{nil, nil}
-		}
-		log.INFO("===========", "ProcessTransactions:pending:", len(pending))
-		txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
-		log.INFO("===========", "ProcessTransactions:txs:", txs)
-		a, b := self.commitTransactions(mux, txs, bc, common.Address{})
-		ret1 <- &retStruct{a, b}
-	}(ret)
-	select {
-	case val := <-ret:
-		return val.no, val.txs
-	case <-tm.C:
-		log.ERROR("Tx", "Tx Proc TimeOut", lostCnt)
-		lostCnt++
-		return nil, nil
+	//ret := make(chan *retStruct, 1)
+	//tm := time.NewTimer(time.Second * 5)
+	//go func(ret1 chan *retStruct) {
+	//	log.ERROR("Tx", "LostCnt", lostCnt)
+	//	log.Info("===========", "ProcessTransactions:befor", 0)
+	//	pending, err := tp.Pending()
+	//	log.Info("===========", "ProcessTransactions:after", 1)
+	//	if err != nil {
+	//		log.Error("Failed to fetch pending transactions", "err", err)
+	//		ret1 <- &retStruct{nil, nil}
+	//	}
+	//	log.INFO("===========", "ProcessTransactions:pending:", len(pending))
+	//	txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
+	//	log.INFO("===========", "ProcessTransactions:txs:", txs)
+	//	a, b := self.commitTransactions(mux, txs, bc, common.Address{})
+	//	ret1 <- &retStruct{a, b}
+	//}(ret)
+	//select {
+	//case val := <-ret:
+	//	return val.no, val.txs
+	//case <-tm.C:
+	//	log.ERROR("Tx", "Tx Proc TimeOut", lostCnt)
+	//	lostCnt++
+	//	return nil, nil
+	//}
+
+	pending, err :=  tp.Pending()
+	if err != nil {
+		log.Error("Failed to fetch pending transactions", "err", err)
+		return nil,nil
 	}
+	log.INFO("===========", "ProcessTransactions:pending:", len(pending))
+	txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
+	//log.INFO("===========", "ProcessTransactions:txs:", txs)
+	return self.commitTransactions(mux, txs, bc, common.Address{})
 }
 
 /*//==============================================================================//
@@ -265,6 +281,7 @@ func (env *Work) ConsensusTransactions(mux *event.TypeMux, txs []*types.Transact
 		env.State.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 		err, logs := env.commitTransaction(tx, bc, common.Address{}, env.gasPool)
 		if err == nil {
+			//log.Info("=========","ConsensusTransactions:tx.N",tx.N)
 			env.tcount++
 			coalescedLogs = append(coalescedLogs, logs...)
 		} else {
