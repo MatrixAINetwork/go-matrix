@@ -1,0 +1,104 @@
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+package accounts
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+)
+
+// URL represents the canonical identification URL of a wallet or account.
+//
+// It is a simplified version of url.URL, with the important limitations (which
+// are considered features here) that it contains value-copyable components only,
+// as well as that it doesn't do any URL encoding/decoding of special characters.
+//
+// The former is important to allow an account to be copied without leaving live
+// references to the original version, whereas the latter is important to ensure
+// one single canonical form opposed to many allowed ones by the RFC 3986 spec.
+//
+// As such, these URLs should not be used outside of the scope of an Matrix
+// wallet or account.
+type URL struct {
+	Scheme string // Protocol scheme to identify a capable account backend
+	Path   string // Path for the backend to identify a unique entity
+}
+
+// parseURL converts a user supplied URL into the accounts specific structure.
+func parseURL(url string) (URL, error) {
+	parts := strings.Split(url, "://")
+	if len(parts) != 2 || parts[0] == "" {
+		return URL{}, errors.New("protocol scheme missing")
+	}
+	return URL{
+		Scheme: parts[0],
+		Path:   parts[1],
+	}, nil
+}
+
+// String implements the stringer interface.
+func (u URL) String() string {
+	if u.Scheme != "" {
+		return fmt.Sprintf("%s://%s", u.Scheme, u.Path)
+	}
+	return u.Path
+}
+
+// TerminalString implements the log.TerminalStringer interface.
+func (u URL) TerminalString() string {
+	url := u.String()
+	if len(url) > 32 {
+		return url[:31] + "…"
+	}
+	return url
+}
+
+// MarshalJSON implements the json.Marshaller interface.
+func (u URL) MarshalJSON() ([]byte, error) {
+	return json.Marshal(u.String())
+}
+
+// UnmarshalJSON parses url.
+func (u *URL) UnmarshalJSON(input []byte) error {
+	var textUrl string
+	err := json.Unmarshal(input, &textUrl)
+	if err != nil {
+		return err
+	}
+	url, err := parseURL(textUrl)
+	if err != nil {
+		return err
+	}
+	u.Scheme = url.Scheme
+	u.Path = url.Path
+	return nil
+}
+
+// Cmp compares x and y and returns:
+//
+//   -1 if x <  y
+//    0 if x == y
+//   +1 if x >  y
+//
+func (u URL) Cmp(url URL) int {
+	if u.Scheme == url.Scheme {
+		return strings.Compare(u.Path, url.Path)
+	}
+	return strings.Compare(u.Scheme, url.Scheme)
+}
