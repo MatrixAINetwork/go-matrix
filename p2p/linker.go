@@ -196,7 +196,7 @@ func (l *Linker) ToLink() {
 }
 
 func (l *Linker) recordTopNodeActiveInfo() {
-	topNode := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleValidator | common.RoleBroadcast)
+	topNode := ca.GetRolesByGroup(common.RoleMiner | common.RoleValidator)
 	for _, tn := range topNode {
 		if _, ok := l.topNode[tn]; !ok {
 			l.topNode[tn] = []uint8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
