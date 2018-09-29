@@ -23,7 +23,6 @@ var Modules = map[string]string{
 	"clique":     Clique_JS,
 	"debug":      Debug_JS,
 	"man":        Eth_JS,
-	"eth":        Eth_JS,
 	"miner":      Miner_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
@@ -437,6 +436,11 @@ web3._extend({
 			name: 'getTopology',
 			call: 'man_getTopology',
 			params: 2,
+		}),
+        new web3._extend.Method({
+			name: 'getSelfLevel',
+			call: 'man_getSelfLevel',
+			params: 0,
 		}),
 	],
 	properties: [
