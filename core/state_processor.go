@@ -1,0 +1,135 @@
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+package core
+
+import (
+	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/consensus"
+	"github.com/matrix/go-matrix/consensus/misc"
+	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/core/vm"
+	"github.com/matrix/go-matrix/crypto"
+	"github.com/matrix/go-matrix/params"
+)
+
+// StateProcessor is a basic Processor, which takes care of transitioning
+// state from one point to another.
+//
+// StateProcessor implements Processor.
+type StateProcessor struct {
+	config *params.ChainConfig // Chain configuration options
+	bc     *BlockChain         // Canonical block chain
+	engine consensus.Engine    // Consensus engine used for block rewards
+}
+
+// NewStateProcessor initialises a new StateProcessor.
+func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consensus.Engine) *StateProcessor {
+	return &StateProcessor{
+		config: config,
+		bc:     bc,
+		engine: engine,
+	}
+}
+
+// Process processes the state changes according to the Matrix rules by running
+// the transaction messages using the statedb and applying any rewards to both
+// the processor (coinbase) and any included uncles.
+//
+// Process returns the receipts and logs accumulated during the process and
+// returns the amount of gas that was used in the process. If any of the
+// transactions failed to execute due to insufficient gas it will return an error.
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	var (
+		receipts types.Receipts
+		usedGas  = new(uint64)
+		header   = block.Header()
+		allLogs  []*types.Log
+		gp       = new(GasPool).AddGas(block.GasLimit())
+	)
+	// Mutate the the block and state according to any hard-fork specs
+	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+		misc.ApplyDAOHardFork(statedb)
+	}
+	// Iterate over and process the individual transactions
+	for i, tx := range block.Transactions() {
+		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		receipts = append(receipts, receipt)
+		allLogs = append(allLogs, receipt.Logs...)
+	}
+	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
+	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+
+	return receipts, allLogs, *usedGas, nil
+}
+
+// ApplyTransaction attempts to apply a transaction to the given state database
+// and uses the input parameters for its environment. It returns the receipt
+// for the transaction, gas used and an error if the transaction failed,
+// indicating the block was invalid.
+func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
+	if err != nil {
+		return nil, 0, err
+	}
+	// Create a new context to be used in the EVM environment
+	context := NewEVMContext(msg, header, bc, author)
+	// Create a new environment which holds all relevant information
+	// about the transaction and calling mechanisms.
+	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	// Apply the transaction to the current state (included in the env)
+	//===============hezi====================
+	var gas uint64
+	var failed bool
+	if msg.Extra().TxType == 1 {
+		gas = uint64(0)
+		failed = true
+	} else {
+		_, gas, failed, err = ApplyMessage(vmenv, msg, gp)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	//==========================================
+	// Update the state with pending changes
+	var root []byte
+	if config.IsByzantium(header.Number) {
+		statedb.Finalise(true)
+	} else {
+		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
+	}
+	*usedGas += gas
+
+	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
+	// based on the eip phase, we're passing wether the root touch-delete accounts.
+	receipt := types.NewReceipt(root, failed, *usedGas)
+	receipt.TxHash = tx.Hash()
+	receipt.GasUsed = gas
+	// if the transaction created a contract, store the creation address in the receipt.
+	if msg.To() == nil {
+		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
+	}
+	// Set the receipt logs and create a bloom for filtering
+	receipt.Logs = statedb.GetLogs(tx.Hash())
+	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+
+	return receipt, gas, err
+}

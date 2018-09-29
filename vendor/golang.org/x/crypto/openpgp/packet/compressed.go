@@ -1,0 +1,138 @@
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// Copyright 2011 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package packet
+
+import (
+	"compress/bzip2"
+	"compress/flate"
+	"compress/zlib"
+	"golang.org/x/crypto/openpgp/errors"
+	"io"
+	"strconv"
+)
+
+// Compressed represents a compressed OpenPGP packet. The decompressed contents
+// will contain more OpenPGP packets. See RFC 4880, section 5.6.
+type Compressed struct {
+	Body io.Reader
+}
+
+const (
+	NoCompression      = flate.NoCompression
+	BestSpeed          = flate.BestSpeed
+	BestCompression    = flate.BestCompression
+	DefaultCompression = flate.DefaultCompression
+)
+
+// CompressionConfig contains compressor configuration settings.
+type CompressionConfig struct {
+	// Level is the compression level to use. It must be set to
+	// between -1 and 9, with -1 causing the compressor to use the
+	// default compression level, 0 causing the compressor to use
+	// no compression and 1 to 9 representing increasing (better,
+	// slower) compression levels. If Level is less than -1 or
+	// more then 9, a non-nil error will be returned during
+	// encryption. See the constants above for convenient common
+	// settings for Level.
+	Level int
+}
+
+func (c *Compressed) parse(r io.Reader) error {
+	var buf [1]byte
+	_, err := readFull(r, buf[:])
+	if err != nil {
+		return err
+	}
+
+	switch buf[0] {
+	case 1:
+		c.Body = flate.NewReader(r)
+	case 2:
+		c.Body, err = zlib.NewReader(r)
+	case 3:
+		c.Body = bzip2.NewReader(r)
+	default:
+		err = errors.UnsupportedError("unknown compression algorithm: " + strconv.Itoa(int(buf[0])))
+	}
+
+	return err
+}
+
+// compressedWriterCloser represents the serialized compression stream
+// header and the compressor. Its Close() method ensures that both the
+// compressor and serialized stream header are closed. Its Write()
+// method writes to the compressor.
+type compressedWriteCloser struct {
+	sh io.Closer      // Stream Header
+	c  io.WriteCloser // Compressor
+}
+
+func (cwc compressedWriteCloser) Write(p []byte) (int, error) {
+	return cwc.c.Write(p)
+}
+
+func (cwc compressedWriteCloser) Close() (err error) {
+	err = cwc.c.Close()
+	if err != nil {
+		return err
+	}
+
+	return cwc.sh.Close()
+}
+
+// SerializeCompressed serializes a compressed data packet to w and
+// returns a WriteCloser to which the literal data packets themselves
+// can be written and which MUST be closed on completion. If cc is
+// nil, sensible defaults will be used to configure the compression
+// algorithm.
+func SerializeCompressed(w io.WriteCloser, algo CompressionAlgo, cc *CompressionConfig) (literaldata io.WriteCloser, err error) {
+	compressed, err := serializeStreamHeader(w, packetTypeCompressed)
+	if err != nil {
+		return
+	}
+
+	_, err = compressed.Write([]byte{uint8(algo)})
+	if err != nil {
+		return
+	}
+
+	level := DefaultCompression
+	if cc != nil {
+		level = cc.Level
+	}
+
+	var compressor io.WriteCloser
+	switch algo {
+	case CompressionZIP:
+		compressor, err = flate.NewWriter(compressed, level)
+	case CompressionZLIB:
+		compressor, err = zlib.NewWriterLevel(compressed, level)
+	default:
+		s := strconv.Itoa(int(algo))
+		err = errors.UnsupportedError("Unsupported compression algorithm: " + s)
+	}
+	if err != nil {
+		return
+	}
+
+	literaldata = compressedWriteCloser{compressed, compressor}
+
+	return
+}

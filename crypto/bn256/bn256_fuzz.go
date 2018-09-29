@@ -1,0 +1,138 @@
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+// +build gofuzz
+
+package bn256
+
+import (
+	"bytes"
+	"math/big"
+
+	cloudflare "github.com/matrix/go-matrix/crypto/bn256/cloudflare"
+	google "github.com/matrix/go-matrix/crypto/bn256/google"
+)
+
+// FuzzAdd fuzzez bn256 addition between the Google and Cloudflare libraries.
+func FuzzAdd(data []byte) int {
+	// Ensure we have enough data in the first place
+	if len(data) != 128 {
+		return 0
+	}
+	// Ensure both libs can parse the first curve point
+	xc := new(cloudflare.G1)
+	_, errc := xc.Unmarshal(data[:64])
+
+	xg := new(google.G1)
+	_, errg := xg.Unmarshal(data[:64])
+
+	if (errc == nil) != (errg == nil) {
+		panic("parse mismatch")
+	} else if errc != nil {
+		return 0
+	}
+	// Ensure both libs can parse the second curve point
+	yc := new(cloudflare.G1)
+	_, errc = yc.Unmarshal(data[64:])
+
+	yg := new(google.G1)
+	_, errg = yg.Unmarshal(data[64:])
+
+	if (errc == nil) != (errg == nil) {
+		panic("parse mismatch")
+	} else if errc != nil {
+		return 0
+	}
+	// Add the two points and ensure they result in the same output
+	rc := new(cloudflare.G1)
+	rc.Add(xc, yc)
+
+	rg := new(google.G1)
+	rg.Add(xg, yg)
+
+	if !bytes.Equal(rc.Marshal(), rg.Marshal()) {
+		panic("add mismatch")
+	}
+	return 0
+}
+
+// FuzzMul fuzzez bn256 scalar multiplication between the Google and Cloudflare
+// libraries.
+func FuzzMul(data []byte) int {
+	// Ensure we have enough data in the first place
+	if len(data) != 96 {
+		return 0
+	}
+	// Ensure both libs can parse the curve point
+	pc := new(cloudflare.G1)
+	_, errc := pc.Unmarshal(data[:64])
+
+	pg := new(google.G1)
+	_, errg := pg.Unmarshal(data[:64])
+
+	if (errc == nil) != (errg == nil) {
+		panic("parse mismatch")
+	} else if errc != nil {
+		return 0
+	}
+	// Add the two points and ensure they result in the same output
+	rc := new(cloudflare.G1)
+	rc.ScalarMult(pc, new(big.Int).SetBytes(data[64:]))
+
+	rg := new(google.G1)
+	rg.ScalarMult(pg, new(big.Int).SetBytes(data[64:]))
+
+	if !bytes.Equal(rc.Marshal(), rg.Marshal()) {
+		panic("scalar mul mismatch")
+	}
+	return 0
+}
+
+func FuzzPair(data []byte) int {
+	// Ensure we have enough data in the first place
+	if len(data) != 192 {
+		return 0
+	}
+	// Ensure both libs can parse the curve point
+	pc := new(cloudflare.G1)
+	_, errc := pc.Unmarshal(data[:64])
+
+	pg := new(google.G1)
+	_, errg := pg.Unmarshal(data[:64])
+
+	if (errc == nil) != (errg == nil) {
+		panic("parse mismatch")
+	} else if errc != nil {
+		return 0
+	}
+	// Ensure both libs can parse the twist point
+	tc := new(cloudflare.G2)
+	_, errc = tc.Unmarshal(data[64:])
+
+	tg := new(google.G2)
+	_, errg = tg.Unmarshal(data[64:])
+
+	if (errc == nil) != (errg == nil) {
+		panic("parse mismatch")
+	} else if errc != nil {
+		return 0
+	}
+	// Pair the two points and ensure thet result in the same output
+	if cloudflare.PairingCheck([]*cloudflare.G1{pc}, []*cloudflare.G2{tc}) != google.PairingCheck([]*google.G1{pg}, []*google.G2{tg}) {
+		panic("pair mismatch")
+	}
+	return 0
+}

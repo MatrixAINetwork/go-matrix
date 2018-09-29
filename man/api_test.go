@@ -1,0 +1,90 @@
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+package man
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/mandb"
+)
+
+var dumper = spew.ConfigState{Indent: "    "}
+
+func TestStorageRangeAt(t *testing.T) {
+	// Create a state where account 0x010000... has a few storage entries.
+	var (
+		state, _ = state.New(common.Hash{}, state.NewDatabase(mandb.NewMemDatabase()))
+		addr     = common.Address{0x01}
+		keys     = []common.Hash{ // hashes of Keys of storage
+			common.HexToHash("340dd630ad21bf010b4e676dbfa9ba9a02175262d1fa356232cfde6cb5b47ef2"),
+			common.HexToHash("426fcb404ab2d5d8e61a3d918108006bbb0a9be65e92235bb10eefbdb6dcd053"),
+			common.HexToHash("48078cfed56339ea54962e72c37c7f588fc4f8e5bc173827ba75cb10a63a96a5"),
+			common.HexToHash("5723d2c3a83af9b735e3b7f21531e5623d183a9095a56604ead41f3582fdfb75"),
+		}
+		storage = storageMap{
+			keys[0]: {Key: &common.Hash{0x02}, Value: common.Hash{0x01}},
+			keys[1]: {Key: &common.Hash{0x04}, Value: common.Hash{0x02}},
+			keys[2]: {Key: &common.Hash{0x01}, Value: common.Hash{0x03}},
+			keys[3]: {Key: &common.Hash{0x03}, Value: common.Hash{0x04}},
+		}
+	)
+	for _, entry := range storage {
+		state.SetState(addr, *entry.Key, entry.Value)
+	}
+
+	// Check a few combinations of limit and start/end.
+	tests := []struct {
+		start []byte
+		limit int
+		want  StorageRangeResult
+	}{
+		{
+			start: []byte{}, limit: 0,
+			want: StorageRangeResult{storageMap{}, &keys[0]},
+		},
+		{
+			start: []byte{}, limit: 100,
+			want: StorageRangeResult{storage, nil},
+		},
+		{
+			start: []byte{}, limit: 2,
+			want: StorageRangeResult{storageMap{keys[0]: storage[keys[0]], keys[1]: storage[keys[1]]}, &keys[2]},
+		},
+		{
+			start: []byte{0x00}, limit: 4,
+			want: StorageRangeResult{storage, nil},
+		},
+		{
+			start: []byte{0x40}, limit: 2,
+			want: StorageRangeResult{storageMap{keys[1]: storage[keys[1]], keys[2]: storage[keys[2]]}, &keys[3]},
+		},
+	}
+	for _, test := range tests {
+		result, err := storageRangeAt(state.StorageTrie(addr), test.start, test.limit)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(result, test.want) {
+			t.Fatalf("wrong result for range 0x%x.., limit %d:\ngot %s\nwant %s",
+				test.start, test.limit, dumper.Sdump(result), dumper.Sdump(&test.want))
+		}
+	}
+}
