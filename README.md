@@ -23,7 +23,7 @@ The MATRIX repository is based on go-ethereum which contains protocol changes to
 
 + If you want to know more about MATRIX Block Explorer, please check out ['Guide to BlockChain Explorer'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_Blockchain_Explorer/Guide_to_Blockchain_Explorer.md)
 
-URL: [BlockChain Explorer](explorer1.matrix.io/)
+URL: [BlockChain Explorer](http://tom.matrix.io/)
 
 + If you want to know more about How to deploy MATRIX, please check out ['User Guide'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_User_guide/User%20Guide.md)
 
