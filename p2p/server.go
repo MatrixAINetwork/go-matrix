@@ -49,6 +49,8 @@ const (
 
 	// Maximum amount of time allowed for writing a complete message.
 	frameWriteTimeout = 20 * time.Second
+
+	defaultPort uint16 = 30303
 )
 
 var errServerStopped = errors.New("server stopped")

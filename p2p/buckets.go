@@ -329,7 +329,7 @@ func (b *Bucket) inner(num int, bucket int64) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, 30303, 30303)
+		node := discover.NewNode(value, nil, defaultPort, defaultPort)
 		ServerP2p.AddPeer(node)
 	}
 }
@@ -343,7 +343,7 @@ func (b *Bucket) outer(num int, ids []discover.NodeID) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, 30303, 30303)
+		node := discover.NewNode(value, nil, defaultPort, defaultPort)
 		ServerP2p.AddPeer(node)
 	}
 }

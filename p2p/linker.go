@@ -13,6 +13,7 @@
 //FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package p2p
 
 import (
@@ -77,7 +78,7 @@ func (l *Linker) Start() {
 		select {
 		case r := <-l.roleChan:
 			{
-				height := r.Height.Int64()
+				height := r.Height.Uint64()
 
 				if r.Role <= common.RoleBucket {
 					l.role = common.RoleNil
@@ -92,11 +93,11 @@ func (l *Linker) Start() {
 
 				l.maintainPeer()
 
-				if height%300 == 0 {
+				if common.IsReElectionNumber(height) {
 					l.topNodeCache = l.topNode
 					l.topNode = make(map[discover.NodeID][]uint8)
 				}
-				if (height-10)%300 == 0 {
+				if common.IsReElectionNumber(height - 10) {
 					l.topNodeCache = make(map[discover.NodeID][]uint8)
 				}
 
@@ -109,19 +110,19 @@ func (l *Linker) Start() {
 				}
 
 				switch {
-				case height%100 == 0:
+				case common.IsBroadcastNumber(height):
 					l.ToLink()
-				case height%100 != 0 && (height+2)%100 == 0:
-					if len(l.linkMap) >= 0 {
-						bytes, err := l.encodeData()
-						if err != nil {
-							log.Error("encode error", "error", err)
-							break
-						}
-						mc.PublishEvent(mc.SendBroadCastTx, mc.BroadCastEvent{Txtyps: mc.CallTheRoll, Height: big.NewInt(r.Height.Int64() + 2), Data: bytes})
+				case common.IsBroadcastNumber(height + 2):
+					if len(l.linkMap) <= 0 {
+						break
 					}
-					break
-				case height%100 != 0 && (height+1)%100 == 0:
+					bytes, err := l.encodeData()
+					if err != nil {
+						log.Error("encode error", "error", err)
+						break
+					}
+					mc.PublishEvent(mc.SendBroadCastTx, mc.BroadCastEvent{Txtyps: mc.CallTheRoll, Height: big.NewInt(r.Height.Int64() + 2), Data: bytes})
+				case common.IsBroadcastNumber(height + 1):
 					break
 				default:
 					l.sendToAllPeersPing()
@@ -166,32 +167,10 @@ func (l *Linker) link(roleType common.RoleType) {
 	for key, peers := range all {
 		if key >= roleType {
 			for _, peer := range peers {
-				node := discover.NewNode(peer, nil, 30303, 30303)
+				node := discover.NewNode(peer, nil, defaultPort, defaultPort)
 				ServerP2p.AddPeer(node)
 			}
 		}
-	}
-}
-
-func (l *Linker) ToLink() {
-	l.linkMap = make(map[discover.NodeID]uint32)
-	h := ca.GetHeight()
-	elects, _ := ca.GetElectedByHeight(h)
-
-	if len(elects) <= MaxLinkers {
-		for _, elect := range elects {
-			node := discover.NewNode(elect.NodeID, nil, 30303, 30303)
-			ServerP2p.AddPeer(node)
-			l.linkMap[elect.NodeID] = 0
-		}
-		return
-	}
-
-	randoms := Random(len(elects), MaxLinkers)
-	for _, index := range randoms {
-		node := discover.NewNode(elects[index].NodeID, nil, 30303, 30303)
-		ServerP2p.AddPeer(node)
-		l.linkMap[elects[index].NodeID] = 0
 	}
 }
 
@@ -243,6 +222,28 @@ func GetTopNodeAliveInfo(address []common.Address) (result []NodeAliveInfo) {
 	return
 }
 
+func (l *Linker) ToLink() {
+	l.linkMap = make(map[discover.NodeID]uint32)
+	h := ca.GetHeight()
+	elects, _ := ca.GetElectedByHeight(h)
+
+	if len(elects) <= MaxLinkers {
+		for _, elect := range elects {
+			node := discover.NewNode(elect.NodeID, nil, defaultPort, defaultPort)
+			ServerP2p.AddPeer(node)
+			l.linkMap[elect.NodeID] = 0
+		}
+		return
+	}
+
+	randoms := Random(len(elects), MaxLinkers)
+	for _, index := range randoms {
+		node := discover.NewNode(elects[index].NodeID, nil, defaultPort, defaultPort)
+		ServerP2p.AddPeer(node)
+		l.linkMap[elects[index].NodeID] = 0
+	}
+}
+
 func Record(id discover.NodeID) error {
 	Link.mu.Lock()
 	defer Link.mu.Unlock()
@@ -262,13 +263,13 @@ func (l *Linker) sendToAllPeersPing() {
 func (l *Linker) encodeData() ([]byte, error) {
 	Link.mu.Lock()
 	defer Link.mu.Unlock()
-	r := make(map[common.Address]uint32)
+	r := make(map[string]uint32)
 	for key, value := range l.linkMap {
 		addr, err := ca.ConvertNodeIdToAddress(key)
 		if err != nil {
 			return nil, err
 		}
-		r[addr] = value
+		r[addr.Hex()] = value
 	}
-	return json.Marshal(l.linkMap)
+	return json.Marshal(r)
 }
