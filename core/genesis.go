@@ -260,6 +260,8 @@ func (g *Genesis) ToBlock(db mandb.Database) *types.Block {
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
+	}else if (g.GasLimit<params.MinGasLimit){
+		head.GasLimit = params.MinGasLimit
 	}
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
