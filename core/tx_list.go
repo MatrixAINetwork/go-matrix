@@ -188,10 +188,19 @@ func (m *txSortedMap) Ready(start uint64) types.Transactions {
 
 	// Otherwise start accumulating incremental transactions
 	var ready types.Transactions
-	for next := (*m.index)[0]; m.index.Len() > 0 && (*m.index)[0] == next; next++ {
-		ready = append(ready, m.items[next])
-		delete(m.items, next)
-		heap.Pop(m.index)
+	for next := (*m.index)[0]; m.index.Len() > 0 /*&& (*m.index)[0] == next*/; next++ {
+		if (*m.index)[0] == next{
+			ready = append(ready, m.items[next])
+			delete(m.items, next)
+			heap.Pop(m.index)
+		}else{//YY 给上面代码添加if 以及添加else
+			n:=(*m.index)[0]
+			ready = append(ready, m.items[n])
+			delete(m.items, n)
+			heap.Pop(m.index)
+		}
+
+
 	}
 	m.cache = nil
 
