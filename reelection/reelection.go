@@ -24,7 +24,7 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/man"
 	"github.com/syndtr/goleveldb/leveldb"
 	"sync"
 	"time"
@@ -40,10 +40,10 @@ var (
 	*/
 
 	BroadCastInterval        = common.GetBroadcastInterval()
-	MinerTopGenTiming        = common.GetReElectionInterval() - params.MinerTopologyGenerateUptime
-	MinerNetchangeTiming     = common.GetReElectionInterval() - params.MinerNetChangeUpTime
-	ValidatorTopGenTiming    = common.GetReElectionInterval() - params.VerifyTopologyGenerateUpTime
-	ValidatorNetChangeTiming = common.GetReElectionInterval() - params.VerifyNetChangeUpTime
+	MinerTopGenTiming        = common.GetReElectionInterval() - man.MinerTopologyGenerateUpTime
+	MinerNetchangeTiming     = common.GetReElectionInterval() - man.MinerNetChangeUpTime
+	ValidatorTopGenTiming    = common.GetReElectionInterval() - man.VerifyTopologyGenerateUpTime
+	ValidatorNetChangeTiming = common.GetReElectionInterval() - man.VerifyNetChangeUpTime
 	Time_Out_Limit           = 2 * time.Second
 	ChanSize                 = 10
 )
@@ -190,7 +190,7 @@ func (self *ReElection) GetTopoChange(height uint64, offline []common.Address) (
 func (self *ReElection) GetElection(height uint64) (*ElectReturnInfo, error) {
 
 	log.INFO(Module, "GetElection start height", height)
-	if common.IsReElectionNumber(height + params.MinerNetChangeUpTime) {
+	if common.IsReElectionNumber(height + man.MinerNetChangeUpTime) {
 		log.Error(Module, "是矿工网络生成切换时间点 height", height)
 		heightMiner := height
 		ans, _, err := self.readElectData(common.RoleMiner, heightMiner)
@@ -203,7 +203,7 @@ func (self *ReElection) GetElection(height uint64) (*ElectReturnInfo, error) {
 			BackUpMiner: ans.BackUpMiner,
 		}
 		return resultM, nil
-	} else if common.IsReElectionNumber(height + params.VerifyNetChangeUpTime) {
+	} else if common.IsReElectionNumber(height + man.VerifyNetChangeUpTime) {
 		log.Error(Module, "是验证者网络切换时间点 height", height)
 		heightValidator := height
 		_, ans, err := self.readElectData(common.RoleValidator, heightValidator)

@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/man"
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
@@ -119,7 +119,7 @@ func (self *ReElection) ToGenMinerTop(height uint64) error {
 		log.INFO(Module, "收到礦工拓撲生成相應,data", TopRsp)
 
 		self.minerGenSub.Unsubscribe()
-		err := self.writeElectData(common.RoleMiner, height+params.MinerTopologyGenerateUptime-params.MinerNetChangeUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
+		err := self.writeElectData(common.RoleMiner, height+man.MinerTopologyGenerateUpTime-man.MinerNetChangeUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 		log.INFO(Module, "寫礦工的選舉信息到數據庫", err, "data", ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 
 		return err
@@ -163,7 +163,7 @@ func (self *ReElection) ToGenValidatorTop(height uint64) error {
 	case TopRsp := <-self.validatorGenCh:
 		log.INFO(Module, "收到驗證者拓撲生成相應 data", TopRsp)
 		self.validatorGenSub.Unsubscribe()
-		err := self.writeElectData(common.RoleValidator, height+params.VerifyTopologyGenerateUpTime-params.VerifyNetChangeUpTime, ElectMiner{}, ElectValidator{MasterValidator: TopRsp.MasterValidator,
+		err := self.writeElectData(common.RoleValidator, height+man.VerifyTopologyGenerateUpTime-man.VerifyNetChangeUpTime, ElectMiner{}, ElectValidator{MasterValidator: TopRsp.MasterValidator,
 			BackUpValidator:    TopRsp.BackUpValidator,
 			CandidateValidator: TopRsp.CandidateValidator,
 		})

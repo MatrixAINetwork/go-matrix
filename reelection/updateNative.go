@@ -13,7 +13,6 @@
 //FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 package reelection
 
 import (
@@ -24,7 +23,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/man"
 )
 
 func locate(address common.Address, master []mc.TopologyNodeInfo, backUp []mc.TopologyNodeInfo, cand []mc.TopologyNodeInfo) (int, mc.TopologyNodeInfo) {
@@ -50,7 +49,7 @@ func (self *ReElection) whereIsV(address common.Address, role common.RoleType, h
 	switch {
 	case role == common.RoleMiner:
 		height = height / common.GetBroadcastInterval()
-		height = height*common.GetBroadcastInterval() - params.MinerTopologyGenerateUptime
+		height = height*common.GetBroadcastInterval() - man.MinerTopologyGenerateUpTime
 		ans, _, err := self.readElectData(common.RoleMiner, height)
 		if err != nil {
 			return -1, mc.TopologyNodeInfo{}, err
@@ -60,7 +59,7 @@ func (self *ReElection) whereIsV(address common.Address, role common.RoleType, h
 
 	case role == common.RoleValidator:
 		height = height / common.GetBroadcastInterval()
-		height = height*common.GetBroadcastInterval() - params.VerifyTopologyGenerateUpTime
+		height = height*common.GetBroadcastInterval() - man.VerifyTopologyGenerateUpTime
 		_, ans, err := self.readElectData(common.RoleValidator, height)
 		if err != nil {
 			return -1, mc.TopologyNodeInfo{}, err
@@ -77,10 +76,10 @@ func (self *ReElection) ToNativeMinerStateUpdate(height uint64, allNative AllNat
 	//测试
 	//DiffFromBlock := common.NetTopology{}
 	//aim := 0x04 + 0x08
-	TopoGrap, err:= GetCurrentTopology(height-1, common.RoleMiner)
-	if err!=nil{
-		log.ERROR(Module,"从CA获取验证者拓扑图错误 err",err)
-		return allNative,err
+	TopoGrap, err := GetCurrentTopology(height-1, common.RoleMiner)
+	if err != nil {
+		log.ERROR(Module, "从CA获取验证者拓扑图错误 err", err)
+		return allNative, err
 	}
 	online, offline := self.CalOnline(DiffFromBlock, TopoGrap)
 	log.INFO(Module, "ToNativeMinerStateUpdate online", online, "offline", offline)
@@ -108,9 +107,9 @@ func (self *ReElection) ToNativeValidatorStateUpdate(height uint64, allNative Al
 	//DiffFromBlock := common.NetTopology{}
 	//aim := 0x01 + 0x02
 	TopoGrap, err := GetCurrentTopology(height-1, common.RoleValidator)
-	if err!=nil{
-		log.ERROR(Module,"从ca获取验证者拓扑图失败",err)
-		return allNative,err
+	if err != nil {
+		log.ERROR(Module, "从ca获取验证者拓扑图失败", err)
+		return allNative, err
 	}
 	online, offline := self.CalOnline(DiffFromBlock, TopoGrap)
 	log.INFO(Module, "ToNativeValidatorStateUpdate online", online, "offline", offline)
@@ -226,13 +225,13 @@ func MakeNativeDBKey(height uint64) string {
 }
 func (self *ReElection) GetNativeFromDB(height uint64) error {
 	log.INFO(Module, "GetNativeFromDB", height)
-	minerH := height - params.MinerNetChangeUpTime
+	minerH := height - man.MinerNetChangeUpTime
 	minerELect, _, err := self.readElectData(common.RoleMiner, minerH)
 	if err != nil {
 		return err
 	}
 
-	validatorH := height - params.VerifyNetChangeUpTime
+	validatorH := height - man.VerifyNetChangeUpTime
 	_, validatorElect, err := self.readElectData(common.RoleValidator, validatorH)
 	if err != nil {
 		return err
