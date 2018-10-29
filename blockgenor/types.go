@@ -50,15 +50,6 @@ var (
 	maxUint256              = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 )
 
-const (
-	MinerResultTimeout  = 20
-	maxTimeFutureBlocks = 20
-)
-
-func GetNetTopology(height uint64) (common.NetTopology, []common.Elect) {
-	return common.NetTopology{common.NetTopoTypeChange, nil}, make([]common.Elect, 0)
-}
-
 type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain

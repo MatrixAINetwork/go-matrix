@@ -28,17 +28,32 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/reelection"
+	"github.com/matrix/go-matrix/reelection"package blockgenor
+
+import (
+	"strconv"
+	"sync"
+
+	"github.com/ethereum/go-ethereum/accounts/signhelper"
+	"github.com/ethereum/go-ethereum/ca"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/mc"
+	"github.com/ethereum/go-ethereum/reelection"
 )
 
 type State uint16
 
 const (
 	StateIdle State = iota
+	StateBlockBroadcast
 	StateHeaderGen
 	StateMinerResultVerify
-	StateBlockBroadcast
-	StateSleep
+	StateBlockInsert
 	StateEnd
 )
 
@@ -46,14 +61,14 @@ func (s State) String() string {
 	switch s {
 	case StateIdle:
 		return "未运行状态"
+	case StateBlockBroadcast:
+		return "区块广播阶段"
 	case StateHeaderGen:
 		return "验证请求生成阶段"
 	case StateMinerResultVerify:
 		return "矿工结果验证阶段"
-	case StateBlockBroadcast:
-		return "区块广播阶段"
-	case StateSleep:
-		return "休眠状态"
+	case StateBlockInsert:
+		return "区块插入阶段"
 	case StateEnd:
 		return "完成状态"
 	default:
@@ -72,9 +87,9 @@ type Process struct {
 	pm                *ProcessManage
 	powPool           *PowPool
 	broadcastRstCache []*mc.BlockData
-	consensusBlock    *mc.BlockVerifyConsensusOK
-	genBlockData      *mc.BlockVerifyConsensusOK
+	blockCache        *blockCache
 	insertBlockHash   []common.Hash
+	FullBlockReqCache *common.ReuseMsgController
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
@@ -89,8 +104,8 @@ func newProcess(number uint64, pm *ProcessManage) *Process {
 		pm:                pm,
 		powPool:           NewPowPool("矿工结果池(高度)" + strconv.Itoa(int(number))),
 		broadcastRstCache: make([]*mc.BlockData, 0),
-		consensusBlock:    nil,
-		genBlockData:      nil,
+		blockCache:        newBlockCache(),
+		FullBlockReqCache: common.NewReuseMsgController(3),
 	}
 
 	return p
@@ -100,25 +115,17 @@ func (p *Process) StartRunning(role common.RoleType) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.role = role
-	p.changeState(StateHeaderGen)
-	p.startHeaderGen()
+	p.changeState(StateBlockBroadcast)
+	p.startBcBlock()
 }
 
 func (p *Process) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.state = StateIdle
-	p.consensusBlock = nil
-	p.genBlockData = nil
 	p.curLeader = common.Address{}
 	p.nextLeader = common.Address{}
 	p.preBlockHash = common.Hash{}
-}
-
-func (p *Process) Sleep() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.state = StateSleep
 }
 
 func (p *Process) ReInit() {
@@ -127,9 +134,7 @@ func (p *Process) ReInit() {
 	if p.checkState(StateIdle) {
 		return
 	}
-	p.state = StateHeaderGen
-	p.consensusBlock = nil
-	p.genBlockData = nil
+	p.state = StateBlockBroadcast
 	p.curLeader = common.Address{}
 	p.nextLeader = common.Address{}
 	p.preBlockHash = common.Hash{}
@@ -152,12 +157,10 @@ func (p *Process) SetCurLeader(leader common.Address) {
 	if p.checkState(StateIdle) {
 		return
 	}
-	p.state = StateHeaderGen
-	p.consensusBlock = nil
-	p.genBlockData = nil
+	p.state = StateBlockBroadcast
 	p.nextLeader = common.Address{}
 	p.preBlockHash = common.Hash{}
-	p.startHeaderGen()
+	p.startBcBlock()
 }
 
 func (p *Process) SetNextLeader(leader common.Address) {
@@ -168,19 +171,12 @@ func (p *Process) SetNextLeader(leader common.Address) {
 	}
 	p.nextLeader = leader
 	log.INFO(p.logExtraInfo(), "process设置next leader成功", p.nextLeader.Hex(), "高度", p.number)
-	if p.state < StateBlockBroadcast {
+	if p.state < StateBlockInsert {
 		return
 	}
-	p.processSendBlock()
+	p.processBlockInsert()
 }
 
-func (p *Process) AddPreBlockInfo(preBlock *mc.PreBlockBroadcastFinished) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.preBlockHash = preBlock.BlockHash
-	p.startHeaderGen()
-}
 func (p *Process) AddInsertBlockInfo(blockInsert *mc.HD_BlockInsertNotify) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -215,7 +211,7 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 		}
 		log.Info(p.logExtraInfo(), "开始插入", "广播区块")
 	} else {
-		if err := p.dposEngine().VerifyBlock(header); err != nil {
+		if err := p.dposEngine().VerifyBlock(p.blockChain(), header); err != nil {
 			log.ERROR(p.logExtraInfo(), "区块插入消息DPOS共识失败", err)
 			return
 		}
@@ -234,6 +230,42 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 	}
 
 	p.saveInsertedBlockHash(blockHash)
+}
+
+func (p *Process) startBcBlock() {
+	if p.checkState(StateBlockBroadcast) == false {
+		log.WARN(p.logExtraInfo(), "准备向验证者和广播节点广播区块，状态错误", p.state.String(), "区块高度", p.number-1)
+		return
+	}
+
+	if p.canBcBlock() == false {
+		return
+	}
+
+	header := p.blockChain().GetHeaderByNumber(p.number - 1)
+	if p.number != 1 { //todo 不好理解
+		log.INFO(p.logExtraInfo(), "开始广播区块, 高度", p.number-1, "block hash", header.Hash())
+		p.pm.hd.SendNodeMsg(mc.HD_NewBlockInsert, &mc.HD_BlockInsertNotify{Header: header}, common.RoleValidator|common.RoleBroadcast, nil)
+	}
+	p.preBlockHash = header.Hash()
+	p.state = StateHeaderGen
+	p.startHeaderGen()
+}
+
+func (p *Process) canBcBlock() bool {
+	switch p.role {
+	case common.RoleBroadcast:
+		return true
+	case common.RoleValidator:
+		if (p.curLeader == common.Address{}) {
+			log.WARN(p.logExtraInfo(), "广播区块阶段", "当前leader为空，等待leader消息", "高度", p.number)
+			return false
+		}
+	default:
+		log.ERROR(p.logExtraInfo(), "广播区块阶段, 错误的身份", p.role.String(), "高度", p.number)
+		return false
+	}
+	return true
 }
 
 func (p *Process) startHeaderGen() {

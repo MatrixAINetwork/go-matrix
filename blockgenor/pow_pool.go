@@ -19,7 +19,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/man"
 	"github.com/pkg/errors"
 	"math/big"
 
@@ -101,7 +101,7 @@ func NewPowPool(logInfo string) *PowPool {
 	return &PowPool{
 		powMap:     make(map[common.Hash]*blockPowCache),
 		countMap:   make(map[common.Address]int),
-		countLimit: params.VotePoolCountLimit,
+		countLimit: man.VotePoolCountLimit,
 		logInfo:    logInfo,
 	}
 }

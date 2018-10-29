@@ -117,8 +117,6 @@ func (pm *ProcessManage) fixProcessMap() {
 		if key < pm.curNumber-1 {
 			process.Close()
 			delKeys = append(delKeys, key)
-		} else if key == pm.curNumber-1 {
-			process.Sleep() //注：需要缓存 -1 高度的process，用于换leader后的区块广播
 		}
 	}
 
@@ -130,7 +128,14 @@ func (pm *ProcessManage) fixProcessMap() {
 }
 
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
-	if number < pm.curNumber-1 {
+	var minNumber uint64
+	if pm.curNumber < 1 {
+		minNumber = 0
+	} else {
+		minNumber = pm.curNumber - 1
+	}
+
+	if number < minNumber {
 		return errors.Errorf("number(%d) is less than current number(%d)", number, pm.curNumber)
 	}
 

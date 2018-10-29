@@ -102,30 +102,22 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 			continue
 		}
 
-		p.genBlockData = &mc.BlockVerifyConsensusOK{
+		p.blockCache.SaveReadyBlock(&mc.BlockLocalVerifyOK{
 			Header:    result.Header,
 			BlockHash: common.Hash{},
 			Txs:       result.Txs,
 			Receipts:  work.Receipts,
 			State:     work.State,
-		}
+		})
 
-		validators, err := p.genValidatorList(&result.Header.NetTopology)
-		if err != nil {
-			log.ERROR(p.logExtraInfo(), "广播挖矿结果验证，生成验证者列表失败", err, "高度", p.number)
-			return
+		readyMsg := &mc.NewBlockReadyMsg{
+			Header: result.Header,
 		}
+		log.INFO(p.logExtraInfo(), "广播区块验证完成", "发送新区块准备完毕消息", "高度", p.number)
+		mc.PublishEvent(mc.BlockGenor_NewBlockReady, readyMsg)
 
-		msg := &mc.NewBlockReady{
-			Leader:     result.Header.Leader,
-			Number:     p.number,
-			Validators: validators,
-		}
-		log.INFO(p.logExtraInfo(), "广播区块验证完成", "发送新区块准备完毕消息", "高度", p.number, "交易数量", p.genBlockData.Txs.Len(), "验证者列表数量", len(msg.Validators.NodeList))
-		mc.PublishEvent(mc.BlockGenor_NewBlockReady, msg)
-
-		p.changeState(StateBlockBroadcast)
-		p.processSendBlock()
+		p.changeState(StateBlockInsert)
+		p.processBlockInsert()
 		return
 	}
 }
