@@ -23,7 +23,6 @@ import (
 
 func TestTimer(t *testing.T) {
 	log.InitLog(3)
-
 	recvCh := make(chan struct{})
 	go TimerRunning(t, recvCh)
 
@@ -43,6 +42,10 @@ func TimerRunning(t *testing.T, recv chan struct{}) {
 			log.Info("停止定时器")
 			result := timer.Reset(10 * time.Second)
 			log.Info("重置定时器", "结果", result)
+			if result == false {
+				<-timer.C
+			}
+
 		case <-timer.C:
 			log.Info("超时了!!!")
 		}
