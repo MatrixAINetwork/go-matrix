@@ -239,9 +239,6 @@ func (n *Node) Start() error {
 		running.Stop()
 		return err
 	}
-	//var bc *core.BlockChain
-	//boot := boot.New(bc, n.Server().NodeInfo().ID)
-	//boot.Run()
 	// start ca
 	go ca.Start(running.Self().ID, n.config.DataDir)
 
