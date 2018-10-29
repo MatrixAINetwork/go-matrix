@@ -17,12 +17,12 @@ package votepool
 
 import (
 	"container/list"
+	"github.com/matrix/go-matrix/params/man"
 	"time"
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
 	"github.com/pkg/errors"
 
 	"sync"
@@ -51,20 +51,20 @@ func NewVotePool(legalRole common.RoleType, logInfo string) *VotePool {
 	return &VotePool{
 		voteMap:               make(map[common.Address]map[common.Hash]*voteInfo),
 		timeIndex:             list.New(),
-		timeoutInterval:       params.VotePoolTimeout,
-		AccountVoteCountLimit: params.VotePoolCountLimit,
+		timeoutInterval:       int64(man.VotePoolTimeout),
+		AccountVoteCountLimit: man.VotePoolCountLimit,
 		legalRole:             legalRole,
 		logInfo:               logInfo,
 	}
 }
 
-func (vp *VotePool) AddVote(signHash common.Hash, sign common.Signature, fromAccount common.Address, height uint64) error {
+func (vp *VotePool) AddVote(signHash common.Hash, sign common.Signature, fromAccount common.Address, height uint64, verifyFrom bool) error {
 	signAccount, validate, err := crypto.VerifySignWithValidate(signHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return err
 	}
 
-	if signAccount.Equal(fromAccount) == false {
+	if verifyFrom && signAccount.Equal(fromAccount) == false {
 		return errors.Errorf("vote sign account[%s] != from account[%s]", signAccount.Hex(), fromAccount.Hex())
 	}
 
