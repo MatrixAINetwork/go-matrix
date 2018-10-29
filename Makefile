@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: gman android ios gman-cross test clean
+.PHONY: gman android ios gman-cross swarm evm all test clean
 .PHONY: gman-linux gman-linux-386 gman-linux-amd64 gman-linux-mips64 gman-linux-mips64le
 .PHONY: gman-linux-arm gman-linux-arm-5 gman-linux-arm-6 gman-linux-arm-7 gman-linux-arm64
 .PHONY: gman-darwin gman-darwin-386 gman-darwin-amd64
@@ -16,6 +16,9 @@ gman:
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/gman\" to launch gman."
 
+all:
+	build/env.sh go run build/ci.go install
+
 android:
 	build/env.sh go run build/ci.go aar --local
 	@echo "Done building."
@@ -25,10 +28,6 @@ ios:
 	build/env.sh go run build/ci.go xcode --local
 	@echo "Done building."
 	@echo "Import \"$(GOBIN)/Geth.framework\" to use the library."
-
-lint: ## Run linters.
-	build/env.sh go run build/ci.go lint
-
 clean:
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
 
@@ -109,20 +108,7 @@ gman-linux-mips64le:
 	@echo "Linux MIPS64le cross compilation done:"
 	@ls -ld $(GOBIN)/gman-linux-* | grep mips64le
 
-gman-windows-amd64:
-	build/env.sh go run build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./run/gman
-	@echo "Windows amd64 cross compilation done:"
-	@ls -ld $(GOBIN)/gman-windows-* | grep amd64
-
-gman-windows: gman-windows-386 gman-windows-amd64
-	@echo "Windows cross compilation done:"
-	@ls -ld $(GOBIN)/gman-windows-*
-
-gman-windows-386:
-	build/env.sh go run build/ci.go xgo -- --go=$(GO) --targets=windows/386 -v ./run/gman
-	@echo "Windows 386 cross compilation done:"
-	@ls -ld $(GOBIN)/gman-windows-* | grep 386
-	gman-darwin: gman-darwin-386 gman-darwin-amd64
+gman-darwin: gman-darwin-386 gman-darwin-amd64
 	@echo "Darwin cross compilation done:"
 	@ls -ld $(GOBIN)/gman-darwin-*
 
@@ -135,3 +121,17 @@ gman-darwin-amd64:
 	build/env.sh go run build/ci.go xgo -- --go=$(GO) --targets=darwin/amd64 -v ./run/gman
 	@echo "Darwin amd64 cross compilation done:"
 	@ls -ld $(GOBIN)/gman-darwin-* | grep amd64
+
+gman-windows: gman-windows-386 gman-windows-amd64
+	@echo "Windows cross compilation done:"
+	@ls -ld $(GOBIN)/gman-windows-*
+
+gman-windows-386:
+	build/env.sh go run build/ci.go xgo -- --go=$(GO) --targets=windows/386 -v ./run/gman
+	@echo "Windows 386 cross compilation done:"
+	@ls -ld $(GOBIN)/gman-windows-* | grep 386
+
+gman-windows-amd64:
+	build/env.sh go run build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./run/gman
+	@echo "Windows amd64 cross compilation done:"
+	@ls -ld $(GOBIN)/gman-windows-* | grep amd64
