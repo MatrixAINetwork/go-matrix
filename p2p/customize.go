@@ -373,9 +373,9 @@ func CustdecodePacket(buf []byte, Ip string) (*CustUpdPacket, NodeID, []byte, er
 
 func Receiveudp() error {
 	//fmt.Println("receiveudp------------------------------------------")
-	//	addr, err := net.ResolveUDPAddr("udp", "40404")
+	//	addr, err := net.ResolveUDPAddr("udp", "50505")
 	//	conn, err := net.ListenUDP("udp", addr)
-	//	udpaddr, err := net.ResolveUDPAddr("udp", "192.168.3.222:40404")
+	//	udpaddr, err := net.ResolveUDPAddr("udp", "192.168.3.222:50505")
 
 	udpaddr, err := net.ResolveUDPAddr("udp", ":40404")
 	//	checkError(err)
@@ -610,14 +610,14 @@ func CustNodeKey() *ecdsa.PrivateKey {
 func CustUdpSend(data Custsend) error {
 
 	var mtoaddr net.UDPAddr
-	mtoaddr.IP = []byte("192.168.3.7:40404")
+	mtoaddr.IP = []byte("192.168.3.7:50505")
 	var ourEndpoint rpcEndpoint
 	ourEndpoint.IP = mtoaddr.IP
 	ourEndpoint.UDP = 1
 	ourEndpoint.TCP = 0
 	var toaddr net.UDPAddr
 	toaddr.IP = []byte(data.ToIp)
-	toaddr.Port = 40404
+	toaddr.Port = 50505
 
 	req := &CustUpdPacket{
 		Version:    1,
@@ -642,7 +642,7 @@ func CustUdpSend(data Custsend) error {
 		return err
 	}
 
-	dest := data.ToIp + ":40404"
+	dest := data.ToIp + ":50505"
 	//fmt.Println("***************To Ip", data.ToIp)
 	conn, err := net.Dial("udp", dest)
 	if err != nil {
@@ -674,7 +674,7 @@ func CustStat(qestat []string) []Status_Re {
 
 	var restat []Status_Re
 	for _, elm := range qestat {
-		dest := elm + ":30303"
+		dest := elm + ":50505"
 		conn, err := net.DialTimeout("tcp", dest, 2*time.Second)
 		var tem Status_Re
 		if err != nil {
@@ -705,7 +705,7 @@ func main() {
 
 	var toaddr net.UDPAddr
 	toaddr.IP = []byte("192.168.3.222")
-	toaddr.Port = 40404
+	toaddr.Port = 50505
 
 	pingg("bedf4041cdafe7ea1178b936dab972a0db1009855456c1f60c59e0a8ccb5dcbc8d617ea8a3b507356750557434aaf22bf5e262970cb6a51312bb28dfca300a02", &toaddr)
 
