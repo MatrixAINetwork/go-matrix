@@ -14,7 +14,7 @@
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Package core implements the Matrix consensus protocol.
+// Package core implements the matrix consensus protocol.
 package core
 
 import (
@@ -48,6 +48,7 @@ import (
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/metrics"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/man"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/trie"
 )
@@ -140,7 +141,7 @@ type BlockChain struct {
 }
 
 // NewBlockChain returns a fully initialised block chain using information
-// available in the database. It initialises the default Matrix Validator and
+// available in the database. It initialises the default matrix Validator and
 // Processor.
 func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
 	if cacheConfig == nil {
@@ -173,10 +174,10 @@ func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
 
-	bc.dposEngine = mtxdpos.NewMtxDPOS(bc)
+	bc.dposEngine = mtxdpos.NewMtxDPOS()
 
 	var err error
-	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
+	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.dposEngine, bc.getProcInterrupt)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +201,27 @@ func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *par
 			}
 		}
 	}
+
+	reqCh := make(chan struct{})
+	sub, err := mc.SubscribeEvent(mc.CA_ReqCurrentBlock, reqCh)
+	if err == nil {
+		go func(chain *BlockChain, reqCh chan struct{}, sub event.Subscription) {
+			time.Sleep(3 * time.Second)
+			select {
+			case <-reqCh:
+				block := chain.CurrentBlock()
+				num := block.Number().Uint64()
+				log.INFO("MAIN", "本地区块插入消息已发送", num, "hash", block.Hash())
+				mc.PublishEvent(mc.NewBlockMessage, block)
+				sub.Unsubscribe()
+				close(reqCh)
+				return
+			}
+		}(bc, reqCh, sub)
+	} else {
+		log.ERROR("BlockChain", "订阅CA请求当前区块事件失败", err)
+	}
+
 	// Take ownership of this particular state
 	go bc.update()
 	return bc, nil
@@ -496,6 +518,11 @@ func (bc *BlockChain) insert(block *types.Block) {
 		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 
 		bc.currentFastBlock.Store(block)
+	}
+
+	//save topology
+	if err := bc.hc.topologyStore.WriteTopologyGraph(block.Header()); err != nil {
+		log.ERROR("block chain", "缓存拓扑信息错误", err)
 	}
 }
 
@@ -1021,7 +1048,7 @@ func (bc *BlockChain) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 
 	upTimeAccounts := make([]common.Address, 0)
 
-	minerNum := num - (num % common.GetBroadcastInterval()) - params.MinerTopologyGenerateUptime
+	minerNum := num - (num % common.GetBroadcastInterval()) - man.MinerTopologyGenerateUpTime
 	log.INFO("blockchain", "参选矿工节点uptime高度", minerNum)
 	ans, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(minerNum)), common.RoleMiner)
 	if err != nil {
@@ -1033,7 +1060,7 @@ func (bc *BlockChain) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
 		log.INFO("v.Address", "v.Address", v.Address)
 	}
-	validatorNum := num - (num % common.GetBroadcastInterval()) - params.VerifyTopologyGenerateUpTime
+	validatorNum := num - (num % common.GetBroadcastInterval()) - man.VerifyTopologyGenerateUpTime
 	log.INFO("blockchain", "参选验证节点uptime高度", validatorNum)
 	ans1, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(validatorNum)), common.RoleValidator)
 	if err != nil {
@@ -1183,6 +1210,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			seals[i] = true
 		}
 	}
+	err := bc.dposEngine.VerifyBlocks(bc, headers)
+	if err != nil {
+		log.Error("block chain", "insertChain DPOS共识错误", err)
+		return 0, nil, nil, fmt.Errorf("insert block dpos error")
+	}
+
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 	defer close(abort)
 
@@ -1202,9 +1235,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		bstart := time.Now()
 
 		err := <-results
-		if err == nil {
-			bc.dposEngine.VerifyBlock(block.Header())
-		}
 		if err == nil {
 			err = bc.Validator().ValidateBody(block)
 		}
@@ -1776,4 +1806,36 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 
 func (bc *BlockChain) VerifyHeader(header *types.Header) error {
 	return bc.engine.VerifyHeader(bc, header, false)
+}
+
+func (bc *BlockChain) SetDposEngine(dposEngine consensus.DPOSEngine) {
+	bc.dposEngine = dposEngine
+}
+
+func (bc *BlockChain) GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error) {
+	return bc.hc.GetTopologyGraphByNumber(number)
+}
+
+func (bc *BlockChain) GetOriginalElect(number uint64) ([]common.Elect, error) {
+	return bc.hc.GetOriginalElect(number)
+}
+
+func (bc *BlockChain) GetNextElect(number uint64) ([]common.Elect, error) {
+	return bc.hc.GetNextElect(number)
+}
+
+func (bc *BlockChain) NewTopologyGraph(header *types.Header) (*mc.TopologyGraph, error) {
+	return bc.hc.NewTopologyGraph(header)
+}
+
+func (bc *BlockChain) TopologyStore() *TopologyStore {
+	return bc.hc.topologyStore
+}
+
+func (bc *BlockChain) GetCurrentNumber() uint64 {
+	return bc.hc.GetCurrentNumber()
+}
+
+func (bc *BlockChain) GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error) {
+	return bc.hc.GetValidatorByNumber(number)
 }

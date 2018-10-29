@@ -130,7 +130,7 @@ var (
 // TxStatus is the current status of a transaction as seen by the pool.
 type TxStatus uint
 
-var mapNs sync.Map  //YY
+var mapNs sync.Map                                         //YY
 var mapCaclErrtxs = make(map[common.Hash][]common.Address) //YY  用来统计错误的交易
 var mapDelErrtxs = make(map[common.Hash]*big.Int)          //YY  用来删除mapErrorTxs
 var mapErrorTxs = make(map[*big.Int]*types.Transaction)    //YY  存放所有的错误交易（20个区块自动删除）
@@ -711,7 +711,7 @@ func (pool *TxPool) ProcessMsg(m NetworkMsgData) {
 		ntx := make(map[uint32]*types.Floodtxdata, 0)
 		json.Unmarshal(msgdata.MsgData, &ntx)
 		pool.msg_RecvFloodTx(ntx, nodeid)
-	case RecvConsensusTxbyN://add hezi
+	case RecvConsensusTxbyN: //add hezi
 		nodeid := m.NodeId
 		ntx := make(map[uint32]*types.Transaction, 0)
 		json.Unmarshal(msgdata.MsgData, &ntx)
@@ -743,7 +743,7 @@ func (pool *TxPool) sendMsg(data MsgStruct) {
 			log.Info("===Transaction flood", "selfRole", selfRole)
 			p2p.SendToGroupWithBackup(common.RoleValidator|common.RoleBackupValidator|common.RoleBroadcast, common.NetworkMsg, []interface{}{data})
 		}
-	case GetTxbyN, RecvTxbyN, BroadCast,GetConsensusTxbyN,RecvConsensusTxbyN: //YY
+	case GetTxbyN, RecvTxbyN, BroadCast, GetConsensusTxbyN, RecvConsensusTxbyN: //YY
 		//给固定的节点发送根据N获取Tx的请求
 		log.Info("===sendMSG ======YY====", "Msgtype", data.Msgtype)
 		p2p.SendToSingle(data.NodeId, common.NetworkMsg, []interface{}{data})
@@ -1089,7 +1089,7 @@ func (pool *TxPool) msg_CheckTx(mapSN map[uint32]*big.Int, nid discover.NodeID) 
 			log.Info("========YY===:continue", "s", s, "n", n)
 			continue
 		}
-		mapNs.Store(n,s)
+		mapNs.Store(n, s)
 		tx := pool.getTxbyS(s)
 		//tx := pool.SContainer [s]
 		if tx == nil {
@@ -1179,7 +1179,7 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 		// 发送缺失交易N的列表
 		//pool.sendMsg(MsgStruct{Msgtype: GetTxbyN, NodeId: nid, MsgData: msData})
 		pool.sendMsg(MsgStruct{Msgtype: GetConsensusTxbyN, NodeId: nid, MsgData: msData}) //modi hezi(共识要的交易都带s)
-		rettime := time.NewTimer(3 * time.Second) // 2秒后没有收到需要的交易则返回
+		rettime := time.NewTimer(3 * time.Second)                                         // 2秒后没有收到需要的交易则返回
 	forBreak:
 		for {
 			select {
@@ -1204,13 +1204,13 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 		var txerr error
 		if len(ns) > 0 {
 			txerr = errors.New("loss tx")
-		}else{
+		} else {
 			for _, n := range listN {
 				tx := pool.getTxbyN(n)
 				if tx != nil {
 					txs = append(txs, tx)
 				} else {
-			txerr = errors.New("loss tx")
+					txerr = errors.New("loss tx")
 					txs = make([]*types.Transaction, 0)
 					break
 				}
@@ -1241,10 +1241,11 @@ func (pool *TxPool) msg_GetConsensusTxByN(listN []uint32, nid discover.NodeID) {
 		}
 	}
 	msData, _ := json.Marshal(mapNtx)
-	log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx),"nodeid",nid.String())
+	log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx), "nodeid", nid.String())
 	pool.sendMsg(MsgStruct{Msgtype: RecvConsensusTxbyN, NodeId: nid, MsgData: msData})
 	log.Info("========YY===3", "GetConsensusTxByN", 0)
 }
+
 //YY 根据N值获取对应的交易(洪泛)
 func (pool *TxPool) msg_GetTxByN(listN []uint32, nid discover.NodeID) {
 	log.Info("==========YY", "msg_GetTxByN:len(listN)", len(listN))
@@ -1271,15 +1272,15 @@ func (pool *TxPool) msg_GetTxByN(listN []uint32, nid discover.NodeID) {
 //此接口传的交易带s(modi hezi)
 func (pool *TxPool) msg_RecvConsensusFloodTx(mapNtx map[uint32]*types.Transaction, nid discover.NodeID) {
 	pool.selfmlk.Lock()
-	log.INFO("===========","msg_RecvConsensusFloodTx",len(mapNtx))
+	log.INFO("===========", "msg_RecvConsensusFloodTx", len(mapNtx))
 	errorTxs := make([]*big.Int, 0)
 	for n, tx := range mapNtx {
-		mapNs.Store(n,tx.GetTxS())
-		ts,ok:=mapNs.Load(n)
-		if !ok{
+		mapNs.Store(n, tx.GetTxS())
+		ts, ok := mapNs.Load(n)
+		if !ok {
 			continue
 		}
-		s:=ts.(*big.Int)
+		s := ts.(*big.Int)
 		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
 			continue
 		}
@@ -1322,6 +1323,7 @@ func (pool *TxPool) msg_RecvConsensusFloodTx(mapNtx map[uint32]*types.Transactio
 		//pool.msg_RecvErrTx(common.Address{}, errorTxs)
 	}
 }
+
 //YY 接收洪泛的交易（根据N请求到的交易）
 func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid discover.NodeID) {
 	errorTxs := make([]*big.Int, 0)
@@ -1329,11 +1331,11 @@ func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid di
 	log.Info("=======YY===", "msg_RecvFloodTx: len(mapNtx)=", len(mapNtx))
 	//aa := 0
 	for n, ftx := range mapNtx {
-		ts,ok:=mapNs.Load(n)
-		if !ok{
+		ts, ok := mapNs.Load(n)
+		if !ok {
 			continue
 		}
-		s:=ts.(*big.Int)
+		s := ts.(*big.Int)
 		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
 			continue
 		}
