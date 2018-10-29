@@ -41,6 +41,11 @@ var (
 		Usage: "Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=detail",
 		Value: 3,
 	}
+	verOutPutFlag = cli.IntFlag{
+		Name:  "outputinfo",
+		Usage: "Logging output: 0=console, 1=file, 2=both",
+		Value: 0,
+	}
 	vmoduleFlag = cli.StringFlag{
 		Name:  "vmodule",
 		Usage: "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. man/*=5,p2p=4)",
@@ -90,7 +95,7 @@ var (
 
 // Flags holds all command-line flags required for debugging.
 var Flags = []cli.Flag{
-	verbosityFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
+	verbosityFlag, verOutPutFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
 	pprofFlag, pprofAddrFlag, pprofPortFlag,
 	memprofilerateFlag, blockprofilerateFlag, cpuprofileFlag, traceFlag,
 }
@@ -117,17 +122,24 @@ func init() {
 func Setup(ctx *cli.Context, logdir string) error {
 	// logging
 	log.PrintOrigins(ctx.GlobalBool(debugFlag.Name))
-	if logdir != "" {
-		rfh, err := log.RotatingFileHandler(
-			logdir,
-			1024*1024*1024*2, //262144,
-			/*log.JSONFormatOrderedEx(false, true),*/
-			log.TerminalFormat(false),
-		)
-		if err != nil {
-			return err
+	flg := ctx.GlobalInt(verOutPutFlag.Name)
+	if flg > 0 {
+		if logdir != "" {
+			rfh, err := log.RotatingFileHandler(
+				logdir,
+				1024*1024*50, //262144,
+				/*log.JSONFormatOrderedEx(false, true),*/
+				log.TerminalFormat(false),
+			)
+			if err != nil {
+				return err
+			}
+			if flg == 1 {
+				glogger.SetHandler(log.MultiHandler(rfh))
+			} else {
+				glogger.SetHandler(log.MultiHandler(ostream, rfh))
+			}
 		}
-		glogger.SetHandler(log.MultiHandler(ostream, rfh))
 	}
 	glogger.Verbosity(log.Lvl(ctx.GlobalInt(verbosityFlag.Name)))
 	glogger.Vmodule(ctx.GlobalString(vmoduleFlag.Name))
