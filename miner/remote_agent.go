@@ -86,7 +86,7 @@ func (a *RemoteAgent) Start() {
 	go a.loop(a.workCh, a.quitCh)
 }
 
-func (a *RemoteAgent) Stop() {
+func (a *RemoteAgent) Stop(num uint64) {
 	if !atomic.CompareAndSwapInt32(&a.running, 1, 0) {
 		return
 	}

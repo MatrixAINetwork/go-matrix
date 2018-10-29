@@ -14,7 +14,7 @@
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Package miner implements Matrix block creation and mining.
+// Package miner implements matrix block creation and mining.
 package miner
 
 import (
@@ -82,7 +82,7 @@ func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, en
 		ca:          ca,
 	}
 	var err error
-	miner.worker, err = newWorker(config, engine, dposEngine, common.Address{}, mux, hd, ca)
+	miner.worker, err = newWorker(config, engine, bc, dposEngine, common.Address{}, mux, hd, ca)
 	if err != nil {
 		log.DEBUG(ModuleMiner, "创建work失败")
 		return miner, err
@@ -141,7 +141,7 @@ out:
 func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
 	if self.currentRole != common.RoleBroadcast {
-		self.worker.setEtherbase(coinbase)
+		self.worker.setmanerbase(coinbase)
 		self.coinbase = coinbase
 	}
 	if atomic.LoadInt32(&self.canStart) == 0 {
@@ -159,7 +159,7 @@ func (self *Miner) Start(coinbase common.Address) {
 func (self *Miner) Stop() {
 	// todo:
 	if self.currentRole != common.RoleBroadcast {
-		self.worker.Stop()
+		//self.worker.Stop()
 		atomic.StoreInt32(&self.mining, 0)
 		atomic.StoreInt32(&self.shouldStart, 0)
 	}
@@ -223,7 +223,7 @@ func (self *Miner) PendingBlock() *types.Block {
 	return self.worker.pendingBlock()
 }
 
-func (self *Miner) SetEtherbase(addr common.Address) {
+func (self *Miner) Setmanerbase(addr common.Address) {
 	self.coinbase = addr
-	self.worker.setEtherbase(addr)
+	self.worker.setmanerbase(addr)
 }
