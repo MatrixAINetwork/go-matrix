@@ -1,18 +1,7 @@
-// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
-// This file is consisted of the MATRIX library and part of the go-ethereum library.
-//
-// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
-// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
-//
-//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
-//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// Copyright (c) 2018 The MATRIX Authors 
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package manash
 
@@ -74,7 +63,7 @@ func GetdifficultyListAndTargetList(difficultyList []*big.Int) minerDifficultyLi
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (manash *Ethash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, foundMsgCh chan *consensus.FoundMsg, difficultyList []*big.Int, isBroadcastNode bool) error {
+func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, foundMsgCh chan *consensus.FoundMsg, difficultyList []*big.Int, isBroadcastNode bool) error {
 
 	curHeader := types.CopyHeader(header)
 	sort.Sort(diffiList(difficultyList))
@@ -147,7 +136,7 @@ func compareDifflist(result []byte, diffList []*big.Int, targets []*big.Int) (in
 
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
-func (manash *Ethash) mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan consensus.FoundMsg, diffiList *minerDifficultyList) {
+func (manash *Manash) mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan consensus.FoundMsg, diffiList *minerDifficultyList) {
 	// Extract some data from the header
 
 	var (
@@ -169,7 +158,7 @@ func (manash *Ethash) mine(header *types.Header, id int, seed uint64, abort chan
 		select {
 		case <-abort:
 			// Mining terminated, update stats and abort
-			logger.Trace("Ethash nonce search aborted", "attempts", nonce-seed)
+			logger.Trace("Manash nonce search aborted", "attempts", nonce-seed)
 			manash.hashrate.Mark(attempts)
 			return
 
@@ -204,9 +193,9 @@ func (manash *Ethash) mine(header *types.Header, id int, seed uint64, abort chan
 
 				select {
 				case found <- consensus.FoundMsg{Header: FoundHeader, Difficulty: NowDifficulty}:
-					logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("Manash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
 				case <-abort:
-					logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("Manash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
 				}
 
 				if NowDifficulty == header.Difficulty {

@@ -1,18 +1,7 @@
-// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
-// This file is consisted of the MATRIX library and part of the go-ethereum library.
-//
-// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
-// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
-//
-//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
-//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// Copyright (c) 2018 The MATRIX Authors 
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package core
 
@@ -36,7 +25,6 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -163,41 +151,6 @@ type MsgStruct struct {
 
 var num uint32
 var ldb *leveldb.DB
-
-//======struct// hezi
-type mapst struct {
-	//sendSNList  map[*big.Int]uint32
-	slist []*big.Int
-	mlock sync.RWMutex
-}
-
-// hezi
-type listst struct {
-	list *list.List
-	lk   sync.RWMutex
-}
-
-// hezi
-type sendst struct {
-	snlist mapst
-	lst    listst
-	notice chan *big.Int
-}
-
-// hezi
-type sTxst struct {
-	sTxmap map[*big.Int]*types.Transaction
-	rw     sync.RWMutex
-}
-
-// hezi
-type nTxst struct {
-	nTxmap map[uint32]*types.Transaction
-	rw     sync.RWMutex
-}
-
-//global  // hezi
-var gSendst sendst
 var whitemap = make(map[common.Address]bool)
 
 //test====================================
@@ -600,203 +553,6 @@ func (pool *TxPool) deletnTx(num uint32) {
 //hezi
 func (pool *TxPool) deletsTx(s *big.Int) {
 	delete(pool.SContainer, common.BigToHash(s))
-}
-
-type byteNumber struct {
-	maxNum, num uint32
-	mu          sync.Mutex
-}
-
-func (b3 *byteNumber) getNum() uint32 {
-	if b3.num < b3.maxNum {
-		b3.num++
-	} else {
-		b3.num = 0
-	}
-	return b3.num
-}
-func (b3 *byteNumber) catNumber(nodeNum uint32) uint32 {
-	b3.mu.Lock()
-	defer b3.mu.Unlock()
-	num := b3.getNum()
-	return (num << 7) + nodeNum
-}
-
-var byte3Number = &byteNumber{maxNum: 0x1ffff, num: 0}
-var byte4Number = &byteNumber{maxNum: 0x1ffffff, num: 0}
-
-//hezi
-func (pool *TxPool) packageSNList() {
-	if len(gSendst.snlist.slist) == 0 {
-		return
-	}
-
-	gSendst.snlist.mlock.Lock()
-	lst := gSendst.snlist.slist
-	gSendst.snlist.slist = make([]*big.Int, 0)
-	gSendst.snlist.mlock.Unlock()
-	//	gSendst.lstMu.Lock()
-	//	gSendst.lst.list.PushBack(lst)
-	//	gSendst.lstMu.Unlock()
-	go func(lst []*big.Int) {
-		//pool.nummlk.Lock()
-		tmpsnlst := make(map[uint32]*big.Int)
-		nodeNum, _ := ca.GetNodeNumber()
-		for _, s := range lst {
-			if pool.sTxValIsNil(s) {
-				tx := pool.getTxbyS(s)
-				if tx == nil {
-					log.Error("packageSNList", "tx is nil", 0)
-					continue
-				}
-				tmpnum := byte4Number.catNumber(nodeNum)
-				//log.Info("======YY======", "packageSNList():flood:sssssss", tx.GetTxS(), "txNonce:", tx.Nonce(), "txN", tmpnum)
-				pool.setTxNum(tx, tmpnum)
-				tmpsnlst[tmpnum] = s
-				pool.setnTx(tmpnum, tx)
-			}
-		}
-		log.Info("====hezi====", "send tmpsnlst", len(tmpsnlst))
-		//pool.nummlk.Unlock()
-		if len(tmpsnlst) > 0 {
-			bt, _ := json.Marshal(tmpsnlst)
-			pool.sendMsg(MsgStruct{Msgtype: SendFloodSN, MsgData: bt})
-		}
-	}(lst)
-}
-
-//hezi
-func addSlist(s *big.Int) {
-	gSendst.snlist.mlock.Lock()
-	gSendst.snlist.slist = append(gSendst.snlist.slist, s)
-	gSendst.snlist.mlock.Unlock()
-}
-
-//hezi
-func (pool *TxPool) ProcessMsg(m NetworkMsgData) {
-	//log.Info("======hezi==","Networkmsgdata.Data",m.Data)
-	log.Info("===========ProcessMsg", "aaaaa", 0)
-	var msgdata *MsgStruct
-	if len(m.Data) > 0 {
-		msgdata = m.Data[0]
-	} else {
-		return
-	}
-	switch msgdata.Msgtype {
-	case SendFloodSN: //YY
-		snmap := make(map[uint32]*big.Int)
-		//log.Info("====hezi===","sendfloodsn",msgdata.MsgData)
-		btTmp := msgdata.MsgData
-		//log.Info("====hezi====","recv_snmap:btTmp=",btTmp)
-		err := json.Unmarshal(btTmp, &snmap)
-		if err != nil {
-			log.Info("====hezi====", "recv_snmap:err=", err)
-		}
-		//log.Info("====hezi====","recv_snmap",snmap)
-		nodeid := m.NodeId
-		log.Info("====hezi====", "recv_snmap:nodeid=", nodeid)
-		pool.msg_CheckTx(snmap, nodeid)
-	case GetTxbyN: //YY
-		listN := new([]uint32)
-		json.Unmarshal(msgdata.MsgData, &listN)
-		nodeid := m.NodeId
-		pool.msg_GetTxByN(*listN, nodeid)
-	case GetConsensusTxbyN: //add hezi
-		listN := new([]uint32)
-		json.Unmarshal(msgdata.MsgData, &listN)
-		nodeid := m.NodeId
-		pool.msg_GetConsensusTxByN(*listN, nodeid)
-	case RecvTxbyN: //YY
-		nodeid := m.NodeId
-		ntx := make(map[uint32]*types.Floodtxdata, 0)
-		json.Unmarshal(msgdata.MsgData, &ntx)
-		pool.msg_RecvFloodTx(ntx, nodeid)
-	case RecvConsensusTxbyN://add hezi
-		nodeid := m.NodeId
-		ntx := make(map[uint32]*types.Transaction, 0)
-		json.Unmarshal(msgdata.MsgData, &ntx)
-		pool.msg_RecvConsensusFloodTx(ntx, nodeid)
-	case RecvErrTx: //YY
-		nodeid := m.NodeId
-		listS := new([]*big.Int)
-		json.Unmarshal(msgdata.MsgData, &listS)
-		pool.msg_RecvErrTx(common.HexToAddress(nodeid.String()), *listS)
-	case BroadCast:
-		var tx_mx *types.Transaction_Mx
-		err := json.Unmarshal(msgdata.MsgData, &tx_mx)
-		tx := types.SetTransactionMx(tx_mx)
-		if err == nil {
-			log.Info("========YY====1", "Unmarshal:OK=", tx)
-			pool.addTx(tx, false)
-		} else {
-			log.Info("========YY====2", "Unmarshal-TX:err=", err)
-		}
-	}
-}
-
-//hezi
-func (pool *TxPool) sendMsg(data MsgStruct) {
-	selfRole := ca.GetRole()
-	switch data.Msgtype {
-	case SendFloodSN:
-		if selfRole == common.RoleValidator || selfRole == common.RoleMiner {
-			log.Info("===Transaction flood", "selfRole", selfRole)
-			p2p.SendToGroupWithBackup(common.RoleValidator|common.RoleBackupValidator|common.RoleBroadcast, common.NetworkMsg, []interface{}{data})
-		}
-	case GetTxbyN, RecvTxbyN, BroadCast,GetConsensusTxbyN,RecvConsensusTxbyN: //YY
-		//给固定的节点发送根据N获取Tx的请求
-		log.Info("===sendMSG ======YY====", "Msgtype", data.Msgtype)
-		p2p.SendToSingle(data.NodeId, common.NetworkMsg, []interface{}{data})
-	//case RecvTxbyN://YY
-	//	//给固定的节点返回根据N获取Tx的请求
-	//	log.Info("===sendMSG ======YY====","Msgtype",data.Msgtype)
-	//	p2p.SendToSingle(data.NodeId,common.NetworkMsg,[]interface{}{data})
-	//case BroadCast://YY
-	//	log.Info("===sendMSG ======YY====","Msgtype",data.Msgtype)
-	//	p2p.SendToSingle(data.NodeId,common.NetworkMsg,[]interface{}{data})
-	case RecvErrTx: //YY 给全部验证者发送错误交易做共识
-		if selfRole == common.RoleValidator {
-			log.Info("===sendMsg ErrTx===YY===", "selfRole", selfRole)
-			p2p.SendToGroup(common.RoleValidator, common.NetworkMsg, []interface{}{data})
-		}
-	}
-}
-
-//hezi 不用了
-//func (pool *TxPool) analysisMessage()  {
-//	for{
-//		select {
-//		case m := <- pool.chanmsg:
-//			switch m.msgtype {
-//			case SendFloodSN:
-//				snmap := m.data.(map[*big.Int]uint32)
-//				listNwithoutS := pool.CheckTx(snmap)
-//				//TODO
-//				fmt.Println(listNwithoutS)
-//			case GetTxbyN:
-//
-//			}
-//		}
-//	}
-//}
-
-//by hezi
-func (pool *TxPool) checkList() {
-	flood := time.NewTicker(params.FloodTime)
-	defer flood.Stop()
-
-	for {
-		select {
-		case <-flood.C:
-			pool.packageSNList()
-
-		case s := <-gSendst.notice:
-			addSlist(s)
-			if len(gSendst.snlist.slist) >= params.FloodMaxTransactions {
-				pool.packageSNList()
-			}
-		}
-	}
 }
 
 //by hezi
