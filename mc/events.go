@@ -27,35 +27,28 @@ const (
 
 	//CA
 	CA_RoleUpdated // RoleUpdatedMsg
+	CA_ReqCurrentBlock
 
 	//P2P
 	P2P_BlkVerifyRequest // BlockVerifyReqMsg
 
 	//Leader service
 	Leader_LeaderChangeNotify // LeaderChangeNotify
+	Leader_RecoveryState
 
 	//BlockVerify service
 	HD_BlkConsensusReq
 	HD_BlkConsensusVote
 	BlkVerify_VerifyConsensusOK //BlockVerifyConsensusOK
-	BlkVerify_VerifyStateNotify //BlockVerifyStateNotify
-	BlockGenor_NewBlockReady
-
-	ReElect_MasterMinerReElectionReqMsg
+	BlkVerify_POSFinishedNotify //BlockPOSFinishedNotify
 
 	//BlockGenor service
 	BlockGenor_HeaderGenerateReq
-	BlockGenor_HeaderBlockReq
 	HD_NewBlockInsert
 	BlockGenor_HeaderVerifyReq
-	HDBlockGenor_BlockVerifyReqMsg
-	BCBlockGenor_HeaderBlockReq
-	GBlock_HeaderGenNotify
-	BlockGenor_PreBlockBroadcastFinished
-
-	//ReElection service
-	ReElec_RandomSeedReq
-	Random_ElectionSeedRsp
+	BlockGenor_NewBlockReady
+	HD_FullBlockReq
+	HD_FullBlockRsp
 
 	//topnode online
 	HD_TopNodeConsensusReq
@@ -63,9 +56,12 @@ const (
 	HD_TopNodeConsensusVoteResult
 
 	//leader
-	HD_LeaderReelectVoteReq
-	HD_LeaderReelectVoteRsp
-	HD_LeaderReelectConsensusBroadcast
+	HD_LeaderReelectInquiryReq
+	HD_LeaderReelectInquiryRsp
+	HD_LeaderReelectReq
+	HD_LeaderReelectVote
+	HD_LeaderReelectResultBroadcast
+	HD_LeaderReelectResultBroadcastRsp
 
 	//Topology
 	ReElec_MasterMinerReElectionReq
@@ -78,10 +74,8 @@ const (
 	Random_TopoSeedRsp
 
 	P2P_HDMSG
-	P2PSENDDISPATCHERMSG
 
 	BlockToBuckets
-	BlockToElected
 	BlockToLinkers
 	SendUdpTx
 	LastEventCode
