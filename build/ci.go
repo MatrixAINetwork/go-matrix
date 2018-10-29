@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2008 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
@@ -60,49 +60,15 @@ var (
 	// Files that end up in the gman-alltools*.zip archive.
 	allToolsArchiveFiles = []string{
 		"COPYING",
-		executablePath("abigen"),
-		executablePath("bootnode"),
-		executablePath("evm"),
 		executablePath("gman"),
-		executablePath("puppeth"),
-		executablePath("rlpdump"),
-		executablePath("swarm"),
-		executablePath("wnode"),
 	}
 
 	// A debian package is created for all executables listed here.
 	debExecutables = []debExecutable{
-		{
-			Name:        "abigen",
-			Description: "Source code generator to convert Matrix contract definitions into easy to use, compile-time type-safe Go packages.",
-		},
-		{
-			Name:        "bootnode",
-			Description: "Matrix bootnode.",
-		},
-		{
-			Name:        "evm",
-			Description: "Developer utility version of the EVM (Matrix Virtual Machine) that is capable of running bytecode snippets within a configurable environment and execution mode.",
-		},
+
 		{
 			Name:        "gman",
 			Description: "Matrix CLI client.",
-		},
-		{
-			Name:        "puppeth",
-			Description: "Matrix private network manager.",
-		},
-		{
-			Name:        "rlpdump",
-			Description: "Developer utility tool that prints RLP structures.",
-		},
-		{
-			Name:        "swarm",
-			Description: "Matrix Swarm daemon and tools",
-		},
-		{
-			Name:        "wnode",
-			Description: "Matrix Whisper diagnostic tool",
 		},
 	}
 
@@ -135,10 +101,6 @@ func main() {
 	switch os.Args[1] {
 	case "install":
 		doInstall(os.Args[2:])
-	case "test":
-		doTest(os.Args[2:])
-	case "lint":
-		doLint(os.Args[2:])
 	case "archive":
 		doArchive(os.Args[2:])
 	case "debsrc":
@@ -268,73 +230,6 @@ func goToolArch(arch string, cc string, subcmd string, args ...string) *exec.Cmd
 		cmd.Env = append(cmd.Env, e)
 	}
 	return cmd
-}
-
-// Running The Tests
-//
-// "tests" also includes static analysis tools such as vet.
-
-func doTest(cmdline []string) {
-	var (
-		coverage = flag.Bool("coverage", false, "Whether to record code coverage")
-	)
-	flag.CommandLine.Parse(cmdline)
-	env := build.Env()
-
-	packages := []string{"./..."}
-	if len(flag.CommandLine.Args()) > 0 {
-		packages = flag.CommandLine.Args()
-	}
-	packages = build.ExpandPackagesNoVendor(packages)
-
-	// Run analysis tools before the tests.
-	build.MustRun(goTool("vet", packages...))
-
-	// Run the actual tests.
-	gotest := goTool("test", buildFlags(env)...)
-	// Test a single package at a time. CI builders are slow
-	// and some tests run into timeouts under load.
-	gotest.Args = append(gotest.Args, "-p", "1")
-	if *coverage {
-		gotest.Args = append(gotest.Args, "-covermode=atomic", "-cover")
-	}
-
-	gotest.Args = append(gotest.Args, packages...)
-	build.MustRun(gotest)
-}
-
-// runs gometalinter on requested packages
-func doLint(cmdline []string) {
-	flag.CommandLine.Parse(cmdline)
-
-	packages := []string{"./..."}
-	if len(flag.CommandLine.Args()) > 0 {
-		packages = flag.CommandLine.Args()
-	}
-	// Get metalinter and install all supported linters
-	build.MustRun(goTool("get", "gopkg.in/alecthomas/gometalinter.v2"))
-	build.MustRunCommand(filepath.Join(GOBIN, "gometalinter.v2"), "--install")
-
-	// Run fast linters batched together
-	configs := []string{
-		"--vendor",
-		"--tests",
-		"--disable-all",
-		"--enable=goimports",
-		"--enable=varcheck",
-		"--enable=vet",
-		"--enable=gofmt",
-		"--enable=misspell",
-		"--enable=goconst",
-		"--min-occurrences=6", // for goconst
-	}
-	build.MustRunCommand(filepath.Join(GOBIN, "gometalinter.v2"), append(configs, packages...)...)
-
-	// Run slow linters one by one
-	for _, linter := range []string{"unconvert", "gosimple"} {
-		configs = []string{"--vendor", "--tests", "--deadline=10m", "--disable-all", "--enable=" + linter}
-		build.MustRunCommand(filepath.Join(GOBIN, "gometalinter.v2"), append(configs, packages...)...)
-	}
 }
 
 // Release Packaging
