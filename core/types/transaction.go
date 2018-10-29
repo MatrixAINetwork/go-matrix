@@ -16,6 +16,7 @@ import (
 	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/rlp"
+	"github.com/matrix/go-matrix/params"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -312,8 +313,16 @@ func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
 //YY
-func (tx *Transaction) GetMatrix_EX() []Matrix_Extra { return tx.data.Extra }
-
+func (tx *Transaction) GetMatrix_EX() []Matrix_Extra   { return tx.data.Extra }
+//YY
+func (tx *Transaction) GetTxFrom() (common.Address,error) {
+	if tx.from.Load() == nil{
+		//如果交易没有做过验签则err不为空。
+		return common.Address{},errors.New("Address is Nil")
+	}
+	//如果交易做过验签则err为空。
+	return tx.from.Load().(sigCache).from, nil
+}
 //YY// Cost returns amount + gasprice * gaslimit.
 func (tx *Transaction) CostALL() *big.Int {
 	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
@@ -339,12 +348,12 @@ func (tx *Transaction) SetNonce(nc uint64) {
 func GetFloodData(tx *Transaction) *Floodtxdata {
 
 	floodtx := &Floodtxdata{
-		AccountNonce: tx.data.AccountNonce,
-		Price:        tx.data.Price,
-		GasLimit:     tx.data.GasLimit,
-		Recipient:    tx.data.Recipient,
-		Amount:       tx.data.Amount,
-		Payload:      tx.data.Payload,
+		AccountNonce:tx.data.AccountNonce & params.NonceSubOne,
+		Price:tx.data.Price,
+		GasLimit:tx.data.GasLimit,
+		Recipient:tx.data.Recipient,
+		Amount:tx.data.Amount,
+		Payload:tx.data.Payload,
 		// Signature values
 		V:     tx.data.V,
 		R:     tx.data.R,
@@ -354,9 +363,9 @@ func GetFloodData(tx *Transaction) *Floodtxdata {
 }
 
 //YY
-func SetFloodData(floodtx *Floodtxdata) *Transaction {
-	tx := &Transaction{}
-	tx.data.AccountNonce = floodtx.AccountNonce
+func  SetFloodData(floodtx *Floodtxdata) *Transaction{
+	tx:=&Transaction{}
+	tx.data.AccountNonce = floodtx.AccountNonce | params.NonceAddOne
 	tx.data.Price = floodtx.Price
 	tx.data.GasLimit = floodtx.GasLimit
 	tx.data.Recipient = floodtx.Recipient
@@ -411,9 +420,9 @@ func GetTransactionMx(tx *Transaction) *Transaction_Mx {
 	return tx_Mx
 }
 
-func ConvTxtoMxtx(tx *Transaction) *Transaction_Mx {
-	tx_Mx := &Transaction_Mx{}
-	tx_Mx.Data.AccountNonce = tx.data.AccountNonce
+func  ConvTxtoMxtx(tx *Transaction) *Transaction_Mx{
+	tx_Mx:=&Transaction_Mx{}
+	tx_Mx.Data.AccountNonce = tx.data.AccountNonce & params.NonceSubOne
 	tx_Mx.Data.Price = tx.data.Price
 	tx_Mx.Data.GasLimit = tx.data.GasLimit
 	tx_Mx.Data.Recipient = tx.data.Recipient
@@ -435,12 +444,12 @@ func ConvTxtoMxtx(tx *Transaction) *Transaction_Mx {
 
 func ConvMxtotx(tx_Mx *Transaction_Mx) *Transaction {
 	tx := txdata{
-		AccountNonce: tx_Mx.Data.AccountNonce,
-		Price:        tx_Mx.Data.Price,
-		GasLimit:     tx_Mx.Data.GasLimit,
-		Recipient:    tx_Mx.Data.Recipient,
-		Amount:       tx_Mx.Data.Amount,
-		Payload:      tx_Mx.Data.Payload,
+		AccountNonce:tx_Mx.Data.AccountNonce | params.NonceAddOne,
+		Price:tx_Mx.Data.Price,
+		GasLimit:tx_Mx.Data.GasLimit,
+		Recipient:tx_Mx.Data.Recipient,
+		Amount:tx_Mx.Data.Amount,
+		Payload:tx_Mx.Data.Payload,
 		// Signature values
 		V:     tx_Mx.Data.V,
 		R:     tx_Mx.Data.R,
@@ -522,7 +531,14 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		msg.extra = tx.data.Extra[0]
 	}
 	var err error
-	msg.from, err = Sender(s, tx)
+	//YY ========begin=========
+	from,addrerr:= tx.GetTxFrom()
+	if addrerr != nil{
+		msg.from, err = Sender(s, tx)
+	}else{
+		msg.from = from
+	}
+	//===========end=============
 	return msg, err
 }
 
