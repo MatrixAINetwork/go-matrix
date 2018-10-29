@@ -1,5 +1,5 @@
 // Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
-// This file is consisted of the MATRIX library and part of the go-ethereum library.
+// This file is consisted of the MATRIX library and part of the go-2018/10/29ereum library.
 //
 // The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
 //
@@ -30,7 +30,7 @@ const fromLimitCount uint32 = 3
 var (
 	paramErr           = errors.New("param error")
 	countOutOfLimitErr = errors.New("the req count from the account is out of limit")
-	fromAddressErr     = errors.New("the address where req from is illegal")
+	leaderReqExistErr  = errors.New("req from this leader already exist")
 	cantFindErr        = errors.New("can't find req in cache")
 )
 
@@ -69,17 +69,19 @@ func newReqDataByLocalReq(localReq *mc.LocalBlockVerifyConsensusReq) *reqData {
 }
 
 type reqCache struct {
-	mu         sync.RWMutex
-	countMap   map[common.Address]uint32
-	countLimit uint32
-	cache      []*reqData
+	mu             sync.RWMutex
+	leaderReqCache map[common.Address]*reqData //from = leader 的req
+	otherReqCache  []*reqData                  //from != leader 的req
+	countMap       map[common.Address]uint32
+	countLimit     uint32
 }
 
 func newReqCache() *reqCache {
 	return &reqCache{
-		countMap:   make(map[common.Address]uint32),
-		countLimit: fromLimitCount,
-		cache:      make([]*reqData, 0),
+		countMap:       make(map[common.Address]uint32),
+		countLimit:     fromLimitCount,
+		otherReqCache:  make([]*reqData, 0),
+		leaderReqCache: make(map[common.Address]*reqData, 0),
 	}
 }
 
@@ -90,14 +92,22 @@ func (rc *reqCache) AddReq(req *mc.HD_BlkConsensusReqMsg) error {
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+	if req.Header.Leader == req.From {
+		_, exit := rc.leaderReqCache[req.From]
+		if exit {
+			return leaderReqExistErr
+		}
+		rc.leaderReqCache[req.From] = newReqData(req)
+		return nil
+	}
 
-	//todo 判断合法from
+	//other req
 	count := rc.getCount(req.From)
 	if count >= rc.countLimit {
 		return countOutOfLimitErr
 	}
 
-	rc.cache = append(rc.cache, newReqData(req))
+	rc.otherReqCache = append(rc.otherReqCache, newReqData(req))
 	rc.setCount(req.From, count+1)
 	return nil
 }
@@ -109,7 +119,7 @@ func (rc *reqCache) AddLocalReq(req *mc.LocalBlockVerifyConsensusReq) error {
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	rc.cache = append(rc.cache, newReqDataByLocalReq(req))
+	rc.leaderReqCache[req.BlkVerifyConsensusReq.Header.Leader] = newReqDataByLocalReq(req)
 	return nil
 }
 
@@ -120,21 +130,21 @@ func (rc *reqCache) GetLeaderReq(leader common.Address) (*reqData, error) {
 
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-
-	for _, req := range rc.cache {
-		if req.req.Header.Leader == leader && req.req.From == leader {
-			return req, nil
-		}
+	req, OK := rc.leaderReqCache[leader]
+	if !OK {
+		return nil, cantFindErr
 	}
-	return nil, cantFindErr
+	return req, nil
 }
 
 func (rc *reqCache) GetAllReq() []*reqData {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-
-	result := make([]*reqData, len(rc.cache))
-	copy(result, rc.cache)
+	result := make([]*reqData, 0, len(rc.leaderReqCache)+cap(rc.otherReqCache))
+	for _, req := range rc.leaderReqCache {
+		result = append(result, req)
+	}
+	result = append(result, rc.otherReqCache...)
 	return result
 }
 
