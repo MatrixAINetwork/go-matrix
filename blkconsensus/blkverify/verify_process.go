@@ -21,7 +21,6 @@ import (
 
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/blkconsensus/votepool"
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/types"
@@ -136,7 +135,6 @@ func (p *Process) SetLeader(leader common.Address) {
 	defer p.mu.Unlock()
 
 	if p.leader == leader {
-		log.INFO(p.logExtraInfo(), "问题定位,1010", "step 1010")
 		return
 	}
 	p.leader.Set(leader)
@@ -201,6 +199,31 @@ func (p *Process) ProcessDPOSOnce() {
 	p.processDPOSOnce()
 }
 
+func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	reqData, err := p.reqCache.GetLeaderReq(msg.Header.Leader)
+	if err != nil {
+		log.ERROR(p.logExtraInfo(), "处理状态恢复消息", "本地请求获取失败", "err", err)
+		return
+	}
+	msgHeaderHash := msg.Header.HashNoSignsAndNonce()
+	if reqData.hash != msgHeaderHash {
+		log.ERROR(p.logExtraInfo(), "处理状态恢复消息", "本地请求hash不匹配，忽略消息",
+			"本地hash", reqData.hash.TerminalString(), "消息hash", msgHeaderHash.TerminalString())
+		return
+	}
+
+	log.INFO(p.logExtraInfo(), "处理状态恢复消息", "开始重置POS投票")
+	p.votePool().DelVotes(reqData.hash)
+	//添加投票
+	for _, sign := range msg.Header.Signatures {
+		p.votePool().AddVote(reqData.hash, sign, common.Address{}, p.number, false)
+	}
+	log.INFO(p.logExtraInfo(), "处理状态恢复消息", "完成")
+}
+
 func (p *Process) startReqVerifyCommon() {
 	if p.checkState(StateStart) == false && p.checkState(StateEnd) == false {
 		log.WARN(p.logExtraInfo(), "准备开始请求验证阶段，状态错误", p.state.String(), "高度", p.number)
@@ -229,10 +252,6 @@ func (p *Process) processReqOnce() {
 	if p.checkState(StateReqVerify) == false {
 		return
 	}
-
-	// notify leader server, begin verify now
-	notify := mc.BlockVerifyStateNotify{Leader: p.leader, Number: p.number, State: true}
-	mc.PublishEvent(mc.BlkVerify_VerifyStateNotify, &notify)
 
 	// if is local req, skip local verify step
 	if p.curProcessReq.localReq {
@@ -419,12 +438,12 @@ func (p *Process) sendVote(validate bool) {
 	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusVote, &voteMsg, common.RoleValidator, nil)
 
 	//将自己的投票加入票池
-	if err := p.votePool().AddVote(signHash, sign, ca.GetAddress(), p.number); err != nil {
+	if err := p.votePool().AddVote(signHash, sign, common.Address{}, p.number, false); err != nil {
 		log.ERROR(p.logExtraInfo(), "自己的投票加入票池失败", err, "高度", p.number)
 	}
 
 	// notify block genor server the result
-	result := mc.BlockVerifyConsensusOK{
+	result := mc.BlockLocalVerifyOK{
 		Header:    p.curProcessReq.req.Header,
 		BlockHash: p.curProcessReq.hash,
 		Txs:       p.curProcessReq.txs,
@@ -468,7 +487,7 @@ func (p *Process) processDPOSOnce() {
 
 	signs := p.votePool().GetVotes(p.curProcessReq.hash)
 	log.INFO(p.logExtraInfo(), "执行DPOS, 投票数量", len(signs), "hash", p.curProcessReq.hash.TerminalString(), "高度", p.number)
-	rightSigns, err := p.blockChain().DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(signs, p.number)
+	rightSigns, err := p.blockChain().DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(p.blockChain(), signs, p.number)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "共识引擎验证失败", err, "高度", p.number)
 		return
@@ -493,8 +512,12 @@ func (p *Process) finishedProcess() {
 
 	if result == localVerifyResultSuccess {
 		// notify leader server the verify state
-		notify := mc.BlockVerifyStateNotify{Leader: p.leader, Number: p.number, State: false}
-		mc.PublishEvent(mc.BlkVerify_VerifyStateNotify, &notify)
+		notify := mc.BlockPOSFinishedNotify{
+			Number:  p.number,
+			Header:  p.curProcessReq.req.Header,
+			TxsCode: p.curProcessReq.req.TxsCode,
+		}
+		mc.PublishEvent(mc.BlkVerify_POSFinishedNotify, &notify)
 	}
 
 	hash := p.curProcessReq.req.Header.HashNoSignsAndNonce()
