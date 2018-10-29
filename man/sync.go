@@ -6,6 +6,7 @@
 package man
 
 import (
+	"fmt"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/p2p/discover"
 )
 
@@ -118,6 +120,36 @@ func (pm *ProtocolManager) txsyncLoop() {
 	}
 }
 
+//lb WaitForDownLoadMode ...
+func (pm *ProtocolManager) WaitForDownLoadMode() {
+
+	syncRoleCH := make(chan mc.SyncIdEvent, 1)
+	sub, _ := mc.SubscribeEvent(mc.SendSyncRole, syncRoleCH)
+	fmt.Println("download sync.go  WaitForDownLoadMode enter")
+	log.WARN("download sync.go  WaitForDownLoadMode enter")
+	select {
+	case id := <-syncRoleCH:
+		if id.Role == common.RoleBroadcast {
+			log.Warn("download sync.go syncer wait role is Broadcast")
+			fmt.Println("download sync.go syncer wait role is Broadcast")
+			pm.downloader.SetbStoreSendIpfsFlg(true)
+			go pm.downloader.SynBlockFormBlockchain()
+			//return
+		} else {
+			log.Warn("download sync.go syncer wait role is generaler")
+			fmt.Println("download sync.go syncer wait role is generaler")
+			pm.downloader.SetbStoreSendIpfsFlg(false)
+			go pm.downloader.IpfsProcessRcvHead()
+			go pm.downloader.WaitBlockInfoFromIpfs()
+			go pm.downloader.SynIPFSCheck()
+			//return
+		}
+	}
+	sub.Unsubscribe()
+	log.WARN("download sync.go  WaitForDownLoadMode out")
+
+}
+
 // syncer is responsible for periodically synchronising with the network, both
 // downloading hashes and blocks as well as handling the announcement handler.
 func (pm *ProtocolManager) syncer() {
@@ -125,11 +157,15 @@ func (pm *ProtocolManager) syncer() {
 	pm.fetcher.Start()
 	defer pm.fetcher.Stop()
 	defer pm.downloader.Terminate()
+	log.WARN("syncer","syncer IpfsDownloadflg", pm.downloader.IpfsMode)
+	if pm.downloader.IpfsMode {
+		pm.WaitForDownLoadMode()
 
+	}
 	// Wait for different events to fire synchronisation operations
 	forceSync := time.NewTicker(forceSyncCycle)
 	defer forceSync.Stop()
-
+	log.Warn("download  syncer will running")
 	for {
 		select {
 		case <-pm.newPeerCh:
@@ -152,6 +188,7 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
+	log.Trace("download sync.go enter Synchronise peer", "peer", peer)
 	if peer == nil {
 		return
 	}
@@ -160,14 +197,17 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
+	log.Trace("download sync.go enter Synchronise td", "td", td, "pTd", pTd)
 	if pTd.Cmp(td) <= 0 {
 		return
 	}
+	log.Warn("download sync.go enter Synchronise", "currentBlock", currentBlock.NumberU64())
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		// Fast sync was explicitly requested, and explicitly granted
 		mode = downloader.FastSync
+		log.Trace("download sync.go enter Synchronise fastSync", "currentBlock", currentBlock.NumberU64())
 	} else if currentBlock.NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
 		// The database seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
@@ -176,15 +216,17 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// however it's safe to reenable fast sync.
 		atomic.StoreUint32(&pm.fastSync, 1)
 		mode = downloader.FastSync
+		log.Trace("download sync.go enter Synchronise set fastSync", "currentBlock", currentBlock.NumberU64())
 	}
 
 	if mode == downloader.FastSync {
+		log.Trace("download sync.go enter Synchronise fastSync hash", "currentBlock", currentBlock.NumberU64())
 		// Make sure the peer's total difficulty we are synchronizing is higher.
 		if pm.blockchain.GetTdByHash(pm.blockchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 			return
 		}
 	}
-
+	log.Trace("download sync.go enter Synchronise downloader", "currentBlock", currentBlock.NumberU64())
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		return

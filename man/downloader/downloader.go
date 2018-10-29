@@ -23,6 +23,7 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/metrics"
 	"github.com/matrix/go-matrix/params"
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 var (
@@ -82,8 +83,9 @@ var (
 )
 
 type Downloader struct {
-	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
-	mux  *event.TypeMux // Event multiplexer to announce sync operation events
+	IpfsMode bool           //liubo ipfs
+	mode     SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
+	mux      *event.TypeMux // Event multiplexer to announce sync operation events
 
 	queue   *queue   // Scheduler for selecting the hashes to download
 	peers   *peerSet // Set of active peers from which download can proceed
@@ -137,6 +139,16 @@ type Downloader struct {
 	bodyFetchHook    func([]*types.Header) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.Header) // Method to call upon starting a receipt fetch
 	chainInsertHook  func([]*fetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+
+	//lb ipfs
+	dpIpfs        *IPfsDownloader
+	ipfsBodyCh    chan BlockIpfs //result
+	bIpfsDownload int
+}
+type BlockIpfs struct {
+	Headeripfs       *types.Header
+	Unclesipfs       []*types.Header
+	Transactionsipfs types.Transactions
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -184,6 +196,10 @@ type BlockChain interface {
 
 	// InsertReceiptChain inserts a batch of receipts into the local chain.
 	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
+
+	//lb ipfs
+	SetbSendIpfsFlg(bool)
+	GetStoreBlockInfo() *prque.Prque //types.Blocks //(storeBlock types.Blocks)
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -193,6 +209,7 @@ func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockC
 	}
 
 	dl := &Downloader{
+		IpfsMode:       GetIpfsMode(), //true,   //false,
 		mode:           mode,
 		stateDB:        stateDb,
 		mux:            mux,
@@ -216,6 +233,19 @@ func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockC
 			processed: rawdb.ReadFastTrieProgress(stateDb),
 		},
 		trackStateReq: make(chan *stateReq),
+		dpIpfs:        nil,
+		bIpfsDownload: 0,
+	}
+	if dl.IpfsMode {
+		dl.dpIpfs = newIpfsDownload()
+		dl.ipfsBodyCh = make(chan BlockIpfs, 1)
+		go dl.IpfsDownloadInit()
+		/*if dl.IpfsDownloadInit() != nil {
+
+			//dl.IpfsMode = false
+		}*/
+		//go dl.IpfsProcessRcvHead()
+		//go dl.WaitBlockInfoFromIpfs()
 	}
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -330,15 +360,17 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 // checks fail an error will be returned. This method is synchronous
 func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode SyncMode) error {
 	// Mock out the synchronisation if testing
+	log.Trace("Downloader synchronise enter", "id", id)
 	if d.synchroniseMock != nil {
 		return d.synchroniseMock(id, hash)
 	}
+	log.Trace("Downloader synchronise synchronising", "id", id, "d.synchronising", d.synchronising)
 	// Make sure only one goroutine is ever allowed past this point at once
 	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
 		return errBusy
 	}
 	defer atomic.StoreInt32(&d.synchronising, 0)
-
+	log.Trace("Downloader synchronise notified", "id", id, "d.d.notified", d.notified)
 	// Post a user notification of the sync (only once per session)
 	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
 		log.Info("Block synchronisation started")
@@ -346,7 +378,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
 	d.peers.Reset()
-
+	log.Trace("Downloader synchronise begin launch chan")
 	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 		select {
 		case <-ch:
@@ -400,6 +432,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 			d.mux.Post(DoneEvent{})
 		}
 	}()
+	log.Trace("Synchronising syncWithPeer enter")
 	if p.version < 62 {
 		return errTooOld
 	}
@@ -415,7 +448,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 		return err
 	}
 	height := latest.Number.Uint64()
-
+	log.Debug("Synchronising with the syncWithPeer ", "height", height)
 	origin, err := d.findAncestor(p, height)
 	if err != nil {
 		return err
@@ -751,7 +784,7 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 // can fill in the skeleton - not even the origin peer - it's assumed invalid and
 // the origin is dropped.
 func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) error {
-	p.log.Debug("Directing header downloads", "origin", from)
+	p.log.Debug("Directing header downloads", "origin", from, "pivot", pivot)
 	defer p.log.Debug("Header download terminated")
 
 	// Create a timeout timer, and the associated header fetcher
@@ -796,6 +829,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 			// If the skeleton's finished, pull any remaining head headers directly from the origin
 			if packet.Items() == 0 && skeleton {
 				skeleton = false
+				log.Debug("download fetchHeaders Received skeleton")
 				getHeaders(from)
 				continue
 			}
@@ -822,7 +856,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 				}
 			}
 			headers := packet.(*headerPack).headers
-
+			log.Debug("download fetchHeaders Received skeleton ", "len", len(headers))
 			// If we received a skeleton batch, resolve internals concurrently
 			if skeleton {
 				filled, proced, err := d.fillHeaderSkeleton(from, headers)
@@ -835,7 +869,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 			}
 			// Insert all the new headers and fetch the next batch
 			if len(headers) > 0 {
-				p.log.Trace("Scheduling new headers", "count", len(headers), "from", from)
+				p.log.Trace("download Scheduling new headers", "count", len(headers), "from", from)
 				select {
 				case d.headerProcCh <- headers:
 				case <-d.cancelCh:
@@ -996,6 +1030,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 	// Prepare the queue and fetch block parts until the block header fetcher's done
 	finished := false
+	bchecked := false
 	for {
 		select {
 		case <-d.cancelCh:
@@ -1045,6 +1080,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 		case <-ticker.C:
 			// Sanity check update the progress
+			bchecked = true
 			select {
 			case update <- struct{}{}:
 			default:
@@ -1052,6 +1088,17 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 		case <-update:
 			// Short circuit if we lost all our peers
+			bCheckIpfsOver := false
+			//liubo ipfs
+			/*if d.bIpfsDownload == 2 && kind == "bodies" {
+				// IPFS
+				if d.queue.BlockIpfsPoolBlocks() == 0 && finished {
+					log.Debug("Data fetching completed ipfs", "type", kind)
+					return nil
+				}
+				continue //break
+			}*/
+			log.Trace("fetchParts update Data fetching", "type", kind, "len", pending())
 			if d.peers.Len() == 0 {
 				return errNoPeers
 			}
@@ -1080,11 +1127,45 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 					}
 				}
 			}
+			//log.Trace("Data fetching 2", "type", kind, "cont", finished, "len", inFlight())
 			// If there's nothing more to fetch, wait or terminate
+			if d.bIpfsDownload == 2 && kind == "bodies" && bchecked {
+				d.queue.checkIpfsPool()
+				if d.queue.BlockIpfsPoolBlocksNum() == 0 {
+					log.Debug("fetchParts Data fetching completed ipfs block", "type", kind)
+					//return nil
+					bCheckIpfsOver = true
+
+				}
+				bchecked = false
+			}
+
 			if pending() == 0 {
 				if !inFlight() && finished {
 					log.Debug("Data fetching completed", "type", kind)
-					return nil
+					/*	if d.bIpfsDownload == 2 && kind == "bodies"  {
+							d.queue.checkIpfsPool()
+							if d.queue.BlockIpfsPoolBlocks() == 0 {
+								log.Debug("Data fetching completed ipfs block", "type", kind)
+								return nil
+							}
+						} else {
+							return nil
+						}*/
+					if d.bIpfsDownload == 2 && kind == "bodies" {
+						if bCheckIpfsOver == true {
+							log.Debug("Data fetching completed ipfs and syn block body part", "type", kind)
+							return nil
+						} else {
+							log.Debug("Data fetching still  ipfs", "type", kind)
+							break
+
+						}
+						//return nil
+					} else {
+						return nil
+					}
+
 				}
 				break
 			}
@@ -1184,6 +1265,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 
 		case headers := <-d.headerProcCh:
 			// Terminate header processing if we synced up
+			log.Debug("download  processHeaders  recv header ", "len head =%d", len(headers))
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
 				for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
@@ -1243,7 +1325,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 					limit = len(headers)
 				}
 				chunk := headers[:limit]
-
+				log.Debug("download  processHeaders  recv header then deal ", "head number", chunk[0].Number.Uint64())
 				// In case of header only syncing, validate the chunk immediately
 				if d.mode == FastSync || d.mode == LightSync {
 					// Collect the yet unknown headers to mark them as uncertain
@@ -1283,11 +1365,23 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 						}
 					}
 					// Otherwise insert the headers for content retrieval
-					inserts := d.queue.Schedule(chunk, origin)
+					inserts := d.queue.Schedule(chunk, origin, d.bIpfsDownload)
 					if len(inserts) != len(chunk) {
 						log.Debug("Stale headers")
 						return errBadPeer
 					}
+				}
+				//liubo ipfs
+				//if d.IpfsMode == true && (d.mode == FullSync || d.mode == FastSync) { //len(chunk) > 0 {
+				if d.bIpfsDownload == 2 && (d.mode == FullSync || d.mode == FastSync) {
+					//ChIpfs <- headers://processHeaders
+					//
+					sender, err := d.queue.Reserveipfs(chunk) //Reserveipfs
+					log.Warn("download recv skeleton header send to ipfs", "len chunk", len(chunk), "real send =", len(sender))
+					if err == nil {
+						d.dpIpfs.HeaderIpfsCh <- sender
+					}
+
 				}
 				headers = headers[limit:]
 				origin += uint64(limit)
@@ -1628,4 +1722,45 @@ func (d *Downloader) requestTTL() time.Duration {
 		ttl = ttlLimit
 	}
 	return ttl
+}
+func (d *Downloader) SetbStoreSendIpfsFlg(flg bool) {
+	if flg {
+		d.bIpfsDownload = 1
+	} else {
+		d.bIpfsDownload = 2
+	}
+
+	d.blockchain.SetbSendIpfsFlg(flg)
+}
+
+//liubo ipfs
+func (d *Downloader) WaitBlockInfoFromIpfs() {
+	log.Debug("Downloader WaitBlockInfoFromIpfs enter")
+	for {
+		select {
+		//case headers := <-HeaderIpfsCh:
+		case block := <-d.ipfsBodyCh:
+			log.Debug("downloader WaitBlockInfoFromIpfs recv block info from ipfs", "head num", block.Headeripfs.Number.Int64())
+			d.queue.recvIpfsBody(&block)
+			//case cancel
+		}
+	}
+	log.Debug("Downloader WaitBlockInfoFromIpfs out")
+}
+
+func (d *Downloader) processIpfsContent() error {
+	log.Debug("Downloader processIpfsContent enter")
+	recvSync := time.NewTicker(20 * time.Second)
+	defer recvSync.Stop()
+	for {
+		select {
+		case <-recvSync.C:
+			//d.queue.CheckIpfsPool()
+
+			//log.Debug("downloader WaitBlockInfoFromIpfs recv block info from ipfs")
+
+		}
+	}
+	log.Debug("Downloader WaitBlockInfoFromIpfs out")
+	return nil
 }
