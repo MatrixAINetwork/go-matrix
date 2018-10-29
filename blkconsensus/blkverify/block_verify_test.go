@@ -139,7 +139,7 @@ func TestLeaderChangeMsg_02(t *testing.T) {
 }
 
 func TestRightRequestMsg_01(t *testing.T) {
-	man := newEth(t, nil, false)
+	man := newman(t, nil, false)
 
 	reElection, err := reelection.New(man.BlockChain(), nil)
 	if err != nil {
@@ -190,7 +190,7 @@ func TestVoteMsg_01(t *testing.T) {
 	}
 	defer sub.Unsubscribe()
 
-	man := newEth(t, nil, false)
+	man := newman(t, nil, false)
 
 	blkVerify, err := NewBlockVerify(man)
 	if err != nil {
@@ -258,14 +258,14 @@ func TestVoteMsg_01(t *testing.T) {
 	}
 }
 
-func newEth(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) *man.Matrix {
+func newman(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) *man.matrix {
 	// Create a temporary storage for the node keys and initialize it
 	workspace, err := ioutil.TempDir("", "console-tester-")
 	if err != nil {
 		t.Fatalf("failed to create temporary keystore: %v", err)
 	}
 
-	// Create a networkless protocol stack and start an Matrix service within
+	// Create a networkless protocol stack and start an matrix service within
 	stack, err := node.New(&node.Config{DataDir: workspace, UseLightweightKDF: true, Name: "block_verify"})
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
@@ -273,8 +273,8 @@ func newEth(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) 
 
 	manConf := &man.Config{
 		Genesis:   core.DeveloperGenesisBlock(15, common.Address{}),
-		Etherbase: common.HexToAddress(testAddress),
-		Ethash: manash.Config{
+		manerbase: common.HexToAddress(testAddress),
+		manash: manash.Config{
 			PowMode: manash.ModeTest,
 		},
 	}
@@ -282,7 +282,7 @@ func newEth(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) 
 		confOverride(manConf)
 	}
 	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return man.New(ctx, manConf) }); err != nil {
-		t.Fatalf("failed to register Matrix protocol: %v", err)
+		t.Fatalf("failed to register matrix protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
 	if err = stack.Start(); err != nil {
@@ -290,7 +290,7 @@ func newEth(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) 
 	}
 	stack.Attach()
 
-	var matrix *man.Matrix
+	var matrix *man.matrix
 	stack.Service(&matrix)
 
 	//创建账户
