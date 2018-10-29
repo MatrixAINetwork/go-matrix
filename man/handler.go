@@ -104,8 +104,8 @@ type ProtocolManager struct {
 	wg sync.WaitGroup
 }
 
-// NewProtocolManager returns a new Matrix sub protocol manager. The Matrix sub protocol manages peers capable
-// with the Matrix network.
+// NewProtocolManager returns a new matrix sub protocol manager. The matrix sub protocol manages peers capable
+// with the matrix network.
 func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb mandb.Database, MsgCenter *mc.Center) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
@@ -203,9 +203,9 @@ func (pm *ProtocolManager) removePeer(id string) {
 	if peer == nil {
 		return
 	}
-	log.Debug("Removing Matrix peer", "peer", id)
+	log.Debug("Removing matrix peer", "peer", id)
 
-	// Unregister the peer from the downloader and Matrix peer set
+	// Unregister the peer from the downloader and matrix peer set
 	pm.downloader.UnregisterPeer(id)
 	//	if err := pm.peers.Unregister(id); err != nil {
 	if err := pm.Peers.Unregister(id); err != nil {
@@ -263,7 +263,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 }
 
 func (pm *ProtocolManager) Stop() {
-	log.Info("Stopping Matrix protocol")
+	log.Info("Stopping matrix protocol")
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
@@ -285,7 +285,7 @@ func (pm *ProtocolManager) Stop() {
 	// Wait for all peer handler goroutines and the loops to come down.
 	pm.wg.Wait()
 
-	log.Info("Matrix protocol stopped")
+	log.Info("matrix protocol stopped")
 }
 
 func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -302,9 +302,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.Peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
 		return p2p.DiscTooManyPeers
 	}
-	p.Log().Debug("Matrix peer connected", "name", p.Name())
+	p.Log().Debug("matrix peer connected", "name", p.Name())
 
-	// Execute the Matrix handshake
+	// Execute the matrix handshake
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -313,7 +313,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		td      = pm.blockchain.GetTd(hash, number)
 	)
 	if err := p.Handshake(pm.networkId, td, hash, genesis.Hash()); err != nil {
-		p.Log().Debug("Matrix handshake failed", "err", err)
+		p.Log().Debug("matrix handshake failed", "err", err)
 		return err
 	}
 	//	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
@@ -323,7 +323,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// Register the peer locally
 	//	if err := pm.peers.Register(p); err != nil {
 	if err := pm.Peers.Register(p); err != nil {
-		p.Log().Error("Matrix peer registration failed", "err", err)
+		p.Log().Error("matrix peer registration failed", "err", err)
 		return err
 	}
 	defer pm.removePeer(p.id)
@@ -358,7 +358,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
-			p.Log().Debug("Matrix message handling failed", "err", err)
+			p.Log().Debug("matrix message handling failed", "err", err)
 			return err
 		}
 	}
@@ -880,10 +880,10 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-// NodeInfo represents a short summary of the Matrix sub-protocol metadata
+// NodeInfo represents a short summary of the matrix sub-protocol metadata
 // known about the host peer.
 type NodeInfo struct {
-	Network    uint64              `json:"network"`    // Matrix network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
+	Network    uint64              `json:"network"`    // matrix network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
 	Difficulty *big.Int            `json:"difficulty"` // Total difficulty of the host's blockchain
 	Genesis    common.Hash         `json:"genesis"`    // SHA3 hash of the host's genesis block
 	Config     *params.ChainConfig `json:"config"`     // Chain configuration for the fork rules
