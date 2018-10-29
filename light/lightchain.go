@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/matrix/go-matrix/consensus/mtxdpos"
+
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/core"
@@ -69,11 +71,12 @@ type LightChain struct {
 	procInterrupt int32 // interrupt signaler for block processing
 	wg            sync.WaitGroup
 
-	engine consensus.Engine
+	engine     consensus.Engine
+	dposEngine consensus.DPOSEngine
 }
 
 // NewLightChain returns a fully initialised light chain using information
-// available in the database. It initialises the default Matrix header
+// available in the database. It initialises the default matrix header
 // validator.
 func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.Engine) (*LightChain, error) {
 	bodyCache, _ := lru.New(bodyCacheLimit)
@@ -89,11 +92,13 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 		blockCache:   blockCache,
 		engine:       engine,
 	}
+	bc.dposEngine = mtxdpos.NewMtxDPOS()
 	var err error
-	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
+	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.dposEngine, bc.getProcInterrupt)
 	if err != nil {
 		return nil, err
 	}
+
 	bc.genesisBlock, _ = bc.GetBlockByNumber(NoOdr, 0)
 	if bc.genesisBlock == nil {
 		return nil, core.ErrNoGenesis
