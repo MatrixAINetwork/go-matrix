@@ -14,11 +14,12 @@
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// gman is the official command-line client for Matrix.
+// gman is the official command-line client for matrix.
 package main
 
 import (
 	"fmt"
+	"github.com/matrix/go-matrix/params/man"
 	"os"
 	"runtime"
 	"sort"
@@ -29,7 +30,6 @@ import (
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/boot"
 	"github.com/matrix/go-matrix/cmd/utils"
 	"github.com/matrix/go-matrix/console"
 	"github.com/matrix/go-matrix/man"
@@ -44,6 +44,10 @@ import (
 const (
 	clientIdentifier = "gman" // Client identifier to advertise over the network
 )
+
+const panicFile = "/tmp/panic.log"
+
+var globalFile *os.File
 
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
@@ -65,12 +69,12 @@ var (
 		utils.DashboardAddrFlag,
 		utils.DashboardPortFlag,
 		utils.DashboardRefreshFlag,
-		utils.EthashCacheDirFlag,
-		utils.EthashCachesInMemoryFlag,
-		utils.EthashCachesOnDiskFlag,
-		utils.EthashDatasetDirFlag,
-		utils.EthashDatasetsInMemoryFlag,
-		utils.EthashDatasetsOnDiskFlag,
+		utils.manashCacheDirFlag,
+		utils.manashCachesInMemoryFlag,
+		utils.manashCachesOnDiskFlag,
+		utils.manashDatasetDirFlag,
+		utils.manashDatasetsInMemoryFlag,
+		utils.manashDatasetsOnDiskFlag,
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,
 		utils.TxPoolRejournalFlag,
@@ -95,7 +99,7 @@ var (
 		utils.ListenPortFlag,
 		utils.MaxPeersFlag,
 		utils.MaxPendingPeersFlag,
-		utils.EtherbaseFlag,
+		utils.manerbaseFlag,
 		utils.GasPriceFlag,
 		utils.MinerThreadsFlag,
 		utils.MiningEnabledFlag,
@@ -114,7 +118,7 @@ var (
 		utils.NetworkIdFlag,
 		utils.RPCCORSDomainFlag,
 		utils.RPCVirtualHostsFlag,
-		utils.EthStatsURLFlag,
+		utils.manStatsURLFlag,
 		utils.MetricsEnabledFlag,
 		utils.FakePoWFlag,
 		utils.NoCompactionFlag,
@@ -149,7 +153,7 @@ var (
 )
 
 func init() {
-	// Initialize the CLI app and start Geth
+	// Initialize the CLI app and start Gman
 	app.Action = gman
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2013-2018 The go-matrix Authors"
@@ -215,7 +219,7 @@ func init() {
 }
 
 func main() {
-	//fmt.Println("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM")
+	initPanicFile()
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -252,6 +256,23 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			unlockAccount(ctx, ks, trimmed, i, passwords)
 		}
 	}
+
+	signHelper := stack.SignalHelper()
+	wallets := stack.AccountManager().Wallets()
+
+	if len(wallets) > 0 && len(wallets[0].Accounts()) > 0 && len(passwords) > 0 {
+		signHelper.SetAccountManager(stack.AccountManager(), wallets[0].Accounts()[0].Address, passwords[0])
+	}
+	if len(wallets) <= 0 {
+		log.Error("无钱包", "请新建钱包", "")
+	}
+	if len(wallets) > 0 && len(wallets[0].Accounts()) <= 0 {
+		log.Error("钱包无账户", "请新建账户", "")
+	}
+	if len(passwords) <= 0 {
+		log.Error("password无密码", "请重启时输入密码", "")
+	}
+
 	// Register wallet event handlers to open and auto-derive wallets
 	events := make(chan accounts.WalletEvent, 16)
 	stack.AccountManager().Subscribe(events)
@@ -294,35 +315,26 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		}
 	}()
 
-	var matrix *man.Matrix
+	var matrix *man.matrix
 	if err := stack.Service(&matrix); err != nil {
-		utils.Fatalf("Matrix service not running :%v", err)
+		utils.Fatalf("matrix service not running :%v", err)
 	}
 	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
-	log.INFO("BoradCastNode", "data", params.BroadCastNodes)
+	log.INFO("BoradCastNode", "data", man.BroadCastNodes)
 	log.Info("main", "nodeid", stack.Server().Self().ID.String())
-	boot := boot.New(matrix.BlockChain(), stack.Server().NodeInfo().ID)
-	go boot.Run()
 
 	log.INFO("创世文件选举信息", "data", matrix.BlockChain().GetBlockByNumber(0).Header().Elect)
 	log.INFO("创世文件拓扑图", "data", matrix.BlockChain().GetBlockByNumber(0).Header().NetTopology)
-	/*go func() {
-		time.Sleep(10 * time.Second)
-		valDep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleValidator)
-		log.INFO("验证者参选信息", "data", valDep, "err", err)
-		mindep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleMiner)
-		log.INFO("矿工参选信息", "data", mindep, "err", err)
-	}()*/
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
-		// Mining only makes sense if a full Matrix node is running
+		// Mining only makes sense if a full matrix node is running
 		if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
-		var matrix *man.Matrix
+		var matrix *man.matrix
 		if err := stack.Service(&matrix); err != nil {
-			utils.Fatalf("Matrix service not running: %v", err)
+			utils.Fatalf("matrix service not running: %v", err)
 		}
 		// Use a reduced number of threads if requested
 		if threads := ctx.GlobalInt(utils.MinerThreadsFlag.Name); threads > 0 {
@@ -340,4 +352,13 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 
 		}
 	}
+}
+func Init_Config_PATH(ctx *cli.Context) {
+	log.INFO("开始读取配置文件", "", "")
+	config_dir := utils.MakeDataDir(ctx)
+	if config_dir == "" {
+		log.Error("无创世文件", "请在启动时使用--datadir", "")
+	}
+
+	man.Config_Init(config_dir + "/man.json")
 }
