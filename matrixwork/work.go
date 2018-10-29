@@ -13,11 +13,13 @@
 //FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package matrixwork
 
 import (
 	"encoding/json"
 	"errors"
+	"github.com/matrix/go-matrix/params"
 	"math/big"
 	"time"
 
@@ -32,10 +34,10 @@ import (
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/man"
 )
 
-var packagename string = "matrixwork"
+var packagename = "matrixwork"
 
 // Work is the workers current environment and holds
 // all of the current state information
@@ -96,7 +98,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			break
 		}
 
-		if tx.N == nil{
+		if tx.N == nil {
 			log.Info("===========tx.N is nil")
 			txs.Pop()
 			continue
@@ -180,7 +182,7 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
-		log.Info("*************","ApplyTransaction:err",err)
+		log.Info("*************", "ApplyTransaction:err", err)
 		env.State.RevertToSnapshot(snap)
 		return err, nil
 	}
@@ -226,10 +228,10 @@ func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPool, bc *c
 	//	return nil, nil
 	//}
 
-	pending, err :=  tp.Pending()
+	pending, err := tp.Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
-		return nil,nil
+		return nil, nil
 	}
 	log.INFO("===========", "ProcessTransactions:pending:", len(pending))
 	txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
@@ -317,7 +319,7 @@ func (env *Work) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 
 	upTimeAccounts := make([]common.Address, 0)
 
-	minerNum := num - (num % common.GetBroadcastInterval()) - params.MinerTopologyGenerateUptime
+	minerNum := num - (num % common.GetBroadcastInterval()) - man.MinerTopologyGenerateUpTime
 	log.INFO(packagename, "参选矿工节点uptime高度", minerNum)
 	ans, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(minerNum)), common.RoleMiner)
 	if err != nil {
@@ -329,7 +331,7 @@ func (env *Work) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
 		log.INFO("v.Address", "v.Address", v.Address)
 	}
-	validatorNum := num - (num % common.GetBroadcastInterval()) - params.VerifyTopologyGenerateUpTime
+	validatorNum := num - (num % common.GetBroadcastInterval()) - man.VerifyTopologyGenerateUpTime
 	log.INFO(packagename, "参选验证节点uptime高度", validatorNum)
 	ans1, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(validatorNum)), common.RoleValidator)
 	if err != nil {
