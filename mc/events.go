@@ -72,5 +72,6 @@ const (
 	BlockToElected
 	BlockToLinkers
 	SendUdpTx
+	SendSyncRole      //lb
 	LastEventCode
 )
