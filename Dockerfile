@@ -11,5 +11,5 @@ RUN cd /go-matrix && make gman
 RUN apk add --no-cache ca-certificates
 RUN  ln -s  /go-matrix/build/bin/gman /usr/local/bin/gman
 
-#EXPOSE 8545 8546 30303 30303/udp 30304/udp
+#EXPOSE 8341 8546 50505 50505/udp 30304/udp
 ENTRYPOINT ["gman"]
