@@ -1,6 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 package p2p
 
 import (
@@ -373,9 +385,9 @@ func CustdecodePacket(buf []byte, Ip string) (*CustUpdPacket, NodeID, []byte, er
 
 func Receiveudp() error {
 	//fmt.Println("receiveudp------------------------------------------")
-	//	addr, err := net.ResolveUDPAddr("udp", "50505")
+	//	addr, err := net.ResolveUDPAddr("udp", "40404")
 	//	conn, err := net.ListenUDP("udp", addr)
-	//	udpaddr, err := net.ResolveUDPAddr("udp", "192.168.3.222:50505")
+	//	udpaddr, err := net.ResolveUDPAddr("udp", "192.168.3.222:40404")
 
 	udpaddr, err := net.ResolveUDPAddr("udp", ":40404")
 	//	checkError(err)
@@ -515,7 +527,7 @@ type CustConfig struct {
 	CustConf Config
 }
 
-var isOldGmanResource = map[string]bool{
+var isOldGethResource = map[string]bool{
 	"chaindata":          true,
 	"nodes":              true,
 	"nodekey":            true,
@@ -539,7 +551,7 @@ func (c *CustConfig) resolvePath(path string) string {
 	}
 	// Backwards-compatibility: ensure that data directory files created
 	// by gman 1.4 are used if they exist.
-	if c.name() == "gman" && isOldGmanResource[path] {
+	if c.name() == "gman" && isOldGethResource[path] {
 		oldpath := ""
 		if c.Name == "gman" {
 			oldpath = filepath.Join(c.DataDir, path)
@@ -610,14 +622,14 @@ func CustNodeKey() *ecdsa.PrivateKey {
 func CustUdpSend(data Custsend) error {
 
 	var mtoaddr net.UDPAddr
-	mtoaddr.IP = []byte("192.168.3.7:50505")
+	mtoaddr.IP = []byte("192.168.3.7:40404")
 	var ourEndpoint rpcEndpoint
 	ourEndpoint.IP = mtoaddr.IP
 	ourEndpoint.UDP = 1
 	ourEndpoint.TCP = 0
 	var toaddr net.UDPAddr
 	toaddr.IP = []byte(data.ToIp)
-	toaddr.Port = 50505
+	toaddr.Port = 40404
 
 	req := &CustUpdPacket{
 		Version:    1,
@@ -642,7 +654,7 @@ func CustUdpSend(data Custsend) error {
 		return err
 	}
 
-	dest := data.ToIp + ":50505"
+	dest := data.ToIp + ":40404"
 	//fmt.Println("***************To Ip", data.ToIp)
 	conn, err := net.Dial("udp", dest)
 	if err != nil {
@@ -674,7 +686,7 @@ func CustStat(qestat []string) []Status_Re {
 
 	var restat []Status_Re
 	for _, elm := range qestat {
-		dest := elm + ":50505"
+		dest := elm + ":30303"
 		conn, err := net.DialTimeout("tcp", dest, 2*time.Second)
 		var tem Status_Re
 		if err != nil {
@@ -705,7 +717,7 @@ func main() {
 
 	var toaddr net.UDPAddr
 	toaddr.IP = []byte("192.168.3.222")
-	toaddr.Port = 50505
+	toaddr.Port = 40404
 
 	pingg("bedf4041cdafe7ea1178b936dab972a0db1009855456c1f60c59e0a8ccb5dcbc8d617ea8a3b507356750557434aaf22bf5e262970cb6a51312bb28dfca300a02", &toaddr)
 

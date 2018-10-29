@@ -1,7 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package core
 
@@ -25,12 +36,11 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/metrics"
+	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params"
 	"github.com/syndtr/goleveldb/leveldb"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/matrix/go-matrix/p2p"
-	"runtime"
 )
 
 //消息类型
@@ -164,14 +174,13 @@ type mapst struct {
 // hezi
 type listst struct {
 	list *list.List
-	//	lk   sync.RWMutex //新合并
+	lk   sync.RWMutex
 }
 
 // hezi
 type sendst struct {
 	snlist mapst
 	lst    listst
-	lstMu  sync.Mutex //新合并
 	notice chan *big.Int
 }
 
@@ -420,9 +429,7 @@ func (pool *TxPool) loop() {
 						tmpdt := make(map[string][]byte)
 
 						if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
-							//from, _ := types.Sender(pool.signer, tx)
-							//YY 如果交易中已经有了from就不需要在做解签
-							from,_ := pool.checkTxFrom(tx)
+							from, _ := types.Sender(pool.signer, tx)
 							json.Unmarshal(tx.Data(), &tmpdt)
 
 							for keydata, valdata := range tmpdt {
@@ -620,21 +627,26 @@ var byte4Number = &byteNumber{maxNum: 0x1ffffff, num: 0}
 
 //hezi
 func (pool *TxPool) packageSNList() {
-	if len(gSendst.snlist.slist) == 0{
+	if len(gSendst.snlist.slist) == 0 {
 		return
 	}
+
 	gSendst.snlist.mlock.Lock()
 	lst := gSendst.snlist.slist
 	gSendst.snlist.slist = make([]*big.Int, 0)
 	gSendst.snlist.mlock.Unlock()
+	//	gSendst.lstMu.Lock()
+	//	gSendst.lst.list.PushBack(lst)
+	//	gSendst.lstMu.Unlock()
 	go func(lst []*big.Int) {
+		//pool.nummlk.Lock()
 		tmpsnlst := make(map[uint32]*big.Int)
 		nodeNum, _ := ca.GetNodeNumber()
 		for _, s := range lst {
 			if pool.sTxValIsNil(s) {
 				tx := pool.getTxbyS(s)
-				if tx == nil{
-					log.Error("packageSNList","tx is nil",0)
+				if tx == nil {
+					log.Error("packageSNList", "tx is nil", 0)
 					continue
 				}
 				tmpnum := byte4Number.catNumber(nodeNum)
@@ -644,10 +656,11 @@ func (pool *TxPool) packageSNList() {
 				pool.setnTx(tmpnum, tx)
 			}
 		}
-		log.Info("====hezi====","send tmpsnlst",len(tmpsnlst))
+		log.Info("====hezi====", "send tmpsnlst", len(tmpsnlst))
+		//pool.nummlk.Unlock()
 		if len(tmpsnlst) > 0 {
-			bt,_ := json.Marshal(tmpsnlst)
-			pool.sendMsg(MsgStruct{Msgtype:SendFloodSN,MsgData:bt})
+			bt, _ := json.Marshal(tmpsnlst)
+			pool.sendMsg(MsgStruct{Msgtype: SendFloodSN, MsgData: bt})
 		}
 	}(lst)
 }
@@ -662,74 +675,61 @@ func addSlist(s *big.Int) {
 //hezi
 func (pool *TxPool) ProcessMsg(m NetworkMsgData) {
 	//log.Info("======hezi==","Networkmsgdata.Data",m.Data)
-	//log.Info("===========ProcessMsg", "aaaaa", 0)
+	log.Info("===========ProcessMsg", "aaaaa", 0)
 	var msgdata *MsgStruct
 	if len(m.Data) > 0 {
 		msgdata = m.Data[0]
 	} else {
 		return
 	}
-	err := errors.New("")
 	switch msgdata.Msgtype {
 	case SendFloodSN: //YY
 		snmap := make(map[uint32]*big.Int)
+		//log.Info("====hezi===","sendfloodsn",msgdata.MsgData)
 		btTmp := msgdata.MsgData
-		err = json.Unmarshal(btTmp, &snmap)
+		//log.Info("====hezi====","recv_snmap:btTmp=",btTmp)
+		err := json.Unmarshal(btTmp, &snmap)
 		if err != nil {
-			log.Info("func ProcessMsg", "case SendFloodSN:Unmarshal_err=", err)
+			log.Info("====hezi====", "recv_snmap:err=", err)
 		}
+		//log.Info("====hezi====","recv_snmap",snmap)
 		nodeid := m.NodeId
-		//log.Info("====hezi====", "recv_snmap:nodeid=", nodeid)
+		log.Info("====hezi====", "recv_snmap:nodeid=", nodeid)
 		pool.msg_CheckTx(snmap, nodeid)
 	case GetTxbyN: //YY
 		listN := new([]uint32)
-		err=json.Unmarshal(msgdata.MsgData, &listN)
-		if err != nil {
-			log.Info("func ProcessMsg", "case GetTxbyN:Unmarshal_err=", err)
-		}
+		json.Unmarshal(msgdata.MsgData, &listN)
 		nodeid := m.NodeId
 		pool.msg_GetTxByN(*listN, nodeid)
 	case GetConsensusTxbyN: //add hezi
 		listN := new([]uint32)
-		err = json.Unmarshal(msgdata.MsgData, &listN)
-		if err != nil{
-			log.Info("func ProcessMsg", "case GetConsensusTxbyN:Unmarshal_err=", err)
-		}
+		json.Unmarshal(msgdata.MsgData, &listN)
 		nodeid := m.NodeId
 		pool.msg_GetConsensusTxByN(*listN, nodeid)
 	case RecvTxbyN: //YY
 		nodeid := m.NodeId
 		ntx := make(map[uint32]*types.Floodtxdata, 0)
-		err=json.Unmarshal(msgdata.MsgData, &ntx)
-		if err != nil{
-			log.Info("func ProcessMsg", "case RecvTxbyN:Unmarshal_err=", err)
-		}
+		json.Unmarshal(msgdata.MsgData, &ntx)
 		pool.msg_RecvFloodTx(ntx, nodeid)
 	case RecvConsensusTxbyN://add hezi
 		nodeid := m.NodeId
 		ntx := make(map[uint32]*types.Transaction, 0)
-		err=json.Unmarshal(msgdata.MsgData, &ntx)
-		if err != nil{
-			log.Info("func ProcessMsg", "case RecvConsensusTxbyN:Unmarshal_err=", err)
-		}
+		json.Unmarshal(msgdata.MsgData, &ntx)
 		pool.msg_RecvConsensusFloodTx(ntx, nodeid)
 	case RecvErrTx: //YY
 		nodeid := m.NodeId
 		listS := new([]*big.Int)
-		err=json.Unmarshal(msgdata.MsgData, &listS)
-		if err != nil{
-			log.Info("func ProcessMsg", "case RecvErrTx:Unmarshal_err=", err)
-		}
+		json.Unmarshal(msgdata.MsgData, &listS)
 		pool.msg_RecvErrTx(common.HexToAddress(nodeid.String()), *listS)
 	case BroadCast:
 		var tx_mx *types.Transaction_Mx
-		err = json.Unmarshal(msgdata.MsgData, &tx_mx)
+		err := json.Unmarshal(msgdata.MsgData, &tx_mx)
 		tx := types.SetTransactionMx(tx_mx)
 		if err == nil {
-			//log.Info("func ProcessMsg", "BroadCast:Unmarshal:OK=", tx)
+			log.Info("========YY====1", "Unmarshal:OK=", tx)
 			pool.addTx(tx, false)
 		} else {
-			log.Info("func ProcessMsg", "BroadCast:Unmarshal-TX:err=", err)
+			log.Info("========YY====2", "Unmarshal-TX:err=", err)
 		}
 	}
 }
@@ -747,6 +747,13 @@ func (pool *TxPool) sendMsg(data MsgStruct) {
 		//给固定的节点发送根据N获取Tx的请求
 		log.Info("===sendMSG ======YY====", "Msgtype", data.Msgtype)
 		p2p.SendToSingle(data.NodeId, common.NetworkMsg, []interface{}{data})
+	//case RecvTxbyN://YY
+	//	//给固定的节点返回根据N获取Tx的请求
+	//	log.Info("===sendMSG ======YY====","Msgtype",data.Msgtype)
+	//	p2p.SendToSingle(data.NodeId,common.NetworkMsg,[]interface{}{data})
+	//case BroadCast://YY
+	//	log.Info("===sendMSG ======YY====","Msgtype",data.Msgtype)
+	//	p2p.SendToSingle(data.NodeId,common.NetworkMsg,[]interface{}{data})
 	case RecvErrTx: //YY 给全部验证者发送错误交易做共识
 		if selfRole == common.RoleValidator {
 			log.Info("===sendMsg ErrTx===YY===", "selfRole", selfRole)
@@ -754,6 +761,24 @@ func (pool *TxPool) sendMsg(data MsgStruct) {
 		}
 	}
 }
+
+//hezi 不用了
+//func (pool *TxPool) analysisMessage()  {
+//	for{
+//		select {
+//		case m := <- pool.chanmsg:
+//			switch m.msgtype {
+//			case SendFloodSN:
+//				snmap := m.data.(map[*big.Int]uint32)
+//				listNwithoutS := pool.CheckTx(snmap)
+//				//TODO
+//				fmt.Println(listNwithoutS)
+//			case GetTxbyN:
+//
+//			}
+//		}
+//	}
+//}
 
 //by hezi
 func (pool *TxPool) checkList() {
@@ -806,26 +831,18 @@ func (pool *TxPool) listenudp() {
 		select {
 		//udp接收的交易，此处应该只发给验证节点
 		case evtxs := <-pool.udptxsCh:
-			log.Info("======hezi=====","checklist: udptxs:",len(evtxs))
+			log.Info("======hezi=====", "checklist: udptxs:", evtxs)
 			selfRole := ca.GetRole()
 			if selfRole == common.RoleValidator {
 				pool.selfmlk.Lock()
-				tmptxs := make(types.Transactions,0)
-				for _,ftx:=range evtxs{
-					tx := types.ConvMxtotx(ftx)
-					log.Info("======YY====","listenudp()",tx.Nonce())
+				for _, mxtx := range evtxs {
+					tx := types.ConvMxtotx(mxtx)
 					//YY ====begin======
 					if nc := tx.Nonce(); nc < params.NonceAddOne {
 						nc = nc | params.NonceAddOne
 						tx.SetNonce(nc)
 					}
 					//=========end======
-					tmptxs = append(tmptxs,tx)
-				}
-				pool.getFromByTx(tmptxs)
-				for _,tx := range tmptxs{
-					//tx := types.ConvMxtotx(mxtx)
-
 					//log.Info("====hezi===1","tx:",tx,"udptx add pool time:",time.Now().UnixNano())
 					//udpCount++
 					tmptx := pool.getTxbyS(tx.GetTxS())
@@ -1062,8 +1079,10 @@ func (pool *TxPool) getPendingTx() {
 func (pool *TxPool) msg_CheckTx(mapSN map[uint32]*big.Int, nid discover.NodeID) {
 	log.Info("**************msg_CheckTx IN")
 	defer log.Info("**************msg_CheckTx OUT")
-	log.Info("========YY===1", "msg_CheckTx:len(mapSN)", len(mapSN))
+	log.Info("========YY===1", "msg_CheckTx", 0)
+	//log.Info("========YY===2","msg_CheckTx:len(mapSN)=",len(mapSN))
 	listN := make([]uint32, 0)
+	//log.Info("==========YY=============","msg_CheckTx()mapSN",mapSN)
 	pool.selfmlk.Lock()
 	for n, s := range mapSN {
 		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
@@ -1092,6 +1111,7 @@ func (pool *TxPool) msg_CheckTx(mapSN map[uint32]*big.Int, nid discover.NodeID) 
 	}
 	pool.selfmlk.Unlock()
 	if len(listN) > 0 {
+		log.Info("========YY=== ", "listN", len(listN))
 		msData, _ := json.Marshal(listN)
 		pool.sendMsg(MsgStruct{Msgtype: GetTxbyN, NodeId: nid, MsgData: msData})
 	}
@@ -1130,14 +1150,7 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 	log.Info("========YY===2", "ReturnAllTxsByN", 0)
 	txs := make([]*types.Transaction, 0)
 	ns := make([]uint32, 0)
-	count := 0
 	for _, n := range listN {
-		count++
-		if count >= 5000{
-			count = 0
-			log.INFO("**********ReturnAllTxsByN running")
-		}
-
 		tx := pool.getTxbyN(n)
 		if tx != nil {
 			txs = append(txs, tx)
@@ -1164,8 +1177,8 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 			return
 		}
 		// 发送缺失交易N的列表
+		//pool.sendMsg(MsgStruct{Msgtype: GetTxbyN, NodeId: nid, MsgData: msData})
 		pool.sendMsg(MsgStruct{Msgtype: GetConsensusTxbyN, NodeId: nid, MsgData: msData}) //modi hezi(共识要的交易都带s)
-
 		rettime := time.NewTimer(3 * time.Second) // 2秒后没有收到需要的交易则返回
 	forBreak:
 		for {
@@ -1173,7 +1186,7 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 			case <-rettime.C:
 				log.Info("========YY===", "ReturnAllTxsByN:Time Out=", 0)
 				break forBreak
-			case <-time.After(1000 * time.Millisecond): //1000毫秒轮训一次
+			case <-time.After(100 * time.Millisecond): //100毫秒轮训一次
 				tmpns := make([]uint32, 0)
 				for _, n := range ns {
 					tx := pool.getTxbyN(n)
@@ -1197,7 +1210,7 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 				if tx != nil {
 					txs = append(txs, tx)
 				} else {
-					txerr = errors.New("else loss tx")
+			txerr = errors.New("loss tx")
 					txs = make([]*types.Transaction, 0)
 					break
 				}
@@ -1207,7 +1220,7 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 		log.Info("========YY===end if", "ReturnAllTxsByN:len(ns)", len(ns))
 	} else {
 		retch <- &RetChan{txs, nil, resqe}
-		log.Info("========YY===end else", "ReturnAllTxsByN", "return success")
+		log.Info("========YY===end else", "ReturnAllTxsByN", 0)
 	}
 }
 
@@ -1219,21 +1232,19 @@ func (pool *TxPool) msg_GetConsensusTxByN(listN []uint32, nid discover.NodeID) {
 	}
 	mapNtx := make(map[uint32]*types.Transaction)
 	for _, n := range listN {
-		tx := pool.getTxbyN(n)
+		tx := pool.getTxbyN(n) //TODO　循环调用这个方法，然后方法中有锁 这样的情况是否允许
 		if tx != nil {
 			//ftx := types.GetFloodData(tx)
 			mapNtx[n] = tx
 		} else {
-			log.Info("=======msg_GetConsensusTxByN====YY==tx is nil")
+			log.Info("===========YY==tx is nil")
 		}
 	}
 	msData, _ := json.Marshal(mapNtx)
-
 	log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx),"nodeid",nid.String())
 	pool.sendMsg(MsgStruct{Msgtype: RecvConsensusTxbyN, NodeId: nid, MsgData: msData})
 	log.Info("========YY===3", "GetConsensusTxByN", 0)
 }
-
 //YY 根据N值获取对应的交易(洪泛)
 func (pool *TxPool) msg_GetTxByN(listN []uint32, nid discover.NodeID) {
 	log.Info("==========YY", "msg_GetTxByN:len(listN)", len(listN))
@@ -1242,52 +1253,34 @@ func (pool *TxPool) msg_GetTxByN(listN []uint32, nid discover.NodeID) {
 	}
 	mapNtx := make(map[uint32]*types.Floodtxdata)
 	for _, n := range listN {
-		tx := pool.getTxbyN(n)
+		tx := pool.getTxbyN(n) //TODO　循环调用这个方法，然后方法中有锁 这样的情况是否允许
 		if tx != nil {
 			ftx := types.GetFloodData(tx)
 			mapNtx[n] = ftx
 		} else {
-			log.Info("=====msg_GetTxByN======YY==tx is nil")
+			log.Info("===========YY==tx is nil")
 		}
 	}
 	msData, _ := json.Marshal(mapNtx)
 
-	log.Info("========YY===2", "msg_GetTxByN:ntxMap", len(mapNtx),"nodeid",nid.String())
+	log.Info("========YY===2", "msg_GetTxByN:ntxMap", len(mapNtx))
 	pool.sendMsg(MsgStruct{Msgtype: RecvTxbyN, NodeId: nid, MsgData: msData})
 	log.Info("========YY===3", "msg_GetTxByN", 0)
 }
+
 //此接口传的交易带s(modi hezi)
 func (pool *TxPool) msg_RecvConsensusFloodTx(mapNtx map[uint32]*types.Transaction, nid discover.NodeID) {
 	pool.selfmlk.Lock()
-	log.Info("func msg_RecvConsensusFloodTx", "msg_RecvConsensusFloodTx: len(mapNtx)=", len(mapNtx))
-	defer log.Info("func msg_RecvConsensusFloodTx defer ", "msg_RecvConsensusFloodTx: len(mapNtx)=", 0)
+	log.INFO("===========","msg_RecvConsensusFloodTx",len(mapNtx))
 	errorTxs := make([]*big.Int, 0)
-	txs := make(types.Transactions,0)
-	tmpNtx := make(map[uint32]*types.Transaction)
 	for n, tx := range mapNtx {
-		ss := tx.GetTxS()
-		mapNs.Store(n,ss)
+		mapNs.Store(n,tx.GetTxS())
 		ts,ok:=mapNs.Load(n)
 		if !ok{
 			continue
 		}
 		s:=ts.(*big.Int)
 		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
-			continue
-		}
-		txs = append(txs,tx)
-		tmpNtx[n] = tx
-	}
-	pool.getFromByTx(txs)
-	log.Info("=======YY===","msg_RecvConsensusFloodTx: len(mapNtx)=",len(tmpNtx))
-	for n, tx := range tmpNtx {
-		ts,ok:=mapNs.Load(n)
-		if !ok{
-			continue
-		}
-		s:=ts.(*big.Int)
-		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
-			log.Info("======YY====2222","msg_RecvConsensusFloodTx()1:ssssssssssssss",s,"nnnnnnnnnnnnnn:",n)
 			continue
 		}
 		isExist := true
@@ -1305,6 +1298,7 @@ func (pool *TxPool) msg_RecvConsensusFloodTx(mapNtx map[uint32]*types.Transactio
 			pool.setTxNum(tx, n)
 			pool.setnTx(n, tx)
 		}
+		//tx.SetTxS(s)
 		err := pool.addTx(tx, false)
 		if err != nil && err != ErrKownTransaction {
 			log.Info("========YY===3", "msg_RecvConsensusFloodTx::Error=", err)
@@ -1321,26 +1315,19 @@ func (pool *TxPool) msg_RecvConsensusFloodTx(mapNtx map[uint32]*types.Transactio
 		}
 	}
 	pool.selfmlk.Unlock()
-
 	if len(errorTxs) > 0 {
 		//TODO S在这如何进行签名？？如何获得本节点账户信息
-		msData, err:= json.Marshal(errorTxs)
-		if err != nil{
-			log.Error("function msg_RecvConsensusFloodTx","send error Tx,json.Marshal is err:",err)
-		}else{
-			pool.sendMsg(MsgStruct{Msgtype:RecvErrTx,NodeId:nid,MsgData:msData})
-			pool.msg_RecvErrTx(common.Address{},errorTxs)
-		}
+		msData, _ := json.Marshal(errorTxs)
+		pool.sendMsg(MsgStruct{Msgtype: RecvErrTx, NodeId: nid, MsgData: msData})
+		//pool.msg_RecvErrTx(common.Address{}, errorTxs)
 	}
 }
 //YY 接收洪泛的交易（根据N请求到的交易）
 func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid discover.NodeID) {
-	pool.selfmlk.Lock()
-	log.Info("func msg_RecvFloodTx", "msg_RecvFloodTx: len(mapNtx)=", len(mapNtx))
-	defer log.Info("func msg_RecvFloodTx defer ", "msg_RecvFloodTx: len(mapNtx)=", 0)
 	errorTxs := make([]*big.Int, 0)
-	txs := make(types.Transactions,0)
-	tmpNtx := make(map[uint32]*types.Transaction)
+	pool.selfmlk.Lock()
+	log.Info("=======YY===", "msg_RecvFloodTx: len(mapNtx)=", len(mapNtx))
+	//aa := 0
 	for n, ftx := range mapNtx {
 		ts,ok:=mapNs.Load(n)
 		if !ok{
@@ -1351,24 +1338,6 @@ func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid di
 			continue
 		}
 		tx := types.SetFloodData(ftx)
-		if tx.GetTxS() == nil{
-			tx.SetTxS(s)
-		}
-		txs = append(txs,tx)
-		tmpNtx[n] = tx
-	}
-	pool.getFromByTx(txs)
-	log.Info("=======YY===","msg_RecvFloodTx: len(mapNtx)=",len(tmpNtx))
-	for n, tx := range tmpNtx {
-		ts,ok:=mapNs.Load(n)
-		if !ok{
-			continue
-		}
-		s:=ts.(*big.Int)
-		if s == nil || n == 0 { //如果S或者N 不合法则直接跳过
-			log.Info("======YY====2222","msg_RecvFloodTx()1:ssssssssssssss",s,"nnnnnnnnnnnnnn:",n)
-			continue
-		}
 		isExist := true
 		for _, txn := range tx.N { //如果有重复的N我就不添加了
 			if txn == n {
@@ -1384,12 +1353,13 @@ func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid di
 			pool.setTxNum(tx, n)
 			pool.setnTx(n, tx)
 		}
-		if tx.GetTxS() == nil{
-			tx.SetTxS(s)
-		}
+		tx.SetTxS(s)
 		err := pool.addTx(tx, false)
+		//aa += 1
+		//log.Info("========YY===3", "msg_RecvFloodTx::addTx:nid=",nid.String(),"err:", err,"count:",aa)
 		if err != nil && err != ErrKownTransaction {
 			log.Info("========YY===3", "msg_RecvFloodTx::Error=", err)
+			log.Info("========YY===4", "msg_RecvFloodTx::Tx=", tx)
 			if _, ok := mapErrorTxs[s]; !ok {
 				errorTxs = append(errorTxs, s)
 				mapErrorTxs[s] = tx
@@ -1404,13 +1374,9 @@ func (pool *TxPool) msg_RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid di
 	pool.selfmlk.Unlock()
 	if len(errorTxs) > 0 {
 		//TODO S在这如何进行签名？？如何获得本节点账户信息
-		msData, err:= json.Marshal(errorTxs)
-		if err != nil{
-			log.Error("function msg_RecvFloodTx","send error Tx,json.Marshal is err:",err)
-		}else{
-			pool.sendMsg(MsgStruct{Msgtype:RecvErrTx,NodeId:nid,MsgData:msData})
-			pool.msg_RecvErrTx(common.Address{},errorTxs)
-		}
+		msData, _ := json.Marshal(errorTxs)
+		pool.sendMsg(MsgStruct{Msgtype: RecvErrTx, NodeId: nid, MsgData: msData})
+		//pool.msg_RecvErrTx(common.Address{}, errorTxs)
 	}
 }
 
@@ -1426,7 +1392,6 @@ func (pool *TxPool) msg_RecvErrTx(addr common.Address, listS []*big.Int) {
 		2、如果6个V认为是错误的5个认为是对的，那么对打包生成区块没影响。
 	*/
 	pool.selfmlk.Lock()
-	defer pool.selfmlk.Unlock()
 	for _, s := range listS {
 		tmptx := pool.getTxbyS(s)
 		if tmptx != nil {
@@ -1458,7 +1423,7 @@ func (pool *TxPool) msg_RecvErrTx(addr common.Address, listS []*big.Int) {
 		}
 		pool.mu.Unlock()
 	}
-
+	pool.selfmlk.Unlock()
 }
 
 //YY 刪除新增加的map中的数据
@@ -1471,8 +1436,10 @@ func (pool *TxPool) deleteMap(tx *types.Transaction) {
 		pool.deletnTx(n)
 		mapNs.Delete(n)
 	}
-	delete(mapTxsTiming,tx.Hash())
+	//delete(mapSNForTx,s)
+	delete(mapTxsTiming, tx.Hash())
 	pool.deletsTx(s)
+	//log.Info("========YY===2","end deleteMap")
 }
 
 //YY 添加区块定时
@@ -1507,38 +1474,7 @@ func (pool *TxPool) blockTiming() {
 		}
 	}
 }
-//YY 根据交易获取交易中的from
-func (pool *TxPool) getFromByTx(txs types.Transactions){
-	var waitG = &sync.WaitGroup{}
-	maxProcs := runtime.NumCPU()   //获取cpu个数
-	log.Info("*******CPU核数","cpu count:",maxProcs)
-	runtime.GOMAXPROCS(maxProcs)  //限制同时运行的goroutines数量
-	log.Info("beginbeginbeginbeginbeginbeginbegin","getFromByTx",len(txs))
-	for _,tx:=range txs{
-		_,err:=tx.GetTxFrom()
-		if err == nil{
-			continue
-		}
-		waitG.Add(1)
-		ttx := tx
-		go types.Sender_self(pool.signer,ttx,waitG)
-	}
-	waitG.Wait()
-}
-//YY 检查交易中是否存在from
-func (pool *TxPool) checkTxFrom(tx *types.Transaction) (common.Address,error){
-	from,err:=tx.GetTxFrom()
-	if err == nil{
-		return from,nil
-	}else{
-		f, err := types.Sender(pool.signer, tx)
-		if err != nil{
-			return common.Address{},ErrInvalidSender
-		}else{
-			return f,nil
-		}
-	}
-}
+
 // local retrieves all currently known local transactions, groupped by origin
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
@@ -1609,10 +1545,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.currentMaxGas < tx.Gas() {
 		return ErrGasLimit
 	}
-	//YY 如果交易中已经有了from就不需要在做解签
-	from,addrerr := pool.checkTxFrom(tx)
-	if addrerr != nil{
-		return addrerr
+
+	// Make sure the transaction is signed properly
+	from, err := types.Sender(pool.signer, tx)
+	if err != nil {
+		return ErrInvalidSender
 	}
 	//YY 验证当V值大于128时，如果扩展交易为空则直接丢弃该交易并返回交易不合法
 	if tx.GetTxV().Cmp(big.NewInt(128)) > 0 && len(txEx) <= 0 {
@@ -1675,12 +1612,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		log.Info("GetMatrix_EX has data")
 		if tx.GetMatrix_EX()[0].TxType == 1 {
 			log.Info("========broadcast tx add pool")
-			//from, _ := types.Sender(pool.signer, tx) //YY 注释此行改用下面的
-			//YY 如果交易中已经有了from就不需要在做解签
-			from,addrerr := pool.checkTxFrom(tx)
-			if addrerr != nil{
-				return false,addrerr
-			}
+			from, _ := types.Sender(pool.signer, tx)
 			tmpdt := make(map[string][]byte)
 			err := json.Unmarshal(tx.Data(), &tmpdt)
 			if err != nil {
@@ -1753,13 +1685,8 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			pool.removeTx(tx.Hash(), false)
 		}
 	}
-
-	//YY 如果交易中已经有了from就不需要在做解签
-	from,addrerr := pool.checkTxFrom(tx)
-	if addrerr != nil{
-		return false,addrerr
-	}
-
+	// If the transaction is replacing an already pending one, do directly
+	from, _ := types.Sender(pool.signer, tx) // already validated
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
 		// Nonce already pending, check if required price bump is met
 		inserted, old := list.Add(tx, pool.config.PriceBump)
@@ -1822,12 +1749,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 // Note, this method assumes the pool lock is held!
 func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, error) {
 	// Try to insert the transaction into the future queue
-	//from, _ := types.Sender(pool.signer, tx) // already validated //YY 注释
-	//YY 如果交易中已经有了from就不需要在做解签
-	from,addrerr := pool.checkTxFrom(tx)
-	if addrerr != nil{
-		return false,addrerr
-	}
+	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
 		pool.queue[from] = newTxList(false)
 	}
@@ -1940,9 +1862,7 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	}
 	// If we added a new transaction, run promotion checks and return
 	if !replace {
-		//from, _ := types.Sender(pool.signer, tx) // already validated //YY
-		//YY 如果交易中已经有了from就不需要在做解签
-		from,_ := pool.checkTxFrom(tx)
+		from, _ := types.Sender(pool.signer, tx) // already validated
 		pool.promoteExecutables([]common.Address{from})
 	}
 	return nil
@@ -1950,13 +1870,10 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 
 // addTxs attempts to queue a batch of transactions if they are valid.
 func (pool *TxPool) addTxs(txs []*types.Transaction, local bool) []error {
-	pool.selfmlk.Lock()
-	pool.getFromByTx(txs)//YY
-	pool.selfmlk.Unlock()
 	pool.mu.Lock()
-	err := pool.addTxsLocked(txs, local)
-	pool.mu.Unlock()
-	return err
+	defer pool.mu.Unlock()
+
+	return pool.addTxsLocked(txs, local)
 }
 
 // addTxsLocked attempts to queue a batch of transactions if they are valid,
@@ -1970,9 +1887,7 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) []error {
 		var replace bool
 		if replace, errs[i] = pool.add(tx, local); errs[i] == nil {
 			if !replace {
-				//from, _ := types.Sender(pool.signer, tx) // already validated //YY 注释
-				//YY 如果交易中已经有了from就不需要在做解签
-				from,_ := pool.checkTxFrom(tx)
+				from, _ := types.Sender(pool.signer, tx) // already validated
 				dirty[from] = struct{}{}
 			}
 		}
@@ -1997,10 +1912,7 @@ func (pool *TxPool) Status(hashes []common.Hash) []TxStatus {
 	status := make([]TxStatus, len(hashes))
 	for i, hash := range hashes {
 		if tx := pool.all.Get(hash); tx != nil {
-			//from, _ := types.Sender(pool.signer, tx) // already validated //YY
-			//YY 如果交易中已经有了from就不需要在做解签
-			from,_ := pool.checkTxFrom(tx)
-
+			from, _ := types.Sender(pool.signer, tx) // already validated
 			if pool.pending[from] != nil && pool.pending[from].txs.items[tx.Nonce()] != nil {
 				status[i] = TxStatusPending
 			} else {
@@ -2027,9 +1939,7 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 		return
 	}
 	log.Info("========YY=======2", "removeTx", 0)
-	//addr, _ := types.Sender(pool.signer, tx) // already validated during insertion
-	//YY 如果交易中已经有了from就不需要在做解签
-	addr,_ := pool.checkTxFrom(tx)
+	addr, _ := types.Sender(pool.signer, tx) // already validated during insertion
 
 	// Remove it from the list of known transactions
 	pool.all.Remove(hash)
@@ -2356,14 +2266,7 @@ func (as *accountSet) contains(addr common.Address) bool {
 // containsTx checks if the sender of a given tx is within the set. If the sender
 // cannot be derived, this method returns false.
 func (as *accountSet) containsTx(tx *types.Transaction) bool {
-	//YY ========begin=========
-	addr,err:= tx.GetTxFrom()
-	if err != nil{
-		addr, err = types.Sender(as.signer, tx)
-	}
-	//===========end=============
-	//if addr, err := types.Sender(as.signer, tx); err == nil {
-	if err == nil {
+	if addr, err := types.Sender(as.signer, tx); err == nil {
 		return as.contains(addr)
 	}
 	return false
@@ -2528,11 +2431,8 @@ func (pool *TxPool) GetAllSpecialTxs() (reqVal map[common.Address]types.Transact
 	var from common.Address
 	reqVal = make(map[common.Address]types.Transactions, 0)
 	for _, tx := range pool.Special {
-		//from, _ = types.Sender(pool.signer, tx) //YY
-		//YY 如果交易中已经有了from就不需要在做解签
-		from,_ = pool.checkTxFrom(tx)
-
-		reqVal[from] = append(reqVal[from],tx)
+		from, _ = types.Sender(pool.signer, tx)
+		reqVal[from] = append(reqVal[from], tx)
 	}
 
 	pool.Special = make(map[common.Hash]*types.Transaction, 0)

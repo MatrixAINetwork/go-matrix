@@ -1,7 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Package manstats implements the network stats reporting service.
 package manstats
@@ -26,6 +37,7 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/les"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/rpc"
@@ -59,6 +71,7 @@ type blockChain interface {
 type Service struct {
 	server *p2p.Server        // Peer-to-peer server to retrieve networking infos
 	man    *man.Matrix      // Full Matrix service if monitoring a full node
+	les    *les.LightMatrix // Light Matrix service if monitoring a light node
 	engine consensus.Engine   // Consensus engine to retrieve variadic block fields
 
 	node string // Name of the node to display on the monitoring page
@@ -70,7 +83,7 @@ type Service struct {
 }
 
 // New returns a monitoring service ready for stats reporting.
-func New(url string, manServ *man.Matrix) (*Service, error) {
+func New(url string, manServ *man.Matrix, lesServ *les.LightMatrix) (*Service, error) {
 	// Parse the netstats connection url
 	re := regexp.MustCompile("([^:@]*)(:([^@]*))?@(.+)")
 	parts := re.FindStringSubmatch(url)
@@ -81,9 +94,12 @@ func New(url string, manServ *man.Matrix) (*Service, error) {
 	var engine consensus.Engine
 	if manServ != nil {
 		engine = manServ.Engine()
+	} else {
+		engine = lesServ.Engine()
 	}
 	return &Service{
 		man:    manServ,
+		les:    lesServ,
 		engine: engine,
 		node:   parts[1],
 		pass:   parts[3],
@@ -125,6 +141,9 @@ func (s *Service) loop() {
 	if s.man != nil {
 		blockchain = s.man.BlockChain()
 		txpool = s.man.TxPool()
+	} else {
+		blockchain = s.les.BlockChain()
+		txpool = s.les.TxPool()
 	}
 
 	chainHeadCh := make(chan core.ChainHeadEvent, chainHeadChanSize)
@@ -298,7 +317,7 @@ func (s *Service) readLoop(conn *websocket.Conn) {
 			if !ok {
 				log.Warn("Invalid stats history request", "msg", msg["emit"][1])
 				s.histCh <- nil
-				continue // Manstats sometime sends invalid history requests, ignore those
+				continue // Ethstats sometime sends invalid history requests, ignore those
 			}
 			list, ok := request["list"].([]interface{})
 			if !ok {
@@ -357,6 +376,9 @@ func (s *Service) login(conn *websocket.Conn) error {
 	if info := infos.Protocols["man"]; info != nil {
 		network = fmt.Sprintf("%d", info.(*man.NodeInfo).Network)
 		protocol = fmt.Sprintf("man/%d", man.ProtocolVersions[0])
+	} else {
+		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
+		protocol = fmt.Sprintf("les/%d", les.ClientProtocolVersions[0])
 	}
 	auth := &authMsg{
 		Id: s.node,
@@ -524,6 +546,15 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 			txs[i].Hash = tx.Hash()
 		}
 		uncles = block.Uncles()
+	} else {
+		// Light nodes would need on-demand lookups for transactions/uncles, skip
+		if block != nil {
+			header = block.Header()
+		} else {
+			header = s.les.BlockChain().CurrentHeader()
+		}
+		td = s.les.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
+		txs = []txStats{}
 	}
 	// Assemble and return the block stats
 	author, _ := s.engine.Author(header)
@@ -563,6 +594,8 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 		var head int64
 		if s.man != nil {
 			head = s.man.BlockChain().CurrentHeader().Number.Int64()
+		} else {
+			head = s.les.BlockChain().CurrentHeader().Number.Int64()
 		}
 		start := head - historyUpdateRange + 1
 		if start < 0 {
@@ -579,6 +612,10 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 		var block *types.Block
 		if s.man != nil {
 			block = s.man.BlockChain().GetBlockByNumber(number)
+		} else {
+			if header := s.les.BlockChain().GetHeaderByNumber(number); header != nil {
+				block = types.NewBlockWithHeader(header)
+			}
 		}
 		// If we do have the block, add to the history and continue
 		if block != nil {
@@ -617,6 +654,8 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 	var pending int
 	if s.man != nil {
 		pending, _ = s.man.TxPool().Stats()
+	} else {
+		pending = s.les.TxPool().Stats()
 	}
 	// Assemble the transaction stats and send it to the server
 	log.Trace("Sending pending transactions to manstats", "count", pending)
@@ -663,6 +702,9 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 
 		price, _ := s.man.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
+	} else {
+		sync := s.les.Downloader().Progress()
+		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
 	}
 	// Assemble the node stats and send it to the server
 	log.Trace("Sending node details to manstats")

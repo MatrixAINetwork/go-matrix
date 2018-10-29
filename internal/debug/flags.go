@@ -1,7 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package debug
 
@@ -29,16 +40,6 @@ var (
 		Name:  "verbosity",
 		Usage: "Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=detail",
 		Value: 3,
-	}
-	verOutPutFlag = cli.IntFlag{
-		Name:  "outputinfo",
-		Usage: "Logging output: 0=console, 1=file, 2=both",
-		Value: 0,
-	}
-	verOutPutDirFlag = cli.StringFlag{
-		Name:  "outputdir",
-		Usage: "Logging output dir:eg:linux  /var/log/MatrixLog, window C:\\MatrixLog, otherwise null means current path /MatrixLog/",
-		Value: "",
 	}
 	vmoduleFlag = cli.StringFlag{
 		Name:  "vmodule",
@@ -89,7 +90,7 @@ var (
 
 // Flags holds all command-line flags required for debugging.
 var Flags = []cli.Flag{
-	verbosityFlag, verOutPutFlag, verOutPutDirFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
+	verbosityFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
 	pprofFlag, pprofAddrFlag, pprofPortFlag,
 	memprofilerateFlag, blockprofilerateFlag, cpuprofileFlag, traceFlag,
 }
@@ -116,29 +117,17 @@ func init() {
 func Setup(ctx *cli.Context, logdir string) error {
 	// logging
 	log.PrintOrigins(ctx.GlobalBool(debugFlag.Name))
-	logPath := ctx.GlobalString(verOutPutDirFlag.Name)
-	if logPath == "" {
-		logPath = "MatrixLog"
-	}
-
-	flg := ctx.GlobalInt(verOutPutFlag.Name)
-	if flg > 0 {
-		if logPath != "" {
-			rfh, err := log.RotatingFileHandler(
-				logPath,      //logdir,
-				1024*1024*50, //262144,
-				/*log.JSONFormatOrderedEx(false, true),*/
-				log.TerminalFormat(false),
-			)
-			if err != nil {
-				return err
-			}
-			if flg == 1 {
-				glogger.SetHandler(log.MultiHandler(rfh))
-			} else {
-				glogger.SetHandler(log.MultiHandler(ostream, rfh))
-			}
+	if logdir != "" {
+		rfh, err := log.RotatingFileHandler(
+			logdir,
+			1024*1024*1024*2, //262144,
+			/*log.JSONFormatOrderedEx(false, true),*/
+			log.TerminalFormat(false),
+		)
+		if err != nil {
+			return err
 		}
+		glogger.SetHandler(log.MultiHandler(ostream, rfh))
 	}
 	glogger.Verbosity(log.Lvl(ctx.GlobalInt(verbosityFlag.Name)))
 	glogger.Vmodule(ctx.GlobalString(vmoduleFlag.Name))

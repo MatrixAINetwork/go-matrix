@@ -1,7 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Contains the block download scheduler to collect download tasks and schedule
 // them in an ordered, and throttled way.
@@ -51,10 +62,6 @@ type fetchResult struct {
 	Transactions types.Transactions
 	Receipts     types.Receipts
 }
-type ipfsRequest struct {
-	Header *types.Header
-	Time   time.Time
-}
 
 // queue represents hashes that are either need fetching or are being fetched
 type queue struct {
@@ -76,7 +83,6 @@ type queue struct {
 	blockTaskQueue *prque.Prque                  // [man/62] Priority queue of the headers to fetch the blocks (bodies) for
 	blockPendPool  map[string]*fetchRequest      // [man/62] Currently pending block (body) retrieval operations
 	blockDonePool  map[common.Hash]struct{}      // [man/62] Set of the completed block (body) fetches
-	blockIpfsPool  map[uint64]*ipfsRequest       //*types.Header
 
 	receiptTaskPool  map[common.Hash]*types.Header // [man/63] Pending receipt retrieval tasks, mapping hashes to headers
 	receiptTaskQueue *prque.Prque                  // [man/63] Priority queue of the headers to fetch the receipts for
@@ -102,7 +108,6 @@ func newQueue() *queue {
 		blockTaskQueue:   prque.New(),
 		blockPendPool:    make(map[string]*fetchRequest),
 		blockDonePool:    make(map[common.Hash]struct{}),
-		blockIpfsPool:    make(map[uint64]*ipfsRequest), //*types.Header),
 		receiptTaskPool:  make(map[common.Hash]*types.Header),
 		receiptTaskQueue: prque.New(),
 		receiptPendPool:  make(map[string]*fetchRequest),
@@ -128,7 +133,6 @@ func (q *queue) Reset() {
 	q.blockTaskQueue.Reset()
 	q.blockPendPool = make(map[string]*fetchRequest)
 	q.blockDonePool = make(map[common.Hash]struct{})
-	q.blockIpfsPool = make(map[uint64]*ipfsRequest) //*types.Header)
 
 	q.receiptTaskPool = make(map[common.Hash]*types.Header)
 	q.receiptTaskQueue.Reset()
@@ -188,27 +192,6 @@ func (q *queue) InFlightBlocks() bool {
 	defer q.lock.Unlock()
 
 	return len(q.blockPendPool) > 0
-}
-
-func (q *queue) BlockIpfsPoolBlocksNum() int {
-	//q.lock.Lock()
-	//defer q.lock.Unlock()
-	return len(q.blockIpfsPool)
-}
-func (q *queue) BlockIpfsInsetPool(blockNum uint64, header *types.Header) {
-	//q.lock.Lock()
-	//defer q.lock.Unlock()
-	//q.blockIpfsPool[blockNum] = header
-	tmp := &ipfsRequest{
-		Header: header,
-		Time:   time.Now(),
-	}
-	q.blockIpfsPool[blockNum] = tmp
-}
-func (q *queue) BlockIpfsdeletePool(blockNum uint64) {
-	//q.lock.Lock()
-	//defer q.lock.Unlock()
-	delete(q.blockIpfsPool, blockNum)
 }
 
 // InFlightReceipts retrieves whether there are receipt fetch requests currently
@@ -287,7 +270,7 @@ func (q *queue) resultSlots(pendPool map[string]*fetchRequest, donePool map[comm
 func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
-	log.Trace("Filling up skeleton ScheduleSkeleton ", "from", from, "len", len(skeleton))
+
 	// No skeleton retrieval can be in progress, fail hard if so (huge implementation bug)
 	if q.headerResults != nil {
 		panic("skeleton assembly already in progress")
@@ -306,7 +289,6 @@ func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
 
 		q.headerTaskPool[index] = header
 		q.headerTaskQueue.Push(index, -float32(index))
-		//log.Trace("Filling  ScheduleSkeleton ", "head", header.Number.Uint64)
 	}
 }
 
@@ -324,10 +306,10 @@ func (q *queue) RetrieveHeaders() ([]*types.Header, int) {
 
 // Schedule adds a set of headers for the download queue for scheduling, returning
 // the new headers encountered.
-func (q *queue) Schedule(headers []*types.Header, from uint64, bodymode int) []*types.Header {
+func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 	q.lock.Lock()
 	defer q.lock.Unlock()
-	log.Info("download queue  enter Schedule", "from", from, "len", len(headers))
+
 	// Insert all the headers prioritised by the contained block number
 	inserts := make([]*types.Header, 0, len(headers))
 	for _, header := range headers {
@@ -351,13 +333,8 @@ func (q *queue) Schedule(headers []*types.Header, from uint64, bodymode int) []*
 			continue
 		}
 		// Queue the header for content retrieval
-
-		if bodymode == 2 {
-			//q.blockPendPool[]
-		} else {
-			q.blockTaskPool[hash] = header
-			q.blockTaskQueue.Push(header, -float32(header.Number.Uint64()))
-		}
+		q.blockTaskPool[hash] = header
+		q.blockTaskQueue.Push(header, -float32(header.Number.Uint64()))
 
 		if q.mode == FastSync {
 			q.receiptTaskPool[hash] = header
@@ -391,7 +368,6 @@ func (q *queue) Results(block bool) []*fetchResult {
 	}
 	results := make([]*fetchResult, nproc)
 	copy(results, q.resultCache[:nproc])
-	log.Warn("download queue  Results", "len =%d", len(results), "nproc=%d", nproc)
 	if len(results) > 0 {
 		// Mark results as done before dropping them from the cache.
 		for _, result := range results {
@@ -484,7 +460,7 @@ func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
-	log.Debug("download queue ReserveBodies  = ", "count", count)
+
 	return q.reserveHeaders(p, count, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, isNoop)
 }
 
@@ -497,58 +473,10 @@ func (q *queue) ReserveReceipts(p *peerConnection, count int) (*fetchRequest, bo
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
-	log.Debug("download queue  ReserveReceipts  = ", "count", count)
+
 	return q.reserveHeaders(p, count, q.receiptTaskPool, q.receiptTaskQueue, q.receiptPendPool, q.receiptDonePool, isNoop)
 }
-func (q *queue) Reserveipfs(recvheader []*types.Header) ([]*types.Header, error) {
-	//progress := false
-	q.lock.Lock()
-	defer q.lock.Unlock()
-	RequsetHeader := make([]*types.Header, 0)
-	progress := false
-	isNil := func(header *types.Header) bool {
-		return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
-	}
-	components := 1
-	if q.mode == FastSync { // fast
-		components = 2
-	}
-	for _, header := range recvheader {
-		hash := header.Hash()
-		index := int(header.Number.Int64() - int64(q.resultOffset))
-		if index >= len(q.resultCache) || index < 0 {
-			//common.Report("index allocation went beyond available resultCache space")
-			return nil, fmt.Errorf("index allocation went beyond available resultCache space ")
-		}
-		if q.resultCache[index] == nil {
 
-			//log.Trace("download queue  enter Reserveipfs new", "index", index, " header number", header.Number.Uint64())
-			q.resultCache[index] = &fetchResult{
-				Pending: components,
-				//lbSend:  1,
-				Hash:   hash,
-				Header: header,
-			}
-		}
-
-		if isNil(header) {
-			//log.Trace("download queue  enter Reserveipfs new", ".Pengding--", q.resultCache[index].Pending)
-			q.resultCache[index].Pending--
-			progress = true
-			continue
-		}
-		//log.Warn("download  queue  enter Reserveipfs new", ".Pengding", q.resultCache[index].Pending)
-		RequsetHeader = append(RequsetHeader, header)
-		q.BlockIpfsInsetPool(header.Number.Uint64(), header)
-	}
-	if progress {
-		// WaitResults
-		log.Warn("download queue  enter Reserveipfs q.active.Signal,")
-		//
-		q.active.Signal()
-	}
-	return RequsetHeader, nil
-}
 // reserveHeaders reserves a set of data download operations for a given peer,
 // skipping any previously failed ones. This method is a generic version used
 // by the individual special reservation functions.
@@ -624,9 +552,6 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 	if len(send) == 0 {
 		return nil, progress, nil
 	}
-
-	log.Warn("download  queue reserveHeaders  reqest %d", "p=%s", p.id, "sendcount", len(send))
-
 	request := &fetchRequest{
 		Peer:    p,
 		Headers: send,
@@ -813,8 +738,6 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 	copy(q.headerResults[request.From-q.headerOffset:], headers)
 	delete(q.headerTaskPool, request.From)
 
-	log.Info("download  DeliverHeaders ", "num =%d", accepted, "from%d", request.From, "headers len", len(headers), "offset%d ", q.headerOffset)
-
 	ready := 0
 	for q.headerProced+ready < len(q.headerResults) && q.headerResults[q.headerProced+ready] != nil {
 		ready += MaxHeaderFetch
@@ -853,7 +776,6 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLi
 		result.Uncles = uncleLists[index]
 		return nil
 	}
-	log.Info("download queue DeliverBodies  ", "id=%s", id, "len", len(txLists))
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(txLists), reconstruct)
 }
 
@@ -871,7 +793,6 @@ func (q *queue) DeliverReceipts(id string, receiptList [][]*types.Receipt) (int,
 		result.Receipts = receiptList[index]
 		return nil
 	}
-	log.Info("download queue DeliverReceipts  ", "id=%s", id, "len", len(receiptList))
 	return q.deliver(id, q.receiptTaskPool, q.receiptTaskQueue, q.receiptPendPool, q.receiptDonePool, receiptReqTimer, len(receiptList), reconstruct)
 }
 
@@ -906,11 +827,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 	)
 	for i, header := range request.Headers {
 		// Short circuit assembly if no more fetch results are found
-		if i == 0 {
-			log.Trace("queue deliver body or receipt begin", "id=%s", id, "blockNum", header.Number.Uint64(), "len", results)
-		}
 		if i >= results {
-			log.Trace("queue deliver body or receipt end ", "id=%s", id, "blockNum", header.Number.Uint64(), "len", results)
 			break
 		}
 		// Reconstruct the next result if contents match up
@@ -966,76 +883,4 @@ func (q *queue) Prepare(offset uint64, mode SyncMode) {
 		q.resultOffset = offset
 	}
 	q.mode = mode
-}
-
-//lb
-func (q *queue) recvIpfsBody(bodyBlock *BlockIpfs) {
-
-	q.lock.Lock()
-	defer func() {
-		q.lock.Unlock()
-		q.BlockIpfsdeletePool(bodyBlock.Headeripfs.Number.Uint64())
-	}()
-	index := int(bodyBlock.Headeripfs.Number.Int64() - int64(q.resultOffset))
-	log.Warn("####download queue recv a block insert to result# ", "number", bodyBlock.Headeripfs.Number.Uint64(), "dify", bodyBlock.Headeripfs.Difficulty.Uint64(), "index", index)
-
-	if index >= len(q.resultCache) || index < 0 { //|| q.resultCache[index] == nil {
-		return
-	}
-
-	if q.resultCache[index] == nil {
-		header := bodyBlock.Headeripfs
-		hash := header.Hash()
-		components := 1
-		if q.mode == FastSync {
-			components = 2
-		}
-		log.Warn("download  syn recv a block insert reserveHeaders new", "index", index, " header number", header.Number.Uint64())
-		//ResultCache
-		q.resultCache[index] = &fetchResult{
-			Pending: components,
-			Hash:    hash,
-			Header:  header,
-		}
-	}
-	log.Warn("######download syn recv a block ", "index", index, ".Pending -- ", q.resultCache[index].Pending)
-	//head hash
-	q.resultCache[index].Transactions = bodyBlock.Transactionsipfs
-	q.resultCache[index].Uncles = bodyBlock.Unclesipfs
-	q.resultCache[index].Pending--
-
-	// Wake up
-	q.active.Signal()
-}
-
-func (q *queue) checkIpfsPool() bool {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	bFind := false
-
-	ipfsNum := q.BlockIpfsPoolBlocksNum()
-	log.Trace("download queue checkIpfsPool len", "len", ipfsNum)
-	if ipfsNum == 0 {
-		return false
-	}
-	var blockNumlist []uint64
-	var duration time.Duration = 18 * time.Minute
-	for num, requset := range q.blockIpfsPool {
-		if time.Since(requset.Time) > duration {
-			log.Warn("download queue checkIpfsPool fail", "num", num)
-			hash := requset.Header.Hash()
-			q.blockTaskPool[hash] = requset.Header
-			q.blockTaskQueue.Push(requset.Header, -float32(requset.Header.Number.Uint64()))
-			bFind = true
-			blockNumlist = append(blockNumlist, num)
-		}
-	} //blockIpfsPool
-
-	if bFind {
-		for _, num := range blockNumlist {
-			q.BlockIpfsdeletePool(num)
-		}
-	}
-	return bFind
 }

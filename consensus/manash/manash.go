@@ -1,7 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Package manash implements the manash proof-of-work consensus engine.
 package manash
@@ -35,8 +46,8 @@ var (
 	// maxUint256 is a big integer representing 2^256-1
 	maxUint256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 
-	// sharedManash is a full instance that can be shared between multiple users.
-	sharedManash = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
+	// sharedEthash is a full instance that can be shared between multiple users.
+	sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
 
 	// algorithmRevision is the data structure version used for file naming.
 	algorithmRevision = 23
@@ -380,9 +391,9 @@ type Config struct {
 	PowMode        Mode
 }
 
-// Manash is a consensus engine based on proot-of-work implementing the manash
+// Ethash is a consensus engine based on proot-of-work implementing the manash
 // algorithm.
-type Manash struct {
+type Ethash struct {
 	config Config
 
 	caches   *lru // In memory caches to avoid regenerating too often
@@ -395,7 +406,7 @@ type Manash struct {
 	hashrate metrics.Meter // Meter tracking the average hashrate
 
 	// The fields below are hooks for testing
-	shared    *Manash       // Shared PoW verifier to avoid cache regeneration
+	shared    *Ethash       // Shared PoW verifier to avoid cache regeneration
 	fakeFail  uint64        // Block number which fails PoW check even in fake mode
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
@@ -403,7 +414,7 @@ type Manash struct {
 }
 
 // New creates a full sized manash PoW scheme.
-func New(config Config) *Manash {
+func New(config Config) *Ethash {
 	if config.CachesInMem <= 0 {
 		log.Warn("One manash cache must always be in memory", "requested", config.CachesInMem)
 		config.CachesInMem = 1
@@ -414,7 +425,7 @@ func New(config Config) *Manash {
 	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
 		log.Info("Disk storage enabled for manash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
-	return &Manash{
+	return &Ethash{
 		config:   config,
 		caches:   newlru("cache", config.CachesInMem, newCache),
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
@@ -425,15 +436,15 @@ func New(config Config) *Manash {
 
 // NewTester creates a small sized manash PoW scheme useful only for testing
 // purposes.
-func NewTester() *Manash {
+func NewTester() *Ethash {
 	return New(Config{CachesInMem: 1, PowMode: ModeTest})
 }
 
 // NewFaker creates a manash consensus engine with a fake PoW scheme that accepts
 // all blocks' seal as valid, though they still have to conform to the Matrix
 // consensus rules.
-func NewFaker() *Manash {
-	return &Manash{
+func NewFaker() *Ethash {
+	return &Ethash{
 		config: Config{
 			PowMode: ModeFake,
 		},
@@ -443,8 +454,8 @@ func NewFaker() *Manash {
 // NewFakeFailer creates a manash consensus engine with a fake PoW scheme that
 // accepts all blocks as valid apart from the single one specified, though they
 // still have to conform to the Matrix consensus rules.
-func NewFakeFailer(fail uint64) *Manash {
-	return &Manash{
+func NewFakeFailer(fail uint64) *Ethash {
+	return &Ethash{
 		config: Config{
 			PowMode: ModeFake,
 		},
@@ -455,8 +466,8 @@ func NewFakeFailer(fail uint64) *Manash {
 // NewFakeDelayer creates a manash consensus engine with a fake PoW scheme that
 // accepts all blocks as valid, but delays verifications by some time, though
 // they still have to conform to the Matrix consensus rules.
-func NewFakeDelayer(delay time.Duration) *Manash {
-	return &Manash{
+func NewFakeDelayer(delay time.Duration) *Ethash {
+	return &Ethash{
 		config: Config{
 			PowMode: ModeFake,
 		},
@@ -466,8 +477,8 @@ func NewFakeDelayer(delay time.Duration) *Manash {
 
 // NewFullFaker creates an manash consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
-func NewFullFaker() *Manash {
-	return &Manash{
+func NewFullFaker() *Ethash {
+	return &Ethash{
 		config: Config{
 			PowMode: ModeFullFake,
 		},
@@ -476,14 +487,14 @@ func NewFullFaker() *Manash {
 
 // NewShared creates a full sized manash PoW shared between all requesters running
 // in the same process.
-func NewShared() *Manash {
-	return &Manash{shared: sharedManash}
+func NewShared() *Ethash {
+	return &Ethash{shared: sharedEthash}
 }
 
 // cache tries to retrieve a verification cache for the specified block number
 // by first checking against a list of in-memory caches, then against caches
 // stored on disk, and finally generating one if none can be found.
-func (manash *Manash) cache(block uint64) *cache {
+func (manash *Ethash) cache(block uint64) *cache {
 	epoch := block / epochLength
 	currentI, futureI := manash.caches.get(epoch)
 	current := currentI.(*cache)
@@ -502,7 +513,7 @@ func (manash *Manash) cache(block uint64) *cache {
 // dataset tries to retrieve a mining dataset for the specified block number
 // by first checking against a list of in-memory datasets, then against DAGs
 // stored on disk, and finally generating one if none can be found.
-func (manash *Manash) dataset(block uint64) *dataset {
+func (manash *Ethash) dataset(block uint64) *dataset {
 	epoch := block / epochLength
 	currentI, futureI := manash.datasets.get(epoch)
 	current := currentI.(*dataset)
@@ -521,7 +532,7 @@ func (manash *Manash) dataset(block uint64) *dataset {
 
 // Threads returns the number of mining threads currently enabled. This doesn't
 // necessarily mean that mining is running!
-func (manash *Manash) Threads() int {
+func (manash *Ethash) Threads() int {
 	manash.lock.Lock()
 	defer manash.lock.Unlock()
 
@@ -533,7 +544,7 @@ func (manash *Manash) Threads() int {
 // specified, the miner will use all cores of the machine. Setting a thread
 // count below zero is allowed and will cause the miner to idle, without any
 // work being done.
-func (manash *Manash) SetThreads(threads int) {
+func (manash *Ethash) SetThreads(threads int) {
 	manash.lock.Lock()
 	defer manash.lock.Unlock()
 
@@ -552,13 +563,13 @@ func (manash *Manash) SetThreads(threads int) {
 
 // Hashrate implements PoW, returning the measured rate of the search invocations
 // per second over the last minute.
-func (manash *Manash) Hashrate() float64 {
+func (manash *Ethash) Hashrate() float64 {
 	return manash.hashrate.Rate1()
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC APIs. Currently
 // that is empty.
-func (manash *Manash) APIs(chain consensus.ChainReader) []rpc.API {
+func (manash *Ethash) APIs(chain consensus.ChainReader) []rpc.API {
 	return nil
 }
 

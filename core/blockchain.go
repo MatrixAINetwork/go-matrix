@@ -1,7 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Package core implements the Matrix consensus protocol.
 package core
@@ -126,9 +137,6 @@ type BlockChain struct {
 
 	badBlocks *lru.Cache // Bad block cache
 	msgceter  *mc.Center
-	//lb ipfs
-	bBlockSendIpfs bool
-	qBlockQueue    *prque.Prque
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -818,11 +826,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
 		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
 		rawdb.WriteTxLookupEntries(batch, block)
-		//lb
-		if bc.bBlockSendIpfs && bc.qBlockQueue != nil {
 
-			bc.qBlockQueue.Push(block, -float32(block.NumberU64()))
-		}
 		stats.processed++
 
 		if batch.ValueSize() >= mandb.IdealBatchSize {
@@ -864,19 +868,6 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 
 var lastWrite uint64
 
-//lb ipfs
-func (bc *BlockChain) SetbSendIpfsFlg(flg bool) {
-	bc.bBlockSendIpfs = flg
-	if flg {
-		bc.qBlockQueue = prque.New()
-		log.Info("BlockChain SetbSendIpfsFlg and new")
-	}
-}
-func (bc *BlockChain) GetStoreBlockInfo() *prque.Prque {
-	//(storeBlock types.Blocks) {
-	return bc.qBlockQueue
-}
-
 // WriteBlockWithoutState writes only the block and its metadata to the database,
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
@@ -917,9 +908,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	// Write other block data using a batch.
 	batch := bc.db.NewBatch()
 	rawdb.WriteBlock(batch, block)
-	if bc.bBlockSendIpfs && bc.qBlockQueue != nil {
-		bc.qBlockQueue.Push(block, -float32(block.NumberU64()))
-	}
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {

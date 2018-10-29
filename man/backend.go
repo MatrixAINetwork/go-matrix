@@ -1,7 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
+// Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+// This file is consisted of the MATRIX library and part of the go-ethereum library.
+//
+// The MATRIX-ethereum library is free software: you can redistribute it and/or modify it under the terms of the MIT License.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+//and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject tothe following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Package man implements the Matrix protocol.
 package man
@@ -23,8 +34,8 @@ import (
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/signhelper"
-	"github.com/matrix/go-matrix/blkgenor"
-	"github.com/matrix/go-matrix/blkverify/blkverify"
+	"github.com/matrix/go-matrix/blkconsensus/blkverify"
+	"github.com/matrix/go-matrix/blockgenor"
 	"github.com/matrix/go-matrix/broadcastTx"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/hexutil"
@@ -42,20 +53,19 @@ import (
 	"github.com/matrix/go-matrix/man/gasprice"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/hd"
 	"github.com/matrix/go-matrix/internal/manapi"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/miner"
-	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/pod"
+	"github.com/matrix/go-matrix/node"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/rpc"
+	"github.com/matrix/go-matrix/topnode"
+	"github.com/matrix/go-matrix/verifier"
 
 	"sync"
-
-	"github.com/matrix/go-matrix/leaderelect"
-	"github.com/matrix/go-matrix/olconsensus"
 )
 
 var MsgCenter *mc.Center
@@ -91,7 +101,7 @@ type Matrix struct {
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
-	APIBackend *ManAPIBackend
+	APIBackend *EthAPIBackend
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -105,15 +115,15 @@ type Matrix struct {
 	//algorithm
 	ca         *ca.Identity //node传进来的
 	msgcenter  *mc.Center   //node传进来的
-	hd         *msgsend.HD  //node传进来的
+	hd         *hd.HD       //node传进来的
 	signHelper *signhelper.SignHelper
 
 	reelection   *reelection.ReElection //换届服务
 	random       *random.Random
-	topNode      *olconsensus.TopNodeService
-	blockgen     *blkgenor.BlockGenor
+	topNode      *topnode.TopNodeService
+	blockgen     *blockgenor.BlockGenor
 	blockVerify  *blkverify.BlockVerify
-	leaderServer *leaderelect.LeaderIdentity
+	leaderServer *verifier.LeaderIdentity
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and manbase)
 }
@@ -125,7 +135,7 @@ func (s *Matrix) AddLesServer(ls LesServer) {
 
 // New creates a new Matrix object (including the
 // initialisation of the common Matrix object)
-func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
+func New(ctx *node.ServiceContext, config *Config) (*Matrix, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run man.Matrix in light sync mode, use les.LightMatrix")
 	}
@@ -153,11 +163,11 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		hd:             ctx.HD,
 		signHelper:     ctx.SignHelper,
 
-		engine:        CreateConsensusEngine(ctx, &config.Manash, chainConfig, chainDb),
+		engine:        CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
 		shutdownChan:  make(chan bool),
 		networkId:     config.NetworkId,
 		gasPrice:      config.GasPrice,
-		manbase:     config.Manerbase,
+		manbase:     config.Etherbase,
 		bloomRequests: make(chan chan *bloombits.Retrieval),
 		bloomIndexer:  NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
@@ -213,7 +223,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		return nil, err
 	}
 
-	man.APIBackend = &ManAPIBackend{man, nil}
+	man.APIBackend = &EthAPIBackend{man, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
@@ -221,11 +231,10 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	man.APIBackend.gpo = gasprice.NewOracle(man.APIBackend, gpoParams)
 	depoistInfo.NewDepositInfo(man.APIBackend)
 	man.broadTx = broadcastTx.NewBroadCast(man.APIBackend) //YY
+	man.leaderServer, err = verifier.NewLeaderIdentityService(man, "leader服务")
 
-	man.leaderServer, err = leaderelect.NewLeaderIdentityService(man, "leader服务")
-
-	man.topNode = olconsensus.NewTopNodeService(man.blockchain.DPOSEngine())
-	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
+	man.topNode = topnode.NewTopNodeService(man.blockchain.DPOSEngine())
+	topNodeInstance := topnode.NewTopNodeInstance(man.signHelper, man.hd)
 	man.topNode.SetTopNodeStateInterface(topNodeInstance)
 	man.topNode.SetValidatorAccountInterface(topNodeInstance)
 	man.topNode.SetMessageSendInterface(topNodeInstance)
@@ -235,7 +244,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		return nil, err
 	}
 
-	man.blockgen, err = blkgenor.New(man)
+	man.blockgen, err = blockgenor.New(man)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +275,7 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateDB creates the chain database.
-func CreateDB(ctx *pod.ServiceContext, config *Config, name string) (mandb.Database, error) {
+func CreateDB(ctx *node.ServiceContext, config *Config, name string) (mandb.Database, error) {
 	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles)
 	if err != nil {
 		return nil, err
@@ -278,7 +287,7 @@ func CreateDB(ctx *pod.ServiceContext, config *Config, name string) (mandb.Datab
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Matrix service
-func CreateConsensusEngine(ctx *pod.ServiceContext, config *manash.Config, chainConfig *params.ChainConfig, db mandb.Database) consensus.Engine {
+func CreateConsensusEngine(ctx *node.ServiceContext, config *manash.Config, chainConfig *params.ChainConfig, db mandb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
@@ -286,13 +295,13 @@ func CreateConsensusEngine(ctx *pod.ServiceContext, config *manash.Config, chain
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case manash.ModeFake:
-		log.Warn("Manash used in fake mode")
+		log.Warn("Ethash used in fake mode")
 		return manash.NewFaker()
 	case manash.ModeTest:
-		log.Warn("Manash used in test mode")
+		log.Warn("Ethash used in test mode")
 		return manash.NewTester()
 	case manash.ModeShared:
-		log.Warn("Manash used in shared mode")
+		log.Warn("Ethash used in shared mode")
 		return manash.NewShared()
 	default:
 		engine := manash.New(manash.Config{
@@ -317,7 +326,6 @@ func (s *Matrix) APIs() []rpc.API {
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
 	// Append all the local APIs and return
-
 	return append(apis, []rpc.API{
 		{
 			Namespace: "man",
@@ -390,7 +398,7 @@ func (s *Matrix) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
-func (s *Matrix) Manerbase() (eb common.Address, err error) {
+func (s *Matrix) Etherbase() (eb common.Address, err error) {
 	s.lock.RLock()
 	manbase := s.manbase
 	s.lock.RUnlock()
@@ -406,24 +414,24 @@ func (s *Matrix) Manerbase() (eb common.Address, err error) {
 			s.manbase = manbase
 			s.lock.Unlock()
 
-			log.Info("Manerbase automatically configured", "address", manbase)
+			log.Info("Etherbase automatically configured", "address", manbase)
 			return manbase, nil
 		}
 	}
 	return common.Address{}, fmt.Errorf("manbase must be explicitly specified")
 }
 
-// SetManerbase sets the mining reward address.
-func (s *Matrix) SetManerbase(manbase common.Address) {
+// SetEtherbase sets the mining reward address.
+func (s *Matrix) SetEtherbase(manbase common.Address) {
 	s.lock.Lock()
 	s.manbase = manbase
 	s.lock.Unlock()
 
-	s.miner.SetManerbase(manbase)
+	s.miner.SetEtherbase(manbase)
 }
 
 func (s *Matrix) StartMining(local bool) error {
-	eb, err := s.Manerbase()
+	eb, err := s.Etherbase()
 	if err != nil {
 		log.Error("Cannot start mining without manbase", "err", err)
 		return fmt.Errorf("manbase missing: %v", err)
@@ -431,7 +439,7 @@ func (s *Matrix) StartMining(local bool) error {
 	if clique, ok := s.engine.(*clique.Clique); ok {
 		wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
 		if wallet == nil || err != nil {
-			log.Error("Manerbase account unavailable locally", "err", err)
+			log.Error("Etherbase account unavailable locally", "err", err)
 			return fmt.Errorf("signer missing: %v", err)
 		}
 		clique.Authorize(eb, wallet.SignHash)
@@ -451,23 +459,23 @@ func (s *Matrix) StopMining()         { s.miner.Stop() }
 func (s *Matrix) IsMining() bool      { return s.miner.Mining() }
 func (s *Matrix) Miner() *miner.Miner { return s.miner }
 
-func (s *Matrix) AccountManager() *accounts.Manager    { return s.accountManager }
-func (s *Matrix) BlockChain() *core.BlockChain         { return s.blockchain }
-func (s *Matrix) TxPool() *core.TxPool                 { return s.txPool }
-func (s *Matrix) EventMux() *event.TypeMux             { return s.eventMux }
-func (s *Matrix) Engine() consensus.Engine             { return s.engine }
-func (s *Matrix) DPOSEngine() consensus.DPOSEngine     { return s.blockchain.DPOSEngine() }
-func (s *Matrix) ChainDb() mandb.Database              { return s.chainDb }
-func (s *Matrix) IsListening() bool                    { return true } // Always listening
-func (s *Matrix) ManVersion() int                      { return int(s.protocolManager.SubProtocols[0].Version) }
-func (s *Matrix) NetVersion() uint64                   { return s.networkId }
-func (s *Matrix) Downloader() *downloader.Downloader   { return s.protocolManager.downloader }
-func (s *Matrix) CA() *ca.Identity                     { return s.ca }
-func (s *Matrix) MsgCenter() *mc.Center                { return s.msgcenter }
-func (s *Matrix) SignHelper() *signhelper.SignHelper   { return s.signHelper }
-func (s *Matrix) ReElection() *reelection.ReElection   { return s.reelection }
-func (s *Matrix) HD() *msgsend.HD                      { return s.hd }
-func (s *Matrix) TopNode() *olconsensus.TopNodeService { return s.topNode }
+func (s *Matrix) AccountManager() *accounts.Manager  { return s.accountManager }
+func (s *Matrix) BlockChain() *core.BlockChain       { return s.blockchain }
+func (s *Matrix) TxPool() *core.TxPool               { return s.txPool }
+func (s *Matrix) EventMux() *event.TypeMux           { return s.eventMux }
+func (s *Matrix) Engine() consensus.Engine           { return s.engine }
+func (s *Matrix) DPOSEngine() consensus.DPOSEngine   { return s.blockchain.DPOSEngine() }
+func (s *Matrix) ChainDb() mandb.Database            { return s.chainDb }
+func (s *Matrix) IsListening() bool                  { return true } // Always listening
+func (s *Matrix) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
+func (s *Matrix) NetVersion() uint64                 { return s.networkId }
+func (s *Matrix) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
+func (s *Matrix) CA() *ca.Identity                   { return s.ca }
+func (s *Matrix) MsgCenter() *mc.Center              { return s.msgcenter }
+func (s *Matrix) SignHelper() *signhelper.SignHelper { return s.signHelper }
+func (s *Matrix) ReElection() *reelection.ReElection { return s.reelection }
+func (s *Matrix) HD() *hd.HD                         { return s.hd }
+func (s *Matrix) TopNode() *topnode.TopNodeService   { return s.topNode }
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.
@@ -508,7 +516,7 @@ func (s *Matrix) FetcherNotify(hash common.Hash, number uint64) {
 	for _, id := range ids {
 		peer := s.protocolManager.Peers.Peer(id.String()[:16])
 		if peer == nil {
-			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String(), "Peers:", s.protocolManager.Peers.peers)
+			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id",id.String(),"Peers:",s.protocolManager.Peers.peers)
 			continue
 		}
 		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)
