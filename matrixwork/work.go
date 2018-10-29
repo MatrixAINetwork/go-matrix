@@ -93,7 +93,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		// during transaction acceptance is the transaction pool.
 		//
 		// We use the eip155 signer regardless of the current hf.
-		from, _ := types.Sender(env.signer, tx)
+		from, _ := tx.GetTxFrom()
+
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !env.config.IsEIP155(env.header.Number) {
