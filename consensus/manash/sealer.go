@@ -74,9 +74,11 @@ func GetdifficultyListAndTargetList(difficultyList []*big.Int) minerDifficultyLi
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (manash *Ethash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, foundMsgCh chan *consensus.FoundMsg, difficultyList []*big.Int, isBroadcastNode bool) error {
 
-	curHeader := types.CopyHeader(header)
+func (manash *manash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan uint64, Result_Send chan<- *consensus.Result, difficultyList []*big.Int, isBroadcastNode bool) error {
+	log.Warn("defer", "开始挖矿 高度", header.Number.Uint64())
+	defer log.Warn("defer", "开始挖矿-借宿 高度", header.Number.Uint64())
+
 	sort.Sort(diffiList(difficultyList))
 	difficultyListAndTargetList := GetdifficultyListAndTargetList(difficultyList)
 
@@ -84,6 +86,7 @@ func (manash *Ethash) Seal(chain consensus.ChainReader, header *types.Header, st
 	abort := make(chan struct{})
 	found := make(chan consensus.FoundMsg)
 	manash.lock.Lock()
+	curHeader := types.CopyHeader(header)
 	threads := manash.threads
 	if manash.rand == nil {
 		seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
@@ -113,21 +116,26 @@ func (manash *Ethash) Seal(chain consensus.ChainReader, header *types.Header, st
 
 	for {
 		select {
-		case <-stop:
-			log.INFO("SEALER", "Sealer Recv stop mine", "")
+		case num := <-stop:
+			log.INFO("SEALER", "Sealer Recv stop mine,num", num, "curHeader.Number.U", curHeader.Number.Uint64())
 			// Outside abort, stop all miner threads
-			close(abort)
-			return nil
+			if num == curHeader.Number.Uint64() {
+				log.Warn("SEALER", "是需要停的高度 高度", num)
+				close(abort)
+				return nil
+			}
+
 		case result := <-found:
 			log.INFO("SEALER", "recv found msg from mine difficulty", result.Difficulty)
-			foundMsgCh <- &result
+
+			Result_Send <- &consensus.Result{result.Difficulty, result.Header}
 			// One of the threads found a block, abort all others
 			//close(abort)
 		case <-manash.update:
 			// Thread count was changed on user request, restart
 			close(abort)
 			pend.Wait()
-			return manash.Seal(chain, curHeader, stop, foundMsgCh, difficultyList, isBroadcastNode)
+			return manash.Seal(chain, curHeader, stop, Result_Send, difficultyList, isBroadcastNode)
 		}
 	}
 	// Wait for all miners to terminate and return the block
@@ -147,7 +155,7 @@ func compareDifflist(result []byte, diffList []*big.Int, targets []*big.Int) (in
 
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
-func (manash *Ethash) mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan consensus.FoundMsg, diffiList *minerDifficultyList) {
+func (manash *manash) mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan consensus.FoundMsg, diffiList *minerDifficultyList) {
 	// Extract some data from the header
 
 	var (
@@ -169,7 +177,8 @@ func (manash *Ethash) mine(header *types.Header, id int, seed uint64, abort chan
 		select {
 		case <-abort:
 			// Mining terminated, update stats and abort
-			logger.Trace("Ethash nonce search aborted", "attempts", nonce-seed)
+			logger.Trace("manash nonce search aborted", "attempts", nonce-seed)
+			log.INFO("SEALER", "curHeader.number", curHeader.Number.Uint64())
 			manash.hashrate.Mark(attempts)
 			return
 
@@ -204,13 +213,14 @@ func (manash *Ethash) mine(header *types.Header, id int, seed uint64, abort chan
 
 				select {
 				case found <- consensus.FoundMsg{Header: FoundHeader, Difficulty: NowDifficulty}:
-					logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("manash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
 				case <-abort:
-					logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("manash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
 				}
 
-				if NowDifficulty == header.Difficulty {
-					log.INFO("SEALER", "quit minning", "", "id", id)
+				//log.INFO("-----","NowDifficulty",NowDifficulty,"curheader.Difficulty",curHeader.Difficulty,"curheader.Number",curHeader.Number.Uint64())
+				if NowDifficulty.Uint64() == curHeader.Difficulty.Uint64() {
+					log.INFO("NowDifficulty == curHeader.Difficulty", "quit minning", "", "id", id, "高度", curHeader.Number.Uint64())
 					return
 				}
 

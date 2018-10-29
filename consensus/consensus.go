@@ -14,7 +14,7 @@
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Package consensus implements different Matrix consensus engines.
+// Package consensus implements different matrix consensus engines.
 package consensus
 
 import (
@@ -23,9 +23,15 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
 )
+
+type Result struct {
+	Difficulty *big.Int
+	Header     *types.Header
+}
 
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
@@ -51,7 +57,7 @@ type ChainReader interface {
 
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
-	// Author retrieves the Matrix address of the account that minted the given
+	// Author retrieves the matrix address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
 	Author(header *types.Header) (common.Address, error)
@@ -88,7 +94,7 @@ type Engine interface {
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	Seal(chain ChainReader, header *types.Header, stop <-chan struct{}, foundMsgCh chan *FoundMsg, diffList []*big.Int, isBroadcastNode bool) error
+	Seal(chain ChainReader, header *types.Header, stop <-chan uint64, result chan<- *Result, diffList []*big.Int, isBroadcastNode bool) error
 
 	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 	// that a new block should have.
@@ -109,18 +115,27 @@ type FoundMsg struct {
 	Header     *types.Header
 	Difficulty *big.Int
 }
+
+type ValidatorReader interface {
+	// GetHeaderByNumber retrieves a block header from the database by number.
+	GetCurrentNumber() uint64
+	GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error)
+}
+
 type DPOSEngine interface {
-	VerifyBlock(header *types.Header) error
+	VerifyBlock(reader ValidatorReader, header *types.Header) error
+
+	VerifyBlocks(reader ValidatorReader, headers []*types.Header) error
 
 	//verify hash in current block
-	VerifyHash(signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
+	VerifyHash(reader ValidatorReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
 
 	//verify hash in given number block
-	VerifyHashWithNumber(signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error)
+	VerifyHashWithNumber(reader ValidatorReader, signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error)
 
 	//VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error)
 
-	VerifyHashWithVerifiedSigns(signs []*common.VerifiedSign) ([]common.Signature, error)
+	VerifyHashWithVerifiedSigns(reader ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error)
 
-	VerifyHashWithVerifiedSignsAndNumber(signs []*common.VerifiedSign, number uint64) ([]common.Signature, error)
+	VerifyHashWithVerifiedSignsAndNumber(reader ValidatorReader, signs []*common.VerifiedSign, number uint64) ([]common.Signature, error)
 }

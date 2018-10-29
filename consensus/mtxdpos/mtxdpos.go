@@ -16,16 +16,16 @@
 package mtxdpos
 
 import (
-	"errors"
 	"math"
 
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/man"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -36,6 +36,8 @@ const (
 )
 
 var (
+	errInputHeaderErr = errors.New("input param header err")
+
 	errSignHashLenErr = errors.New("hash is required to be exactly 32 bytes")
 
 	errStockCountErr = errors.New("stock count is less then min count")
@@ -65,21 +67,18 @@ type dposTarget struct {
 }
 
 type MtxDPOS struct {
-	chain consensus.ChainReader
 }
 
-func NewMtxDPOS(chain consensus.ChainReader) *MtxDPOS {
-	return &MtxDPOS{
-		chain: chain,
-	}
+func NewMtxDPOS() *MtxDPOS {
+	return &MtxDPOS{}
 }
 
-func (md *MtxDPOS) VerifyBlock(header *types.Header) error {
+func (md *MtxDPOS) VerifyBlock(reader consensus.ValidatorReader, header *types.Header) error {
 	if common.IsBroadcastNumber(header.Number.Uint64()) {
 		return md.verifyBroadcastBlock(header)
 	}
 
-	stocks, err := md.getValidatorStocks(header.Number.Uint64())
+	stocks, err := md.getValidatorStocks(reader, header.Number.Uint64())
 	if err != nil {
 		return err
 	}
@@ -87,24 +86,64 @@ func (md *MtxDPOS) VerifyBlock(header *types.Header) error {
 	hash := header.HashNoSignsAndNonce()
 	log.INFO("共识引擎", "VerifyBlock, 签名总数", len(header.Signatures), "hash", hash)
 
-	_, err = md.VerifyHashWithStocks(hash, header.Signatures, stocks)
+	_, err = md.VerifyHashWithStocks(reader, hash, header.Signatures, stocks)
 	return err
 }
 
-func (md *MtxDPOS) VerifyHash(signHash common.Hash, signs []common.Signature) ([]common.Signature, error) {
-	return md.VerifyHashWithNumber(signHash, signs, md.chain.CurrentHeader().Number.Uint64())
+func (md *MtxDPOS) VerifyBlocks(reader consensus.ValidatorReader, headers []*types.Header) error {
+	if len(headers) <= 0 {
+		return errInputHeaderErr
+	}
+
+	var (
+		preGraph *mc.TopologyGraph = nil
+		err      error
+	)
+	for _, header := range headers {
+		if nil == preGraph {
+			preGraph, err = md.getValidatorGraph(reader, header.Number.Uint64())
+			if err != nil {
+				return err
+			}
+		}
+
+		hash := header.HashNoSignsAndNonce()
+		number := header.Number.Uint64()
+		if common.IsBroadcastNumber(number) {
+			err = md.verifyBroadcastBlock(header)
+			if err != nil {
+				return errors.Errorf("header(hash:%s, number:%d) verify Broadcast Block err: %v", hash.Hex(), number, err)
+			}
+		} else {
+			stocks := md.graph2ValidatorStocks(preGraph)
+			_, err = md.VerifyHashWithStocks(reader, hash, header.Signatures, stocks)
+			if err != nil {
+				return errors.Errorf("header(hash:%s, number:%d) dpos verify err: %v", hash.Hex(), number, err)
+			}
+		}
+		preGraph, err = preGraph.Transfer2NextGraph(header.Number.Uint64(), &header.NetTopology, nil)
+		if err != nil {
+			return errors.Errorf("header(hash:%s, number:%d) gen next topology err: %v", hash.Hex(), number, err)
+		}
+	}
+
+	return nil
 }
 
-func (md *MtxDPOS) VerifyHashWithNumber(signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error) {
-	stocks, err := md.getValidatorStocks(number)
+func (md *MtxDPOS) VerifyHash(reader consensus.ValidatorReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error) {
+	return md.VerifyHashWithNumber(reader, signHash, signs, reader.GetCurrentNumber()+1)
+}
+
+func (md *MtxDPOS) VerifyHashWithNumber(reader consensus.ValidatorReader, signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error) {
+	stocks, err := md.getValidatorStocks(reader, number)
 	if err != nil {
 		return nil, err
 	}
 
-	return md.VerifyHashWithStocks(signHash, signs, stocks)
+	return md.VerifyHashWithStocks(reader, signHash, signs, stocks)
 }
 
-func (md *MtxDPOS) VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error) {
+func (md *MtxDPOS) VerifyHashWithStocks(reader consensus.ValidatorReader, signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error) {
 	if len(signHash) != 32 {
 		return nil, errSignHashLenErr
 	}
@@ -129,12 +168,12 @@ func (md *MtxDPOS) VerifyHashWithStocks(signHash common.Hash, signs []common.Sig
 	return md.verifyDPOS(verifiedSigns, target)
 }
 
-func (md *MtxDPOS) VerifyHashWithVerifiedSigns(signs []*common.VerifiedSign) ([]common.Signature, error) {
-	return md.VerifyHashWithVerifiedSignsAndNumber(signs, md.chain.CurrentHeader().Number.Uint64())
+func (md *MtxDPOS) VerifyHashWithVerifiedSigns(reader consensus.ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error) {
+	return md.VerifyHashWithVerifiedSignsAndNumber(reader, signs, reader.GetCurrentNumber()+1)
 }
 
-func (md *MtxDPOS) VerifyHashWithVerifiedSignsAndNumber(signs []*common.VerifiedSign, number uint64) ([]common.Signature, error) {
-	stocks, err := md.getValidatorStocks(number)
+func (md *MtxDPOS) VerifyHashWithVerifiedSignsAndNumber(reader consensus.ValidatorReader, signs []*common.VerifiedSign, number uint64) ([]common.Signature, error) {
+	stocks, err := md.getValidatorStocks(reader, number)
 	if err != nil {
 		return nil, err
 	}
@@ -300,32 +339,43 @@ func (md *MtxDPOS) verifyBroadcastBlock(header *types.Header) error {
 	return nil
 }
 
-func (md *MtxDPOS) getValidatorStocks(number uint64) (map[common.Address]uint16, error) {
+func (md *MtxDPOS) getValidatorStocks(reader consensus.ValidatorReader, number uint64) (map[common.Address]uint16, error) {
+	graphInfo, err := md.getValidatorGraph(reader, number)
+	if err != nil {
+		return nil, err
+	}
+	return md.graph2ValidatorStocks(graphInfo), nil
+}
+
+func (md *MtxDPOS) getValidatorGraph(reader consensus.ValidatorReader, number uint64) (*mc.TopologyGraph, error) {
 	parentNumber := number
 	if parentNumber != 0 {
 		parentNumber--
 	}
-
-	graphInfo, err := ca.GetTopologyByNumber(common.RoleType(common.RoleValidator), parentNumber)
+	graphInfo, err := reader.GetValidatorByNumber(parentNumber)
 	if err != nil {
 		return nil, err
 	}
+	return graphInfo, nil
+}
 
+func (md *MtxDPOS) graph2ValidatorStocks(graph *mc.TopologyGraph) map[common.Address]uint16 {
 	stocks := make(map[common.Address]uint16)
-	for _, validator := range graphInfo.NodeList {
-		if _, exist := stocks[validator.Account]; exist {
+	for _, node := range graph.NodeList {
+		if node.Type != common.RoleValidator {
 			continue
 		}
-
-		stocks[validator.Account] = validator.Stock
-		//log.Info("DPOS引擎", "验证者", validator.Account, "股权", validator.Stock, "高度", number)
+		if _, exist := stocks[node.Account]; exist {
+			continue
+		}
+		stocks[node.Account] = node.Stock
+		//log.Info("DPOS引擎", "验证者", validator.Account, "股权", validator.Stock, "高度", graph.Number)
 	}
-
-	return stocks, nil
+	return stocks
 }
 
 func (md *MtxDPOS) isBroadcastRole(address common.Address) bool {
-	for _, b := range params.BroadCastNodes {
+	for _, b := range man.BroadCastNodes {
 		if b.Address == address {
 			return true
 		}
