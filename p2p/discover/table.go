@@ -37,6 +37,7 @@ import (
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/p2p/netutil"
+	"github.com/matrix/go-matrix/params"
 )
 
 const (
@@ -543,7 +544,17 @@ func (tab *Table) closest(target common.Hash, nresults int) *nodesByDistance {
 			close.push(n, nresults)
 		}
 	}
-	return close
+	rlt := &nodesByDistance{target: target}
+	for _, bn := range params.MainnetBootnodes {
+		node, err := ParseNode(bn)
+		if err != nil {
+			log.Error("closest node", "parse node error", err)
+			continue
+		}
+		rlt.entries = append(rlt.entries, node)
+	}
+	rlt.entries = append(rlt.entries, close.entries...)
+	return rlt
 }
 
 func (tab *Table) len() (n int) {
