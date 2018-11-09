@@ -39,21 +39,21 @@ const (
 	LRSPOSOutTime       = int64(20)
 	LRSReelectOutTime   = int64(40)
 	LRSReelectInterval  = 5
+
+	VotePoolTimeout    = 55 * 1000
+	VotePoolCountLimit = 5
+
+	BlkPosReqSendInterval   = 5
+	BlkPosReqSendTimes      = 6
+	BlkVoteSendInterval     = 3
+	BlkVoteSendTimes        = 8
+	MinerReqSendInterval    = 3
+	PosedReqSendInterval    = 10
+	MinerResultSendInterval = 3
 )
 
 var (
-	//SignAccount         = "0xc47d9e507c1c5cb65cc7836bb668549fc8f547df"
-	//SignAccountPassword = "12345"
-	//HcMethod            = HCP2P
-	//
-	//NoBootNode      = errors.New("无boot节点")
-	//NoBroadCastNode = errors.New("无广播节点")
-
-	VotePoolTimeout    = 37 * 1000
-	VotePoolCountLimit = 5
-
-	//Difficultlist = []uint64{1, 2, 10, 50}
-	Difficultlist = []uint64{1}
+	DifficultList = []uint64{1}
 )
 
 type NodeInfo struct {
