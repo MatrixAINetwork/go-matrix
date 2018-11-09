@@ -38,15 +38,18 @@ func (self *ReElection) roleUpdateProcess(data *mc.RoleUpdatedMsg) error {
 		return err
 	}
 
+	/*
 	err = self.HandleNative(data.BlockNum) //处理初选列表更新
 	if err != nil {
 		log.ERROR(Module, "處理初選列表更新失敗 err", err)
 		return err
 	}
+	*/
 	log.INFO(Module, "roleUpdateProcess end height", data.BlockNum)
 	return nil
 
 }
+/*
 func (self *ReElection) HandleNative(height uint64) error {
 	if true == IsinFristPeriod(height) { //第一选举周期不更新
 		log.INFO(Module, "BlockNum", height, "no need to update native list", "nil")
@@ -64,8 +67,10 @@ func (self *ReElection) HandleNative(height uint64) error {
 	log.INFO(Module, "self,allNative", allNative)
 
 	err = self.UpdateNative(height, allNative)
+	log.INFO(Module,"更新初选列表完毕 错误信息",err)
 	return err
 }
+*/
 func (self *ReElection) HandleTopGen(height uint64) error {
 	var err error
 
@@ -87,7 +92,7 @@ func (self *ReElection) HandleTopGen(height uint64) error {
 
 	return err
 }
-
+/*
 func (self *ReElection) UpdateNative(height uint64, allNative AllNative) error {
 
 	allNative, err := self.ToNativeMinerStateUpdate(height, allNative)
@@ -102,11 +107,12 @@ func (self *ReElection) UpdateNative(height uint64, allNative AllNative) error {
 		return nil
 	}
 
-	self.writeNativeData(height, allNative)
-	return nil
+	err=self.writeNativeData(height, allNative)
+	log.INFO(Module,"更新初选列表阶段","写初选列表到数据库","高度",height,"err",err)
+	return err
 
 }
-
+*/
 //是不是矿工拓扑生成时间段
 func IsMinerTopGenTiming(height uint64) bool {
 
