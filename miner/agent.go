@@ -17,24 +17,21 @@
 package miner
 
 import (
-	"sync"
-
 	"github.com/matrix/go-matrix/consensus"
+	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
+	"sync"
+	"sync/atomic"
 )
 
 type CpuAgent struct {
 	mu sync.Mutex
 
 	workCh chan *Work
-	stop   chan uint64
+	stop   chan struct{}
 
-	mapQuit map[uint64]chan uint64
-
-	quitCurrentOp chan uint64
-	stopMineCh    chan struct{}
-	returnCh      chan<- *consensus.Result
-	foundMsgCh    chan *consensus.FoundMsg
+	quitCurrentOp chan struct{}
+	returnCh      chan<- *types.Header
 
 	chain  consensus.ChainReader
 	engine consensus.Engine
@@ -44,29 +41,23 @@ type CpuAgent struct {
 
 func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine) *CpuAgent {
 	miner := &CpuAgent{
-		chain:      chain,
-		engine:     engine,
-		stop:       make(chan uint64, 1),
-		workCh:     make(chan *Work, 1),
-		foundMsgCh: make(chan *consensus.FoundMsg, 1),
-		stopMineCh: make(chan struct{}, 1),
-		mapQuit:    make(map[uint64]chan uint64, 0),
+		chain:  chain,
+		engine: engine,
+		stop:   make(chan struct{}, 1),
+		workCh: make(chan *Work, 1),
 	}
 	return miner
 }
 
-func (self *CpuAgent) Work() chan<- *Work                      { return self.workCh }
-func (self *CpuAgent) SetReturnCh(ch chan<- *consensus.Result) { self.returnCh = ch }
+func (self *CpuAgent) Work() chan<- *Work                  { return self.workCh }
+func (self *CpuAgent) SetReturnCh(ch chan<- *types.Header) { self.returnCh = ch }
 
-func (self *CpuAgent) Stop(num uint64) {
-	/*
-		if !atomic.CompareAndSwapInt32(&self.isMining, 1, 0) {
+func (self *CpuAgent) Stop() {
+	if !atomic.CompareAndSwapInt32(&self.isMining, 1, 0) {
+		return // agent already stopped
+	}
 
-			return // agent already stopped
-		}
-	*/
-
-	self.stop <- num
+	self.stop <- struct{}{}
 done:
 	// Empty work channel
 	for {
@@ -79,12 +70,10 @@ done:
 }
 
 func (self *CpuAgent) Start() {
-	/*
-		if !atomic.CompareAndSwapInt32(&self.isMining, 0, 1) {
+	if !atomic.CompareAndSwapInt32(&self.isMining, 0, 1) {
+		return // agent already started
+	}
 
-			return // agent already started
-		}
-	*/
 	go self.update()
 }
 
@@ -94,52 +83,35 @@ out:
 		select {
 		case work := <-self.workCh:
 			self.mu.Lock()
-			log.INFO("问题定位", "高度", work.header.Number.Uint64())
-
-			tempQuit := make(chan uint64, 1)
-			self.mapQuit[work.header.Number.Uint64()] = tempQuit
-			go self.mine(work, tempQuit)
-			self.mu.Unlock()
-		case num := <-self.stop:
-			self.mu.Lock()
-
-			if tempquit, ok := self.mapQuit[num]; ok {
-				tempquit <- num
-				delete(self.mapQuit, num)
+			if self.quitCurrentOp != nil {
+				close(self.quitCurrentOp)
 			}
-
+			self.quitCurrentOp = make(chan struct{})
+			go self.mine(work, self.quitCurrentOp)
 			self.mu.Unlock()
-			log.Info("miner", "CpuAgent Stop Minning", "", "高度", num)
-
+		case <-self.stop:
+			self.mu.Lock()
+			if self.quitCurrentOp != nil {
+				close(self.quitCurrentOp)
+				self.quitCurrentOp = nil
+			}
+			self.mu.Unlock()
+			log.Info("miner", "CpuAgent Stop Minning", "")
 			break out
 		}
 	}
 }
 
-func (self *CpuAgent) mine(work *Work, stop <-chan uint64) {
-
-	//if result, err := self.engine.Seal(self.chain, work.header, stop, work.difficultyList, work.isBroadcastNode); result != nil {
-	//	self.returnCh <- &Result{result.Difficulty, result.Header}
-	//} else {
-	//	if err != nil {
-	//		log.Warn("Block sealing failed", "err", err)
-	//	}
-	//	self.returnCh <- nil
-	//}
-
-	self.engine.Seal(self.chain, work.header, stop, self.returnCh, work.difficultyList, work.isBroadcastNode)
-
-	/*
-		for {
-			select {
-			case result := <-self.foundMsgCh:
-				self.returnCh <- &Result{result.Difficulty, result.Header}
-			case <-self.stopMineCh:
-				log.Info("miner", "quit agent mine")
-				return
-			}
+func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
+	if result, err := self.engine.Seal(self.chain, work.header, stop, work.isBroadcastNode); result != nil {
+		log.Info("Successfully sealed new block", "number", result.Number, "hash", result.Hash())
+		self.returnCh <- result
+	} else {
+		if err != nil {
+			log.Warn("Block sealing failed", "err", err)
 		}
-	*/
+		self.returnCh <- nil
+	}
 }
 
 func (self *CpuAgent) GetHashRate() int64 {
