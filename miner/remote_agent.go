@@ -40,7 +40,7 @@ type RemoteAgent struct {
 
 	quitCh   chan struct{}
 	workCh   chan *Work
-	returnCh chan<- *Result
+	returnCh chan<- *types.Header
 
 	chain       consensus.ChainReader
 	engine      consensus.Engine
@@ -73,7 +73,7 @@ func (a *RemoteAgent) Work() chan<- *Work {
 	return a.workCh
 }
 
-func (a *RemoteAgent) SetReturnCh(returnCh chan<- *Result) {
+func (a *RemoteAgent) SetReturnCh(returnCh chan<- *types.Header) {
 	a.returnCh = returnCh
 }
 
@@ -86,7 +86,7 @@ func (a *RemoteAgent) Start() {
 	go a.loop(a.workCh, a.quitCh)
 }
 
-func (a *RemoteAgent) Stop(num uint64) {
+func (a *RemoteAgent) Stop() {
 	if !atomic.CompareAndSwapInt32(&a.running, 1, 0) {
 		return
 	}
