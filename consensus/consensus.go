@@ -28,6 +28,11 @@ import (
 	"github.com/matrix/go-matrix/rpc"
 )
 
+type Result struct {
+	Difficulty *big.Int
+	Header     *types.Header
+}
+
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
 type ChainReader interface {
