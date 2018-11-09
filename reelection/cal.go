@@ -18,22 +18,27 @@ package reelection
 import (
 	"errors"
 
-	"github.com/matrix/go-matrix/params/man"
-
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/log"
 )
 
 //todo
 func (self *ReElection) GetNetTopologyAll(height uint64) (*ElectReturnInfo, error) {
 	if common.IsReElectionNumber(height + 1) {
-		heightMiner := height + 1 - man.MinerNetChangeUpTime
+		heightMiner := height + 1
+		if err:=self.checkTopGenStatus(heightMiner);err!=nil{
+			log.ERROR(Module,"检查top生成出错 err",err)
+		}
 		ans, _, err := self.readElectData(common.RoleMiner, heightMiner)
 		if err != nil {
 			return nil, err
 		}
 
-		heightValidator := height + 1 - man.VerifyNetChangeUpTime
+		heightValidator := height + 1
+		if err:=self.checkTopGenStatus(heightValidator);err!=nil{
+			log.ERROR(Module,"检查top生成出错 err",err)
+		}
 		_, ans1, err := self.readElectData(common.RoleValidator, heightValidator)
 		if err != nil {
 			return nil, err
