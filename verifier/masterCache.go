@@ -55,9 +55,9 @@ func newMasterCache(number uint64) *masterCache {
 	}
 }
 
-func (self *masterCache) SetInquiryReq(req *mc.HD_ReelectInquiryReqMsg) {
+func (self *masterCache) SetInquiryReq(req *mc.HD_ReelectInquiryReqMsg) common.Hash {
 	if nil == req {
-		return
+		return common.Hash{}
 	}
 	self.inquiryResult = mc.ReelectRSPTypeNone
 	self.inquiryMsg = req
@@ -69,6 +69,8 @@ func (self *masterCache) SetInquiryReq(req *mc.HD_ReelectInquiryReqMsg) {
 	self.resultBroadcastHash = common.Hash{}
 	self.resultBroadcastMsg = nil
 	self.resultRspCache = make(map[common.Address]*common.VerifiedSign)
+
+	return self.inquiryHash
 }
 
 func (self *masterCache) ClearSelfInquiryMsg() {
@@ -97,18 +99,21 @@ func (self *masterCache) CheckInquiryRspMsg(rsp *mc.HD_ReelectInquiryRspMsg) err
 	return nil
 }
 
-func (self *masterCache) SaveInquiryAgreeSign(rsp *mc.HD_ReelectInquiryRspMsg) error {
-	signAccount, validate, err := crypto.VerifySignWithValidate(rsp.ReqHash.Bytes(), rsp.AgreeSign.Bytes())
+func (self *masterCache) SaveInquiryAgreeSign(reqHash common.Hash, sign common.Signature, from common.Address) error {
+	if _, exist := self.inquiryAgreeSignCache[from]; exist {
+		return errors.Errorf("来自(%s)的签名已存在!", from.Hex())
+	}
+	signAccount, validate, err := crypto.VerifySignWithValidate(reqHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return errors.Errorf("签名解析错误(%v)", err)
 	}
-	if signAccount != rsp.From {
-		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), rsp.From.Hex())
+	if signAccount != from {
+		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), from.Hex())
 	}
 	if !validate {
 		return errors.New("签名为不同意签名")
 	}
-	self.inquiryAgreeSignCache[signAccount] = &common.VerifiedSign{Sign: rsp.AgreeSign, Account: signAccount, Validate: validate, Stock: 0}
+	self.inquiryAgreeSignCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
 	return nil
 }
 
@@ -184,37 +189,33 @@ func (self *masterCache) InquiryResult() mc.ReelectRSPType {
 	return self.inquiryResult
 }
 
-func (self *masterCache) GetRLReqMsg() (*mc.HD_ReelectLeaderReqMsg, error) {
+func (self *masterCache) GetRLReqMsg() (*mc.HD_ReelectLeaderReqMsg, common.Hash, error) {
 	if self.inquiryResult != mc.ReelectRSPTypeAgree {
-		return nil, errors.Errorf("当前询问结果(%v) != ReelectRSPTypeAgree", self.inquiryResult)
+		return nil, common.Hash{}, errors.Errorf("当前询问结果(%v) != ReelectRSPTypeAgree", self.inquiryResult)
 	}
 	self.rlReqMsg.TimeStamp = time.Now().Unix()
 	self.rlReqHash = types.RlpHash(self.rlReqMsg)
-	return self.rlReqMsg, nil
+	return self.rlReqMsg, self.rlReqHash, nil
 }
 
-func (self *masterCache) SaveRLVote(msg *mc.HD_ReelectLeaderVoteMsg) error {
-	if nil == msg {
-		return ErrMsgIsNil
-	}
+func (self *masterCache) SaveRLVote(signHash common.Hash, sign common.Signature, from common.Address) error {
 	if (self.rlReqHash == common.Hash{}) {
 		return ErrSelfReqIsNil
 	}
-	vote := msg.Vote
-	if vote.SignHash != self.rlReqHash {
-		return errors.Errorf("signHash不匹配, signHash(%s)!=localHash(%s)", vote.SignHash.TerminalString(), self.rlReqHash.TerminalString())
+	if signHash != self.rlReqHash {
+		return errors.Errorf("signHash不匹配, signHash(%s)!=localHash(%s)", signHash.TerminalString(), self.rlReqHash.TerminalString())
 	}
-	signAccount, validate, err := crypto.VerifySignWithValidate(vote.SignHash.Bytes(), vote.Sign.Bytes())
+	signAccount, validate, err := crypto.VerifySignWithValidate(signHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return errors.Errorf("签名解析错误(%v)", err)
 	}
-	if signAccount != vote.From {
-		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), vote.From.Hex())
+	if signAccount != from {
+		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), from.Hex())
 	}
 	if !validate {
 		return errors.New("签名为不同意签名")
 	}
-	self.rlVoteCache[signAccount] = &common.VerifiedSign{Sign: vote.Sign, Account: signAccount, Validate: validate, Stock: 0}
+	self.rlVoteCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
 	return nil
 }
 
@@ -227,14 +228,14 @@ func (self *masterCache) GetRLSigns() []*common.VerifiedSign {
 	return signs
 }
 
-func (self *masterCache) GetResultBroadcastMsg() (*mc.HD_ReelectResultBroadcastMsg, error) {
+func (self *masterCache) GetResultBroadcastMsg() (*mc.HD_ReelectResultBroadcastMsg, common.Hash, error) {
 	if self.resultBroadcastMsg == nil {
-		return nil, errors.Errorf("缓存中没有重选结果广播消息")
+		return nil, common.Hash{}, errors.Errorf("缓存中没有重选结果广播消息")
 	}
 	self.resultBroadcastMsg.TimeStamp = time.Now().Unix()
 	self.resultBroadcastHash = types.RlpHash(self.resultBroadcastMsg)
 	self.resultRspCache = make(map[common.Address]*common.VerifiedSign)
-	return self.resultBroadcastMsg, nil
+	return self.resultBroadcastMsg, self.resultBroadcastHash, nil
 }
 
 func (self *masterCache) GetLocalResultMsg() (*mc.HD_ReelectResultBroadcastMsg, error) {
@@ -244,30 +245,27 @@ func (self *masterCache) GetLocalResultMsg() (*mc.HD_ReelectResultBroadcastMsg, 
 	return self.resultBroadcastMsg, nil
 }
 
-func (self *masterCache) SaveResultRsp(rsp *mc.HD_ReelectResultRspMsg) error {
-	if nil == rsp {
-		return ErrMsgIsNil
-	}
+func (self *masterCache) SaveResultRsp(resultHash common.Hash, sign common.Signature, from common.Address) error {
 	if (self.resultBroadcastHash == common.Hash{}) {
 		return ErrBroadcastIsNil
 	}
-	if rsp.ResultHash != self.resultBroadcastHash {
-		return errors.Errorf("ResultHash不匹配, ResultHash(%s)!=localHash(%s)", rsp.ResultHash.TerminalString(), self.resultBroadcastHash.TerminalString())
+	if resultHash != self.resultBroadcastHash {
+		return errors.Errorf("ResultHash不匹配, ResultHash(%s)!=localHash(%s)", resultHash.TerminalString(), self.resultBroadcastHash.TerminalString())
 	}
-	if _, exist := self.resultRspCache[rsp.From]; exist {
-		return errors.Errorf("响应已存在, from[%v]", rsp.From)
+	if _, exist := self.resultRspCache[from]; exist {
+		return errors.Errorf("响应已存在, from[%v]", from)
 	}
-	signAccount, validate, err := crypto.VerifySignWithValidate(rsp.ResultHash.Bytes(), rsp.Sign.Bytes())
+	signAccount, validate, err := crypto.VerifySignWithValidate(resultHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return errors.Errorf("签名解析错误(%v)", err)
 	}
-	if signAccount != rsp.From {
-		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), rsp.From.Hex())
+	if signAccount != from {
+		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), from.Hex())
 	}
 	if !validate {
 		return errors.New("签名为不同意签名")
 	}
-	self.resultRspCache[signAccount] = &common.VerifiedSign{Sign: rsp.Sign, Account: signAccount, Validate: validate, Stock: 0}
+	self.resultRspCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
 	return nil
 }
 
