@@ -11,8 +11,7 @@
 //
 //THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 //FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
-//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-//OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//WHETHER IN AN ACTION OF CONTRACT, TORT OR OTH
 package common
 
 import (
@@ -54,6 +53,24 @@ func (self ReuseMsgController) AddMsg(msgKey Hash, msg interface{}, lastUseTime 
 	}
 	self.msgMap[msgKey] = &msgCache{msg: msg, useTime: lastUseTime}
 	return nil
+}
+
+func (self ReuseMsgController) GetMsgList() []interface{} {
+	result := make([]interface{}, 0)
+	for _, value := range self.msgMap {
+		result = append(result, value.msg)
+	}
+
+	return result
+}
+
+func (self ReuseMsgController) GetMsgByKey(msgKey Hash) interface{} {
+	cache, exist := self.msgMap[msgKey]
+	if !exist {
+		return nil
+	} else {
+		return cache.msg
+	}
 }
 
 func (self ReuseMsgController) ReUseMsg(msgKey Hash) (interface{}, error) {
