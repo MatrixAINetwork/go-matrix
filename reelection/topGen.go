@@ -93,33 +93,33 @@ func (self *ReElection) ToGenMinerTop(height uint64) error {
 
 	minerDeposit, err := GetAllElectedByHeight(big.NewInt(int64(height)), common.RoleMiner) //
 	if err != nil {
-		log.ERROR(Module, "獲取礦工抵押交易失敗 err", err)
+		log.ERROR(Module, "获取矿工抵押列表失败 err", err)
 		return err
 	}
 	log.INFO(Module, "矿工抵押交易", minerDeposit)
 
 	seed, err := self.GetSeed(height)
 	if err != nil {
-		log.ERROR(Module, "獲取種子失敗 err", err)
+		log.ERROR(Module, "获取种子失败 err", err)
 		return err
 	}
 	log.Info(Module, "矿工选举种子", seed)
 
 	self.minerGenSub, err = mc.SubscribeEvent(mc.Topo_MasterMinerElectionRsp, self.minerGenCh)
 	if err != nil {
-		log.ERROR(Module, "訂閱Topo_MasterMinerElectionRsp err", err)
+		log.ERROR(Module, "订阅Topo_MasterMinerElectionRsp err", err)
 		return err
 	}
 
 	err = mc.PublishEvent(mc.ReElec_MasterMinerReElectionReq, &mc.MasterMinerReElectionReqMsg{SeqNum: height, RandSeed: seed, MinerList: minerDeposit})
-	log.INFO(Module, "發送-礦工拓撲生成請求", mc.MasterMinerReElectionReqMsg{SeqNum: height, RandSeed: seed, MinerList: minerDeposit})
+	log.INFO(Module, "发送-矿工拓扑生成請求", mc.MasterMinerReElectionReqMsg{SeqNum: height, RandSeed: seed, MinerList: minerDeposit})
 
 	select {
 	case TopRsp := <-self.minerGenCh:
 		log.INFO(Module, "收到礦工拓撲生成相應,data", TopRsp)
 
 		self.minerGenSub.Unsubscribe()
-		err := self.writeElectData(common.RoleMiner, height+man.MinerTopologyGenerateUpTime-man.MinerNetChangeUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
+		err := self.writeElectData(common.RoleMiner, height+man.MinerTopologyGenerateUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 		log.INFO(Module, "寫礦工的選舉信息到數據庫", err, "data", ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 
 		return err
@@ -127,7 +127,7 @@ func (self *ReElection) ToGenMinerTop(height uint64) error {
 	case <-time.After(Time_Out_Limit):
 		self.minerGenSub.Unsubscribe()
 		log.INFO(Module, "礦工拓撲生成相應失敗 err TimeOut", Time_Out_Limit)
-		return nil
+		return errors.New("矿工拓扑生成响应失败，超时")
 	}
 
 }
@@ -163,7 +163,7 @@ func (self *ReElection) ToGenValidatorTop(height uint64) error {
 	case TopRsp := <-self.validatorGenCh:
 		log.INFO(Module, "收到驗證者拓撲生成相應 data", TopRsp)
 		self.validatorGenSub.Unsubscribe()
-		err := self.writeElectData(common.RoleValidator, height+man.VerifyTopologyGenerateUpTime-man.VerifyNetChangeUpTime, ElectMiner{}, ElectValidator{MasterValidator: TopRsp.MasterValidator,
+		err := self.writeElectData(common.RoleValidator, height+man.VerifyTopologyGenerateUpTime, ElectMiner{}, ElectValidator{MasterValidator: TopRsp.MasterValidator,
 			BackUpValidator:    TopRsp.BackUpValidator,
 			CandidateValidator: TopRsp.CandidateValidator,
 		})
@@ -172,7 +172,7 @@ func (self *ReElection) ToGenValidatorTop(height uint64) error {
 		self.validatorGenSub.Unsubscribe()
 		log.ERROR(Module, "驗證者拓撲生成相應獲取超時 ", Time_Out_Limit)
 
-		return nil
+		return errors.New("矿工拓扑生成响应失败，超时")
 	}
 
 }
@@ -192,7 +192,7 @@ func (self *ReElection) writeElectData(aim common.RoleType, height uint64, miner
 			log.ERROR(Module, "礦工 寫入數據庫失敗 err", err)
 			return err
 		}
-		log.INFO(Module, "key", key, "value", minerData)
+		log.INFO(Module,"数据库 矿工拓扑生成 err",err,"高度",height,"key",key)
 		return nil
 
 	case aim == common.RoleValidator:
@@ -207,7 +207,7 @@ func (self *ReElection) writeElectData(aim common.RoleType, height uint64, miner
 			log.ERROR(Module, "驗證者數據寫入數據庫失敗 err", err)
 			return err
 		}
-		log.INFO(Module, "key", key, "value", validatorData)
+		log.INFO(Module,"数据库 验证者拓扑生成 err",err,"高度",height,"key",key)
 		return nil
 	}
 	return nil
