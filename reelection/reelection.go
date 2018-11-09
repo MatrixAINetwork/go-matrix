@@ -13,6 +13,7 @@
 //FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package reelection
 
 import (
@@ -161,11 +162,11 @@ func (self *ReElection) update() {
 func (self *ReElection) GetTopoChange(height uint64, offline []common.Address) ([]mc.Alternative, error) {
 
 	log.INFO(Module, "获取拓扑改变 start height", height, "offline", offline)
-	if height <= common.GetReElectionInterval() {
-		log.Error(Module, "小于第一个选举周期返回空的拓扑差值 height", height)
+	//if height <= common.GetReElectionInterval() {
+		//log.Error(Module, "小于第一个选举周期返回空的拓扑差值 height", height)
 		return []mc.Alternative{}, nil
 
-	}
+	//}
 	antive, err := self.readNativeData(height - 1)
 	if err != nil {
 		log.Error(Module, "获取上一个高度的初选列表失败 height-1", height-1)
@@ -192,10 +193,12 @@ func (self *ReElection) GetElection(height uint64) (*ElectReturnInfo, error) {
 	log.INFO(Module, "GetElection start height", height)
 	if common.IsReElectionNumber(height + man.MinerNetChangeUpTime) {
 		log.Error(Module, "是矿工网络生成切换时间点 height", height)
-		heightMiner := height
-		ans, _, err := self.readElectData(common.RoleMiner, heightMiner)
+		if err:=self.checkTopGenStatus(height+man.MinerNetChangeUpTime);err!=nil{
+			log.ERROR(Module,"检查top生成出错 err",err)
+		}
+		ans, _, err := self.readElectData(common.RoleMiner, height+ man.MinerNetChangeUpTime)
 		if err != nil {
-			log.ERROR(Module, "获取本地矿工选举信息失败", "miner", "heightminer", heightMiner)
+			log.ERROR(Module, "获取本地矿工选举信息失败", "miner", "heightminer", height+ man.MinerNetChangeUpTime)
 			return nil, err
 		}
 		resultM := &ElectReturnInfo{
@@ -205,10 +208,12 @@ func (self *ReElection) GetElection(height uint64) (*ElectReturnInfo, error) {
 		return resultM, nil
 	} else if common.IsReElectionNumber(height + man.VerifyNetChangeUpTime) {
 		log.Error(Module, "是验证者网络切换时间点 height", height)
-		heightValidator := height
-		_, ans, err := self.readElectData(common.RoleValidator, heightValidator)
+		if err:=self.checkTopGenStatus(height+man.VerifyNetChangeUpTime);err!=nil{
+			log.ERROR(Module,"检查top生成出错 err",err)
+		}
+		_, ans, err := self.readElectData(common.RoleValidator, height+man.VerifyNetChangeUpTime)
 		if err != nil {
-			log.ERROR(Module, "获取本地验证者选举信息失败", "miner", "heightValidator", heightValidator)
+			log.ERROR(Module, "获取本地验证者选举信息失败", "miner", "heightValidator",height+man.VerifyNetChangeUpTime)
 			return nil, err
 		}
 		resultV := &ElectReturnInfo{
