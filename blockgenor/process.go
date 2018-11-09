@@ -13,6 +13,7 @@
 //FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package blockgenor
 
 import (
@@ -28,22 +29,7 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/reelection"package blockgenor
-
-import (
-	"strconv"
-	"sync"
-
-	"github.com/ethereum/go-ethereum/accounts/signhelper"
-	"github.com/ethereum/go-ethereum/ca"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/mc"
-	"github.com/ethereum/go-ethereum/reelection"
+	"github.com/matrix/go-matrix/reelection"
 )
 
 type State uint16
@@ -77,35 +63,39 @@ func (s State) String() string {
 }
 
 type Process struct {
-	mu                sync.Mutex
-	curLeader         common.Address
-	nextLeader        common.Address
-	preBlockHash      common.Hash
-	number            uint64
-	role              common.RoleType
-	state             State
-	pm                *ProcessManage
-	powPool           *PowPool
-	broadcastRstCache []*mc.BlockData
-	blockCache        *blockCache
-	insertBlockHash   []common.Hash
-	FullBlockReqCache *common.ReuseMsgController
+	mu                 sync.Mutex
+	curLeader          common.Address
+	nextLeader         common.Address
+	consensusTurn      uint32
+	preBlockHash       common.Hash
+	number             uint64
+	role               common.RoleType
+	state              State
+	pm                 *ProcessManage
+	powPool            *PowPool
+	broadcastRstCache  []*mc.BlockData
+	blockCache         *blockCache
+	insertBlockHash    []common.Hash
+	FullBlockReqCache  *common.ReuseMsgController
+	consensusReqSender *common.ResendMsgCtrl
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
 	p := &Process{
-		curLeader:         common.Address{},
-		nextLeader:        common.Address{},
-		preBlockHash:      common.Hash{},
-		insertBlockHash:   make([]common.Hash, 0),
-		number:            number,
-		role:              common.RoleNil,
-		state:             StateIdle,
-		pm:                pm,
-		powPool:           NewPowPool("矿工结果池(高度)" + strconv.Itoa(int(number))),
-		broadcastRstCache: make([]*mc.BlockData, 0),
-		blockCache:        newBlockCache(),
-		FullBlockReqCache: common.NewReuseMsgController(3),
+		curLeader:          common.Address{},
+		nextLeader:         common.Address{},
+		consensusTurn:      0,
+		preBlockHash:       common.Hash{},
+		insertBlockHash:    make([]common.Hash, 0),
+		number:             number,
+		role:               common.RoleNil,
+		state:              StateIdle,
+		pm:                 pm,
+		powPool:            NewPowPool("矿工结果池(高度)" + strconv.Itoa(int(number))),
+		broadcastRstCache:  make([]*mc.BlockData, 0),
+		blockCache:         newBlockCache(),
+		FullBlockReqCache:  common.NewReuseMsgController(3),
+		consensusReqSender: nil,
 	}
 
 	return p
@@ -125,7 +115,9 @@ func (p *Process) Close() {
 	p.state = StateIdle
 	p.curLeader = common.Address{}
 	p.nextLeader = common.Address{}
+	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
+	p.closeConsensusReqSender()
 }
 
 func (p *Process) ReInit() {
@@ -137,7 +129,9 @@ func (p *Process) ReInit() {
 	p.state = StateBlockBroadcast
 	p.curLeader = common.Address{}
 	p.nextLeader = common.Address{}
+	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
+	p.closeConsensusReqSender()
 }
 
 func (p *Process) ReInitNextLeader() {
@@ -146,13 +140,15 @@ func (p *Process) ReInitNextLeader() {
 	p.nextLeader = common.Address{}
 }
 
-func (p *Process) SetCurLeader(leader common.Address) {
+func (p *Process) SetCurLeader(leader common.Address, consensusTurn uint32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.curLeader == leader {
+	if p.curLeader == leader && p.consensusTurn == consensusTurn {
 		return
 	}
 	p.curLeader = leader
+	p.consensusTurn = consensusTurn
+	p.closeConsensusReqSender()
 	log.INFO(p.logExtraInfo(), "process设置当前leader成功", p.curLeader.Hex(), "高度", p.number)
 	if p.checkState(StateIdle) {
 		return
@@ -286,7 +282,7 @@ func (p *Process) startHeaderGen() {
 	}
 
 	p.state = StateMinerResultVerify
-	p.processMinerResultVerify()
+	p.processMinerResultVerify(p.curLeader, true)
 }
 
 func (p *Process) canGenHeader() bool {
@@ -295,14 +291,14 @@ func (p *Process) canGenHeader() bool {
 		if false == common.IsBroadcastNumber(p.number) {
 			log.INFO(p.logExtraInfo(), "广播身份，当前不是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify()
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 	case common.RoleValidator:
 		if common.IsBroadcastNumber(p.number) {
 			log.INFO(p.logExtraInfo(), "验证者身份，当前是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify()
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 
@@ -314,7 +310,7 @@ func (p *Process) canGenHeader() bool {
 		if p.curLeader != ca.GetAddress() {
 			log.INFO(p.logExtraInfo(), "自己不是当前leader，进入挖矿结果验证阶段, 高度", p.number, "self", ca.GetAddress().Hex(), "leader", p.curLeader.Hex())
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify()
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 
