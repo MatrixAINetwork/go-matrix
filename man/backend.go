@@ -208,7 +208,7 @@ func New(ctx *node.ServiceContext, config *Config) (*matrix, error) {
 	}
 	//man.protocolManager.Msgcenter = ctx.MsgCenter
 	MsgCenter = ctx.MsgCenter
-	man.miner, err = miner.New(man.blockchain, man.chainConfig, man.EventMux(), man.engine, man.blockchain.DPOSEngine(), man.hd, man.CA())
+	man.miner, err = miner.New(man.blockchain, man.chainConfig, man.EventMux(), man.engine, man.blockchain.DPOSEngine(), man.hd)
 	if err != nil {
 		return nil, err
 	}
