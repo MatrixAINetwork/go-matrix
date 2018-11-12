@@ -150,9 +150,13 @@ func (self *BlockVerify) handleRoleUpdatedMsg(roleMsg *mc.RoleUpdatedMsg) error 
 }
 
 func (self *BlockVerify) handleLeaderChangeNotify(leaderMsg *mc.LeaderChangeNotify) {
-	log.INFO(self.logExtraInfo(), "Leader变更消息处理", "开始", "高度", leaderMsg.Number, "轮次",
-		leaderMsg.ReelectTurn, "有效", leaderMsg.ConsensusState, "leader", leaderMsg.Leader.Hex(), "next leader", leaderMsg.NextLeader.Hex())
-	defer log.INFO(self.logExtraInfo(), "Leader变更消息处理", "结束", "高度", leaderMsg.Number, "轮次", leaderMsg.ReelectTurn, "有效", leaderMsg.ConsensusState)
+	if nil == leaderMsg {
+		log.ERROR(self.logExtraInfo(), "leader变更消息异常", "消息为nil")
+		return
+	}
+	log.INFO(self.logExtraInfo(), "Leader变更消息处理", "开始", "高度", leaderMsg.Number, "共识轮次",
+		leaderMsg.ConsensusTurn, "有效", leaderMsg.ConsensusState, "leader", leaderMsg.Leader.Hex(), "next leader", leaderMsg.NextLeader.Hex())
+	defer log.INFO(self.logExtraInfo(), "Leader变更消息处理", "结束", "高度", leaderMsg.Number, "共识轮次", leaderMsg.ConsensusTurn, "有效", leaderMsg.ConsensusState)
 
 	msgNumber := leaderMsg.Number
 	process, err := self.processManage.GetProcess(msgNumber)
@@ -161,25 +165,16 @@ func (self *BlockVerify) handleLeaderChangeNotify(leaderMsg *mc.LeaderChangeNoti
 		return
 	}
 
-	if leaderMsg.ConsensusState {
-		process.SetLeader(leaderMsg.Leader)
-		//提前设置next leader
-		nextProcess, err := self.processManage.GetProcess(msgNumber + 1)
-		if err == nil {
-			nextProcess.SetLeader(leaderMsg.NextLeader)
-		}
-	} else {
-		process.ReInit()
-	}
+	process.SetLeaderInfo(leaderMsg)
 }
 
 func (self *BlockVerify) handleRequestMsg(reqMsg *mc.HD_BlkConsensusReqMsg) {
-	if nil == reqMsg {
+	if nil == reqMsg || nil == reqMsg.Header {
 		log.WARN(self.logExtraInfo(), "请求消息", "msg is nil")
 		return
 	}
-	log.INFO(self.logExtraInfo(), "请求消息处理", "开始", "高度", reqMsg.Header.Number, "Leader", reqMsg.Header.Leader.Hex())
-	defer log.INFO(self.logExtraInfo(), "请求消息处理", "结束", "高度", reqMsg.Header.Number, "Leader", reqMsg.Header.Leader.Hex())
+	log.INFO(self.logExtraInfo(), "请求消息处理", "开始", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn, "Leader", reqMsg.Header.Leader.Hex())
+	defer log.INFO(self.logExtraInfo(), "请求消息处理", "结束", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn, "Leader", reqMsg.Header.Leader.Hex())
 	if (reqMsg.Header.Leader == common.Address{}) {
 		log.WARN(self.logExtraInfo(), "请求消息", "leader is nil")
 		return
