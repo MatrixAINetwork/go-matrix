@@ -71,7 +71,7 @@ const (
 
 type Process struct {
 	mu            sync.Mutex
-	leader        common.Address
+	leaderCache   mc.LeaderChangeNotify
 	number        uint64
 	role          common.RoleType
 	state         State
@@ -83,7 +83,16 @@ type Process struct {
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
 	p := &Process{
-		leader:        common.Address{},
+		leaderCache: mc.LeaderChangeNotify{
+			ConsensusState: false,
+			Leader:         common.Address{},
+			NextLeader:     common.Address{},
+			Number:         number,
+			ConsensusTurn:  0,
+			ReelectTurn:    0,
+			TurnBeginTime:  0,
+			TurnEndTime:    0,
+		},
 		number:        number,
 		role:          common.RoleNil,
 		state:         StateIdle,
@@ -116,39 +125,54 @@ func (p *Process) Close() {
 	p.curProcessReq = nil
 }
 
-func (p *Process) ReInit() {
+func (p *Process) SetLeaderInfo(info *mc.LeaderChangeNotify) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.checkState(StateIdle) {
+	p.leaderCache.ConsensusState = info.ConsensusState
+	if p.leaderCache.ConsensusState == false {
+		p.stopProcess()
 		return
 	}
 
-	if p.role == common.RoleValidator {
+	if p.leaderCache.Leader == info.Leader && p.leaderCache.ConsensusTurn == info.ConsensusTurn {
+		//已处理过的leader消息，不处理
+		return
+	}
+
+	//leader或轮次变化了，更新缓存
+	p.leaderCache.Leader.Set(info.Leader)
+	p.leaderCache.NextLeader.Set(info.NextLeader)
+	p.leaderCache.ConsensusTurn = info.ConsensusTurn
+	p.leaderCache.ReelectTurn = info.ReelectTurn
+	p.leaderCache.TurnBeginTime = info.TurnBeginTime
+	p.leaderCache.TurnEndTime = info.TurnEndTime
+	p.curProcessReq = nil
+
+	//维护req缓存
+	p.reqCache.SetCurTurn(p.leaderCache.ConsensusTurn)
+
+	//重启process
+	if p.state > StateIdle {
 		p.state = StateStart
-		p.leader = common.Address{}
-		p.curProcessReq = nil
+		if p.role == common.RoleValidator {
+			p.startReqVerifyCommon()
+		} else if p.role == common.RoleBroadcast {
+			log.WARN(p.logExtraInfo(), "广播身份下收到leader变更消息", "不处理")
+		}
 	}
 }
 
-func (p *Process) SetLeader(leader common.Address) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Process) stopProcess() {
+	p.leaderCache.Leader.Set(common.Address{})
+	p.leaderCache.NextLeader.Set(common.Address{})
+	p.leaderCache.ConsensusTurn = 0
+	p.leaderCache.ReelectTurn = 0
+	p.leaderCache.TurnBeginTime = 0
+	p.leaderCache.TurnEndTime = 0
+	p.curProcessReq = nil
 
-	if p.leader == leader {
-		return
-	}
-	p.leader.Set(leader)
-
-	if p.checkState(StateIdle) {
-		return
-	}
-
-	if p.role == common.RoleValidator {
+	if p.state > StateIdle {
 		p.state = StateStart
-		p.curProcessReq = nil
-		p.startReqVerifyCommon()
-	} else if p.role == common.RoleBroadcast {
-		log.WARN(p.logExtraInfo(), "广播身份下收到leader变更消息", "不处理")
 	}
 }
 
@@ -166,9 +190,7 @@ func (p *Process) AddReq(reqMsg *mc.HD_BlkConsensusReqMsg) {
 	if p.role == common.RoleBroadcast {
 		p.startReqVerifyBC()
 	} else if p.role == common.RoleValidator {
-		if p.leader == reqMsg.Header.Leader {
-			p.startReqVerifyCommon()
-		}
+		p.startReqVerifyCommon()
 	}
 }
 
@@ -187,9 +209,7 @@ func (p *Process) AddLocalReq(localReq *mc.LocalBlockVerifyConsensusReq) {
 	if p.role == common.RoleBroadcast {
 		p.startReqVerifyBC()
 	} else if p.role == common.RoleValidator {
-		if p.leader == leader {
-			p.startReqVerifyCommon()
-		}
+		p.startReqVerifyCommon()
 	}
 }
 
@@ -202,13 +222,12 @@ func (p *Process) ProcessDPOSOnce() {
 func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	reqData, err := p.reqCache.GetLeaderReq(msg.Header.Leader)
+	msgHeaderHash := msg.Header.HashNoSignsAndNonce()
+	reqData, err := p.reqCache.GetLeaderReqByHash(msgHeaderHash)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "处理状态恢复消息", "本地请求获取失败", "err", err)
 		return
 	}
-	msgHeaderHash := msg.Header.HashNoSignsAndNonce()
 	if reqData.hash != msgHeaderHash {
 		log.ERROR(p.logExtraInfo(), "处理状态恢复消息", "本地请求hash不匹配，忽略消息",
 			"本地hash", reqData.hash.TerminalString(), "消息hash", msgHeaderHash.TerminalString())
@@ -225,24 +244,24 @@ func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
 }
 
 func (p *Process) startReqVerifyCommon() {
-	if p.checkState(StateStart) == false && p.checkState(StateEnd) == false {
+	if p.checkState(StateStart) == false {
 		log.WARN(p.logExtraInfo(), "准备开始请求验证阶段，状态错误", p.state.String(), "高度", p.number)
 		return
 	}
 
-	if (p.leader == common.Address{}) {
-		log.WARN(p.logExtraInfo(), "请求验证阶段", "当前leader为空，等待leader消息", "高度", p.number)
+	if p.leaderCache.ConsensusState == false {
+		log.WARN(p.logExtraInfo(), "请求验证阶段", "当前leader未共识完成，等待leader消息", "高度", p.number)
 		return
 	}
 
-	req, err := p.reqCache.GetLeaderReq(p.leader)
+	req, err := p.reqCache.GetLeaderReq(p.leaderCache.Leader, p.leaderCache.ConsensusTurn)
 	if err != nil {
-		log.WARN(p.logExtraInfo(), "请求验证阶段,寻找leader的请求错误,继续等待请求", err, "Leader", p.leader.Hex(), "高度", p.number)
+		log.WARN(p.logExtraInfo(), "请求验证阶段,寻找leader的请求错误,继续等待请求", err,
+			"Leader", p.leaderCache.Leader.Hex(), "轮次", p.leaderCache.ConsensusTurn, "高度", p.number)
 		return
 	}
 
 	p.curProcessReq = req
-	p.curProcessReq.hash = p.curProcessReq.req.Header.HashNoSignsAndNonce()
 	log.INFO(p.logExtraInfo(), "请求验证阶段", "开始", "高度", p.number, "HeaderHash", p.curProcessReq.hash.TerminalString(), "parent hash", p.curProcessReq.req.Header.ParentHash.TerminalString(), "之前状态", p.state.String())
 	p.state = StateReqVerify
 	p.processReqOnce()
@@ -513,9 +532,10 @@ func (p *Process) finishedProcess() {
 	if result == localVerifyResultSuccess {
 		// notify leader server the verify state
 		notify := mc.BlockPOSFinishedNotify{
-			Number:  p.number,
-			Header:  p.curProcessReq.req.Header,
-			TxsCode: p.curProcessReq.req.TxsCode,
+			Number:        p.number,
+			Header:        p.curProcessReq.req.Header,
+			ConsensusTurn: p.curProcessReq.req.ConsensusTurn,
+			TxsCode:       p.curProcessReq.req.TxsCode,
 		}
 		mc.PublishEvent(mc.BlkVerify_POSFinishedNotify, &notify)
 	}
