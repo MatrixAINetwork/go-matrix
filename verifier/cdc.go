@@ -32,9 +32,10 @@ type cdc struct {
 	leaderCal        *leaderCalculator
 	turnTime         *turnTimes
 	chain            *core.BlockChain
+	logInfo          string
 }
 
-func newCDC(number uint64, chain *core.BlockChain) *cdc {
+func newCDC(number uint64, chain *core.BlockChain, logInfo string) *cdc {
 	dc := &cdc{
 		state:            stIdle,
 		number:           number,
@@ -132,6 +133,8 @@ func (dc *cdc) PrepareLeaderMsg() (*mc.LeaderChangeNotify, error) {
 		ReelectTurn:    dc.curReelectTurn,
 		Number:         dc.number,
 		ConsensusState: dc.state != stReelect,
+		TurnBeginTime:  dc.turnTime.GetBeginTime(dc.curConsensusTurn),
+		TurnEndTime:    dc.turnTime.GetPosEndTime(dc.curConsensusTurn),
 	}, nil
 }
 
