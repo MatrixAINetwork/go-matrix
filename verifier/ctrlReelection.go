@@ -76,9 +76,6 @@ func (self *controller) finishReelectWithRLConsensus(rlResult *mc.HD_ReelectLead
 		return
 	}
 
-	//缓存共识结果消息
-	self.mp.SaveRLConsensusMsg(rlResult)
-
 	self.setTimer(0, self.reelectTimer)
 	self.selfCache.ClearSelfInquiryMsg()
 	//以重选请求的时间戳为本轮次的开始时间戳
@@ -127,11 +124,13 @@ func (self *controller) handleInquiryReq(req *mc.HD_ReelectInquiryReqMsg) {
 		log.WARN(self.logInfo, "处理重选询问请求", "消息master与from不匹配", "master", req.Master.Hex(), "from", req.From.Hex())
 		return
 	}
+
 	master, err := self.dc.GetLeader(req.ConsensusTurn + req.ReelectTurn)
 	if err != nil {
 		log.ERROR(self.logInfo, "处理重选询问请求", "验证消息合法性错误", "计算master失败", err)
 		return
 	}
+
 	if master != req.From {
 		log.ERROR(self.logInfo, "处理重选询问请求", "消息不合法，master不匹配", "from", req.From.Hex(), "local master", master.Hex())
 		return
@@ -160,7 +159,7 @@ func (self *controller) handleInquiryReq(req *mc.HD_ReelectInquiryReqMsg) {
 		}
 	} else {
 		// 消息轮次<本地轮次: 请求方共识轮次落后
-		self.sendInquiryRspWithRLConsensus(types.RlpHash(req), req.From)
+		self.sendInquiryRspWithRLConsensus(types.RlpHash(req), req.From, req.Number)
 	}
 }
 
@@ -180,38 +179,9 @@ func (self *controller) handleInquiryRsp(rsp *mc.HD_ReelectInquiryRspMsg) {
 		self.processNewBlockReadyRsp(rsp.NewBlock, rsp.From)
 		return
 
-	case mc.ReelectRSPTypeAlreadyRL:
-		if err := self.checkRLResult(rsp.RLResult); err != nil {
-			log.ERROR(self.logInfo, "处理重选询问响应(leader重选已完成)", "结果消息异常", "err", err)
-			return
-		}
-		turn := rsp.RLResult.Req.InquiryReq.ConsensusTurn + rsp.RLResult.Req.InquiryReq.ReelectTurn
-		log.INFO(self.logInfo, "处理重选询问响应(leader重选已完成)", "轮次低于他人，开始同步轮次", "目标轮次", turn)
-		self.finishReelectWithRLConsensus(rsp.RLResult)
-
-	case mc.ReelectRSPTypePOS:
-		posResult := rsp.POSResult
-		if nil == posResult {
-			log.ERROR(self.logInfo, "处理重选询问响应(POS完成响应)", "POS结果为nil")
-			return
-		}
-		if posResult.Header.Number.Uint64() != self.Number() {
-			log.ERROR(self.logInfo, "处理重选询问响应(POS完成响应)", "pos结果高度不匹配", "POS number", posResult.Header.Number.Uint64(), "local number", self.Number())
-			return
-		}
-		if posResult.ConsensusTurn != self.dc.curConsensusTurn || posResult.Header.Leader != self.dc.consensusLeader {
-			log.ERROR(self.logInfo, "处理重选询问响应(POS完成响应)", "pos结果轮次不匹配",
-				"POS结果轮次", posResult.ConsensusTurn, "local轮次", self.dc.curConsensusTurn,
-				"POS结果leader", posResult.Header.Leader.Hex(), "local Leader", self.dc.consensusLeader.Hex())
-			return
-		}
-		if err := self.matrix.DPOSEngine().VerifyBlock(self.dc, posResult.Header); err != nil {
-			log.ERROR(self.logInfo, "处理重选询问响应(POS完成响应)", "POS结果未通过POS验证", "err", err)
-			return
-		}
-
+	case mc.ReelectRSPTypePOS, mc.ReelectRSPTypeAlreadyRL:
 		if err := self.selfCache.SetInquiryResultNotAgree(rsp.Type, rsp); err != nil {
-			log.ERROR(self.logInfo, "处理重选询问响应(POS完成响应)", "设置询问结果错误", "结果类型", rsp.Type, "err", err)
+			log.ERROR(self.logInfo, "处理重选询问响应", "设置询问结果错误", "结果类型", rsp.Type, "err", err)
 			return
 		}
 		self.sendResultBroadcastMsg()
@@ -349,10 +319,21 @@ func (self *controller) processResultBroadcastMsg(msg *mc.HD_ReelectResultBroadc
 		self.finishReelectWithPOS(posResult, msg.From)
 
 	case mc.ReelectRSPTypeAgree, mc.ReelectRSPTypeAlreadyRL:
-		if err := self.checkRLResult(msg.RLResult); err != nil {
-			return err
+		rlResult := msg.RLResult
+		if nil == rlResult {
+			return ErrLeaderResultIsNil
 		}
-		self.finishReelectWithRLConsensus(msg.RLResult)
+		turn := rlResult.Req.InquiryReq.ConsensusTurn + rlResult.Req.InquiryReq.ReelectTurn
+		if turn < self.dc.curConsensusTurn {
+			return errors.Errorf("消息轮次(%d) <= 本地共识轮次(%d)", turn, self.dc.curConsensusTurn)
+		}
+		if rlResult.TimeStamp < rlResult.Req.TimeStamp {
+			return errors.Errorf("时间戳检查异常, 共识完成时间戳(%d)比共识请求时间戳(%d)早", rlResult.TimeStamp, rlResult.Req.TimeStamp)
+		}
+		if _, err := self.matrix.DPOSEngine().VerifyHashWithNumber(self.dc, types.RlpHash(rlResult.Req), rlResult.Votes, self.dc.number); err != nil {
+			return errors.Errorf("leader重选完成中的POS结果验证错误(%v)", err)
+		}
+		self.finishReelectWithRLConsensus(rlResult)
 	default:
 		return errors.Errorf("结果类型(%v)错误", msg.Type)
 	}
@@ -422,15 +403,15 @@ func (self *controller) sendInquiryRspWithAgree(reqHash common.Hash, target comm
 	self.matrix.HD().SendNodeMsg(mc.HD_LeaderReelectInquiryRsp, rsp, common.RoleNil, []common.Address{target})
 }
 
-func (self *controller) sendInquiryRspWithRLConsensus(reqHash common.Hash, target common.Address) {
-	consensusMsg, err := self.mp.GetRLConsensusMsg(self.dc.curConsensusTurn)
+func (self *controller) sendInquiryRspWithRLConsensus(reqHash common.Hash, target common.Address, number uint64) {
+	consensusMsg, err := self.mp.GetRLConsensusMsg(self.dc.GetConsensusLeader())
 	if err != nil {
 		log.ERROR(self.logInfo, "send<询问响应(leader重选已完成)>", "获取leader重选共识消息错误", "err", err, "高度", self.Number(),
 			"共识轮次", self.dc.curConsensusTurn, "共识leader", self.dc.GetConsensusLeader())
 		return
 	}
 	rsp := &mc.HD_ReelectInquiryRspMsg{
-		Number:    self.Number(),
+		Number:    number,
 		ReqHash:   reqHash,
 		Type:      mc.ReelectRSPTypeAlreadyRL,
 		AgreeSign: common.Signature{},
@@ -438,8 +419,6 @@ func (self *controller) sendInquiryRspWithRLConsensus(reqHash common.Hash, targe
 		RLResult:  consensusMsg,
 		NewBlock:  nil,
 	}
-	log.ERROR(self.logInfo, "send<询问响应(leader重选已完成)>", "成功", "轮次", consensusMsg.Req.InquiryReq.ConsensusTurn, "高度", self.Number(),
-		"共识轮次", self.dc.curConsensusTurn, "共识leader", self.dc.GetConsensusLeader())
 	self.matrix.HD().SendNodeMsg(mc.HD_LeaderReelectInquiryRsp, rsp, common.RoleNil, []common.Address{target})
 }
 
@@ -541,22 +520,5 @@ func (self *controller) checkRLReqMsg(req *mc.HD_ReelectLeaderReqMsg) error {
 		return errors.Errorf("请求中的询问同意签名POS未通过(%v)", err)
 	}
 
-	return nil
-}
-
-func (self *controller) checkRLResult(result *mc.HD_ReelectLeaderConsensus) error {
-	if nil == result {
-		return ErrLeaderResultIsNil
-	}
-	turn := result.Req.InquiryReq.ConsensusTurn + result.Req.InquiryReq.ReelectTurn
-	if turn < self.dc.curConsensusTurn {
-		return errors.Errorf("消息轮次(%d) <= 本地共识轮次(%d)", turn, self.dc.curConsensusTurn)
-	}
-	if result.TimeStamp < result.Req.TimeStamp {
-		return errors.Errorf("时间戳检查异常, 共识完成时间戳(%d)比共识请求时间戳(%d)早", result.TimeStamp, result.Req.TimeStamp)
-	}
-	if _, err := self.matrix.DPOSEngine().VerifyHashWithNumber(self.dc, types.RlpHash(result.Req), result.Votes, self.dc.number); err != nil {
-		return errors.Errorf("leader重选完成中的POS结果验证错误(%v)", err)
-	}
 	return nil
 }
