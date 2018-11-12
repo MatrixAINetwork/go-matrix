@@ -25,13 +25,12 @@ import (
 	"sync"
 )
 
-const fromLimitCount uint32 = 3
+const otherReqCountMax = 50
 
 var (
-	paramErr           = errors.New("param error")
-	countOutOfLimitErr = errors.New("the req count from the account is out of limit")
-	leaderReqExistErr  = errors.New("req from this leader already exist")
-	cantFindErr        = errors.New("can't find req in cache")
+	paramErr          = errors.New("param error")
+	leaderReqExistErr = errors.New("req from this leader already exist")
+	cantFindErr       = errors.New("can't find req in cache")
 )
 
 type reqData struct {
@@ -47,7 +46,7 @@ type reqData struct {
 func newReqData(req *mc.HD_BlkConsensusReqMsg) *reqData {
 	return &reqData{
 		req:               req,
-		hash:              common.Hash{},
+		hash:              req.Header.HashNoSignsAndNonce(),
 		txs:               nil,
 		receipts:          nil,
 		stateDB:           nil,
@@ -59,7 +58,7 @@ func newReqData(req *mc.HD_BlkConsensusReqMsg) *reqData {
 func newReqDataByLocalReq(localReq *mc.LocalBlockVerifyConsensusReq) *reqData {
 	return &reqData{
 		req:               localReq.BlkVerifyConsensusReq,
-		hash:              common.Hash{},
+		hash:              localReq.BlkVerifyConsensusReq.Header.HashNoSignsAndNonce(),
 		txs:               localReq.Txs,
 		receipts:          localReq.Receipts,
 		stateDB:           localReq.State,
@@ -70,18 +69,18 @@ func newReqDataByLocalReq(localReq *mc.LocalBlockVerifyConsensusReq) *reqData {
 
 type reqCache struct {
 	mu             sync.RWMutex
+	curTurn        uint32
 	leaderReqCache map[common.Address]*reqData //from = leader 的req
 	otherReqCache  []*reqData                  //from != leader 的req
-	countMap       map[common.Address]uint32
-	countLimit     uint32
+	otherReqLimit  int
 }
 
 func newReqCache() *reqCache {
 	return &reqCache{
-		countMap:       make(map[common.Address]uint32),
-		countLimit:     fromLimitCount,
+		curTurn:        0,
+		leaderReqCache: make(map[common.Address]*reqData),
 		otherReqCache:  make([]*reqData, 0),
-		leaderReqCache: make(map[common.Address]*reqData, 0),
+		otherReqLimit:  otherReqCountMax,
 	}
 }
 
@@ -92,9 +91,14 @@ func (rc *reqCache) AddReq(req *mc.HD_BlkConsensusReqMsg) error {
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+
+	if req.ConsensusTurn < rc.curTurn {
+		return errors.Errorf("区块请求消息的轮次高低,消息轮次(%d) < 本地轮次(%d)", req.ConsensusTurn, rc.curTurn)
+	}
+
 	if req.Header.Leader == req.From {
-		_, exit := rc.leaderReqCache[req.From]
-		if exit {
+		oldReq, exit := rc.leaderReqCache[req.From]
+		if exit && oldReq.req.ConsensusTurn >= req.ConsensusTurn {
 			return leaderReqExistErr
 		}
 		rc.leaderReqCache[req.From] = newReqData(req)
@@ -102,13 +106,12 @@ func (rc *reqCache) AddReq(req *mc.HD_BlkConsensusReqMsg) error {
 	}
 
 	//other req
-	count := rc.getCount(req.From)
-	if count >= rc.countLimit {
-		return countOutOfLimitErr
+	count := len(rc.otherReqCache)
+	if count >= rc.otherReqLimit {
+		rc.otherReqCache = append(rc.otherReqCache[1:], newReqData(req))
+	} else {
+		rc.otherReqCache = append(rc.otherReqCache, newReqData(req))
 	}
-
-	rc.otherReqCache = append(rc.otherReqCache, newReqData(req))
-	rc.setCount(req.From, count+1)
 	return nil
 }
 
@@ -123,7 +126,37 @@ func (rc *reqCache) AddLocalReq(req *mc.LocalBlockVerifyConsensusReq) error {
 	return nil
 }
 
-func (rc *reqCache) GetLeaderReq(leader common.Address) (*reqData, error) {
+func (rc *reqCache) SetCurTurn(consensusTurn uint32) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	if rc.curTurn >= consensusTurn {
+		return
+	}
+
+	rc.curTurn = consensusTurn
+	//fix leader req cache
+	deleteList := make([]common.Address, 0)
+	for key, req := range rc.leaderReqCache {
+		if req.req.ConsensusTurn < rc.curTurn {
+			deleteList = append(deleteList, key)
+		}
+	}
+	for _, delKey := range deleteList {
+		delete(rc.leaderReqCache, delKey)
+	}
+
+	//fix other req cache
+	newCache := make([]*reqData, 0)
+	for _, req := range rc.otherReqCache {
+		if req.req.ConsensusTurn >= rc.curTurn {
+			newCache = append(newCache, req)
+		}
+	}
+	rc.otherReqCache = newCache
+}
+
+func (rc *reqCache) GetLeaderReq(leader common.Address, consensusTurn uint32) (*reqData, error) {
 	if (leader == common.Address{}) {
 		return nil, paramErr
 	}
@@ -134,7 +167,32 @@ func (rc *reqCache) GetLeaderReq(leader common.Address) (*reqData, error) {
 	if !OK {
 		return nil, cantFindErr
 	}
+
+	if req.req.ConsensusTurn != consensusTurn {
+		return nil, errors.Errorf("请求轮次不匹配,缓存(%d) != 目标(%d)", req.req.ConsensusTurn, consensusTurn)
+	}
+
 	return req, nil
+}
+
+func (rc *reqCache) GetLeaderReqByHash(hash common.Hash) (*reqData, error) {
+	if (hash == common.Hash{}) {
+		return nil, paramErr
+	}
+
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	for _, req := range rc.leaderReqCache {
+		if req.hash == hash {
+			return req, nil
+		}
+	}
+	for _, req := range rc.otherReqCache {
+		if req.hash == hash {
+			return req, nil
+		}
+	}
+	return nil, cantFindErr
 }
 
 func (rc *reqCache) GetAllReq() []*reqData {
@@ -146,17 +204,4 @@ func (rc *reqCache) GetAllReq() []*reqData {
 	}
 	result = append(result, rc.otherReqCache...)
 	return result
-}
-
-func (rc *reqCache) getCount(from common.Address) uint32 {
-	count, OK := rc.countMap[from]
-	if OK {
-		return count
-	} else {
-		return 0
-	}
-}
-
-func (rc *reqCache) setCount(from common.Address, count uint32) {
-	rc.countMap[from] = count
 }
