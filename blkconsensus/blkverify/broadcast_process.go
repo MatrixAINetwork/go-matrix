@@ -40,7 +40,6 @@ func (p *Process) startReqVerifyBC() {
 		}
 
 		p.curProcessReq = req
-		p.curProcessReq.hash = p.curProcessReq.req.Header.HashNoSignsAndNonce()
 		p.state = StateReqVerify
 		p.bcProcessReqVerify()
 		return
