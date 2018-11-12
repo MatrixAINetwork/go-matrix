@@ -135,13 +135,16 @@ type LeaderChangeNotify struct {
 	Number         uint64
 	ConsensusTurn  uint32
 	ReelectTurn    uint32
+	TurnBeginTime  int64
+	TurnEndTime    int64
 }
 
 //block verify server
 type HD_BlkConsensusReqMsg struct {
-	From    common.Address
-	Header  *types.Header
-	TxsCode []uint32
+	From          common.Address
+	Header        *types.Header
+	ConsensusTurn uint32
+	TxsCode       []uint32
 }
 
 type LocalBlockVerifyConsensusReq struct {
@@ -152,9 +155,10 @@ type LocalBlockVerifyConsensusReq struct {
 }
 
 type BlockPOSFinishedNotify struct {
-	Number  uint64
-	Header  *types.Header // 包含签名列表的header
-	TxsCode []uint32
+	Number        uint64
+	Header        *types.Header // 包含签名列表的header
+	ConsensusTurn uint32
+	TxsCode       []uint32
 }
 
 type BlockLocalVerifyOK struct {
