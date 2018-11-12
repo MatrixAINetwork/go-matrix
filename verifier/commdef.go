@@ -30,6 +30,7 @@ var (
 	ErrMsgAccountIsNull  = errors.New("不合法的账户：空账户")
 	ErrValidatorsIsNil   = errors.New("验证者列表为空")
 	ErrValidatorNotFound = errors.New("验证者未找到")
+	ErrMsgExistInCache   = errors.New("缓存中已存在消息")
 	ErrNoMsgInCache      = errors.New("缓存中没有目标消息")
 	ErrMsgIsNil          = errors.New("消息为nil")
 	ErrSelfReqIsNil      = errors.New("self请求不在缓存中")
