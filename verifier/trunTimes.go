@@ -49,6 +49,15 @@ func (tt *turnTimes) GetBeginTime(consensusTurn uint32) int64 {
 	}
 }
 
+func (tt *turnTimes) GetPosEndTime(consensusTurn uint32) int64 {
+	posTime := man.LRSPOSOutTime
+	if consensusTurn == 0 {
+		posTime += man.LRSParentMiningTime
+	}
+
+	return tt.GetBeginTime(consensusTurn) + posTime
+}
+
 func (tt *turnTimes) CalState(consensusTurn uint32, time int64) (st state, remainTime int64, reelectTurn uint32) {
 	posTime := man.LRSPOSOutTime
 	if consensusTurn == 0 {
