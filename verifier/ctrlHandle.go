@@ -155,7 +155,7 @@ func (self *controller) processPOSState() {
 		return
 	}
 
-	if _, err := self.mp.GetPOSNotifyMsg(self.dc.GetConsensusLeader()); err != nil {
+	if _, err := self.mp.GetPOSNotifyMsg(self.dc.GetConsensusLeader(), self.dc.curConsensusTurn); err != nil {
 		log.INFO(self.logInfo, "执行检查POS状态", "获取POS完成消息失败", "err", err)
 		return
 	}
