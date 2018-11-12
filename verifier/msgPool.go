@@ -26,7 +26,7 @@ import (
 
 type msgPool struct {
 	parentHeader     *types.Header
-	posNotifyCache   map[common.Address]*mc.BlockPOSFinishedNotify
+	posNotifyCache   []*mc.BlockPOSFinishedNotify
 	inquiryReqCache  map[common.Address]*mc.HD_ReelectInquiryReqMsg
 	rlConsensusCache map[common.Address]*mc.HD_ReelectLeaderConsensus
 }
@@ -34,25 +34,34 @@ type msgPool struct {
 func newMsgPool() *msgPool {
 	return &msgPool{
 		parentHeader:     nil,
-		posNotifyCache:   make(map[common.Address]*mc.BlockPOSFinishedNotify),
+		posNotifyCache:   make([]*mc.BlockPOSFinishedNotify, 0),
 		inquiryReqCache:  make(map[common.Address]*mc.HD_ReelectInquiryReqMsg),
 		rlConsensusCache: make(map[common.Address]*mc.HD_ReelectLeaderConsensus),
 	}
 }
 
-func (mp *msgPool) SavePOSNotifyMsg(msg *mc.BlockPOSFinishedNotify) {
+func (mp *msgPool) SavePOSNotifyMsg(msg *mc.BlockPOSFinishedNotify) error {
 	if nil == msg || (msg.Header.Leader == common.Address{}) {
-		return
+		return ErrMsgIsNil
 	}
-	mp.posNotifyCache[msg.Header.Leader] = msg
+
+	for _, oldMsg := range mp.posNotifyCache {
+		if oldMsg.ConsensusTurn == msg.ConsensusTurn && oldMsg.Header.Leader == msg.Header.Leader {
+			return ErrMsgExistInCache
+		}
+	}
+
+	mp.posNotifyCache = append(mp.posNotifyCache, msg)
+	return nil
 }
 
-func (mp *msgPool) GetPOSNotifyMsg(leader common.Address) (*mc.BlockPOSFinishedNotify, error) {
-	msg, OK := mp.posNotifyCache[leader]
-	if !OK {
-		return nil, ErrNoMsgInCache
+func (mp *msgPool) GetPOSNotifyMsg(leader common.Address, consensusTurn uint32) (*mc.BlockPOSFinishedNotify, error) {
+	for _, msg := range mp.posNotifyCache {
+		if msg.ConsensusTurn == msg.ConsensusTurn && msg.Header.Leader == msg.Header.Leader {
+			return msg, nil
+		}
 	}
-	return msg, nil
+	return nil, ErrNoMsgInCache
 }
 
 func (mp *msgPool) SaveInquiryReqMsg(msg *mc.HD_ReelectInquiryReqMsg) {
