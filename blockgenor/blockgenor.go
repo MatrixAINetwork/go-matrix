@@ -188,7 +188,7 @@ func (self *BlockGenor) leaderChangeNotifyHandle(leaderMsg *mc.LeaderChangeNotif
 	}
 
 	if leaderMsg.ConsensusState {
-		process.SetCurLeader(leaderMsg.Leader)
+		process.SetCurLeader(leaderMsg.Leader, leaderMsg.ConsensusTurn)
 		process.SetNextLeader(leaderMsg.NextLeader)
 		if preProcess != nil {
 			preProcess.SetNextLeader(leaderMsg.Leader)
@@ -197,7 +197,7 @@ func (self *BlockGenor) leaderChangeNotifyHandle(leaderMsg *mc.LeaderChangeNotif
 		// 提前设置下个process的leader
 		nextProcess, err := self.pm.GetProcess(number + 1)
 		if err == nil {
-			nextProcess.SetCurLeader(leaderMsg.NextLeader)
+			nextProcess.SetCurLeader(leaderMsg.NextLeader, 0)
 		}
 	} else {
 		process.ReInit()
@@ -208,8 +208,8 @@ func (self *BlockGenor) leaderChangeNotifyHandle(leaderMsg *mc.LeaderChangeNotif
 }
 
 func (self *BlockGenor) minerResultHandle(minerResult *mc.HD_MiningRspMsg) {
-	log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "开始", "高度", minerResult.Number, "难度", minerResult.Difficulty.Uint64(), "block hash", minerResult.Blockhash.TerminalString())
-	defer log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "结束", "高度", minerResult.Number, "block hash", minerResult.Blockhash.TerminalString())
+	log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "开始", "高度", minerResult.Number, "难度", minerResult.Difficulty.Uint64(), "block hash", minerResult.BlockHash.TerminalString())
+	defer log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "结束", "高度", minerResult.Number, "block hash", minerResult.BlockHash.TerminalString())
 	process, err := self.pm.GetProcess(minerResult.Number)
 	if err != nil {
 		log.INFO(self.logExtraInfo(), "矿工挖矿结果消息 获取Process失败", err)
