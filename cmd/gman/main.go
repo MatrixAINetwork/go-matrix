@@ -14,7 +14,7 @@
 //WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISINGFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 //OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// gman is the official command-line client for matrix.
+// gman is the official command-line client for Matrix.
 package main
 
 import (
@@ -69,12 +69,12 @@ var (
 		utils.DashboardAddrFlag,
 		utils.DashboardPortFlag,
 		utils.DashboardRefreshFlag,
-		utils.manashCacheDirFlag,
-		utils.manashCachesInMemoryFlag,
-		utils.manashCachesOnDiskFlag,
-		utils.manashDatasetDirFlag,
-		utils.manashDatasetsInMemoryFlag,
-		utils.manashDatasetsOnDiskFlag,
+		utils.ManashCacheDirFlag,
+		utils.ManashCachesInMemoryFlag,
+		utils.ManashCachesOnDiskFlag,
+		utils.ManashDatasetDirFlag,
+		utils.ManashDatasetsInMemoryFlag,
+		utils.ManashDatasetsOnDiskFlag,
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,
 		utils.TxPoolRejournalFlag,
@@ -99,7 +99,7 @@ var (
 		utils.ListenPortFlag,
 		utils.MaxPeersFlag,
 		utils.MaxPendingPeersFlag,
-		utils.manerbaseFlag,
+		utils.ManerbaseFlag,
 		utils.GasPriceFlag,
 		utils.MinerThreadsFlag,
 		utils.MiningEnabledFlag,
@@ -118,7 +118,7 @@ var (
 		utils.NetworkIdFlag,
 		utils.RPCCORSDomainFlag,
 		utils.RPCVirtualHostsFlag,
-		utils.manStatsURLFlag,
+		utils.ManStatsURLFlag,
 		utils.MetricsEnabledFlag,
 		utils.FakePoWFlag,
 		utils.NoCompactionFlag,
@@ -156,7 +156,7 @@ func init() {
 	// Initialize the CLI app and start Gman
 	app.Action = gman
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2013-2018 The go-matrix Authors"
+	app.Copyright = "Copyright 2018 The MATRIX Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
@@ -241,6 +241,8 @@ func gman(ctx *cli.Context) error {
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
 func startNode(ctx *cli.Context, stack *node.Node) {
+	log.INFO("~~~~~version info~~~~~", "current version", "restart 18110301")
+
 	debug.Memsize.Add("node", stack)
 
 	// Start up the node itself
@@ -315,9 +317,9 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		}
 	}()
 
-	var matrix *man.matrix
+	var matrix *man.Matrix
 	if err := stack.Service(&matrix); err != nil {
-		utils.Fatalf("matrix service not running :%v", err)
+		utils.Fatalf("Matrix service not running :%v", err)
 	}
 	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
 	log.INFO("BoradCastNode", "data", man.BroadCastNodes)
@@ -328,13 +330,13 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
-		// Mining only makes sense if a full matrix node is running
+		// Mining only makes sense if a full Matrix node is running
 		if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
-		var matrix *man.matrix
+		var matrix *man.Matrix
 		if err := stack.Service(&matrix); err != nil {
-			utils.Fatalf("matrix service not running: %v", err)
+			utils.Fatalf("Matrix service not running: %v", err)
 		}
 		// Use a reduced number of threads if requested
 		if threads := ctx.GlobalInt(utils.MinerThreadsFlag.Name); threads > 0 {
