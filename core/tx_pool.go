@@ -252,7 +252,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	GlobalSlots:  4096 * 5 * 5 * 10, //YY 2018-08-30 改为乘以5
 	AccountQueue: 64 * 1000,
 	GlobalQueue:  1024 * 60,
-	txTimeout:  180 * time.Second,
+	txTimeout:  500 * time.Second,
 	Lifetime: 3 * time.Hour,
 }
 
@@ -511,11 +511,9 @@ func (pool *TxPool) loop() {
 		case <-pool.chainHeadSub.Err():
 			return
 		case <- delteTime.C:
-			pool.selfmlk.Lock()
 			pool.mu.Lock()
 			pool.blockTiming() //YY
 			pool.mu.Unlock()
-			pool.selfmlk.Unlock()
 			pool.getPendingTx()
 			// Handle stats reporting ticks
 		case <-report.C:
@@ -766,7 +764,7 @@ func (pool *TxPool) sendMsg(data MsgStruct) {
 		}
 	case GetTxbyN, RecvTxbyN, BroadCast,GetConsensusTxbyN,RecvConsensusTxbyN: //YY
 		//给固定的节点发送根据N获取Tx的请求
-		//log.Info("===sendMSG ======YY====", "Msgtype", data.Msgtype)
+		log.Info("===sendMSG ======YY====", "Msgtype", data.Msgtype)
 		p2p.SendToSingle(data.NodeId, common.NetworkMsg, []interface{}{data})
 		//case RecvTxbyN://YY
 		//	//给固定的节点返回根据N获取Tx的请求
@@ -1063,8 +1061,8 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 		queued[addr] = list.Flatten()
 	}
 	//log.Info("============YY========","Content()::mapNS",len(mapNS))
-	//log.Info("============YY========", "Content()::SContainer", len(pool.SContainer))
-	//log.Info("============YY========", "Content()::NContainer", len(pool.NContainer))
+	log.Info("============YY========", "Content()::SContainer", len(pool.SContainer))
+	log.Info("============YY========", "Content()::NContainer", len(pool.NContainer))
 	//log.Info("============YY========","Content()::NContainer",pool.NContainer)
 	return pending, queued
 }
@@ -1258,7 +1256,7 @@ func (pool *TxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Addre
 
 // (共识要交易)根据N值获取对应的交易(modi hezi)
 func (pool *TxPool) msg_GetConsensusTxByN(listN []uint32, nid discover.NodeID) {
-	//log.Info("==========YY", "msg_GetConsensusTxByN:len(listN)", len(listN))
+	log.Info("==========YY", "msg_GetConsensusTxByN:len(listN)", len(listN))
 	if len(listN) <= 0 {
 		return
 	}
@@ -1295,9 +1293,9 @@ func (pool *TxPool) msg_GetConsensusTxByN(listN []uint32, nid discover.NodeID) {
 		}
 	}
 	msData, _ := json.Marshal(mapNtx)
-	//log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx),"nodeid",nid.String())
+	log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx),"nodeid",nid.String())
 	pool.sendMsg(MsgStruct{Msgtype: RecvConsensusTxbyN, NodeId: nid, MsgData: msData})
-	//log.Info("========YY===3", "GetConsensusTxByN", 0)
+	log.Info("========YY===3", "GetConsensusTxByN", 0)
 }
 //YY 根据N值获取对应的交易(洪泛)
 func (pool *TxPool) msg_GetTxByN(listN []uint32, nid discover.NodeID) {
@@ -1317,9 +1315,9 @@ func (pool *TxPool) msg_GetTxByN(listN []uint32, nid discover.NodeID) {
 	}
 	msData, _ := json.Marshal(mapNtx)
 
-	//log.Info("========YY===2", "msg_GetTxByN:ntxMap", len(mapNtx))
+	log.Info("========YY===2", "msg_GetTxByN:ntxMap", len(mapNtx))
 	pool.sendMsg(MsgStruct{Msgtype: RecvTxbyN, NodeId: nid, MsgData: msData})
-	//log.Info("========YY===3", "msg_GetTxByN", 0)
+	log.Info("========YY===3", "msg_GetTxByN", 0)
 }
 
 //此接口传的交易带s(modi hezi)
@@ -2020,7 +2018,7 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 	if tx == nil {
 		return
 	}
-	//log.Info("========YY=======2", "removeTx", 0)
+	log.Info("========YY=======2", "removeTx", 0)
 	addr, _ := types.Sender(pool.signer, tx) // already validated during insertion
 
 	// Remove it from the list of known transactions
@@ -2530,3 +2528,4 @@ func SetBroadcastTxsPoolFilter(FilterType string, Filter interface{}) {
 func GetBroadcastTxsPoolFilter(FilterType string) map[common.Address]bool {
 	return whitemap
 }
+
