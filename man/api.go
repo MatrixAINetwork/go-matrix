@@ -45,41 +45,41 @@ import (
 	"github.com/matrix/go-matrix/trie"
 )
 
-// PublicmatrixAPI provides an API to access matrix full node-related
+// PublicMatrixAPI provides an API to access Matrix full node-related
 // information.
-type PublicmatrixAPI struct {
-	e *matrix
+type PublicMatrixAPI struct {
+	e *Matrix
 }
 
-// NewPublicmatrixAPI creates a new matrix protocol API for full nodes.
-func NewPublicmatrixAPI(e *matrix) *PublicmatrixAPI {
-	return &PublicmatrixAPI{e}
+// NewPublicMatrixAPI creates a new Matrix protocol API for full nodes.
+func NewPublicMatrixAPI(e *Matrix) *PublicMatrixAPI {
+	return &PublicMatrixAPI{e}
 }
 
-// manerbase is the address that mining rewards will be send to
-func (api *PublicmatrixAPI) manerbase() (common.Address, error) {
-	return api.e.manerbase()
+// Manerbase is the address that mining rewards will be send to
+func (api *PublicMatrixAPI) Manerbase() (common.Address, error) {
+	return api.e.Manerbase()
 }
 
-// Coinbase is the address that mining rewards will be send to (alias for manerbase)
-func (api *PublicmatrixAPI) Coinbase() (common.Address, error) {
-	return api.manerbase()
+// Coinbase is the address that mining rewards will be send to (alias for Manerbase)
+func (api *PublicMatrixAPI) Coinbase() (common.Address, error) {
+	return api.Manerbase()
 }
 
 // Hashrate returns the POW hashrate
-func (api *PublicmatrixAPI) Hashrate() hexutil.Uint64 {
+func (api *PublicMatrixAPI) Hashrate() hexutil.Uint64 {
 	return hexutil.Uint64(api.e.Miner().HashRate())
 }
 
 // PublicMinerAPI provides an API to control the miner.
 // It offers only methods that operate on data that pose no security risk when it is publicly accessible.
 type PublicMinerAPI struct {
-	e     *matrix
+	e     *Matrix
 	agent *miner.RemoteAgent
 }
 
 // NewPublicMinerAPI create a new PublicMinerAPI instance.
-func NewPublicMinerAPI(e *matrix) *PublicMinerAPI {
+func NewPublicMinerAPI(e *Matrix) *PublicMinerAPI {
 	agent := miner.NewRemoteAgent(e.BlockChain(), e.Engine())
 	//log.ERROR("ssccff____","NewPublicMinerAPI","e.Miner().Register(agent)")
 	//e.Miner().Register(agent)
@@ -126,11 +126,11 @@ func (api *PublicMinerAPI) SubmitHashrate(hashrate hexutil.Uint64, id common.Has
 // PrivateMinerAPI provides private RPC methods to control the miner.
 // These methods can be abused by external users and must be considered insecure for use by untrusted users.
 type PrivateMinerAPI struct {
-	e *matrix
+	e *Matrix
 }
 
 // NewPrivateMinerAPI create a new RPC service which controls the miner of this node.
-func NewPrivateMinerAPI(e *matrix) *PrivateMinerAPI {
+func NewPrivateMinerAPI(e *Matrix) *PrivateMinerAPI {
 	return &PrivateMinerAPI{e: e}
 }
 
@@ -331,26 +331,20 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	return true
 }
 
-// Setmanerbase sets the manerbase of the miner
-func (api *PrivateMinerAPI) Setmanerbase(manerbase common.Address) bool {
-	api.e.Setmanerbase(manerbase)
-	return true
-}
-
 // GetHashrate returns the current hashrate of the miner.
 func (api *PrivateMinerAPI) GetHashrate() uint64 {
 	return uint64(api.e.miner.HashRate())
 }
 
-// PrivateAdminAPI is the collection of matrix full node-related APIs
+// PrivateAdminAPI is the collection of Matrix full node-related APIs
 // exposed over the private admin endpoint.
 type PrivateAdminAPI struct {
-	man *matrix
+	man *Matrix
 }
 
 // NewPrivateAdminAPI creates a new API definition for the full node private
-// admin methods of the matrix service.
-func NewPrivateAdminAPI(man *matrix) *PrivateAdminAPI {
+// admin methods of the Matrix service.
+func NewPrivateAdminAPI(man *Matrix) *PrivateAdminAPI {
 	return &PrivateAdminAPI{man: man}
 }
 
@@ -435,15 +429,15 @@ func (api *PrivateAdminAPI) ImportChain(file string) (bool, error) {
 	return true, nil
 }
 
-// PublicDebugAPI is the collection of matrix full node APIs exposed
+// PublicDebugAPI is the collection of Matrix full node APIs exposed
 // over the public debugging endpoint.
 type PublicDebugAPI struct {
-	man *matrix
+	man *Matrix
 }
 
 // NewPublicDebugAPI creates a new API definition for the full node-
-// related public debug methods of the matrix service.
-func NewPublicDebugAPI(man *matrix) *PublicDebugAPI {
+// related public debug methods of the Matrix service.
+func NewPublicDebugAPI(man *Matrix) *PublicDebugAPI {
 	return &PublicDebugAPI{man: man}
 }
 
@@ -472,16 +466,16 @@ func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error
 	return stateDb.RawDump(), nil
 }
 
-// PrivateDebugAPI is the collection of matrix full node APIs exposed over
+// PrivateDebugAPI is the collection of Matrix full node APIs exposed over
 // the private debugging endpoint.
 type PrivateDebugAPI struct {
 	config *params.ChainConfig
-	man    *matrix
+	man    *Matrix
 }
 
 // NewPrivateDebugAPI creates a new API definition for the full node-related
-// private debug methods of the matrix service.
-func NewPrivateDebugAPI(config *params.ChainConfig, man *matrix) *PrivateDebugAPI {
+// private debug methods of the Matrix service.
+func NewPrivateDebugAPI(config *params.ChainConfig, man *Matrix) *PrivateDebugAPI {
 	return &PrivateDebugAPI{config: config, man: man}
 }
 
