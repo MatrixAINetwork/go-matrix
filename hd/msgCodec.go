@@ -70,6 +70,9 @@ func (*blkConsensusReqCodec) DecodeFn(data []byte, from common.Address) (interfa
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'header' of the msg is nil")
+	}
 	msg.From.Set(from)
 	return msg, nil
 }
@@ -118,6 +121,9 @@ func (*miningReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, 
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'header' of the msg is nil")
+	}
 	msg.From.Set(from)
 	return msg, nil
 }
@@ -142,6 +148,9 @@ func (*miningRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, 
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.Difficulty == nil {
+		return nil, errors.Errorf("'Difficulty' of the msg is nil")
+	}
 	msg.From.Set(from)
 	return msg, nil
 }
@@ -163,7 +172,7 @@ func (*broadcastMiningRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
 	marshalMsg.Txs = make([]*types.Transaction_Mx, 0, size)
 	for i := 0; i < size; i++ {
 		tx := rsp.BlockMainData.Txs[i]
-		log.INFO("HD", "广播挖矿结果消息, Marshal前的tx", tx)
+		log.DEBUG("HD", "广播挖矿结果消息, Marshal前的tx", tx)
 		marshalMsg.Txs = append(marshalMsg.Txs, types.GetTransactionMx(tx))
 	}
 	marshalMsg.Header = rsp.BlockMainData.Header
@@ -180,6 +189,9 @@ func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (inte
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'Header' of the msg is nil")
+	}
 
 	sendMsg := &mc.HD_BroadcastMiningRspMsg{
 		From: from,
@@ -191,7 +203,7 @@ func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (inte
 	size := len(msg.Txs)
 	for i := 0; i < size; i++ {
 		tx := types.SetTransactionMx(msg.Txs[i])
-		log.INFO("HD", "广播挖矿结果消息, Unmarshal后的tx", tx)
+		log.DEBUG("HD", "广播挖矿结果消息, Unmarshal后的tx", tx)
 		sendMsg.BlockMainData.Txs = append(sendMsg.BlockMainData.Txs, tx)
 	}
 
@@ -217,6 +229,9 @@ func (*newBlockInsertCodec) DecodeFn(data []byte, from common.Address) (interfac
 	err := json.Unmarshal([]byte(data), msg)
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'Header' of the msg is nil")
 	}
 	msg.From.Set(from)
 	return msg, nil
@@ -364,6 +379,9 @@ func (*lrReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, erro
 	err := json.Unmarshal([]byte(data), msg)
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+	}
+	if msg.InquiryReq == nil {
+		return nil, errors.Errorf("'InquiryReq' of the msg is nil")
 	}
 	msg.InquiryReq.From.Set(from)
 	return msg, nil
