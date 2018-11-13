@@ -522,12 +522,9 @@ func (tab *Table) copyBondedNodes() {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 
-	now := time.Now()
 	for _, b := range tab.buckets {
 		for _, n := range b.entries {
-			if now.Sub(n.addedAt) >= seedMinTableTime {
-				tab.db.updateNode(n)
-			}
+			tab.db.updateNode(n)
 		}
 	}
 }
