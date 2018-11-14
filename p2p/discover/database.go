@@ -172,7 +172,7 @@ func (db *nodeDB) storeInt64(key []byte, n int64) error {
 	blob := make([]byte, binary.MaxVarintLen64)
 	blob = blob[:binary.PutVarint(blob, n)]
 
-	return db.lvl.Put(key, blob, nil)
+	return nil
 }
 
 // node retrieves a node with a given id from the database.
@@ -192,11 +192,11 @@ func (db *nodeDB) node(id NodeID) *Node {
 
 // updateNode inserts - potentially overwriting - a node into the peer database.
 func (db *nodeDB) updateNode(node *Node) error {
-	blob, err := rlp.EncodeToBytes(node)
+	_, err := rlp.EncodeToBytes(node)
 	if err != nil {
 		return err
 	}
-	return db.lvl.Put(makeKey(node.ID, nodeDBDiscoverRoot), blob, nil)
+	return nil
 }
 
 // deleteNode deletes all information/keys associated with a node.
