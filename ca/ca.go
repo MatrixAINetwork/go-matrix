@@ -62,8 +62,8 @@ type Identity struct {
 	quit      chan struct{}
 
 	// lock and once to sync
-	lock *sync.RWMutex
-	once *sync.Once
+	lock sync.RWMutex
+	once sync.Once
 
 	// sub to unsubscribe block channel
 	sub event.Subscription
@@ -85,8 +85,6 @@ func newIde() *Identity {
 		quit:        make(chan struct{}),
 		currentRole: common.RoleNil,
 		duration:    false,
-		lock:        new(sync.RWMutex),
-		once:        new(sync.Once),
 		trChan:      make(chan TopologyGraphReader, 1),
 		topology:    new(mc.TopologyGraph),
 		prevElect:   make([]common.Elect, 0),
@@ -204,6 +202,7 @@ func initCurrentTopology() {
 
 // initNowTopologyResult
 func initNowTopologyResult() {
+	ide.lock.Lock()
 	ide.addrByGroup = make(map[common.RoleType][]common.Address)
 	for _, node := range ide.topology.NodeList {
 		ide.addrByGroup[node.Type] = append(ide.addrByGroup[node.Type], node.Account)
@@ -211,6 +210,7 @@ func initNowTopologyResult() {
 	for _, b := range man.BroadCastNodes {
 		ide.addrByGroup[common.RoleBroadcast] = append(ide.addrByGroup[common.RoleBroadcast], b.Address)
 	}
+	ide.lock.Unlock()
 }
 
 // SetTopologyReader
@@ -220,6 +220,7 @@ func SetTopologyReader(topologyReader TopologyGraphReader) {
 
 // GetRolesByGroup
 func GetRolesByGroup(roleType common.RoleType) (result []discover.NodeID) {
+	ide.lock.RLock()
 	for k, v := range ide.addrByGroup {
 		if (k & roleType) != 0 {
 			for _, addr := range v {
@@ -232,6 +233,7 @@ func GetRolesByGroup(roleType common.RoleType) (result []discover.NodeID) {
 			}
 		}
 	}
+	ide.lock.RUnlock()
 	return
 }
 
@@ -359,6 +361,7 @@ func GetTopologyInLinker() (result map[common.RoleType][]discover.NodeID) {
 	ide.currentNodes = make([]discover.NodeID, 0)
 
 	result = make(map[common.RoleType][]discover.NodeID)
+	ide.lock.RLock()
 	for k, v := range ide.addrByGroup {
 		for _, addr := range v {
 			id, err := ConvertAddressToNodeId(addr)
@@ -370,6 +373,7 @@ func GetTopologyInLinker() (result map[common.RoleType][]discover.NodeID) {
 			result[k] = append(result[k], id)
 		}
 	}
+	ide.lock.RUnlock()
 	for _, elect := range ide.prevElect {
 		id, err := ConvertAddressToNodeId(elect.Account)
 		if err != nil {
