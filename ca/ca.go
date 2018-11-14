@@ -186,6 +186,8 @@ func Stop() {
 
 // InitCurrentTopology init current topology.
 func initCurrentTopology() {
+	ide.currentRole = common.RoleDefault
+
 	for _, t := range ide.topology.NodeList {
 		if t.Account == ide.addr {
 			ide.currentRole = t.Type
@@ -196,10 +198,6 @@ func initCurrentTopology() {
 			ide.currentRole = common.RoleBroadcast
 			break
 		}
-	}
-	// change default role
-	if ide.currentRole == common.RoleNil {
-		ide.currentRole = common.RoleDefault
 	}
 	log.Info("current topology", "info:", ide.topology)
 }
