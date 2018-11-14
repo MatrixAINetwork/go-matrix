@@ -20,6 +20,7 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
+	"sync"
 )
 
 type TxCaChe struct {
@@ -27,9 +28,15 @@ type TxCaChe struct {
 	HeadHash common.Hash
 	Height uint64
 }
-var TxCaCheList []*TxCaChe
+type TxCaCheListstruct struct {
+	TxCaCheList []*TxCaChe
+	mu sync.RWMutex
+}
+var TXCStruct = new(TxCaCheListstruct)
 func MakeStruck(txs []*types.Transaction,hash common.Hash,h uint64){
-	txc := &TxCaChe{}
+	txc := &TxCaChe{
+		Ntx : make(map[uint32]*types.Transaction),
+	}
 	for _,tx := range txs{
 		if len(tx.N)>0{
 			txc.Ntx[tx.N[0]] = tx
@@ -39,15 +46,21 @@ func MakeStruck(txs []*types.Transaction,hash common.Hash,h uint64){
 	}
 	txc.HeadHash = hash
 	txc.Height = h
-	TxCaCheList = append(TxCaCheList,txc)
+	TXCStruct.mu.Lock()
+	TXCStruct.TxCaCheList = append(TXCStruct.TxCaCheList,txc)
+	TXCStruct.mu.Unlock()
 }
 
 func DeleteTxCache(hash common.Hash,h uint64)  {
-	for i,c := range TxCaCheList{
+	TXCStruct.mu.Lock()
+	defer TXCStruct.mu.Unlock()
+	for i,c := range TXCStruct.TxCaCheList{
 		if c.Height < h{
-			TxCaCheList = TxCaCheList[i:]
+			TXCStruct.TxCaCheList = TXCStruct.TxCaCheList[i:]
+			return
 		}else if c.HeadHash != hash && c.Height == h{
-			TxCaCheList = TxCaCheList[i:]
+			TXCStruct.TxCaCheList = TXCStruct.TxCaCheList[i:]
+			return
 		}else {
 			log.Info("package txpoolCache","DeleteTxCache()","unknown error",":c.HeadHash",c.HeadHash,"hash",hash,"c.Height",c.Height,"H",h)
 		}
@@ -55,7 +68,9 @@ func DeleteTxCache(hash common.Hash,h uint64)  {
 }
 //h 传过来时应该是当前区块高度，而在这存储的是下一区块的高度
 func GetTxByN_Cache(listn []uint32,h uint64)map[uint32]*types.Transaction  {
-	for _,txc:=range TxCaCheList{
+	TXCStruct.mu.RLock()
+	defer TXCStruct.mu.RUnlock()
+	for _,txc:=range TXCStruct.TxCaCheList{
 		if txc.Height == (h+1){
 			return getMap(txc,listn)
 		}
@@ -63,7 +78,8 @@ func GetTxByN_Cache(listn []uint32,h uint64)map[uint32]*types.Transaction  {
 	log.Info("package txpoolCache","GetTxByN_Cache()","Block height mismatch")
 	return nil
 }
-func getMap(txc *TxCaChe,listn []uint32)(ntxmap map[uint32]*types.Transaction)  {
+func getMap(txc *TxCaChe,listn []uint32)(map[uint32]*types.Transaction)  {
+	ntxmap := make(map[uint32]*types.Transaction,0)
 	for _,n := range listn{
 		if tx,ok := txc.Ntx[n];ok{
 			ntxmap[n] = tx
@@ -71,4 +87,3 @@ func getMap(txc *TxCaChe,listn []uint32)(ntxmap map[uint32]*types.Transaction)  
 	}
 	return ntxmap
 }
-
