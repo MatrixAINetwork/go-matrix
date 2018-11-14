@@ -252,7 +252,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	GlobalSlots:  4096 * 5 * 5 * 10, //YY 2018-08-30 改为乘以5
 	AccountQueue: 64 * 1000,
 	GlobalQueue:  1024 * 60,
-	txTimeout:  500 * time.Second,
+	txTimeout:  180 * time.Second,
 	Lifetime: 3 * time.Hour,
 }
 
@@ -511,9 +511,11 @@ func (pool *TxPool) loop() {
 		case <-pool.chainHeadSub.Err():
 			return
 		case <- delteTime.C:
+			pool.selfmlk.Lock()
 			pool.mu.Lock()
 			pool.blockTiming() //YY
 			pool.mu.Unlock()
+			pool.selfmlk.Unlock()
 			pool.getPendingTx()
 			// Handle stats reporting ticks
 		case <-report.C:
@@ -2528,4 +2530,3 @@ func SetBroadcastTxsPoolFilter(FilterType string, Filter interface{}) {
 func GetBroadcastTxsPoolFilter(FilterType string) map[common.Address]bool {
 	return whitemap
 }
-
