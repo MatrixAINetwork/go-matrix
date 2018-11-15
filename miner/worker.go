@@ -516,7 +516,7 @@ func (self *worker) sendMineResultFunc(data interface{}, times uint32) {
 		self.hd.SendNodeMsg(mc.HD_BroadcastMiningRsp, rsp, common.RoleValidator, nil)
 	} else {
 		rsp := &mc.HD_MiningRspMsg{
-			BlockHash:  resultData.headerHash,
+			Blockhash:  resultData.headerHash,
 			Difficulty: resultData.mineDiff,
 			Number:     resultData.header.Number.Uint64(),
 			Nonce:      resultData.header.Nonce,
@@ -525,6 +525,6 @@ func (self *worker) sendMineResultFunc(data interface{}, times uint32) {
 			Signatures: resultData.header.Signatures}
 
 		self.hd.SendNodeMsg(mc.HD_MiningRsp, rsp, common.RoleValidator|common.RoleBroadcast, nil)
-		log.INFO(ModuleMiner, "挖矿结果", "发送", "hash", rsp.BlockHash.TerminalString(), "次数", times, "高度", rsp.Number, "Nonce", rsp.Nonce)
+		log.INFO(ModuleMiner, "挖矿结果", "发送", "hash", rsp.Blockhash.TerminalString(), "次数", times, "高度", rsp.Number, "Nonce", rsp.Nonce)
 	}
 }
