@@ -28,7 +28,7 @@ func (self *ReElection) GetNetTopologyAll(height uint64) (*ElectReturnInfo, erro
 	if common.IsReElectionNumber(height + 1) {
 		heightMiner := height + 1
 		if err:=self.checkTopGenStatus(heightMiner);err!=nil{
-			log.ERROR(Module,"检查top生成出错 err",err)
+			log.ERROR(Module,"error checking top generation err",err)
 		}
 		ans, _, err := self.readElectData(common.RoleMiner, heightMiner)
 		if err != nil {
@@ -37,7 +37,7 @@ func (self *ReElection) GetNetTopologyAll(height uint64) (*ElectReturnInfo, erro
 
 		heightValidator := height + 1
 		if err:=self.checkTopGenStatus(heightValidator);err!=nil{
-			log.ERROR(Module,"检查top生成出错 err",err)
+			log.ERROR(Module,"error checking top generation",err)
 		}
 		_, ans1, err := self.readElectData(common.RoleValidator, heightValidator)
 		if err != nil {
