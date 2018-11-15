@@ -381,7 +381,7 @@ func (env *Work) HandleUpTime(state *state.StateDB, accounts []common.Address, c
 	//subVal latest broadcast block, eg, if the current block height is 198 or 101, then subVal is 100
 	subVal = subVal
 	if blockNum < common.GetBroadcastInterval() { //当前区块小于100说明是100区块内 (下面的if else是为了应对中途加入的参选节点)
-		blockHash = bc.GetBlockByNumber(0).Hash() //创世区块的hash
+		blockHash = bc.GetBlockByNumber(0).Hash() //hash of genesis block
 	} else {
 		blockHash = bc.GetBlockByNumber(subVal).Hash() //获取最近的广播区块的hash
 	}
