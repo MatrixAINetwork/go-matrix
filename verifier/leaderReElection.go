@@ -67,13 +67,13 @@ func NewLeaderIdentityService(matrix Matrix, extraInfo string) (*LeaderIdentity,
 	}
 
 	if err := server.subEvents(); err != nil {
-		log.ERROR(server.extraInfo, "服务创建失败", err)
+		log.ERROR(server.extraInfo, "service creation failed", err)
 		return nil, err
 	}
 
 	go server.run()
 
-	log.INFO(server.extraInfo, "服务创建", "成功")
+	log.INFO(server.extraInfo, "service creation", "success")
 	return server, nil
 }
 
