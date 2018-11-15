@@ -28,7 +28,7 @@ type msgPool struct {
 	parentHeader     *types.Header
 	posNotifyCache   []*mc.BlockPOSFinishedNotify
 	inquiryReqCache  map[common.Address]*mc.HD_ReelectInquiryReqMsg
-	rlConsensusCache map[common.Address]*mc.HD_ReelectLeaderConsensus
+	rlConsensusCache map[uint32]*mc.HD_ReelectLeaderConsensus
 }
 
 func newMsgPool() *msgPool {
@@ -36,7 +36,7 @@ func newMsgPool() *msgPool {
 		parentHeader:     nil,
 		posNotifyCache:   make([]*mc.BlockPOSFinishedNotify, 0),
 		inquiryReqCache:  make(map[common.Address]*mc.HD_ReelectInquiryReqMsg),
-		rlConsensusCache: make(map[common.Address]*mc.HD_ReelectLeaderConsensus),
+		rlConsensusCache: make(map[uint32]*mc.HD_ReelectLeaderConsensus),
 	}
 }
 
@@ -94,11 +94,12 @@ func (mp *msgPool) SaveRLConsensusMsg(msg *mc.HD_ReelectLeaderConsensus) {
 	if nil == msg || (msg.Req.InquiryReq.Master == common.Address{}) {
 		return
 	}
-	mp.rlConsensusCache[msg.Req.InquiryReq.Master] = msg
+	consensusTurn := msg.Req.InquiryReq.ConsensusTurn + msg.Req.InquiryReq.ReelectTurn
+	mp.rlConsensusCache[consensusTurn] = msg
 }
 
-func (mp *msgPool) GetRLConsensusMsg(leader common.Address) (*mc.HD_ReelectLeaderConsensus, error) {
-	msg, OK := mp.rlConsensusCache[leader]
+func (mp *msgPool) GetRLConsensusMsg(consensusTurn uint32) (*mc.HD_ReelectLeaderConsensus, error) {
+	msg, OK := mp.rlConsensusCache[consensusTurn]
 	if !OK {
 		return nil, ErrNoMsgInCache
 	}
