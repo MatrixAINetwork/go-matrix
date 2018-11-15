@@ -1,6 +1,7 @@
 # Build Gman in a stock Go builder container #shang and yang
 FROM golang:1.9-alpine 
 
+
 RUN apk add --no-cache make gcc musl-dev linux-headers
 
 ADD . /go-matrix
