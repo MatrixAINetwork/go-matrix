@@ -37,7 +37,7 @@ func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
 	log.WARN(p.logExtraInfo(), "缓存广播区块挖矿结果成功，高度", p.number)
 	p.broadcastRstCache = append(p.broadcastRstCache, result.BlockMainData)
 
-	p.processMinerResultVerify(p.curLeader, true)
+	p.processMinerResultVerify(p.curLeader)
 }
 
 func (p *Process) preVerifyBroadcastMinerResult(result *mc.BlockData) bool {
@@ -92,8 +92,9 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 		for _, tx := range result.Txs {
 			log.INFO("==========", "Finalize:GasPrice", tx.GasPrice(), "amount", tx.Value()) //hezi
 		}
-		//执行交易
+
 		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), result.Txs, p.pm.bc)
+		//todo: 执行交易
 		_, err = p.blockChain().Engine().Finalize(p.blockChain(), result.Header, work.State, result.Txs, nil, work.Receipts)
 
 		if err != nil {
