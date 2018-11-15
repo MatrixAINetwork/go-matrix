@@ -27,7 +27,7 @@ func (self *ReElection) roleUpdateProcess(data *mc.RoleUpdatedMsg) error {
 	defer self.lock.Unlock()
 	self.currentID = data.Role
 
-	if common.RoleValidator != self.currentID { //不是验证者，不处理
+	if common.RoleValidator != self.currentID { //Ignore Non-Validators
 		log.ERROR(Module, "當前不是驗證者，不處理", self.currentID)
 		return nil
 	}
