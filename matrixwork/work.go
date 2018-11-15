@@ -430,7 +430,7 @@ func (env *Work) HandleUpTime(state *state.StateDB, accounts []common.Address, c
 		// todo: add
 		depoistInfo.AddOnlineTime(state, account, new(big.Int).SetUint64(upTime))
 		if read, err := depoistInfo.GetOnlineTime(state, account); nil == err {
-			log.INFO(packagename, "读取状态树", account, "uptime", read)
+			log.INFO(packagename, "read", account, "uptime", read)
 		}
 
 	}
