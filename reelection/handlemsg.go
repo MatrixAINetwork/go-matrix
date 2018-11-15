@@ -55,7 +55,7 @@ func (self *ReElection) HandleNative(height uint64) error {
 		log.INFO(Module, "BlockNum", height, "no need to update native list", "nil")
 		return nil
 	}
-	if true == NeedReadTopoFromDB(height) { //300 600 900 重取缓存
+	if true == NeedReadTopoFromDB(height) { //300 600 900 re-load the cache
 		return self.GetNativeFromDB(height)
 	}
 
