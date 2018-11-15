@@ -347,7 +347,7 @@ func (env *Work) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 
 func (env *Work) GetUpTimeData(num uint64) (map[common.Address]uint32, map[common.Address][]byte, error) {
 
-	log.INFO(packagename, "获取所有心跳交易", "")
+	log.INFO(packagename, "obtain all heartbeat transactions", "")
 	heatBeatUnmarshallMMap, error := core.GetBroadcastTxs(new(big.Int).SetUint64(num), mc.Heartbeat)
 	if nil != error {
 		log.ERROR(packagename, "获取主动心跳交易错误", error)
@@ -376,9 +376,9 @@ func (env *Work) HandleUpTime(state *state.StateDB, accounts []common.Address, c
 	HeartBeatMap := make(map[common.Address]bool, 0)
 	blockNumRem := blockNum % common.GetBroadcastInterval()
 
-	//subVal就是最新的广播区块，例如当前区块高度是198或者是101，那么subVal就是100
+	//subVal latest broadcast block, eg, if the current block height is 198 or 101, then subVal is 100
 	subVal := blockNum - blockNumRem
-	//subVal就是最新的广播区块，例如当前区块高度是198或者是101，那么subVal就是100
+	//subVal latest broadcast block, eg, if the current block height is 198 or 101, then subVal is 100
 	subVal = subVal
 	if blockNum < common.GetBroadcastInterval() { //当前区块小于100说明是100区块内 (下面的if else是为了应对中途加入的参选节点)
 		blockHash = bc.GetBlockByNumber(0).Hash() //创世区块的hash
