@@ -52,7 +52,7 @@ func (self *leaderCalculator) SetValidators(preLeader common.Address, validators
 		header := self.chain.GetHeaderByNumber(preNumber - 1)
 		if nil == header {
 			log.ERROR("")
-			return errors.Errorf("获取广播区块前一区块(%d)错误!", preNumber-1)
+			return errors.Errorf("error obtaining the previous block (%d) of broadcast block", preNumber-1)
 		}
 		preLeader = header.Leader
 	}
@@ -70,7 +70,7 @@ func (self *leaderCalculator) SetValidators(preLeader common.Address, validators
 
 func (self *leaderCalculator) GetValidators() (*mc.TopologyGraph, error) {
 	if len(self.validators) == 0 {
-		return nil, errors.New("验证者列表为空")
+		return nil, errors.New("validator list is blank")
 	}
 	rlt := &mc.TopologyGraph{}
 	for i := 0; i < len(self.validators); i++ {
