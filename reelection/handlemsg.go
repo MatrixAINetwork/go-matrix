@@ -67,7 +67,7 @@ func (self *ReElection) HandleNative(height uint64) error {
 	log.INFO(Module, "self,allNative", allNative)
 
 	err = self.UpdateNative(height, allNative)
-	log.INFO(Module,"更新初选列表完毕 错误信息",err)
+	log.INFO(Module,"finish updating initial election list  error message",err)
 	return err
 }
 */
