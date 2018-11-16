@@ -17,6 +17,8 @@ package verifier
 
 import (
 	"github.com/matrix/go-matrix/params/man"
+	"github.com/pkg/errors"
+	"time"
 )
 
 type turnTimes struct {
@@ -50,6 +52,9 @@ func (tt *turnTimes) GetBeginTime(consensusTurn uint32) int64 {
 }
 
 func (tt *turnTimes) GetPosEndTime(consensusTurn uint32) int64 {
+	_, endTime := tt.CalTurnTime(consensusTurn, 0)
+	return endTime
+
 	posTime := man.LRSPOSOutTime
 	if consensusTurn == 0 {
 		posTime += man.LRSParentMiningTime
@@ -71,18 +76,37 @@ func (tt *turnTimes) CalState(consensusTurn uint32, time int64) (st state, remai
 
 	st = stReelect
 	reelectTurn = uint32((passTime-posTime)/man.LRSReelectOutTime) + 1
-	remainTime = (passTime - posTime) % man.LRSReelectOutTime
-	if remainTime == 0 {
-		remainTime = man.LRSReelectOutTime
-	}
+	_, endTime := tt.CalTurnTime(consensusTurn, reelectTurn)
+	remainTime = endTime - time
 	return
 }
 
 func (tt *turnTimes) CalRemainTime(consensusTurn uint32, reelectTurn uint32, time int64) int64 {
+	_, endTime := tt.CalTurnTime(consensusTurn, reelectTurn)
+	return endTime - time
+}
+
+func (tt *turnTimes) CalTurnTime(consensusTurn uint32, reelectTurn uint32) (beginTime int64, endTime int64) {
 	posTime := man.LRSPOSOutTime
 	if consensusTurn == 0 {
 		posTime += man.LRSParentMiningTime
 	}
-	deadLine := tt.GetBeginTime(consensusTurn) + posTime + int64(reelectTurn)*man.LRSReelectOutTime
-	return deadLine - time
+
+	if reelectTurn == 0 {
+		beginTime = tt.GetBeginTime(consensusTurn)
+		endTime = beginTime + posTime
+	} else {
+		beginTime = tt.GetBeginTime(consensusTurn) + posTime + int64(reelectTurn-1)*man.LRSReelectOutTime
+		endTime = beginTime + man.LRSReelectOutTime
+	}
+	return
+}
+
+func (tt *turnTimes) CheckTimeLegal(consensusTurn uint32, reelectTurn uint32, checkTime int64) error {
+	beginTime, endTime := tt.CalTurnTime(consensusTurn, reelectTurn)
+	if checkTime <= beginTime || checkTime >= endTime {
+		return errors.Errorf("时间(%s)非法,轮次起止时间(%s - %s)",
+			time.Unix(checkTime, 0).String(), time.Unix(beginTime, 0).String(), time.Unix(endTime, 0).String())
+	}
+	return nil
 }
