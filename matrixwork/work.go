@@ -341,7 +341,7 @@ func (env *Work) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
 		log.INFO("v.Address", "v.Address", v.Address)
 	}
-	log.INFO(packagename, "获取所有uptime账户为", upTimeAccounts)
+	log.INFO(packagename, "obtain all uptime accounts", upTimeAccounts)
 	return upTimeAccounts, nil
 }
 
