@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	ModuleSeed = "随机种子生成"
-	ModuleVote = "随机数投票"
+	ModuleSeed = "random seed generation"
+	ModuleVote = "random number vote"
 )
 
 type Random struct {
