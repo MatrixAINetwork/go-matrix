@@ -46,11 +46,11 @@ type TopNodeService struct {
 
 	leaderChangeCh     chan *mc.LeaderChangeNotify
 	leaderChangeSub    event.Subscription
-	consensusReqCh     chan *mc.HD_OnlineConsensusReqs //顶层节点共识请求消息
+	consensusReqCh     chan *mc.HD_OnlineConsensusReqs //topnode consensus request message
 	consensusReqSub    event.Subscription
-	consensusVoteCh    chan *mc.HD_OnlineConsensusVotes //顶层节点共识投票消息
+	consensusVoteCh    chan *mc.HD_OnlineConsensusVotes //topnode consensus vote message
 	consensusVoteSub   event.Subscription
-	consensusResultCh  chan *mc.HD_OnlineConsensusVoteResultMsg //顶层节点共识结果消息
+	consensusResultCh  chan *mc.HD_OnlineConsensusVoteResultMsg //topnode consensus result message
 	consensusResultSub event.Subscription
 	quitCh             chan struct{}
 	extraInfo          string
@@ -107,34 +107,34 @@ func (self *TopNodeService) Start() error {
 func (self *TopNodeService) subMsg() error {
 	var err error
 
-	//订阅leader变化消息
+	//subscribe for leader change message
 	if self.leaderChangeSub, err = self.msgCenter.SubscribeEvent(mc.Leader_LeaderChangeNotify, self.leaderChangeCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent LeaderChangeNotify failed.", err)
 		return err
 	}
-	//订阅顶层节点状态共识请求消息
+	//subscribe for topnode status consensus request message
 	if self.consensusReqSub, err = self.msgCenter.SubscribeEvent(mc.HD_TopNodeConsensusReq, self.consensusReqCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent HD_TopNodeConsensusReq failed.", err)
 		return err
 	}
-	//订共识投票消息
+	//subscribe for consensus vote message
 	if self.consensusVoteSub, err = self.msgCenter.SubscribeEvent(mc.HD_TopNodeConsensusVote, self.consensusVoteCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent HD_TopNodeConsensusVote failed.", err)
 		return err
 	}
-	//订阅共识结果消息
+	//subscribe for consensus result message
 	if self.consensusResultSub, err = self.msgCenter.SubscribeEvent(mc.HD_TopNodeConsensusVoteResult, self.consensusResultCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent HD_TopNodeConsensusVoteResult failed.", err)
 		return err
 	}
 
-	log.Info(self.extraInfo, "服务订阅完成", "")
+	log.Info(self.extraInfo, "service subscription done", "")
 	return nil
 }
 
 func (self *TopNodeService) unSubMsg() {
-	log.Info(self.extraInfo, "开始取消服务订阅", "")
-	//取消订阅leader变化消息
+	log.Info(self.extraInfo, "cancelling the service subscription", "")
+	//leader change message subscription cancelled
 
 	self.leaderChangeSub.Unsubscribe()
 
