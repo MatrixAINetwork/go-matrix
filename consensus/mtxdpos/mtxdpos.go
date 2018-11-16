@@ -84,7 +84,7 @@ func (md *MtxDPOS) VerifyBlock(reader consensus.ValidatorReader, header *types.H
 	}
 
 	hash := header.HashNoSignsAndNonce()
-	log.INFO("共识引擎", "VerifyBlock, 签名总数", len(header.Signatures), "hash", hash)
+	log.INFO("consensus engine", "VerifyBlock, total signatures", len(header.Signatures), "hash", hash)
 
 	_, err = md.VerifyHashWithStocks(reader, hash, header.Signatures, stocks)
 	return err
@@ -155,13 +155,13 @@ func (md *MtxDPOS) VerifyHashWithStocks(reader consensus.ValidatorReader, signHa
 
 	// check whether sign count is enough
 	if len(signs) < target.targetCount {
-		log.ERROR("共识引擎", "签名数量不足 size", len(signs), "target", target.targetCount)
+		log.ERROR("consensus engine", "not enough signatures size", len(signs), "target", target.targetCount)
 		return nil, errSignCountErr
 	}
 
 	verifiedSigns := md.verifySigns(signHash, signs, stocks)
 	if len(verifiedSigns) < target.targetCount {
-		log.ERROR("共识引擎", "验证后的签名数量不足 size", len(signs), "target", target.targetCount)
+		log.ERROR("consensus engine", "not enough validated signatures size", len(signs), "target", target.targetCount)
 		return nil, errSignCountErr
 	}
 
