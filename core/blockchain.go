@@ -1249,7 +1249,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 	// Iterate over the blocks and insert when the verifier permits
 	for i, block := range chain {
 		// If the chain is terminating, stop processing blocks
-		log.Debug("BlockChain insertChain in5","blockNum",block.NumberU64())
+		log.Debug("BlockChain insertChain in5", "blockNum", block.NumberU64())
 		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 			log.Debug("Premature abort during blocks processing")
 			break
@@ -1267,7 +1267,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		if err == nil {
 			err = bc.Validator().ValidateBody(block)
 		}
-		log.Debug("BlockChain insertChain in7","err",err)
+		log.Debug("BlockChain insertChain in7", "err", err)
 		switch {
 		case err == ErrKnownBlock:
 			// Block and state both already known. However if the current block is below
@@ -1299,7 +1299,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			// Block competing with the canonical chain, store in the db, but don't process
 			// until the competitor TD goes above the canonical TD
 			currentBlock := bc.CurrentBlock()
-			log.Debug("BlockChain insertChain in10","currentBlock",currentBlock.NumberU64())
+			log.Debug("BlockChain insertChain in10", "currentBlock", currentBlock.NumberU64())
 			localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 			externTd := new(big.Int).Add(bc.GetTd(block.ParentHash(), block.NumberU64()-1), block.Difficulty())
 			if localTd.Cmp(externTd) > 0 {
@@ -1442,7 +1442,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	debug.FreeOSMemory()//lb
+	debug.FreeOSMemory() //lb
 	log.Debug("BlockChain insertChain out")
 
 	// Append a single chain head event if we've progressed the chain
@@ -1587,7 +1587,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	}
 	// Insert the new chain, taking care of the proper incremental order
 	var addedTxs types.Transactions
-	log.Debug("BlockChain reorg for in","len(newChain)",len(newChain))
+	log.Debug("BlockChain reorg for in", "len(newChain)", len(newChain))
 	for i := len(newChain) - 1; i >= 0; i-- {
 		// insert the block in the canonical way, re-writing history
 		bc.insert(newChain[i])
@@ -1884,8 +1884,12 @@ func (bc *BlockChain) SetDposEngine(dposEngine consensus.DPOSEngine) {
 	bc.dposEngine = dposEngine
 }
 
-func (bc *BlockChain) GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error) {
-	return bc.hc.GetTopologyGraphByNumber(number)
+func (bc *BlockChain) GetHashByNumber(number uint64) common.Hash {
+	return bc.hc.GetHashByNumber(number)
+}
+
+func (bc *BlockChain) GetTopologyGraphByHash(blockHash common.Hash) (*mc.TopologyGraph, error) {
+	return bc.hc.GetTopologyGraphByHash(blockHash)
 }
 
 func (bc *BlockChain) GetOriginalElect(number uint64) ([]common.Elect, error) {
@@ -1904,10 +1908,14 @@ func (bc *BlockChain) TopologyStore() *TopologyStore {
 	return bc.hc.topologyStore
 }
 
-func (bc *BlockChain) GetCurrentNumber() uint64 {
-	return bc.hc.GetCurrentNumber()
+func (bc *BlockChain) GetCurrentHash() common.Hash {
+	block := bc.CurrentBlock()
+	if block == nil {
+		return common.Hash{}
+	}
+	return block.Hash()
 }
 
-func (bc *BlockChain) GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error) {
-	return bc.hc.GetValidatorByNumber(number)
+func (bc *BlockChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
+	return bc.hc.GetValidatorByHash(hash)
 }
