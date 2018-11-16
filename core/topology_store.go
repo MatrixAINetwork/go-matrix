@@ -38,6 +38,7 @@ var (
 
 type chainReader interface {
 	GetHeaderByNumber(number uint64) *types.Header
+	GetHeaderByHash(hash common.Hash) *types.Header
 	CurrentHeader() *types.Header
 }
 
@@ -64,17 +65,15 @@ func (ts *TopologyStore) HasTopologyGraph(blockHash common.Hash, number uint64) 
 	return rawdb.HasTopologyGraph(ts.chainDb, blockHash, number)
 }
 
-func (ts *TopologyStore) GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error) {
-	header := ts.reader.GetHeaderByNumber(number)
+func (ts *TopologyStore) GetTopologyGraphByHash(blockHash common.Hash) (*mc.TopologyGraph, error) {
+	header := ts.reader.GetHeaderByHash(blockHash)
 	if header == nil {
 		return nil, errHeaderNotExit
 	}
-
 	hash := header.Hash()
 	if graph, ok := ts.graphCache.Get(hash); ok {
 		return graph.(*mc.TopologyGraph), nil
 	}
-
 	graph := rawdb.ReadTopologyGraph(ts.chainDb, hash, header.Number.Uint64())
 	if graph == nil {
 		return nil, errGraphNotExitInDb
@@ -109,7 +108,7 @@ func (ts *TopologyStore) NewTopologyGraph(header *types.Header) (*mc.TopologyGra
 		return mc.NewGenesisTopologyGraph(header)
 	}
 
-	preGraph, err := ts.GetTopologyGraphByNumber(number - 1)
+	preGraph, err := ts.GetTopologyGraphByHash(header.ParentHash)
 	if err != nil {
 		return nil, errors.Errorf("获取父拓扑图失败:%v", err)
 	}
@@ -178,4 +177,12 @@ func (ts *TopologyStore) GetNextElect(number uint64) ([]common.Elect, error) {
 	}
 
 	return nextElect, nil
+}
+
+func (ts *TopologyStore) GetHashByNumber(number uint64) common.Hash {
+	header := ts.reader.GetHeaderByNumber(number)
+	if header == nil {
+		return common.Hash{}
+	}
+	return header.Hash()
 }
