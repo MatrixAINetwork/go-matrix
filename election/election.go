@@ -31,14 +31,14 @@ import (
 
 /*
 const (
-	maxMinerNum              = params.MaxMinerNum              //支持的最大参选矿工数
-	maxValidatorNum          = params.MaxValidatorNum          //支持的最大参选验证者数
-	maxMasterMinerNum        = params.MaxMasterMinerNum        //顶层节点最大矿工主节点数
-	maxMasterValidatorNum    = params.MaxMasterValidatorNum    //顶层节点最大矿工主节点数
-	maxBackUpMinerNum        = params.MaxBackUpMinerNum        //最大备份矿工数
-	maxCandidateMinerNum     = params.MaxCandidateMinerNum     //最大候补矿工数
-	maxBackUpValidatorNum    = params.MaxBackUpValidatorNum    //最大备份验证者数
-	maxCandidateValidatorNum = params.MaxCandidateValidatorNum //最大候补验证者数
+	maxMinerNum              = params.MaxMinerNum              //Maximum candidates for miners
+	maxValidatorNum          = params.MaxValidatorNum          //Maximum candidates for validators
+	maxMasterMinerNum        = params.MaxMasterMinerNum        //Maximum Miners in Top Nodes
+	maxMasterValidatorNum    = params.MaxMasterValidatorNum    //Maximum Validators in Top Nodes
+	maxBackUpMinerNum        = params.MaxBackUpMinerNum        //Maximum Backup Miners
+	maxCandidateMinerNum     = params.MaxCandidateMinerNum     //Maximum candidates for miners
+	maxBackUpValidatorNum    = params.MaxBackUpValidatorNum    //Maximum Backup Validators
+	maxCandidateValidatorNum = params.MaxCandidateValidatorNum //Maximum candidates for validators
 )
 */
 
@@ -65,11 +65,11 @@ type Elector struct {
 	EleMVRs   chan *mc.MasterValidatorReElectionRsq
 	Engine    func(probVal []Stf, seed int64, M int, P int, J int) ([]Strallyint, []Strallyint, []Strallyint) //Engine    func(probVal []Stf, seed int64) ([]Strallyint, []Strallyint, []Strallyint) //func(probVal map[string]float32, seed int64) ([]Strallyint, []Strallyint, []Strallyint)
 	msgcenter *mc.Center
-	MaxSample int //配置参数,采样最多发生1000次,是一个离P+M较远的值
-	J         int //基金会验证节点个数tps_weight
-	M         int //验证主节点个数
-	P         int //备份主节点个数
-	N         int //矿工主节点个数
+	MaxSample int //Configuration Paramter. The limit of sampling is 1,000. It is a value far from P+M
+	J         int //The number of validator nodes from the Foundation tps_weight
+	M         int //The number of validator nodes
+	P         int //The number of backup masternodes
+	N         int //The number of miner nodes
 }
 
 type ElectMMSub struct {
