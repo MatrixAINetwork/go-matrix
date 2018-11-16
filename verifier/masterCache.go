@@ -100,9 +100,6 @@ func (self *masterCache) CheckInquiryRspMsg(rsp *mc.HD_ReelectInquiryRspMsg) err
 }
 
 func (self *masterCache) SaveInquiryAgreeSign(reqHash common.Hash, sign common.Signature, from common.Address) error {
-	if _, exist := self.inquiryAgreeSignCache[from]; exist {
-		return errors.Errorf("来自(%s)的签名已存在!", from.Hex())
-	}
 	signAccount, validate, err := crypto.VerifySignWithValidate(reqHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return errors.Errorf("签名解析错误(%v)", err)
