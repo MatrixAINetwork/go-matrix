@@ -483,8 +483,16 @@ func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	return nil
 }
 
-func (hc *HeaderChain) GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error) {
-	return hc.topologyStore.GetTopologyGraphByNumber(number)
+func (hc *HeaderChain) GetHashByNumber(number uint64) common.Hash {
+	header := hc.GetHeaderByNumber(number)
+	if header == nil {
+		return common.Hash{}
+	}
+	return header.Hash()
+}
+
+func (hc *HeaderChain) GetTopologyGraphByHash(blockHash common.Hash) (*mc.TopologyGraph, error) {
+	return hc.topologyStore.GetTopologyGraphByHash(blockHash)
 }
 
 func (hc *HeaderChain) GetOriginalElect(number uint64) ([]common.Elect, error) {
@@ -499,12 +507,12 @@ func (hc *HeaderChain) NewTopologyGraph(header *types.Header) (*mc.TopologyGraph
 	return hc.topologyStore.NewTopologyGraph(header)
 }
 
-func (hc *HeaderChain) GetCurrentNumber() uint64 {
-	return hc.CurrentHeader().Number.Uint64()
+func (hc *HeaderChain) GetCurrentHash() common.Hash {
+	return hc.currentHeaderHash
 }
 
-func (hc *HeaderChain) GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error) {
-	tg, err := hc.GetTopologyGraphByNumber(number)
+func (hc *HeaderChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
+	tg, err := hc.GetTopologyGraphByHash(hash)
 	if err != nil {
 		return nil, err
 	}
