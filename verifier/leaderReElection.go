@@ -73,7 +73,6 @@ func NewLeaderIdentityService(matrix Matrix, extraInfo string) (*LeaderIdentity,
 
 	go server.run()
 
-	log.INFO(server.extraInfo, "service creation", "success")
 	return server, nil
 }
 
@@ -302,7 +301,7 @@ func (self *LeaderIdentity) rlResultBroadcastHandle(msg *mc.HD_ReelectResultBroa
 		log.Error(self.extraInfo, "重选结果广播", "错误", "消息不合法", ErrMsgIsNil)
 		return
 	}
-	log.INFO(self.extraInfo, "收到重选结果广播", "开始", "高度", msg.Number, "结果类型", msg.Type)
+	log.INFO(self.extraInfo, "收到重选结果广播", "开始", "高度", msg.Number, "结果类型", msg.Type, "from", msg.From.Hex())
 
 	ctrl, err := self.ctrlManager.GetController(msg.Number)
 	if err != nil {
