@@ -70,15 +70,18 @@ const (
 )
 
 type Process struct {
-	mu            sync.Mutex
-	leaderCache   mc.LeaderChangeNotify
-	number        uint64
-	role          common.RoleType
-	state         State
-	curProcessReq *reqData
-	reqCache      *reqCache
-	pm            *ProcessManage
-	txsAcquireSeq int
+	mu               sync.Mutex
+	leaderCache      mc.LeaderChangeNotify
+	number           uint64
+	role             common.RoleType
+	state            State
+	curProcessReq    *reqData
+	reqCache         *reqCache
+	pm               *ProcessManage
+	txsAcquireSeq    int
+	voteMsgSender    *common.ResendMsgCtrl
+	mineReqMsgSender *common.ResendMsgCtrl
+	posedReqSender   *common.ResendMsgCtrl
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
@@ -93,13 +96,16 @@ func newProcess(number uint64, pm *ProcessManage) *Process {
 			TurnBeginTime:  0,
 			TurnEndTime:    0,
 		},
-		number:        number,
-		role:          common.RoleNil,
-		state:         StateIdle,
-		curProcessReq: nil,
-		reqCache:      newReqCache(),
-		pm:            pm,
-		txsAcquireSeq: 0,
+		number:           number,
+		role:             common.RoleNil,
+		state:            StateIdle,
+		curProcessReq:    nil,
+		reqCache:         newReqCache(),
+		pm:               pm,
+		txsAcquireSeq:    0,
+		voteMsgSender:    nil,
+		mineReqMsgSender: nil,
+		posedReqSender:   nil,
 	}
 
 	return p
@@ -123,6 +129,7 @@ func (p *Process) Close() {
 	defer p.mu.Unlock()
 	p.state = StateIdle
 	p.curProcessReq = nil
+	p.stopSender()
 }
 
 func (p *Process) SetLeaderInfo(info *mc.LeaderChangeNotify) {
@@ -152,6 +159,7 @@ func (p *Process) SetLeaderInfo(info *mc.LeaderChangeNotify) {
 	p.reqCache.SetCurTurn(p.leaderCache.ConsensusTurn)
 
 	//重启process
+	p.stopSender()
 	if p.state > StateIdle {
 		p.state = StateStart
 		if p.role == common.RoleValidator {
@@ -163,6 +171,7 @@ func (p *Process) SetLeaderInfo(info *mc.LeaderChangeNotify) {
 }
 
 func (p *Process) stopProcess() {
+	p.closeMineReqMsgSender()
 	p.leaderCache.Leader.Set(common.Address{})
 	p.leaderCache.NextLeader.Set(common.Address{})
 	p.leaderCache.ConsensusTurn = 0
@@ -240,6 +249,7 @@ func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
 	for _, sign := range msg.Header.Signatures {
 		p.votePool().AddVote(reqData.hash, sign, common.Address{}, p.number, false)
 	}
+	p.processDPOSOnce()
 	log.INFO(p.logExtraInfo(), "处理状态恢复消息", "完成")
 }
 
@@ -279,6 +289,16 @@ func (p *Process) processReqOnce() {
 		return
 	}
 
+	// verify timestamp
+	headerTime := p.curProcessReq.req.Header.Time.Int64()
+	if headerTime < p.leaderCache.TurnBeginTime || headerTime > p.leaderCache.TurnEndTime {
+		log.ERROR(p.logExtraInfo(), "验证请求头时间戳", "时间戳不合法", "头时间", headerTime,
+			"轮次开始时间", p.leaderCache.TurnBeginTime, "轮次结束时间", p.leaderCache.TurnEndTime,
+			"轮次", p.leaderCache.ConsensusTurn, "高度", p.number)
+		p.startDPOSVerify(localVerifyResultStateFailed)
+		return
+	}
+
 	// verify header
 	if err := p.blockChain().VerifyHeader(p.curProcessReq.req.Header); err != nil {
 		log.ERROR(p.logExtraInfo(), "预验证头信息失败", err, "高度", p.number)
@@ -315,6 +335,7 @@ func (p *Process) startTxsVerify() {
 
 	p.txsAcquireSeq++
 	leader := p.curProcessReq.req.Header.Leader
+	//todo 交易数量为空时，跳过交易验证阶段
 	log.INFO(p.logExtraInfo(), "开始交易获取,seq", p.txsAcquireSeq, "数量", len(p.curProcessReq.req.TxsCode), "leader", leader.Hex(), "高度", p.number)
 	txAcquireCh := make(chan *core.RetChan, 1)
 	go p.txPool().ReturnAllTxsByN(p.curProcessReq.req.TxsCode, p.txsAcquireSeq, leader, txAcquireCh)
@@ -380,7 +401,7 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 	log.INFO(p.logExtraInfo(), "开始交易验证, 数量", len(result.Rxs), "高度", p.number)
 	p.curProcessReq.txs = result.Rxs
 
-	//todo 跑交易交易验证， Root TxHash ReceiptHash Bloom GasLimit GasUsed
+	//跑交易交易验证， Root TxHash ReceiptHash Bloom GasLimit GasUsed
 	remoteHeader := p.curProcessReq.req.Header
 	localHeader := types.CopyHeader(remoteHeader)
 	localHeader.GasUsed = 0
@@ -452,9 +473,7 @@ func (p *Process) sendVote(validate bool) {
 		return
 	}
 
-	voteMsg := mc.HD_ConsensusVote{SignHash: signHash, Sign: sign, Round: p.number}
-	log.INFO(p.logExtraInfo(), "发出成功投票 signHash", voteMsg.SignHash.TerminalString(), "高度", p.number)
-	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusVote, &voteMsg, common.RoleValidator, nil)
+	p.startVoteMsgSender(&mc.HD_ConsensusVote{SignHash: signHash, Sign: sign, Round: p.number})
 
 	//将自己的投票加入票池
 	if err := p.votePool().AddVote(signHash, sign, common.Address{}, p.number, false); err != nil {
@@ -540,14 +559,10 @@ func (p *Process) finishedProcess() {
 		mc.PublishEvent(mc.BlkVerify_POSFinishedNotify, &notify)
 	}
 
-	hash := p.curProcessReq.req.Header.HashNoSignsAndNonce()
 	//给矿工发送区块验证结果
-	log.INFO(p.logExtraInfo(), "发出挖矿请求, Header hash with signs", hash, "高度", p.number)
-	p.pm.hd.SendNodeMsg(mc.HD_MiningReq, &mc.HD_MiningReqMsg{Header: p.curProcessReq.req.Header}, common.RoleMiner, nil)
-
+	p.startSendMineReq(&mc.HD_MiningReqMsg{Header: p.curProcessReq.req.Header})
 	//给广播节点发送区块验证请求(带签名列表)
-	log.INFO(p.logExtraInfo(), "向广播节点发送 leader", p.curProcessReq.req.Header.Leader.Hex(), "高度", p.number)
-	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, p.curProcessReq.req, common.RoleBroadcast, nil)
+	p.startPosedReqSender(p.curProcessReq.req)
 
 	p.votePool().DelVotes(p.curProcessReq.hash)
 	p.state = StateEnd
