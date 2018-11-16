@@ -100,6 +100,9 @@ func (self *masterCache) CheckInquiryRspMsg(rsp *mc.HD_ReelectInquiryRspMsg) err
 }
 
 func (self *masterCache) SaveInquiryAgreeSign(reqHash common.Hash, sign common.Signature, from common.Address) error {
+	if _, exist := self.inquiryAgreeSignCache[from]; exist {
+		return errors.Errorf("来自(%s)的签名已存在!", from.Hex())
+	}
 	signAccount, validate, err := crypto.VerifySignWithValidate(reqHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return errors.Errorf("签名解析错误(%v)", err)
@@ -192,6 +195,7 @@ func (self *masterCache) GetRLReqMsg() (*mc.HD_ReelectLeaderReqMsg, common.Hash,
 	}
 	self.rlReqMsg.TimeStamp = time.Now().Unix()
 	self.rlReqHash = types.RlpHash(self.rlReqMsg)
+	self.rlVoteCache = make(map[common.Address]*common.VerifiedSign)
 	return self.rlReqMsg, self.rlReqHash, nil
 }
 
@@ -201,6 +205,9 @@ func (self *masterCache) SaveRLVote(signHash common.Hash, sign common.Signature,
 	}
 	if signHash != self.rlReqHash {
 		return errors.Errorf("signHash不匹配, signHash(%s)!=localHash(%s)", signHash.TerminalString(), self.rlReqHash.TerminalString())
+	}
+	if _, exist := self.rlVoteCache[from]; exist {
+		return errors.Errorf("来自(%s)的签名已存在", from.Hex())
 	}
 	signAccount, validate, err := crypto.VerifySignWithValidate(signHash.Bytes(), sign.Bytes())
 	if err != nil {
@@ -273,4 +280,3 @@ func (self *masterCache) GetResultRspSigns() []*common.VerifiedSign {
 		signs = append(signs, sign)
 	}
 	return signs
-}
