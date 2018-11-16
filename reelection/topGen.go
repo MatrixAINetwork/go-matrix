@@ -28,7 +28,7 @@ import (
 	"github.com/matrix/go-matrix/mc"
 )
 
-//得到随机种子
+//generate random seed
 func (self *ReElection) GetSeed(height uint64) (*big.Int, error) {
 
 	sendData := self.CalcbeforeSeedGen(height)
@@ -53,21 +53,21 @@ func (self *ReElection) GetSeed(height uint64) (*big.Int, error) {
 	}
 }
 
-//随机种子生成前的消息准备
+//Message Preparation for the generation of the random seed
 func (self *ReElection) CalcbeforeSeedGen(height uint64) mc.RandomRequest {
 	broadcastInterval := common.GetBroadcastInterval()
-	height_1 := height / broadcastInterval * broadcastInterval //上一个广播区块
+	height_1 := height / broadcastInterval * broadcastInterval //previous broadcast block
 	height_2 := height_1 - common.GetBroadcastInterval()
 
 	minHash := self.getMinHash(height)
 	PrivateMap := getKeyTransInfo(height_1, mc.Privatekey)
 	PublicMap := getKeyTransInfo(height_2, mc.Publickey)
-	log.INFO(Module, "获取到的公私钥匙, 公钥长度", len(PublicMap), "私钥长度", len(PrivateMap), "当前高度", height)
+	log.INFO(Module, "obtained public and private keys, publickey length", len(PublicMap), "privatekey length", len(PrivateMap), "current height", height)
 	for k, v := range PublicMap {
-		log.INFO(Module, "公钥key", k, "value", v, "当前高度", height)
+		log.INFO(Module, "publickey", k, "value", v, "current height", height)
 	}
 	for k, v := range PrivateMap {
-		log.INFO(Module, "私钥key", k, "value", v, "当前高度", height)
+		log.INFO(Module, "privatekey", k, "value", v, "current height", height)
 	}
 
 	return mc.RandomRequest{MinHash: minHash, PrivateMap: PrivateMap, PublicMap: PublicMap}
@@ -81,7 +81,7 @@ func (self *ReElection) getMinHash(height uint64) common.Hash {
 	BroadcastInterval := common.GetBroadcastInterval()
 	for i := height - 1; i > height-BroadcastInterval; i-- {
 		blockhash := self.GetHashByNum(uint64(i))
-		if minhash.Big().Cmp(blockhash.Big()) == 1 { //前者大于后者
+		if minhash.Big().Cmp(blockhash.Big()) == 1 { //the former is bigger than the latter
 			minhash = blockhash
 		}
 
