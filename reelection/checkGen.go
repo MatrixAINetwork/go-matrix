@@ -43,7 +43,7 @@ func (self *ReElection)checkTopGenStatus(height uint64)error{
 	}
 
 	if ok:=self.boolTopStatus(common.GetNextReElectionNumber(height),common.RoleValidator);ok==false{
-		log.Warn(Module,"验证者拓扑图需要重新算 高度",height)
+		log.Warn(Module,"height re-caculation needed for validator topology",height)
 		if height==0{
 			return nil
 		}
