@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package man
 
@@ -24,9 +25,9 @@ import (
 	"github.com/matrix/go-matrix/man/fetcher"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/hd"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params"
@@ -92,8 +93,8 @@ type ProtocolManager struct {
 	wg sync.WaitGroup
 }
 
-// NewProtocolManager returns a new matrix sub protocol manager. The matrix sub protocol manages peers capable
-// with the matrix network.
+// NewProtocolManager returns a new Matrix sub protocol manager. The Matrix sub protocol manages peers capable
+// with the Matrix network.
 func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb mandb.Database, MsgCenter *mc.Center) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
@@ -191,9 +192,9 @@ func (pm *ProtocolManager) removePeer(id string) {
 	if peer == nil {
 		return
 	}
-	log.Debug("Removing matrix peer", "peer", id)
+	log.Debug("Removing Matrix peer", "peer", id)
 
-	// Unregister the peer from the downloader and matrix peer set
+	// Unregister the peer from the downloader and Matrix peer set
 	pm.downloader.UnregisterPeer(id)
 	//	if err := pm.peers.Unregister(id); err != nil {
 	if err := pm.Peers.Unregister(id); err != nil {
@@ -251,7 +252,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 }
 
 func (pm *ProtocolManager) Stop() {
-	log.Info("Stopping matrix protocol")
+	log.Info("Stopping Matrix protocol")
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
@@ -273,7 +274,7 @@ func (pm *ProtocolManager) Stop() {
 	// Wait for all peer handler goroutines and the loops to come down.
 	pm.wg.Wait()
 
-	log.Info("matrix protocol stopped")
+	log.Info("Matrix protocol stopped")
 }
 
 func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -290,9 +291,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.Peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
 		return p2p.DiscTooManyPeers
 	}
-	p.Log().Debug("matrix peer connected", "name", p.Name())
+	p.Log().Debug("Matrix peer connected", "name", p.Name())
 
-	// Execute the matrix handshake
+	// Execute the Matrix handshake
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -301,17 +302,18 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		td      = pm.blockchain.GetTd(hash, number)
 	)
 	if err := p.Handshake(pm.networkId, td, hash, genesis.Hash()); err != nil {
-		p.Log().Debug("matrix handshake failed", "err", err)
+		p.Log().Debug("Matrix handshake failed", "err", err)
 		return err
 	}
 	//	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 		rw.Init(p.version)
 	}
+	p.Log().Debug("Ethereum handshake with peer sucess ", "peerid=%d", pm.networkId)
 	// Register the peer locally
 	//	if err := pm.peers.Register(p); err != nil {
 	if err := pm.Peers.Register(p); err != nil {
-		p.Log().Error("matrix peer registration failed", "err", err)
+		p.Log().Error("Matrix peer registration failed", "err", err)
 		return err
 	}
 	defer pm.removePeer(p.id)
@@ -346,7 +348,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
-			p.Log().Debug("matrix message handling failed", "err", err)
+			p.Log().Debug("Matrix message handling failed", "err", err)
 			return err
 		}
 	}
@@ -674,6 +676,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkBlock(request.Block.Hash())
+		log.Trace("handleMsg receive NewBlockMsg", "number", request.Block.NumberU64())
 		pm.fetcher.Enqueue(p.id, request.Block)
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
@@ -732,7 +735,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		go pm.txpool.ProcessMsg(core.NetworkMsgData{NodeId: p.ID(), Data: m})
 
 	case msg.Code == common.AlgorithmMsg:
-		var m hd.NetData
+		var m msgsend.NetData
 		if err := msg.Decode(&m); err != nil {
 			log.Error("algorithm message", "error", err)
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -742,7 +745,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Error("convert message", "error", err, "pid", p.ID().String())
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		return mc.PublishEvent(mc.P2P_HDMSG, &hd.AlgorithmMsg{Account: addr, Data: m})
+		return mc.PublishEvent(mc.P2P_HDMSG, &msgsend.AlgorithmMsg{Account: addr, Data: m})
 
 	case msg.Code == common.BroadcastReqMsg:
 		return p.SendPongToBroad([]uint8{0})
@@ -868,10 +871,10 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-// NodeInfo represents a short summary of the matrix sub-protocol metadata
+// NodeInfo represents a short summary of the Matrix sub-protocol metadata
 // known about the host peer.
 type NodeInfo struct {
-	Network    uint64              `json:"network"`    // matrix network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
+	Network    uint64              `json:"network"`    // Matrix network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
 	Difficulty *big.Int            `json:"difficulty"` // Total difficulty of the host's blockchain
 	Genesis    common.Hash         `json:"genesis"`    // SHA3 hash of the host's genesis block
 	Config     *params.ChainConfig `json:"config"`     // Chain configuration for the fork rules
