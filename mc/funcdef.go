@@ -11,11 +11,11 @@ import (
 
 func NewGenesisTopologyGraph(genesisHeader *types.Header) (*TopologyGraph, error) {
 	if genesisHeader.Number.Uint64() != 0 {
-		return nil, errors.New("输入错误，创世区块高度不为0")
+		return nil, errors.New("input error. The height of genesis block is not 0")
 	}
 
 	if genesisHeader.NetTopology.Type != common.NetTopoTypeAll {
-		return nil, errors.New("输入错误，创世区块拓扑类型不是全拓扑")
+		return nil, errors.New("input error. The topology type of genesis block is not ALL")
 	}
 
 	newGraph := &TopologyGraph{
