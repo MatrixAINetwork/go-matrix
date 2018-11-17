@@ -525,7 +525,7 @@ func (p *Process) processDPOSOnce() {
 
 	signs := p.votePool().GetVotes(p.curProcessReq.hash)
 	log.INFO(p.logExtraInfo(), "执行DPOS, 投票数量", len(signs), "hash", p.curProcessReq.hash.TerminalString(), "高度", p.number)
-	rightSigns, err := p.blockChain().DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(p.blockChain(), signs, p.number)
+	rightSigns, err := p.blockChain().DPOSEngine().VerifyHashWithVerifiedSignsAndBlock(p.blockChain(), signs, p.curProcessReq.req.Header.ParentHash)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "共识引擎验证失败", err, "高度", p.number)
 		return
