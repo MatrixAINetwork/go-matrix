@@ -34,7 +34,7 @@ type HD_MiningReqMsg struct {
 type HD_MiningRspMsg struct {
 	From       common.Address
 	Number     uint64
-	Blockhash  common.Hash
+	BlockHash  common.Hash
 	Difficulty *big.Int
 	Nonce      types.BlockNonce
 	Coinbase   common.Address
@@ -223,7 +223,7 @@ type HD_ReelectInquiryReqMsg struct {
 	Number        uint64
 	ConsensusTurn uint32
 	ReelectTurn   uint32
-	TimeStamp     int64 // TODO  考虑作恶，提前时间
+	TimeStamp     uint64
 	Master        common.Address
 	From          common.Address
 }
@@ -252,7 +252,7 @@ type HD_ReelectInquiryRspMsg struct {
 type HD_ReelectLeaderReqMsg struct {
 	InquiryReq *HD_ReelectInquiryReqMsg
 	AgreeSigns []common.Signature
-	TimeStamp  int64
+	TimeStamp  uint64
 }
 
 type HD_ReelectLeaderVoteMsg struct {
@@ -261,9 +261,8 @@ type HD_ReelectLeaderVoteMsg struct {
 }
 
 type HD_ReelectLeaderConsensus struct {
-	Req       *HD_ReelectLeaderReqMsg
-	Votes     []common.Signature
-	TimeStamp int64
+	Req   *HD_ReelectLeaderReqMsg
+	Votes []common.Signature
 }
 
 type HD_ReelectResultBroadcastMsg struct {
@@ -271,7 +270,7 @@ type HD_ReelectResultBroadcastMsg struct {
 	Type      ReelectRSPType
 	POSResult *HD_BlkConsensusReqMsg
 	RLResult  *HD_ReelectLeaderConsensus
-	TimeStamp int64
+	TimeStamp uint64
 	From      common.Address
 }
 
