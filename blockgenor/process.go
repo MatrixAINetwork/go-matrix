@@ -282,7 +282,7 @@ func (p *Process) startHeaderGen() {
 	}
 
 	p.state = StateMinerResultVerify
-	p.processMinerResultVerify(p.curLeader)
+	p.processMinerResultVerify(p.curLeader, true)
 }
 
 func (p *Process) canGenHeader() bool {
@@ -291,14 +291,14 @@ func (p *Process) canGenHeader() bool {
 		if false == common.IsBroadcastNumber(p.number) {
 			log.INFO(p.logExtraInfo(), "广播身份，当前不是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify(p.curLeader)
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 	case common.RoleValidator:
 		if common.IsBroadcastNumber(p.number) {
 			log.INFO(p.logExtraInfo(), "验证者身份，当前是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify(p.curLeader)
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 
