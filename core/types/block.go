@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018?The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -148,8 +148,8 @@ func (h *Header) Size() common.StorageSize {
 	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
 }
 
-func (h *Header) SignAccounts() map[common.Signature]common.Address {
-	accounts := make(map[common.Signature]common.Address)
+func (h *Header) SignAccounts() []common.VerifiedSign {
+	accounts := make([]common.VerifiedSign, 0)
 	hash := h.HashNoSignsAndNonce().Bytes()
 	for i := 0; i < len(h.Signatures); i++ {
 		sign := h.Signatures[i]
@@ -163,7 +163,12 @@ func (h *Header) SignAccounts() map[common.Signature]common.Address {
 			log.WARN("header SignAccounts", "VerifySignWithValidate illegal", validate, "sign", sign)
 			continue
 		}
-		accounts[sign] = signAccount
+		accounts = append(accounts, common.VerifiedSign{
+			Sign:     sign,
+			Account:  signAccount,
+			Validate: validate,
+			Stock:    0,
+		})
 	}
 	return accounts
 }
@@ -185,7 +190,10 @@ func rlpHash(x interface{}) (h common.Hash) {
 
 func RlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
-	rlp.Encode(hw, x)
+	if err := rlp.Encode(hw, x); err != nil {
+		log.ERROR("RLPHash", "err", err)
+		return common.Hash{}
+	}
 	hw.Sum(h[:0])
 	return h
 }
@@ -377,7 +385,7 @@ func (b *StorageBlock) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-func (b *Block) SignAccounts() map[common.Signature]common.Address {
+func (b *Block) SignAccounts() []common.VerifiedSign {
 	return b.header.SignAccounts()
 }
 
