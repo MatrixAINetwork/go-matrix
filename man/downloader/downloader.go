@@ -22,6 +22,7 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/metrics"
 	"github.com/matrix/go-matrix/params"
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 var (
@@ -45,8 +46,8 @@ var (
 	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value
 
 	maxQueuedHeaders  = 32 * 1024 // [man/62] Maximum number of headers to queue for import (DOS protection)
-	maxHeadersProcess = 1024      //2048      // Number of header download results to import at once into the chain
-	maxResultsProcess = 396       //576      //lb//2048      // Number of content download results to import at once into the chain
+	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
+	maxResultsProcess = 2048      // Number of content download results to import at once into the chain
 
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
@@ -81,8 +82,9 @@ var (
 )
 
 type Downloader struct {
-	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
-	mux  *event.TypeMux // Event multiplexer to announce sync operation events
+	IpfsMode bool           //liubo ipfs
+	mode     SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
+	mux      *event.TypeMux // Event multiplexer to announce sync operation events
 
 	queue   *queue   // Scheduler for selecting the hashes to download
 	peers   *peerSet // Set of active peers from which download can proceed
@@ -136,6 +138,16 @@ type Downloader struct {
 	bodyFetchHook    func([]*types.Header) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.Header) // Method to call upon starting a receipt fetch
 	chainInsertHook  func([]*fetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+
+	//lb ipfs
+	dpIpfs        *IPfsDownloader
+	ipfsBodyCh    chan BlockIpfs //result
+	bIpfsDownload int
+}
+type BlockIpfs struct {
+	Headeripfs       *types.Header
+	Unclesipfs       []*types.Header
+	Transactionsipfs types.Transactions
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -183,6 +195,10 @@ type BlockChain interface {
 
 	// InsertReceiptChain inserts a batch of receipts into the local chain.
 	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
+
+	//lb ipfs
+	SetbSendIpfsFlg(bool)
+	GetStoreBlockInfo() *prque.Prque //types.Blocks //(storeBlock types.Blocks)
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -192,6 +208,7 @@ func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockC
 	}
 
 	dl := &Downloader{
+		IpfsMode:       GetIpfsMode(), //true,   //false,
 		mode:           mode,
 		stateDB:        stateDb,
 		mux:            mux,
@@ -215,6 +232,19 @@ func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockC
 			processed: rawdb.ReadFastTrieProgress(stateDb),
 		},
 		trackStateReq: make(chan *stateReq),
+		dpIpfs:        nil,
+		bIpfsDownload: 0,
+	}
+	if dl.IpfsMode {
+		dl.dpIpfs = newIpfsDownload()
+		dl.ipfsBodyCh = make(chan BlockIpfs, 1)
+		go dl.IpfsDownloadInit()
+		/*if dl.IpfsDownloadInit() != nil {
+
+			//dl.IpfsMode = false
+		}*/
+		//go dl.IpfsProcessRcvHead()
+		//go dl.WaitBlockInfoFromIpfs()
 	}
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -999,6 +1029,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 	// Prepare the queue and fetch block parts until the block header fetcher's done
 	finished := false
+	bchecked := false
 	for {
 		select {
 		case <-d.cancelCh:
@@ -1048,6 +1079,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 		case <-ticker.C:
 			// Sanity check update the progress
+			bchecked = true
 			select {
 			case update <- struct{}{}:
 			default:
@@ -1055,6 +1087,17 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 		case <-update:
 			// Short circuit if we lost all our peers
+			bCheckIpfsOver := false
+			//liubo ipfs
+			/*if d.bIpfsDownload == 2 && kind == "bodies" {
+				// IPFS
+				if d.queue.BlockIpfsPoolBlocks() == 0 && finished {
+					log.Debug("Data fetching completed ipfs", "type", kind)
+					return nil
+				}
+				continue //break
+			}*/
+			log.Trace("fetchParts update Data fetching", "type", kind, "len", pending())
 			if d.peers.Len() == 0 {
 				return errNoPeers
 			}
@@ -1083,11 +1126,45 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 					}
 				}
 			}
+			//log.Trace("Data fetching 2", "type", kind, "cont", finished, "len", inFlight())
 			// If there's nothing more to fetch, wait or terminate
+			if d.bIpfsDownload == 2 && kind == "bodies" && bchecked {
+				d.queue.checkIpfsPool()
+				if d.queue.BlockIpfsPoolBlocksNum() == 0 {
+					log.Debug("fetchParts Data fetching completed ipfs block", "type", kind)
+					//return nil
+					bCheckIpfsOver = true
+
+				}
+				bchecked = false
+			}
+
 			if pending() == 0 {
 				if !inFlight() && finished {
 					log.Debug("Data fetching completed", "type", kind)
-					return nil
+					/*	if d.bIpfsDownload == 2 && kind == "bodies"  {
+							d.queue.checkIpfsPool()
+							if d.queue.BlockIpfsPoolBlocks() == 0 {
+								log.Debug("Data fetching completed ipfs block", "type", kind)
+								return nil
+							}
+						} else {
+							return nil
+						}*/
+					if d.bIpfsDownload == 2 && kind == "bodies" {
+						if bCheckIpfsOver == true {
+							log.Debug("Data fetching completed ipfs and syn block body part", "type", kind)
+							return nil
+						} else {
+							log.Debug("Data fetching still  ipfs", "type", kind)
+							break
+
+						}
+						//return nil
+					} else {
+						return nil
+					}
+
 				}
 				break
 			}
@@ -1187,6 +1264,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 
 		case headers := <-d.headerProcCh:
 			// Terminate header processing if we synced up
+			log.Debug("download  processHeaders  recv header ", "len head =%d", len(headers))
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
 				for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
@@ -1246,7 +1324,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 					limit = len(headers)
 				}
 				chunk := headers[:limit]
-
+				log.Debug("download  processHeaders  recv header then deal ", "head number", chunk[0].Number.Uint64())
 				// In case of header only syncing, validate the chunk immediately
 				if d.mode == FastSync || d.mode == LightSync {
 					// Collect the yet unknown headers to mark them as uncertain
@@ -1286,11 +1364,23 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 						}
 					}
 					// Otherwise insert the headers for content retrieval
-					inserts := d.queue.Schedule(chunk, origin)
+					inserts := d.queue.Schedule(chunk, origin, d.bIpfsDownload)
 					if len(inserts) != len(chunk) {
 						log.Debug("Stale headers")
 						return errBadPeer
 					}
+				}
+				//liubo ipfs
+				//if d.IpfsMode == true && (d.mode == FullSync || d.mode == FastSync) { //len(chunk) > 0 {
+				if d.bIpfsDownload == 2 && (d.mode == FullSync || d.mode == FastSync) {
+					//ChIpfs <- headers://processHeaders
+					//
+					sender, err := d.queue.Reserveipfs(chunk) //Reserveipfs
+					log.Warn("download recv skeleton header send to ipfs", "len chunk", len(chunk), "real send =", len(sender))
+					if err == nil {
+						d.dpIpfs.HeaderIpfsCh <- sender
+					}
+
 				}
 				headers = headers[limit:]
 				origin += uint64(limit)
@@ -1631,4 +1721,45 @@ func (d *Downloader) requestTTL() time.Duration {
 		ttl = ttlLimit
 	}
 	return ttl
+}
+func (d *Downloader) SetbStoreSendIpfsFlg(flg bool) {
+	if flg {
+		d.bIpfsDownload = 1
+	} else {
+		d.bIpfsDownload = 2
+	}
+
+	d.blockchain.SetbSendIpfsFlg(flg)
+}
+
+//liubo ipfs
+func (d *Downloader) WaitBlockInfoFromIpfs() {
+	log.Debug("Downloader WaitBlockInfoFromIpfs enter")
+	for {
+		select {
+		//case headers := <-HeaderIpfsCh:
+		case block := <-d.ipfsBodyCh:
+			log.Debug("downloader WaitBlockInfoFromIpfs recv block info from ipfs", "head num", block.Headeripfs.Number.Int64())
+			d.queue.recvIpfsBody(&block)
+			//case cancel
+		}
+	}
+	log.Debug("Downloader WaitBlockInfoFromIpfs out")
+}
+
+func (d *Downloader) processIpfsContent() error {
+	log.Debug("Downloader processIpfsContent enter")
+	recvSync := time.NewTicker(20 * time.Second)
+	defer recvSync.Stop()
+	for {
+		select {
+		case <-recvSync.C:
+			//d.queue.CheckIpfsPool()
+
+			//log.Debug("downloader WaitBlockInfoFromIpfs recv block info from ipfs")
+
+		}
+	}
+	log.Debug("Downloader WaitBlockInfoFromIpfs out")
+	return nil
 }
