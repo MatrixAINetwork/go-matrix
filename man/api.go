@@ -225,7 +225,7 @@ func (api *PrivateMinerAPI) TestLocalMining(kind string, s string) {
 		int = 600000
 	}
 	time.Sleep(10 * time.Second)
-	fmt.Println("开始发送挖矿请求消息")
+	fmt.Println("start sending mining request message")
 	testHeader := &types.Header{
 		ParentHash: common.BigToHash(big.NewInt(100)),
 		Difficulty: big.NewInt(int64(int)),
@@ -240,17 +240,17 @@ func (api *PrivateMinerAPI) TestLocalMining(kind string, s string) {
 	case "vali_send":
 
 		api.e.hd.SendNodeMsg(mc.HD_MiningReq, &mc.HD_MiningReqMsg{Header: testHeader}, common.RoleValidator, nil)
-		log.INFO("发送给验证者", "data", mc.HD_MiningReqMsg{Header: testHeader})
+		log.INFO("send to validators", "data", mc.HD_MiningReqMsg{Header: testHeader})
 	case "miner_send":
 
 		api.e.hd.SendNodeMsg(mc.HD_MiningReq, &mc.HD_MiningReqMsg{Header: testHeader}, common.RoleMiner, nil)
-		log.INFO("发送给矿工", "data", mc.HD_MiningReqMsg{Header: testHeader})
+		log.INFO("send to miners", "data", mc.HD_MiningReqMsg{Header: testHeader})
 	case "signal_send":
 		temp := "0x92e0fea9aba517398c2f0dd628f8cfc7e32ba984"
 		nodes := []common.Address{common.HexToAddress(temp)}
 
 		api.e.hd.SendNodeMsg(mc.HD_MiningReq, &mc.HD_MiningReqMsg{Header: testHeader}, common.RoleMiner, nodes)
-		log.INFO("单点发送", "Data", nodes[0])
+		log.INFO("send to single node", "Data", nodes[0])
 	case "normal_signal":
 		mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: common.RoleMiner, BlockNum: 1})
 		mc.PublishEvent(mc.HD_MiningReq, &mc.HD_MiningReqMsg{Header: testHeader})
@@ -268,7 +268,7 @@ func (api *PrivateMinerAPI) TestHeaderGen(kind string, s string) {
 		int = 600000
 	}
 	time.Sleep(10 * time.Second)
-	fmt.Println("开始发送挖矿请求消息")
+	fmt.Println("start sending mining request message")
 	testHeader := &types.Header{
 		ParentHash: common.BigToHash(big.NewInt(100)),
 		Difficulty: big.NewInt(int64(int)),
@@ -286,7 +286,7 @@ func (api *PrivateMinerAPI) TestHeaderGen(kind string, s string) {
 		log.INFO("successfully normal ", "data", mc.BlockLocalVerifyOK{Header: testHeader})
 	case "start":
 		//type LeaderChangeNotify struct {
-		//	ConsensusState bool //共识结果
+		//	ConsensusState bool //consensus result
 		//	Leader         common.Address
 		//	Number         uint64
 		//	ReelectTurn    uint8
