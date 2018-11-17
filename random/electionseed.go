@@ -80,7 +80,7 @@ func compareMap(private map[common.Address][]byte, public map[common.Address][]b
 		return rangePrivate(private, public)
 	}
 	ans := rangePublic(private, public)
-	log.INFO(ModuleSeed, "隨機數map匹配的公私鑰 data", ans)
+	log.INFO(ModuleSeed, "public and private keys mapped with randomNUM map data", ans)
 	return ans
 }
 
