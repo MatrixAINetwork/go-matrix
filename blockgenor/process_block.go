@@ -42,7 +42,7 @@ func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
 	minerResult := &mc.HD_MiningRspMsg{
 		From:       header.Coinbase,
 		Number:     header.Number.Uint64(),
-		Blockhash:  headerHash,
+		BlockHash:  headerHash,
 		Difficulty: header.Difficulty,
 		Nonce:      header.Nonce,
 		Coinbase:   header.Coinbase,
@@ -50,10 +50,10 @@ func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
 		Signatures: header.Signatures,
 	}
 	log.INFO(p.logExtraInfo(), "状态恢复消息处理", "开始补全挖矿结果消息")
-	if err := p.powPool.AddMinerResult(minerResult.Blockhash, minerResult.Difficulty, minerResult); err != nil {
+	if err := p.powPool.AddMinerResult(minerResult.BlockHash, minerResult.Difficulty, minerResult); err != nil {
 		log.WARN(p.logExtraInfo(), "状态恢复消息处理", "挖矿结果入池失败", "err", err, "高度", p.number)
 	}
-	p.processMinerResultVerify(header.Leader)
+	p.processMinerResultVerify(header.Leader, false)
 
 	if p.state != StateEnd {
 		//处理完成后，状态不是完成状态，说明缺少数据
@@ -190,11 +190,11 @@ func (p *Process) AddMinerResult(minerResult *mc.HD_MiningRspMsg) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if err := p.powPool.AddMinerResult(minerResult.Blockhash, minerResult.Difficulty, minerResult); err != nil {
+	if err := p.powPool.AddMinerResult(minerResult.BlockHash, minerResult.Difficulty, minerResult); err != nil {
 		log.ERROR(p.logExtraInfo(), "矿工挖矿结果入池失败", err, "高度", p.number)
 		return
 	}
-	p.processMinerResultVerify(p.curLeader)
+	p.processMinerResultVerify(p.curLeader, true)
 }
 
 func (p *Process) AddConsensusBlock(block *mc.BlockLocalVerifyOK) {
@@ -202,13 +202,15 @@ func (p *Process) AddConsensusBlock(block *mc.BlockLocalVerifyOK) {
 	defer p.mu.Unlock()
 
 	p.blockCache.SaveVerifiedBlock(block)
-	p.processMinerResultVerify(p.curLeader)
+	p.processMinerResultVerify(p.curLeader, true)
 }
 
-func (p *Process) processMinerResultVerify(leader common.Address) {
-	if p.checkState(StateMinerResultVerify) == false {
-		log.WARN(p.logExtraInfo(), "准备进行挖矿结果验证，状态错误", p.state.String())
-		return
+func (p *Process) processMinerResultVerify(leader common.Address, checkState bool) {
+	if checkState {
+		if p.checkState(StateMinerResultVerify) == false {
+			log.WARN(p.logExtraInfo(), "准备进行挖矿结果验证，状态错误", p.state.String())
+			return
+		}
 	}
 
 	if common.IsBroadcastNumber(p.number) {
@@ -304,8 +306,8 @@ func (p *Process) pickSatisfyMinerResults(header *types.Header, results []*mc.HD
 	for _, result := range results {
 		if err := p.verifyOneResult(header, result); err != nil {
 			log.WARN(p.logExtraInfo(), "验证挖矿结果失败，删除该挖矿结果, from", result.From, "diff", result.Difficulty,
-				"高度", p.number, "block hash", result.Blockhash.TerminalString())
-			p.powPool.DelOneResult(result.Blockhash, result.Difficulty, result.From)
+				"高度", p.number, "block hash", result.BlockHash.TerminalString())
+			p.powPool.DelOneResult(result.BlockHash, result.Difficulty, result.From)
 			continue
 		}
 		return result, nil
@@ -316,8 +318,8 @@ func (p *Process) pickSatisfyMinerResults(header *types.Header, results []*mc.HD
 func (p *Process) verifyOneResult(rawHeader *types.Header, result *mc.HD_MiningRspMsg) error {
 	header := p.copyHeader(rawHeader, result)
 	headerHash := header.HashNoSignsAndNonce()
-	if headerHash != result.Blockhash {
-		log.ERROR(p.logExtraInfo(), "挖矿结果不匹配, header hash", headerHash.TerminalString(), "挖矿结果hash", result.Blockhash.TerminalString())
+	if headerHash != result.BlockHash {
+		log.ERROR(p.logExtraInfo(), "挖矿结果不匹配, header hash", headerHash.TerminalString(), "挖矿结果hash", result.BlockHash.TerminalString())
 		return MinerResultError
 	}
 
