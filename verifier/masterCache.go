@@ -158,11 +158,11 @@ func (self *masterCache) SetRLResultBroadcastSuccess(signs []common.Signature) e
 	}
 
 	rlResult := &mc.HD_ReelectLeaderConsensus{
-		Req:       self.rlReqMsg,
-		Votes:     signs,
-		TimeStamp: time.Now().Unix(),
+		Req:   self.rlReqMsg,
+		Votes: signs,
 	}
 
+	self.inquiryResult = mc.ReelectRSPTypeAlreadyRL
 	self.resultBroadcastMsg = &mc.HD_ReelectResultBroadcastMsg{
 		Number:    self.number,
 		Type:      mc.ReelectRSPTypeAgree,
@@ -181,7 +181,7 @@ func (self *masterCache) GetRLReqMsg() (*mc.HD_ReelectLeaderReqMsg, common.Hash,
 	if self.inquiryResult != mc.ReelectRSPTypeAgree {
 		return nil, common.Hash{}, errors.Errorf("当前询问结果(%v) != ReelectRSPTypeAgree", self.inquiryResult)
 	}
-	self.rlReqMsg.TimeStamp = time.Now().Unix()
+	self.rlReqMsg.TimeStamp = uint64(time.Now().Unix())
 	self.rlReqHash = types.RlpHash(self.rlReqMsg)
 	self.rlVoteCache = make(map[common.Address]*common.VerifiedSign)
 	return self.rlReqMsg, self.rlReqHash, nil
@@ -224,7 +224,7 @@ func (self *masterCache) GetResultBroadcastMsg() (*mc.HD_ReelectResultBroadcastM
 	if self.resultBroadcastMsg == nil {
 		return nil, common.Hash{}, errors.Errorf("缓存中没有重选结果广播消息")
 	}
-	self.resultBroadcastMsg.TimeStamp = time.Now().Unix()
+	self.resultBroadcastMsg.TimeStamp = uint64(time.Now().Unix())
 	self.resultBroadcastHash = types.RlpHash(self.resultBroadcastMsg)
 	self.resultRspCache = make(map[common.Address]*common.VerifiedSign)
 	return self.resultBroadcastMsg, self.resultBroadcastHash, nil
@@ -268,3 +268,4 @@ func (self *masterCache) GetResultRspSigns() []*common.VerifiedSign {
 		signs = append(signs, sign)
 	}
 	return signs
+}
