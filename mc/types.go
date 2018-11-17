@@ -13,8 +13,8 @@ import (
 //by hezi //YY 2018-08-18由tx_pool.go转移到此
 const (
 	Heartbeat   = "Heartbeat"      // 心跳交易（广播区块Hash对99取余）
-	Publickey   = "SeedPublicKey"  // 公钥交易
-	Privatekey  = "SeedPrivateKey" // 私钥交易
+	Publickey   = "SeedProof"  // 公钥交易
+	Privatekey  = "Seed" // 私钥交易
 	CallTheRoll = "CallTheRoll"    //点名交易  （广播节点随机连接1000个点）
 )
 
@@ -54,8 +54,8 @@ type LeaderStateMsg struct {
 // }
 
 // type BlockVerifyResultMsg struct {
-// 	Header  *types.Header // 包含签名列表的header
-// 	TxsCode []uint32      // 交易列表
+// 	Header  *types.Header // header including signature list
+// 	TxsCode []uint32      // tx list
 // }
 
 // type VoteMsg struct {
