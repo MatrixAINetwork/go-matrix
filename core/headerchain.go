@@ -515,3 +515,8 @@ func (hc *HeaderChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, 
 	}
 	return rlt, nil
 }
+
+func (hc *HeaderChain) GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error) {
+	//sonHeader := hc.GetHeaderByHash(sonHash)
+	return common.Hash{}, nil
+}
