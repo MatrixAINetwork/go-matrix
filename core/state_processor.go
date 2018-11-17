@@ -104,6 +104,8 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
+	//root1 := statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
+	//log.Info("*************","ApplyTransaction before:usedGas",*usedGas,"gas",gas,"root",root1)
 	*usedGas += gas
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
