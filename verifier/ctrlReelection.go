@@ -270,9 +270,10 @@ func (self *controller) handleRLVote(msg *mc.HD_ReelectLeaderVoteMsg) {
 		log.ERROR(self.logInfo, "处理leader重选响应", "保存签名错误", "err", err)
 		return
 	}
-	rightSigns, err := self.matrix.DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(self.dc, self.selfCache.GetRLSigns(), self.dc.number)
+	signs := self.selfCache.GetRLSigns()
+	rightSigns, err := self.matrix.DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(self.dc, signs, self.dc.number)
 	if err != nil {
-		log.INFO(self.logInfo, "处理leader重选响应", "签名没有通过POS共识", "err", err)
+		log.INFO(self.logInfo, "处理leader重选响应", "签名没有通过POS共识", "总票数", len(signs), "err", err)
 		return
 	}
 
@@ -307,9 +308,10 @@ func (self *controller) handleResultRsp(rsp *mc.HD_ReelectResultRspMsg) {
 		log.ERROR(self.logInfo, "处理重选结果广播响应", "保存响应失败", "err", err)
 		return
 	}
-	_, err := self.matrix.DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(self.dc, self.selfCache.GetResultRspSigns(), self.dc.number)
+	signs := self.selfCache.GetResultRspSigns()
+	_, err := self.matrix.DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(self.dc, signs, self.dc.number)
 	if err != nil {
-		log.INFO(self.logInfo, "处理重选结果广播响应", "响应没有通过POS共识", "err", err)
+		log.INFO(self.logInfo, "处理重选结果广播响应", "响应没有通过POS共识", "票总数", len(signs), "err", err)
 		return
 	}
 	log.INFO(self.logInfo, "处理重选结果广播响应", "POS共识通过, 准备处理广播结果，切换状态")
