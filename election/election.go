@@ -291,10 +291,10 @@ func (Ele *Elector) SampleMinerNodes(probnormalized []pnormalized, seed int64, M
 		return RPricipalMinerNodes, RBakMinerNodes
 	}
 
-	// 如果当选节点不到N个,其他列表为空
+	// If the number of elected nodes is less than N, and other lists are blank
 	dict := make(map[string]int)
 	Ele.N = Ms
-	if len(probnormalized) <= Ele.N { //加判断 定义为func
+	if len(probnormalized) <= Ele.N { //added an 'if' statement
 		for _, item := range probnormalized {
 			//			probnormalized[index].value = 100 * iterm.value
 			temp := Strallyint{Value: int(100 * item.Value), Nodeid: item.Nodeid}
@@ -304,7 +304,7 @@ func (Ele *Elector) SampleMinerNodes(probnormalized []pnormalized, seed int64, M
 		return sort(probnormalized, PricipalMinerNodes, BakMinerNodes)
 	}
 
-	// 如果当选节点超过N,最多连续进行1000次采样或者选出N个节点
+	// If the number of elected nodes is greater than N, a maximum of consecutive 1,000 times of sampling is supported, or N nodes is elected
 	rand := mt19937.RandUniformInit(seed)
 	for i := 0; i < Ele.MaxSample; i++ {
 		node := Sample1NodesInValNodes(probnormalized, float64(rand.Uniform(0.0, 1.0)))
@@ -319,7 +319,7 @@ func (Ele *Elector) SampleMinerNodes(probnormalized []pnormalized, seed int64, M
 		}
 	}
 
-	// 如果没有选够N个
+	// If the number of elected nodes is less than N
 	for _, item := range probnormalized {
 		vint, ok := dict[item.Nodeid]
 
@@ -347,15 +347,15 @@ func CalcRemainingNodesVotes(RemainingProbNormalizedNodes []Strallyint) []Strall
 	return RemainingProbNormalizedNodes
 }
 
-//做异常判断
+//judgement for exception
 func (Ele *Elector) SampleMPlusPNodes(probnormalized []pnormalized, seed int64) ([]Strallyint, []Strallyint, []Strallyint) {
 	var PricipalValNodes []Strallyint
 	var RemainingProbNormalizedNodes []Strallyint //[]pnormalized
 	var BakValNodes []Strallyint
 
-	// 如果当选节点不到M-J个(加上基金会节点不足M个),则全部当选,其他列表为空
+	// If the number of elected nodes is less than M-J (or less than M with the foundation nodes counted in), all of them will win. And other lists kept blank
 	dict := make(map[string]int)
-	if len(probnormalized) <= Ele.M-Ele.J { //加判断 定义为func
+	if len(probnormalized) <= Ele.M-Ele.J { //added an 'if' statement
 		for _, item := range probnormalized {
 			temp := Strallyint{Value: int(100 * item.Value), Nodeid: item.Nodeid}
 			PricipalValNodes = append(PricipalValNodes, temp)
@@ -364,7 +364,7 @@ func (Ele *Elector) SampleMPlusPNodes(probnormalized []pnormalized, seed int64) 
 		return PricipalValNodes, BakValNodes, RemainingProbNormalizedNodes
 	}
 
-	// 如果当选节点超过M-J,最多连续进行1000次采样或者选出M+P-J个节点
+	// If the number of elected nodes is greater than M-J, a maximum of consecutive 1,000 times of sampling is supported, or M+P-J nodes is elected
 	rand := mt19937.RandUniformInit(seed)
 
 	for i := 0; i < Ele.MaxSample; i++ {
