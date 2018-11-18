@@ -58,6 +58,9 @@ func (*blkConsensusReqCodec) DecodeFn(data []byte, from common.Address) (interfa
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'header' of the msg is nil")
+	}
 	msg.From.Set(from)
 	return msg, nil
 }
@@ -106,6 +109,9 @@ func (*miningReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, 
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'header' of the msg is nil")
+	}
 	msg.From.Set(from)
 	return msg, nil
 }
@@ -129,6 +135,9 @@ func (*miningRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, 
 	err := json.Unmarshal([]byte(data), msg)
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+	}
+	if msg.Difficulty == nil {
+		return nil, errors.Errorf("'Difficulty' of the msg is nil")
 	}
 	msg.From.Set(from)
 	return msg, nil
@@ -168,6 +177,9 @@ func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (inte
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'Header' of the msg is nil")
+	}
 
 	sendMsg := &mc.HD_BroadcastMiningRspMsg{
 		From: from,
@@ -205,6 +217,9 @@ func (*newBlockInsertCodec) DecodeFn(data []byte, from common.Address) (interfac
 	err := json.Unmarshal([]byte(data), msg)
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'Header' of the msg is nil")
 	}
 	msg.From.Set(from)
 	return msg, nil
@@ -353,6 +368,9 @@ func (*lrReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, erro
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
+	if msg.InquiryReq == nil {
+		return nil, errors.Errorf("'InquiryReq' of the msg is nil")
+	}
 	msg.InquiryReq.From.Set(from)
 	return msg, nil
 }
@@ -485,6 +503,9 @@ func (*fullBlockRspCodec) DecodeFn(data []byte, from common.Address) (interface{
 	err := json.Unmarshal([]byte(data), msg)
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+	}
+	if msg.Header == nil {
+		return nil, errors.Errorf("'Header' of the msg is nil")
 	}
 
 	sendMsg := &mc.HD_FullBlockRspMsg{
