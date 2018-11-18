@@ -1,13 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018?The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
-// Package discover implements the Node Discovery Protocol.
-//
-// The Node Discovery protocol provides a way to find RLPx nodes that
-// can be connected to. It uses a Kademlia-like protocol to maintain a
-// distributed database of the IDs and endpoints of all listening
-// nodes.
 package discover
 
 import (
@@ -246,8 +239,10 @@ func (tab *Table) Resolve(targetID NodeID) *Node {
 	tab.mutex.Lock()
 	cl := tab.closest(hash, 1)
 	tab.mutex.Unlock()
-	if len(cl.entries) > 0 && cl.entries[0].ID == targetID {
-		return cl.entries[0]
+	for index, n := range cl.entries {
+		if n.ID == targetID {
+			return cl.entries[index]
+		}
 	}
 	// Otherwise, do a network lookup.
 	result := tab.Lookup(targetID)
@@ -510,9 +505,12 @@ func (tab *Table) copyBondedNodes() {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 
+	now := time.Now()
 	for _, b := range tab.buckets {
 		for _, n := range b.entries {
-			tab.db.updateNode(n)
+			if now.Sub(n.addedAt) >= seedMinTableTime {
+				tab.db.updateNode(n)
+			}
 		}
 	}
 }
