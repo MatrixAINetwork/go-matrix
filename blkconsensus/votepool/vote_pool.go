@@ -17,20 +17,20 @@ import (
 )
 
 type voteInfo struct {
-	time        int64               // 时间戳，收到的时间
-	sign        common.VerifiedSign // 签名
-	fromAccount common.Address      // 来源
-	signHash    common.Hash         // 签名对应的msg的hash
+	time        int64               // timestamp
+	sign        common.VerifiedSign // signature
+	fromAccount common.Address      // source of votes
+	signHash    common.Hash         // hash of signature related message
 }
 
-// 协程安全投票池
+// safe vote pool
 type VotePool struct {
-	// 缓存结构为：map <from, map <msgHash, *data> >
-	voteMap               map[common.Address]map[common.Hash]*voteInfo // 投票缓存
-	timeIndex             *list.List                                   // 按投票到来先后的索引，用于删除过期数据
-	timeoutInterval       int64                                        // 超时时间
-	AccountVoteCountLimit int                                          // 每个用户的投票数量限制
-	legalRole             common.RoleType                              // 合法的角色
+	// cache struct: map <from, map <msgHash, *data> >
+	voteMap               map[common.Address]map[common.Hash]*voteInfo // vote cache
+	timeIndex             *list.List                                   // time index used to delete obsolete data
+	timeoutInterval       int64                                        // timeout
+	AccountVoteCountLimit int                                          // vote limit per account
+	legalRole             common.RoleType                              // roles that are legal
 	logInfo               string
 	mu                    sync.RWMutex
 }
