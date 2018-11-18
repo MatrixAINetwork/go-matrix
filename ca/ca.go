@@ -4,7 +4,6 @@
 package ca
 
 import (
-	"errors"
 	"math/big"
 	"sync"
 
@@ -17,10 +16,12 @@ import (
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params/man"
+	"github.com/pkg/errors"
 )
 
 type TopologyGraphReader interface {
-	GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error)
+	GetHashByNumber(number uint64) common.Hash
+	GetTopologyGraphByHash(blockHash common.Hash) (*mc.TopologyGraph, error)
 	GetOriginalElect(number uint64) ([]common.Elect, error)
 	GetNextElect(number uint64) ([]common.Elect, error)
 }
@@ -126,7 +127,7 @@ func Start(id discover.NodeID, path string) {
 			ide.addr = GetAddress()
 
 			// do topology
-			tg, err := ide.topologyReader.GetTopologyGraphByNumber(header.Number.Uint64())
+			tg, err := ide.topologyReader.GetTopologyGraphByHash(hash)
 			if err != nil {
 				ide.log.Error("get topology", "error", err)
 				continue
@@ -434,9 +435,17 @@ func GetSelfLevel() int {
 
 // GetTopologyByNumber
 func GetTopologyByNumber(reqTypes common.RoleType, number uint64) (*mc.TopologyGraph, error) {
-	tg, err := ide.topologyReader.GetTopologyGraphByNumber(number)
+	hash := ide.topologyReader.GetHashByNumber(number)
+	if (hash == common.Hash{}) {
+		return nil, errors.Errorf("get hash by number(%d) err!", number)
+	}
+	return GetTopologyByHash(reqTypes, hash)
+}
+
+func GetTopologyByHash(reqTypes common.RoleType, hash common.Hash) (*mc.TopologyGraph, error) {
+	tg, err := ide.topologyReader.GetTopologyGraphByHash(hash)
 	if err != nil {
-		log.Error("GetAccountTopologyInfo", "error", err, "number", number)
+		log.Error("GetAccountTopologyInfo", "error", err, "hash", hash.TerminalString())
 		return nil, err
 	}
 
@@ -455,7 +464,8 @@ func GetTopologyByNumber(reqTypes common.RoleType, number uint64) (*mc.TopologyG
 
 // GetAccountTopologyInfo
 func GetAccountTopologyInfo(account common.Address, number uint64) (*mc.TopologyNodeInfo, error) {
-	tg, err := ide.topologyReader.GetTopologyGraphByNumber(number)
+	//todo hyk1
+	/*tg, err := ide.topologyReader.GetTopologyGraphByNumber(number)
 	if err != nil {
 		ide.log.Error("GetAccountTopologyInfo", "error", err)
 		return nil, err
@@ -464,7 +474,7 @@ func GetAccountTopologyInfo(account common.Address, number uint64) (*mc.Topology
 		if node.Account == account {
 			return &node, nil
 		}
-	}
+	}*/
 	return nil, errors.New("not found")
 }
 
