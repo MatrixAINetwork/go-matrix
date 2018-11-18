@@ -9,27 +9,27 @@ import (
 	"github.com/matrix/go-matrix/mc"
 )
 
-//身份变更消息带来
+//role change message
 func (self *ReElection) roleUpdateProcess(data *mc.RoleUpdatedMsg) error {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	self.currentID = data.Role
 
 	if common.RoleValidator != self.currentID { //Ignore Non-Validators
-		log.ERROR(Module, "當前不是驗證者，不處理", self.currentID)
+		log.ERROR(Module, "It is not a validator. No handling will be done", self.currentID)
 		return nil
 	}
 
-	err := self.HandleTopGen(data.BlockNum) //处理拓扑生成
+	err := self.HandleTopGen(data.BlockNum) //Topology Generation
 	if err != nil {
-		log.ERROR(Module, "處理拓撲生成失敗 err", err)
+		log.ERROR(Module, "topology generation failure err", err)
 		return err
 	}
 
 	/*
-	err = self.HandleNative(data.BlockNum) //处理初选列表更新
+	err = self.HandleNative(data.BlockNum) //Initial Election List Update
 	if err != nil {
-		log.ERROR(Module, "處理初選列表更新失敗 err", err)
+		log.ERROR(Module, "Initial Election List Update Failure err", err)
 		return err
 	}
 	*/
@@ -39,7 +39,7 @@ func (self *ReElection) roleUpdateProcess(data *mc.RoleUpdatedMsg) error {
 }
 /*
 func (self *ReElection) HandleNative(height uint64) error {
-	if true == IsinFristPeriod(height) { //第一选举周期不更新
+	if true == IsinFristPeriod(height) { //Don't Update during the First Election Cycle
 		log.INFO(Module, "BlockNum", height, "no need to update native list", "nil")
 		return nil
 	}
@@ -62,11 +62,11 @@ func (self *ReElection) HandleNative(height uint64) error {
 func (self *ReElection) HandleTopGen(height uint64) error {
 	var err error
 
-	if IsMinerTopGenTiming(height) { //矿工生成时间 240
-		log.INFO(Module, "是礦工拓撲生成時間點 height", height)
+	if IsMinerTopGenTiming(height) { //Miner Generation Time 240
+		log.INFO(Module, "is miner topology generation time height", height)
 		err = self.ToGenMinerTop(height)
 		if err != nil {
-			log.ERROR(Module, "礦工拓撲生成時間點錯誤 err", err)
+			log.ERROR(Module, "miner topology generation time err", err)
 		}
 	}
 
