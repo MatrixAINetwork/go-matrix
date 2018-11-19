@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package common
 
@@ -329,10 +330,10 @@ func (h *Signature) Set(other Signature) {
 }
 
 type VerifiedSign struct {
-	Sign     Signature
-	Account  Address
-	Validate bool
-	Stock    uint16
+	Sign     Signature `json:"sign"`
+	Account  Address   `json:"account"`
+	Validate bool      `json:"validate"`
+	Stock    uint16    `json:"stock"`
 }
 
 //
