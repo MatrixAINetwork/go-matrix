@@ -6,7 +6,6 @@ package core
 
 import (
 	crand "crypto/rand"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -23,6 +22,7 @@ import (
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
 	"github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -517,6 +517,24 @@ func (hc *HeaderChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, 
 }
 
 func (hc *HeaderChain) GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error) {
-	//sonHeader := hc.GetHeaderByHash(sonHash)
-	return common.Hash{}, nil
+	sonHeader := hc.GetHeaderByHash(sonHash)
+	if sonHeader == nil {
+		return common.Hash{}, errors.Errorf("son header(%s) is not exist", sonHash)
+	}
+	if sonHeader.Number.Uint64() >= ancestorNumber {
+		return common.Hash{}, errors.Errorf("son header number(%d) is less then ancestor number(%d)", sonHeader.Number.Uint64(), ancestorNumber)
+	}
+
+	curHeader := sonHeader
+	parentHash := curHeader.ParentHash
+	for curHeader.Number.Uint64()-1 != ancestorNumber {
+		parentHeader := hc.GetHeaderByHash(parentHash)
+		if parentHeader == nil {
+			return common.Hash{}, errors.Errorf("parent header(number:%d, hash:%s) is not exist", curHeader.Number.Uint64()-1, parentHash)
+		}
+		curHeader = parentHeader
+		parentHash = curHeader.ParentHash
+	}
+
+	return parentHash, nil
 }
