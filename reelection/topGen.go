@@ -9,17 +9,15 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/matrix/go-matrix/params/man"
-
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 )
 
 //generate random seed
-func (self *ReElection) GetSeed(height uint64) (*big.Int, error) {
+func (self *ReElection) GetSeed(hash common.Hash) (*big.Int, error) {
 
-	sendData := self.CalcbeforeSeedGen(height)
+	sendData := self.CalcbeforeSeedGen(hash)
 
 	var err error
 	self.electionSeedSub, err = mc.SubscribeEvent(mc.Random_TopoSeedRsp, self.electionSeedCh)
@@ -42,14 +40,20 @@ func (self *ReElection) GetSeed(height uint64) (*big.Int, error) {
 }
 
 //Message Preparation for the generation of the random seed
-func (self *ReElection) CalcbeforeSeedGen(height uint64) mc.RandomRequest {
+func (self *ReElection) CalcbeforeSeedGen(hash common.Hash) mc.RandomRequest {
+	height,err:=self.GetNumberByHash(hash)
+	if err!=nil{
+		log.Error(Module,"计算种子失败 err",err,"hash",hash.String())
+		return mc.RandomRequest{}
+	}
+
 	broadcastInterval := common.GetBroadcastInterval()
 	height_1 := height / broadcastInterval * broadcastInterval //previous broadcast block
 	height_2 := height_1 - common.GetBroadcastInterval()
 
 	minHash := self.getMinHash(height)
-	PrivateMap := getKeyTransInfo(height_1, mc.Privatekey)
-	PublicMap := getKeyTransInfo(height_2, mc.Publickey)
+	PrivateMap := self.getKeyTransInfo(hash,height_1, mc.Privatekey)
+	PublicMap := self.getKeyTransInfo(hash,height_2, mc.Publickey)
 	log.INFO(Module, "obtained public and private keys, publickey length", len(PublicMap), "privatekey length", len(PrivateMap), "current height", height)
 	for k, v := range PublicMap {
 		log.INFO(Module, "publickey", k, "value", v, "current height", height)
@@ -69,7 +73,7 @@ func (self *ReElection) getMinHash(height uint64) common.Hash {
 	BroadcastInterval := common.GetBroadcastInterval()
 	for i := height - 1; i > height-BroadcastInterval; i-- {
 		blockhash := self.GetHashByNum(uint64(i))
-		if minhash.Big().Cmp(blockhash.Big()) == 1 { //the former is bigger than the latter
+		if minhash.Big().Cmp(blockhash.Big()) == 1 { //前者大于后者
 			minhash = blockhash
 		}
 
@@ -77,7 +81,13 @@ func (self *ReElection) getMinHash(height uint64) common.Hash {
 	return minhash
 }
 
-func (self *ReElection) ToGenMinerTop(height uint64) error {
+
+
+func (self *ReElection) ToGenMinerTop(hash common.Hash) error {
+	height,err:=self.GetNumberByHash(hash)
+	if err!=nil{
+		return err
+	}
 
 	minerDeposit, err := GetAllElectedByHeight(big.NewInt(int64(height)), common.RoleMiner) //
 	if err != nil {
@@ -86,7 +96,7 @@ func (self *ReElection) ToGenMinerTop(height uint64) error {
 	}
 	log.INFO(Module, "矿工抵押交易", minerDeposit)
 
-	seed, err := self.GetSeed(height)
+	seed, err := self.GetSeed(hash)
 	if err != nil {
 		log.ERROR(Module, "获取种子失败 err", err)
 		return err
@@ -107,7 +117,7 @@ func (self *ReElection) ToGenMinerTop(height uint64) error {
 		log.INFO(Module, "收到礦工拓撲生成相應,data", TopRsp)
 
 		self.minerGenSub.Unsubscribe()
-		err := self.writeElectData(common.RoleMiner, height+man.MinerTopologyGenerateUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
+		err := self.writeElectData(common.RoleMiner, hash, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 		log.INFO(Module, "寫礦工的選舉信息到數據庫", err, "data", ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 
 		return err
@@ -120,7 +130,12 @@ func (self *ReElection) ToGenMinerTop(height uint64) error {
 
 }
 
-func (self *ReElection) ToGenValidatorTop(height uint64) error {
+func (self *ReElection) ToGenValidatorTop(hash common.Hash) error {
+	height,err:=self.GetNumberByHash(hash)
+	if err!=nil{
+		return err
+	}
+
 	validatoeDeposit, err := GetAllElectedByHeight(big.NewInt(int64(height)), common.RoleValidator)
 	if err != nil {
 		log.ERROR(Module, "獲取驗證者抵押列表失敗 err", err)
@@ -129,7 +144,7 @@ func (self *ReElection) ToGenValidatorTop(height uint64) error {
 	log.INFO(Module, "验证者抵押账户", validatoeDeposit)
 	foundDeposit := GetFound()
 
-	seed, err := self.GetSeed(height)
+	seed, err := self.GetSeed(hash)
 	if err != nil {
 		log.ERROR(Module, "獲取驗證者種子生成失敗 err", err)
 		return err
@@ -151,7 +166,7 @@ func (self *ReElection) ToGenValidatorTop(height uint64) error {
 	case TopRsp := <-self.validatorGenCh:
 		log.INFO(Module, "收到驗證者拓撲生成相應 data", TopRsp)
 		self.validatorGenSub.Unsubscribe()
-		err := self.writeElectData(common.RoleValidator, height+man.VerifyTopologyGenerateUpTime, ElectMiner{}, ElectValidator{MasterValidator: TopRsp.MasterValidator,
+		err := self.writeElectData(common.RoleValidator, hash, ElectMiner{}, ElectValidator{MasterValidator: TopRsp.MasterValidator,
 			BackUpValidator:    TopRsp.BackUpValidator,
 			CandidateValidator: TopRsp.CandidateValidator,
 		})
@@ -164,7 +179,7 @@ func (self *ReElection) ToGenValidatorTop(height uint64) error {
 	}
 
 }
-func (self *ReElection) writeElectData(aim common.RoleType, height uint64, minerData ElectMiner, validatorData ElectValidator) error {
+func (self *ReElection) writeElectData(aim common.RoleType, hash common.Hash, minerData ElectMiner, validatorData ElectValidator) error {
 
 	switch {
 	case aim == common.RoleMiner:
@@ -173,14 +188,14 @@ func (self *ReElection) writeElectData(aim common.RoleType, height uint64, miner
 			log.INFO(Module, "Marshal 礦工數據失敗 err", err, "data", data)
 			return err
 		}
-		key := MakeElectDBKey(height, common.RoleMiner)
+		key := MakeElectDBKey(hash, common.RoleMiner)
 
 		err = self.ldb.Put([]byte(key), data, nil)
 		if err != nil {
 			log.ERROR(Module, "礦工 寫入數據庫失敗 err", err)
 			return err
 		}
-		log.INFO(Module,"数据库 矿工拓扑生成 err",err,"高度",height,"key",key)
+		log.INFO(Module,"数据库矿工拓扑生成 err",err,"高度对应的hash",hash,"key",key)
 		return nil
 
 	case aim == common.RoleValidator:
@@ -189,28 +204,28 @@ func (self *ReElection) writeElectData(aim common.RoleType, height uint64, miner
 			log.INFO(Module, "Marshal 驗證者數據失敗 err", err, "data", data)
 			return err
 		}
-		key := MakeElectDBKey(height, common.RoleValidator)
+		key := MakeElectDBKey(hash, common.RoleValidator)
 		err = self.ldb.Put([]byte(key), data, nil)
 		if err != nil {
 			log.ERROR(Module, "驗證者數據寫入數據庫失敗 err", err)
 			return err
 		}
-		log.INFO(Module,"数据库 验证者拓扑生成 err",err,"高度",height,"key",key)
+		log.INFO(Module,"数据库 验证者拓扑生成 err",err,"高度对应的hash",hash,"key",key)
 		return nil
 	}
 	return nil
 }
 
-func (self *ReElection) readElectData(aim common.RoleType, height uint64) (ElectMiner, ElectValidator, error) {
+func (self *ReElection) readElectData(aim common.RoleType, hash common.Hash) (ElectMiner, ElectValidator, error) {
+	key := MakeElectDBKey(hash, aim)
+	ans, err := self.ldb.Get([]byte(key), nil)
+	if err != nil {
+		log.ERROR(Module, "获取选举信息失败 err", err, "key", key)
+		return ElectMiner{}, ElectValidator{}, err
+	}
 
 	switch {
 	case aim == common.RoleMiner:
-		key := MakeElectDBKey(height, common.RoleMiner)
-		ans, err := self.ldb.Get([]byte(key), nil)
-		if err != nil {
-			log.ERROR(Module, "獲取db礦工選舉信息失敗 err", err, "key", key)
-			return ElectMiner{}, ElectValidator{}, err
-		}
 		var realAns ElectMiner
 		err = json.Unmarshal(ans, &realAns)
 		if err != nil {
@@ -220,12 +235,6 @@ func (self *ReElection) readElectData(aim common.RoleType, height uint64) (Elect
 		return realAns, ElectValidator{}, nil
 
 	case aim == common.RoleValidator:
-		key := MakeElectDBKey(height, common.RoleValidator)
-		ans, err := self.ldb.Get([]byte(key), nil)
-		if err != nil {
-			log.INFO(Module, "獲取db驗證者選舉信息失敗 err", err, "key", key)
-			return ElectMiner{}, ElectValidator{}, err
-		}
 		var realAns ElectValidator
 		err = json.Unmarshal(ans, &realAns)
 		if err != nil {
@@ -239,14 +248,13 @@ func (self *ReElection) readElectData(aim common.RoleType, height uint64) (Elect
 	}
 
 }
-func MakeElectDBKey(height uint64, role common.RoleType) string {
-	t := big.NewInt(int64(height))
+func MakeElectDBKey(hash common.Hash, role common.RoleType) string {
 	switch {
 	case role == common.RoleMiner:
-		key := t.String() + "---" + "Miner---Elect"
+		key := hash.String() + "---" + "Miner---Elect"
 		return key
 	case role == common.RoleValidator:
-		key := t.String() + "---" + "Validator---Elect"
+		key := hash.String() + "---" + "Validator---Elect"
 		return key
 	default:
 		log.ERROR("MakeElectDBKey failed role is not mathch role", role)
