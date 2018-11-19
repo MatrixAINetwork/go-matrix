@@ -30,10 +30,10 @@ type StateProcessor struct {
 }
 
 //hezi
-var pubmap map[common.Address][]byte
-var primap map[common.Address][]byte
-var Heartmap map[common.Address][]byte
-var CallNamemap map[common.Address][]byte
+var pubmap = make(map[common.Address][]byte)
+var primap = make(map[common.Address][]byte)
+var Heartmap = make(map[common.Address][]byte)
+var CallNamemap = make(map[common.Address][]byte)
 
 // NewStateProcessor initialises a new StateProcessor.
 func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consensus.Engine) *StateProcessor {
@@ -44,7 +44,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
-// Process processes the state changes according to the Matrix rules by running
+// Process processes the state changes according to the Ethereum rules by running
 // the transaction messages using the statedb and applying any rewards to both
 // the processor (coinbase) and any included uncles.
 //
@@ -70,7 +70,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		Heartmap = make(map[common.Address][]byte)
 		CallNamemap = make(map[common.Address][]byte)
 	}
-	
+
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
