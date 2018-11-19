@@ -914,6 +914,14 @@ func newRPCTransaction(tx types.SelfTransaction, blockHash common.Hash, blockNum
 	}
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
+	var addr common.Address
+	if tx.GetMatrixType() == common.ExtraUnGasTxType && from == addr {
+		if index == params.FirstTxIndex{
+			from = common.BlkRewardAddress
+		}else if index == params.SecondTxIndex{
+			from = common.TxGasRewardAddress
+		}
+	}
 
 	result := &RPCTransaction{
 		From:     from,

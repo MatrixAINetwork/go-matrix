@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 package depoistInfo
 
 import (
@@ -76,6 +77,7 @@ func GetDepositAndWithDrawList(tm *big.Int) ([]vm.DepositDetail, error) {
 	depositList = depositInfo.MatrixDeposit.GetAllDepositList(contract, db, true)
 	return depositList, nil
 }
+
 func GetAllDeposit(tm *big.Int) ([]vm.DepositDetail, error) {
 	db, err := getDepositInfo(tm)
 	if err != nil {
@@ -111,26 +113,27 @@ func getDepositListTest() {
 	address = depositInfo.MatrixDeposit.GetMinerDepositList(contract, db)
 	fmt.Printf("get miner:%v %d\n", address, len(address))
 }
-func AddSlash(stateDB vm.StateDB, address common.Address, slash *big.Int) error {
-	return depositInfo.MatrixDeposit.AddSlash(depositInfo.Contract, stateDB, address, slash)
+
+func ResetSlash(stateDB vm.StateDB, address common.Address) error {
+	return depositInfo.MatrixDeposit.ResetSlash(depositInfo.Contract, stateDB, address)
 }
 
 func GetSlash(stateDB vm.StateDB, address common.Address) (*big.Int, error) {
 	return depositInfo.MatrixDeposit.GetSlash(depositInfo.Contract, stateDB, address), nil
 }
 
-func SetSlash(stateDB vm.StateDB, address common.Address, slash *big.Int) error {
-	return depositInfo.MatrixDeposit.SetSlash(depositInfo.Contract, stateDB, address, slash)
+func AddSlash(stateDB vm.StateDB, address common.Address, slash *big.Int) error {
+	return depositInfo.MatrixDeposit.AddSlash(depositInfo.Contract, stateDB, address, slash)
 }
 
-func AddReward(stateDB vm.StateDB, address common.Address, reward *big.Int) error {
-	return depositInfo.MatrixDeposit.AddReward(depositInfo.Contract, stateDB, address, reward)
+func ResetReward(stateDB vm.StateDB, address common.Address) error {
+	return depositInfo.MatrixDeposit.ResetReward(depositInfo.Contract, stateDB, address)
 }
 
 func GetReward(stateDB vm.StateDB, address common.Address) (*big.Int, error) {
 	return depositInfo.MatrixDeposit.GetReward(depositInfo.Contract, stateDB, address), nil
 }
 
-func SetReward(stateDB vm.StateDB, address common.Address, reward *big.Int) error {
-	return depositInfo.MatrixDeposit.SetReward(depositInfo.Contract, stateDB, address, reward)
+func AddReward(stateDB vm.StateDB, address common.Address, reward *big.Int) error {
+	return depositInfo.MatrixDeposit.AddReward(depositInfo.Contract, stateDB, address, reward)
 }

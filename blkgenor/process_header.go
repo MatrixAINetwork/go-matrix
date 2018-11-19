@@ -188,8 +188,8 @@ func (p *Process) processHeaderGen() error {
 		p2pBlock := &mc.HD_BlkConsensusReqMsg{Header: header, TxsCode: txsCode, ConsensusTurn: p.consensusTurn, From: ca.GetAddress()}
 		//send to local block verify module
 		localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, Txs: Txs, Receipts: work.Receipts, State: work.State}
-		if len(Txs) > 0 {
-			txpoolCache.MakeStruck(Txs, header.HashNoSignsAndNonce(), p.number)
+		if len(Txs[2:]) > 0 {
+			txpoolCache.MakeStruck(Txs[2:], header.HashNoSignsAndNonce(), p.number)
 		}
 		log.INFO(p.logExtraInfo(), "!!!!本地发送区块验证请求, root", p2pBlock.Header.Root.TerminalString(), "高度", p.number)
 		mc.PublishEvent(mc.BlockGenor_HeaderVerifyReq, localBlock)

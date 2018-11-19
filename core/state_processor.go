@@ -14,6 +14,7 @@ import (
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/params"
+	"errors"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -57,14 +58,19 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Iterate over and process the individual transactions
 	txs := block.Transactions()[2:]
 	stxs := make([]types.SelfTransaction,0)
-	tmptx := block.Transactions()[0]
-	tmptx1 := block.Transactions()[1]
+	tmptx := block.Transactions()[params.FirstTxIndex]
+	tmptx1 := block.Transactions()[params.SecondTxIndex]
 	tmptx.SetFromLoad(common.BlkRewardAddress)
 	tmptx1.SetFromLoad(common.TxGasRewardAddress)
 	stxs = append(stxs,tmptx1)
 	stxs = append(stxs,tmptx)
 	var txcount int
 	for i, tx := range txs {
+		_,addrerr := tx. GetTxFrom()
+		if addrerr == nil{
+			//err is nil means from not nil
+			return nil, nil, 0, errors.New("This tx from must is nil")
+		}
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {

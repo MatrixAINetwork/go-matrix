@@ -77,9 +77,6 @@ func (l *Linker) Start() {
 
 				if r.Role <= common.RoleBucket {
 					l.role = common.RoleNil
-					if l.active {
-						l.activeQuit <- struct{}{}
-					}
 					break
 				}
 				if l.role != r.Role {
@@ -141,7 +138,9 @@ func (l *Linker) Start() {
 
 func (l *Linker) Stop() {
 	l.quit <- struct{}{}
-	l.activeQuit <- struct{}{}
+	if l.active {
+		l.activeQuit <- struct{}{}
+	}
 }
 
 func (l *Linker) initTopNodeMap() {

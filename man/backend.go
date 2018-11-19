@@ -54,6 +54,7 @@ import (
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/leaderelect"
 	"github.com/matrix/go-matrix/olconsensus"
+	"github.com/matrix/go-matrix/trie"
 )
 
 var MsgCenter *mc.Center
@@ -135,6 +136,19 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+	/************************************************/
+	//hezi
+	trie.MatrixDb, err = CreateDB(ctx, config, "Matrixdata")
+	if err != nil {
+		return nil, err
+	}
+	trie.Mantriedb = trie.NewDatabase(trie.MatrixDb)
+	troot := rawdb.ReadMatrixRoot()
+	trie.ManTrie, err = trie.New(troot, trie.Mantriedb)
+	if err != nil{
+		return nil, err
+	}
+	/************************************************/
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr

@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/syndtr/goleveldb/leveldb"
-
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
@@ -18,6 +16,8 @@ import (
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/trie"
+	"github.com/matrix/go-matrix/core/rawdb"
 )
 
 type BroadCastTxPool struct {
@@ -33,17 +33,12 @@ type blockChainBroadCast interface {
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
 
-var (
-	ldb *leveldb.DB
-)
-
 func NewBroadTxPool(chainconfig *params.ChainConfig, chain blockChainBroadCast, path string) *BroadCastTxPool {
 	bPool := &BroadCastTxPool{
 		chain:   chain,
 		signer:  types.NewEIP155Signer(chainconfig.ChainId),
 		special: make(map[common.Hash]types.SelfTransaction, 0),
 	}
-	//ldb, _ = leveldb.OpenFile(path+"./broadcastdb", nil)
 	return bPool
 }
 
@@ -71,7 +66,6 @@ func SetBroadcastTxs(head *types.Block, chainId *big.Int) {
 	}
 
 	var (
-		hashKey common.Hash
 		signer  = types.NewEIP155Signer(chainId)
 		tempMap = make(map[string]map[common.Address][]byte)
 	)
@@ -112,10 +106,10 @@ func SetBroadcastTxs(head *types.Block, chainId *big.Int) {
 
 	hash := head.Hash()
 	for typeStr, content := range tempMap {
-		//re := head.Number().Uint64() / common.GetBroadcastInterval()
-		hashKey = types.RlpHash(typeStr + hash.String())
-		if err := insertDB(hashKey.Bytes(), content); err != nil {
-			log.Error("SetBroadcastTxs insertDB", "height", head.Number().Uint64())
+		if err := insertManTrie(typeStr,hash,content); err != nil {
+			log.Error("SetBroadcastTxs insertDB", "height", head.Number().Uint64(),"hash",hash)
+		}else{
+			log.Info("SetBroadcastTxs success","content",content)
 		}
 	}
 }
@@ -155,9 +149,9 @@ func (bPool *BroadCastTxPool) Stop() {
 	// Unsubscribe subscriptions registered from blockchain
 	//bPool.chainHeadSub.Unsubscribe()
 	//bPool.wg.Wait()
-	if ldb != nil {
-		ldb.Close()
-	}
+	//if ldb != nil {
+	//	ldb.Close()
+	//}
 	log.Info("Broad Transaction pool stopped")
 }
 
@@ -304,29 +298,26 @@ func (bPool *BroadCastTxPool) Pending() (map[common.Address][]types.SelfTransact
 }
 
 // insertDB
-func insertDB(keyData []byte, val map[common.Address][]byte) error {
+//func insertManTrie(keyData []byte, val map[common.Address][]byte,bc *BlockChain) error {
+func insertManTrie(txtype string,hash common.Hash, val map[common.Address][]byte) error {
+	keyData := types.RlpHash(txtype + hash.String())
 	dataVal, err := json.Marshal(val)
 	if err != nil {
 		log.Error("insertDB", "json.Marshal(val) err", err)
 		return err
 	}
-	if ldb == nil {
-		log.Error("File tx_pool_broad", "func insertDB", "ldb is nil")
-		return nil
-	}
-	return ldb.Put(keyData, dataVal, nil)
+	key := append(rawdb.BroadcastPrefix,keyData.Bytes()...)
+	return rawdb.SetManTrie(key,dataVal)
 }
 
 // GetBroadcastTxs get broadcast transactions' data from stateDB.
 func GetBroadcastTxs(hash common.Hash, txtype string) (reqVal map[common.Address][]byte, err error) {
-
-	hv := types.RlpHash(txtype + hash.String())
-	if ldb == nil {
-		log.Error("File tx_pool_broad", "func GetBroadcastTxs", "ldb is nil")
-		return
-	}
-	dataVal, err := ldb.Get(hv.Bytes(), nil)
+	keyData := types.RlpHash(txtype + hash.String())
+	key := append(rawdb.BroadcastPrefix,keyData.Bytes()...)
+	dataVal,err := trie.ManTrie.TryGet(key)
+	//dataVal, err := ldb.Get(hv.Bytes(), nil)
 	if err != nil {
+		log.Error("GetBroadcastTxs from trie failed","keydata",key)
 		return nil, err
 	}
 
@@ -334,6 +325,7 @@ func GetBroadcastTxs(hash common.Hash, txtype string) (reqVal map[common.Address
 	if err != nil {
 		log.Error("GetBroadcastTxs", "Unmarshal failed", err)
 	}
+	log.Info("GetBroadcastTxs","type",txtype,"reqval",reqVal,"keydata",key)
 	return reqVal, err
 }
 

@@ -74,6 +74,9 @@ func (tx *TransactionBroad) CheckNonce() bool   { return true }
 func (tx *TransactionBroad) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
 }
+func (tx *TransactionBroad)Setentrustfrom(x interface{}){
+
+}
 func (tx *TransactionBroad)GasFrom() common.Address{
 	return common.Address{}
 }
@@ -167,6 +170,9 @@ func (tx *TransactionBroad) Size() common.StorageSize {
 }
 //YY
 func SetTransactionMx(tx_Mx *Transaction_Mx) *TransactionBroad {
+	if tx_Mx == nil{
+		return nil
+	}
 	tx := txdata{
 		AccountNonce: tx_Mx.Data.AccountNonce,
 		Price:        tx_Mx.Data.Price,

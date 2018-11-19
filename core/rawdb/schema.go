@@ -52,6 +52,13 @@ var (
 	preimageHitCounter  = metrics.NewRegisteredCounter("db/preimage/hits", nil)
 	topologyGraphPrefix = []byte("g") //topologyGraphPrefix + num + blockHash -> topology graph
 	electIndexPrefix    = []byte("e") //electIndexPrefix + num + blockHash -> {header hash with v elect, header hash with m elect}
+
+	matrixRootPrefix = []byte("Matrix-root")
+)
+
+var (
+	// databaseVerisionKey tracks the current database version.
+	BroadcastPrefix = []byte("broad")
 )
 
 // TxLookupEntry is a positional metadata to help looking up the data content of

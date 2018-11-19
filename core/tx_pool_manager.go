@@ -7,8 +7,6 @@ import (
 
 	"github.com/matrix/go-matrix/p2p"
 
-	"github.com/syndtr/goleveldb/leveldb"
-
 	"time"
 
 	"github.com/matrix/go-matrix/ca"
@@ -83,7 +81,6 @@ func NewTxPoolManager(config TxPoolConfig, chainconfig *params.ChainConfig, chai
 		addPool:      make(chan TxPool),
 		delPool:      make(chan TxPool),
 	}
-	ldb, _ = leveldb.OpenFile(path+"./broadcastdb", nil)
 	go txPoolManager.loop(config, chainconfig, chain, path)
 	return txPoolManager
 }

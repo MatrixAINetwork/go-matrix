@@ -184,7 +184,7 @@ func (env *Work) commitTransaction(tx types.SelfTransaction, bc *core.BlockChain
 
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
-		log.Info("*************", "ApplyTransaction:err", err)
+		log.Info("file work","func commitTransaction",err)
 		env.State.RevertToSnapshot(snap)
 		return err, nil
 	}
@@ -198,7 +198,7 @@ func (env *Work) s_commitTransaction(tx types.SelfTransaction, bc *core.BlockCha
 	snap := env.State.Snapshot()
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
-		log.Info("*************","ApplyTransaction:err",err)
+		log.Info("file work","func s_commitTransaction",err)
 		env.State.RevertToSnapshot(snap)
 		return err, nil
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/txpoolCache"
+	"github.com/matrix/go-matrix/rlp"
 )
 
 //YY
@@ -75,6 +76,7 @@ var (
 	ErrTXWrongful      = errors.New("transaction is unlawful")
 	ErrTXPoolFull      = errors.New("txpool is full")
 	ErrTXNonceSame     = errors.New("the same Nonce transaction exists")
+	ErrRepeatEntrust   = errors.New("Repeat Entrust")
 )
 
 var (
@@ -158,7 +160,31 @@ type blockChain interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
-
+type ConsensusNTx struct {
+	Key uint32
+	Value types.SelfTransaction
+}
+//func init()  {
+//	rlp.InterfaceConstructorMap[uint16(types.MapTxpoolIndex)] = func() interface{} {
+//		return &Transaction{}
+//	}
+//}
+//func (cntx *ConsensusNTx)GetConstructorType()uint16{
+//	return uint16(types.MapTxpoolIndex)
+//}
+//func (cntx *ConsensusNTx) EncodeRLP(w io.Writer) error {
+//	return rlp.Encode(w, &cntx.GHhhhh)
+//	rlp.InterfaceConstructorMap[100] = func() interface{} {
+//		return &aa
+//	}
+//
+//}
+// DecodeRLP implements rlp.Decoder
+//func (cntx *ConsensusNTx) DecodeRLP(s *rlp.Stream) error {
+//	//_, size, _ := s.Kind()
+//	err := s.Decode(&cntx.GHhhhh)
+//	return err
+//}
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type TxPoolConfig struct {
 	PriceLimit   uint64 // Minimum gas price to enforce for acceptance into the pool
@@ -461,12 +487,23 @@ func (nPool *NormalTxPool) ProcessMsg(m NetworkMsgData) {
 		}
 		nPool.RecvFloodTx(ntx, m.NodeId)
 	case RecvConsensusTxbyN:
-		ntx := make(map[uint32]types.SelfTransaction, 0)
-		if err = json.Unmarshal(msgData.MsgData, &ntx); err != nil {
-			log.Error("func ProcessMsg", "case RecvConsensusTxbyN:Unmarshal_err=", err)
+		mapNtx := make([]*ConsensusNTx,0)
+		err = rlp.DecodeBytes(msgData.MsgData,&mapNtx)
+		if err != nil {
+			log.Error("func ProcessMsg", "case GetConsensusTxbyN:DecodeBytes_err=", err)
 			break
 		}
+		ntx := make(map[uint32]types.SelfTransaction, 0)
+		for _,val := range mapNtx{
+			ntx[val.Key] = val.Value
+		}
 		nPool.RecvConsensusFloodTx(ntx, m.NodeId)
+		//ntx := make(map[uint32]types.SelfTransaction, 0)
+		//if err = json.Unmarshal(msgData.MsgData, &ntx); err != nil {
+		//	log.Error("func ProcessMsg", "case RecvConsensusTxbyN:Unmarshal_err=", err)
+		//	break
+		//}
+		//nPool.RecvConsensusFloodTx(ntx, m.NodeId)
 	case RecvErrTx:
 		listS := make([]*big.Int, 0)
 		if err = json.Unmarshal(msgData.MsgData, &listS); err != nil {
@@ -822,12 +859,14 @@ func (nPool *NormalTxPool) GetConsensusTxByN(listN []uint32, nid discover.NodeID
 	if len(listN) <= 0 {
 		return
 	}
-	mapNtx := make(map[uint32]types.SelfTransaction)
+	//mapNtx := make(map[uint32]types.SelfTransaction)
+	mapNtx := make([]*ConsensusNTx,0)
 	nPool.mu.Lock()
 	for _, n := range listN {
 		tx := nPool.getTxbyN(n, false)
 		if tx != nil {
-			mapNtx[n] = tx
+			ntx := &ConsensusNTx{n,tx}
+			mapNtx = append(mapNtx,ntx)
 		} else {
 			log.Info("=======msg_GetConsensusTxByN====YY==tx is nil")
 		}
@@ -837,16 +876,21 @@ func (nPool *NormalTxPool) GetConsensusTxByN(listN []uint32, nid discover.NodeID
 		log.Info("txpool","msg_GetConsensusTxByNlen(tmpMap)",len(tmpMap))
 		if tmpMap != nil{
 			if len(tmpMap) == len(listN){
-				mapNtx = tmpMap
+				for k,v := range tmpMap{
+					ntx := &ConsensusNTx{k,v}
+					mapNtx = append(mapNtx,ntx)
+				}
 			}else{
 				log.Info("txpool","11111msg_GetConsensusTxByNlen(mapNtx)",len(mapNtx))
 				for _, n := range listN {
 					tx := nPool.getTxbyN(n,false)
 					if tx != nil {
-						mapNtx[n] = tx
+						ntx := &ConsensusNTx{n,tx}
+						mapNtx = append(mapNtx,ntx)
 					} else {
 						if ttx,ok := tmpMap[n];ok{
-							mapNtx[n] = ttx
+							ntx := &ConsensusNTx{n,ttx}
+							mapNtx = append(mapNtx,ntx)
 						}
 					}
 				}
@@ -855,9 +899,14 @@ func (nPool *NormalTxPool) GetConsensusTxByN(listN []uint32, nid discover.NodeID
 		}
 	}
 	nPool.mu.Unlock()
-	msData, _ := json.Marshal(mapNtx)
-	nPool.SendMsg(MsgStruct{Msgtype: RecvConsensusTxbyN, NodeId: nid, MsgData: msData})
-	log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx), "nodeid", nid.String())
+	//msData, _ := json.Marshal(mapNtx)
+	msData, err := rlp.EncodeToBytes(mapNtx)
+	if err == nil{
+		nPool.SendMsg(MsgStruct{Msgtype: RecvConsensusTxbyN, NodeId: nid, MsgData: msData})
+		log.Info("========YY===2", "GetConsensusTxByN:ntxMap", len(mapNtx), "nodeid", nid.String())
+	}else {
+		log.Info("file tx_pool", "func GetConsensusTxByN:EncodeToBytes err", err)
+	}
 }
 
 //YY 根据N值获取对应的交易(洪泛)
@@ -1137,10 +1186,10 @@ func (nPool *NormalTxPool) blockTiming() {
 func (nPool *NormalTxPool) getFromByTx(txs []*types.Transaction) {
 	var waitG = &sync.WaitGroup{}
 	for _, tx := range txs {
-		_, err := tx.GetTxFrom()
-		if err == nil {
-			continue
-		}
+		//_, err := tx.GetTxFrom() 新进来的交易一定要解签一次，防止交易自带from作弊
+		//if err == nil {
+		//	continue
+		//}
 		waitG.Add(1)
 		ttx := tx
 		go types.Sender_self(nPool.signer, ttx, waitG)
@@ -1282,6 +1331,25 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 }
 
 func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) {
+	if tx.IsEntrustTx(){
+		from := tx.From()
+		mapdata := nPool.currentState.GetStateByteArray(from,from.Hash())
+		EntrustData := new(common.EntrustType)
+		err := json.Unmarshal(mapdata,EntrustData)
+		if err != nil{
+			log.Error("ExtraEntrustTx err")
+			return false,err
+		}
+		if EntrustData == nil{
+			log.Error("The account is not be Entrusted!")
+			return false,errors.New("The account is not be Entrusted")
+		}
+		entrustFrom := EntrustData.EntrustAddres
+		tx.Setentrustfrom(entrustFrom)
+		if EntrustData.IsEntrustTx{
+			tx.SetFromLoad(entrustFrom)
+		}
+	}
 
 	//普通交易
 	hash := tx.Hash()

@@ -48,6 +48,7 @@ type Transaction struct {
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
+	entrustfrom atomic.Value
 	// by hezi
 	N []uint32
 }
@@ -94,6 +95,7 @@ type Floodtxdata struct {
 	V     *big.Int       `json:"v" gencodec:"required"`
 	R     *big.Int       `json:"r" gencodec:"required"`
 	TxEnterType common.TxTypeInt
+	IsEntrustTx bool  `json:"TxEnterType" gencodec:"required"`//是否是委托
 	Extra []Matrix_Extra ` rlp:"tail"`
 }
 
@@ -113,6 +115,7 @@ type txdata struct {
 	// This is only used when marshaling to JSON.
 	Hash  *common.Hash   `json:"hash" rlp:"-"`
 	TxEnterType common.TxTypeInt  `json:"TxEnterType" gencodec:"required"`//入池类型
+	IsEntrustTx bool  `json:"TxEnterType" gencodec:"required"`//是否是委托
 	Extra []Matrix_Extra ` rlp:"tail"` //YY
 }
 
@@ -296,6 +299,7 @@ func (tx *Transaction)Call() error{
 	return nil
 }
 func (tx *Transaction) TxType() common.TxTypeInt		{ return tx.data.TxEnterType}
+func (tx *Transaction) IsEntrustTx() bool				{ return tx.data.IsEntrustTx}
 //YY
 func (tx *Transaction) GetMatrix_EX() []Matrix_Extra { return tx.data.Extra }
 
@@ -320,6 +324,12 @@ func (tx *Transaction)GetFromLoad() interface{}  {
 func (tx *Transaction)SetFromLoad(x interface{})  {
 	tx.from.Store(x)
 }
+//func (tx *Transaction)GetentrustFrom()(x interface{}){
+//	return tx.entrustfrom.Load()
+//}
+func (tx *Transaction)Setentrustfrom(x interface{}){
+	tx.entrustfrom.Store(x)
+}
 func (tx *Transaction)GasFrom() (from common.Address){
 	//TODO 需要去委托中要💊 from
 	tmp,ok := tx.from.Load().(sigCache)
@@ -335,7 +345,7 @@ func (tx *Transaction)GasFrom() (from common.Address){
 	return
 }
 func (tx *Transaction)AmontFrom() (from common.Address){
-	//TODO 需要去委托中要💊 from
+	//TODO from 要改为entrustfrom
 	tmp,ok := tx.from.Load().(sigCache)
 	if !ok{
 		tmpfrom,isok :=tx.from.Load().(common.Address)
@@ -409,6 +419,7 @@ func GetFloodData(tx *Transaction) *Floodtxdata {
 		V:     tx.data.V,
 		R:     tx.data.R,
 		TxEnterType : tx.data.TxEnterType,
+		IsEntrustTx : tx.data.IsEntrustTx,
 		Extra: tx.data.Extra,
 	}
 	return floodtx
@@ -427,6 +438,7 @@ func  SetFloodData(floodtx *Floodtxdata) *Transaction{
 	tx.data.V = floodtx.V
 	tx.data.R = floodtx.R
 	tx.data.TxEnterType = floodtx.TxEnterType
+	tx.data.IsEntrustTx = floodtx.IsEntrustTx
 	tx.data.Extra = floodtx.Extra
 	return tx
 }
@@ -444,6 +456,7 @@ func  ConvTxtoMxtx(tx *Transaction) *Transaction_Mx{
 	tx_Mx.Data.R = tx.data.R
 	tx_Mx.Data.S = tx.data.S
 	tx_Mx.Data.TxEnterType = tx.data.TxEnterType
+	tx_Mx.Data.IsEntrustTx = tx.data.IsEntrustTx
 	tx_Mx.Data.Extra = tx.data.Extra
 	//tx_Mx.Data.Extra = append(tx_Mx.Data.Extra,tx.data.Extra[])
 	if len(tx.data.Extra) > 0 {
@@ -467,6 +480,7 @@ func ConvMxtotx(tx_Mx *Transaction_Mx) *Transaction {
 		R:     tx_Mx.Data.R,
 		S:     tx_Mx.Data.S,
 		TxEnterType : tx_Mx.Data.TxEnterType,
+		IsEntrustTx : tx_Mx.Data.IsEntrustTx,
 		Extra: tx_Mx.Data.Extra,
 	}
 	if len(tx_Mx.ExtraTo) > 0 {

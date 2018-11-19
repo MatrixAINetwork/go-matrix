@@ -34,6 +34,8 @@ type StateDB interface {
 	GetState(common.Address, common.Hash) common.Hash
 	SetState(common.Address, common.Hash, common.Hash)
 
+	GetStateByteArray(common.Address, common.Hash) []byte
+	SetStateByteArray(common.Address, common.Hash, []byte)
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool
 

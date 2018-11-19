@@ -26,6 +26,7 @@ func (self Code) String() string {
 
 type Storage map[common.Hash]common.Hash
 
+type StorageByteArray map[common.Hash][]byte
 func (self Storage) String() (str string) {
 	for key, value := range self {
 		str += fmt.Sprintf("%X : %X\n", key, value)
@@ -43,6 +44,13 @@ func (self Storage) Copy() Storage {
 	return cpy
 }
 
+func (self StorageByteArray) Copy() StorageByteArray {
+	cpy := make(StorageByteArray)
+	for key, value := range self {
+		cpy[key] = value
+	}
+	return cpy
+}
 // stateObject represents an Matrix account which is being modified.
 //
 // The usage pattern is as follows:
@@ -68,6 +76,9 @@ type stateObject struct {
 
 	cachedStorage Storage // Storage entry cache to avoid duplicate reads
 	dirtyStorage  Storage // Storage entries that need to be flushed to disk
+
+	cachedStorageByteArray StorageByteArray
+	dirtyStorageByteArray  StorageByteArray
 
 	// Cache flags.
 	// When an object is marked suicided it will be delete from the trie
@@ -125,6 +136,8 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 		data:          data,
 		cachedStorage: make(Storage),
 		dirtyStorage:  make(Storage),
+		cachedStorageByteArray: make(StorageByteArray),
+		dirtyStorageByteArray:  make(StorageByteArray),
 	}
 }
 
@@ -190,6 +203,18 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	return value
 }
 
+func (self *stateObject) GetStateByteArray(db Database, key common.Hash) []byte {
+	value, exists := self.cachedStorageByteArray[key]
+	if exists {
+		return value
+	}
+	// Load from DB in case it is missing.
+	value, err := self.getTrie(db).TryGet(key[:])
+	if err == nil && len(value) != 0 {
+		self.cachedStorageByteArray[key] = value
+	}
+	return value
+}
 // SetState updates a value in account storage.
 func (self *stateObject) SetState(db Database, key, value common.Hash) {
 	self.db.journal.append(storageChange{
@@ -204,6 +229,18 @@ func (self *stateObject) setState(key, value common.Hash) {
 	self.cachedStorage[key] = value
 	self.dirtyStorage[key] = value
 }
+func (self *stateObject) SetStateByteArray(db Database, key common.Hash, value []byte) {
+	self.db.journal.append(storageByteArrayChange{
+		account:  &self.address,
+		key:      key,
+		prevalue: self.GetStateByteArray(db, key),
+	})
+	self.setStateByteArray(key, value)
+}
+func (self *stateObject) setStateByteArray(key common.Hash, value []byte) {
+	self.cachedStorageByteArray[key] = value
+	self.dirtyStorageByteArray[key] = value
+}
 
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (self *stateObject) updateTrie(db Database) Trie {
@@ -217,6 +254,14 @@ func (self *stateObject) updateTrie(db Database) Trie {
 		// Encoding []byte cannot fail, ok to ignore the error.
 		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
 		self.setError(tr.TryUpdate(key[:], v))
+	}
+	for key, value := range self.dirtyStorageByteArray {
+		delete(self.dirtyStorageByteArray, key)
+		if len(value) == 0 {
+			self.setError(tr.TryDelete(key[:]))
+			continue
+		}
+		self.setError(tr.TryUpdate(key[:], value))
 	}
 	return tr
 }
@@ -312,6 +357,8 @@ func (self *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.code = self.code
 	stateObject.dirtyStorage = self.dirtyStorage.Copy()
 	stateObject.cachedStorage = self.dirtyStorage.Copy()
+	stateObject.dirtyStorageByteArray = self.dirtyStorageByteArray.Copy()
+	stateObject.cachedStorageByteArray = self.cachedStorageByteArray.Copy()
 	stateObject.suicided = self.suicided
 	stateObject.dirtyCode = self.dirtyCode
 	stateObject.deleted = self.deleted
