@@ -28,15 +28,16 @@ func (p *Process) processHeaderGen() error {
 	if err != nil {
 		return err
 	}
+	parentHash := parent.Hash()
 
 	tstamp := tstart.Unix()
-	NetTopology := p.getNetTopology(parent.Header().NetTopology, p.number)
+	NetTopology := p.getNetTopology(parent.Header().NetTopology, p.number, parentHash)
 	if nil == NetTopology {
 		log.Error(p.logExtraInfo(), "获取网络拓扑图错误 ", "")
 		NetTopology = &common.NetTopology{common.NetTopoTypeChange, nil}
 	}
 
-	Elect := p.genElection(p.number)
+	Elect := p.genElection(parentHash)
 
 	log.Info(p.logExtraInfo(), "++++++++获取选举结果 ", Elect, "高度", p.number)
 	log.Info(p.logExtraInfo(), "++++++++获取拓扑结果 ", NetTopology, "高度", p.number)
@@ -50,7 +51,7 @@ func (p *Process) processHeaderGen() error {
 		time.Sleep(wait)
 	}
 	header := &types.Header{
-		ParentHash:  parent.Hash(),
+		ParentHash:  parentHash,
 		Leader:      ca.GetAddress(),
 		Number:      new(big.Int).SetUint64(p.number),
 		GasLimit:    core.CalcGasLimit(parent),
