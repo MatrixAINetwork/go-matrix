@@ -1907,3 +1907,7 @@ func (bc *BlockChain) GetCurrentHash() common.Hash {
 func (bc *BlockChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
 	return bc.hc.GetValidatorByHash(hash)
 }
+
+func (bc *BlockChain) GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error) {
+	return bc.hc.GetAncestorHash(sonHash, ancestorNumber)
+}
