@@ -289,7 +289,16 @@ func (b *ManAPIBackend) SignTx(signedTx types.SelfTransaction, chainID *big.Int)
 
 //YY
 func (b *ManAPIBackend) SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error {
-	return b.man.txPool.AddBroadTx(signedTx, bType)
+	bpooler, err := b.man.txPool.GetTxPoolByType(types.BroadCastTxIndex)
+	if err == nil {
+		bpool, ok := bpooler.(*core.BroadCastTxPool)
+		if ok {
+			return bpool.AddBroadTx(signedTx, bType)
+		} else {
+			return errors.New("SendBroadTx() unknown txpool")
+		}
+	}
+	return err
 }
 
 //YY

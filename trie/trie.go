@@ -9,6 +9,7 @@ package trie
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"

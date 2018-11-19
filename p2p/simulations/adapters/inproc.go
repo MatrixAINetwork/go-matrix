@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package adapters
 
@@ -13,9 +14,9 @@ import (
 
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/rpc"
 )
 
@@ -63,7 +64,7 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 		}
 	}
 
-	n, err := pod.New(&pod.Config{
+	n, err := node.New(&node.Config{
 		P2P: p2p.Config{
 			PrivateKey:      config.PrivateKey,
 			MaxPeers:        math.MaxInt32,
@@ -83,7 +84,7 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 		config:  config,
 		node:    n,
 		adapter: s,
-		running: make(map[string]pod.Service),
+		running: make(map[string]node.Service),
 	}
 	s.nodes[id] = simNode
 	return simNode, nil
@@ -135,8 +136,8 @@ type SimNode struct {
 	ID           discover.NodeID
 	config       *NodeConfig
 	adapter      *SimAdapter
-	node         *pod.Node
-	running      map[string]pod.Service
+	node         *node.Node
+	running      map[string]node.Service
 	client       *rpc.Client
 	registerOnce sync.Once
 }
@@ -177,7 +178,7 @@ func (sn *SimNode) ServeRPC(conn net.Conn) error {
 // simulation_snapshot RPC method
 func (sn *SimNode) Snapshots() (map[string][]byte, error) {
 	sn.lock.RLock()
-	services := make(map[string]pod.Service, len(sn.running))
+	services := make(map[string]node.Service, len(sn.running))
 	for name, service := range sn.running {
 		services[name] = service
 	}
@@ -202,8 +203,8 @@ func (sn *SimNode) Snapshots() (map[string][]byte, error) {
 
 // Start registers the services and starts the underlying devp2p node
 func (sn *SimNode) Start(snapshots map[string][]byte) error {
-	newService := func(name string) func(ctx *pod.ServiceContext) (pod.Service, error) {
-		return func(nodeCtx *pod.ServiceContext) (pod.Service, error) {
+	newService := func(name string) func(ctx *node.ServiceContext) (node.Service, error) {
+		return func(nodeCtx *node.ServiceContext) (node.Service, error) {
 			ctx := &ServiceContext{
 				RPCDialer:   sn.adapter,
 				NodeContext: nodeCtx,
@@ -266,10 +267,10 @@ func (sn *SimNode) Stop() error {
 }
 
 // Services returns a copy of the underlying services
-func (sn *SimNode) Services() []pod.Service {
+func (sn *SimNode) Services() []node.Service {
 	sn.lock.RLock()
 	defer sn.lock.RUnlock()
-	services := make([]pod.Service, 0, len(sn.running))
+	services := make([]node.Service, 0, len(sn.running))
 	for _, service := range sn.running {
 		services = append(services, service)
 	}

@@ -53,15 +53,12 @@ func GetDepositList(tm *big.Int, getDeposit common.RoleType) ([]vm.DepositDetail
 		return nil, err
 	}
 	contract := vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 60000)
-	//var depositList []vm.DepositDetail
-	depositList := make([]vm.DepositDetail, 0)
-	if common.RoleValidator == common.RoleValidator&getDeposit {
-
-		depositList = append(depositList, depositInfo.MatrixDeposit.GetValidatorDepositList(contract, db)...)
-	}
-
-	if common.RoleMiner == common.RoleMiner&getDeposit {
-		depositList = append(depositList, depositInfo.MatrixDeposit.GetMinerDepositList(contract, db)...)
+	var depositList []vm.DepositDetail
+	switch getDeposit {
+	case common.RoleValidator:
+		depositList = depositInfo.MatrixDeposit.GetValidatorDepositList(contract, db)
+	case common.RoleMiner:
+		depositList = depositInfo.MatrixDeposit.GetMinerDepositList(contract, db)
 	}
 	return depositList, nil
 }
@@ -110,27 +107,4 @@ func getDepositListTest() {
 	fmt.Printf("get depositList:%v %d\n", address, len(address))
 	address = depositInfo.MatrixDeposit.GetMinerDepositList(contract, db)
 	fmt.Printf("get miner:%v %d\n", address, len(address))
-}
-func AddSlash(stateDB vm.StateDB, address common.Address, slash *big.Int) error {
-	return depositInfo.MatrixDeposit.AddSlash(depositInfo.Contract, stateDB, address, slash)
-}
-
-func GetSlash(stateDB vm.StateDB, address common.Address) (*big.Int, error) {
-	return depositInfo.MatrixDeposit.GetSlash(depositInfo.Contract, stateDB, address), nil
-}
-
-func SetSlash(stateDB vm.StateDB, address common.Address, slash *big.Int) error {
-	return depositInfo.MatrixDeposit.SetSlash(depositInfo.Contract, stateDB, address, slash)
-}
-
-func AddReward(stateDB vm.StateDB, address common.Address, reward *big.Int) error {
-	return depositInfo.MatrixDeposit.AddReward(depositInfo.Contract, stateDB, address, reward)
-}
-
-func GetReward(stateDB vm.StateDB, address common.Address) (*big.Int, error) {
-	return depositInfo.MatrixDeposit.GetReward(depositInfo.Contract, stateDB, address), nil
-}
-
-func SetReward(stateDB vm.StateDB, address common.Address, reward *big.Int) error {
-	return depositInfo.MatrixDeposit.SetReward(depositInfo.Contract, stateDB, address, reward)
 }

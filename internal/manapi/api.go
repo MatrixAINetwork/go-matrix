@@ -1190,8 +1190,8 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		if err != nil {
 			return err
 		}
-		if price.Cmp(new(big.Int).SetUint64(params.TxGasPrice)) < 0 {
-			price.Set(new(big.Int).SetUint64(params.TxGasPrice))
+		if price.Cmp(big.NewInt(18000000000)) < 0 {
+			price.Set(big.NewInt(18000000000))
 		}
 		args.GasPrice = (*hexutil.Big)(price)
 	}

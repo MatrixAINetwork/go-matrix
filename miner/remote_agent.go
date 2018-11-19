@@ -29,7 +29,7 @@ type RemoteAgent struct {
 
 	quitCh   chan struct{}
 	workCh   chan *Work
-	returnCh chan<- *types.Header
+	returnCh chan<- *Result
 
 	chain       consensus.ChainReader
 	engine      consensus.Engine
@@ -62,7 +62,7 @@ func (a *RemoteAgent) Work() chan<- *Work {
 	return a.workCh
 }
 
-func (a *RemoteAgent) SetReturnCh(returnCh chan<- *types.Header) {
+func (a *RemoteAgent) SetReturnCh(returnCh chan<- *Result) {
 	a.returnCh = returnCh
 }
 

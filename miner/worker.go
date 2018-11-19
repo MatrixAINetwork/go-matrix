@@ -14,15 +14,15 @@ import (
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
+	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/params"
 	"gopkg.in/fatih/set.v0"
-	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 // Agent can register themself with the worker
 type Agent interface {
 	Work() chan<- *Work
-	SetReturnCh(chan<- *types.Header)
+	SetReturnCh(chan<- *Result)
 	Stop()
 	Start()
 	GetHashRate() int64
@@ -59,6 +59,7 @@ type Work struct {
 
 	createdAt time.Time
 
+	difficultyList  []*big.Int
 	threadNum       int
 	isBroadcastNode bool
 }
@@ -78,16 +79,26 @@ type worker struct {
 	// update loop
 	mux *event.TypeMux
 
-	agents map[Agent]struct{}
-	recv   chan *types.Header
+	wg sync.WaitGroup
 
-	extra []byte
+	agents map[Agent]struct{}
+	recv   chan *Result
+
+	coinbase common.Address
+	extra    []byte
 
 	currentMu sync.Mutex
 	current   *Work
+
+	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
+
 	// atomic status counters
 	mining int32
 	atWork int32
+
+	dposEngine consensus.DPOSEngine
+	bc         *core.BlockChain
+	msgcenter  *mc.Center
 
 	roleUpdateCh          chan *mc.RoleUpdatedMsg
 	roleUpdateSub         event.Subscription
@@ -95,38 +106,54 @@ type worker struct {
 	miningRequestSub      event.Subscription
 	localMiningRequestCh  chan *mc.BlockGenor_BroadcastMiningReqMsg
 	localMiningRequestSub event.Subscription
-	mineReqCtrl           *mineReqCtrl
-	hd                    *msgsend.HD
-	mineResultSender      *common.ResendMsgCtrl
+
+	currentHeight   uint64
+	currentCAHeight uint64
+	currentRole     common.RoleType
+	currentHeader   *types.Header
+	queue           []*mc.HD_MiningReqMsg
+
+	minningReq mc.BlockData
+	addr       common.Address
+	hd         *msgsend.HD
+	ca         *ca.Identity
 }
 
-func newWorker(config *params.ChainConfig, engine consensus.Engine, validatorReader consensus.ValidatorReader, dposEngine consensus.DPOSEngine, mux *event.TypeMux, hd *msgsend.HD) (*worker, error) {
+func newWorker(config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, coinbase common.Address, mux *event.TypeMux, hd *msgsend.HD, ca *ca.Identity) (*worker, error) {
 	worker := &worker{
 		config: config,
 		engine: engine,
 		mux:    mux,
 
-		agents: make(map[Agent]struct{}),
-
 		miningRequestCh:      make(chan *mc.HD_MiningReqMsg, 100),
 		roleUpdateCh:         make(chan *mc.RoleUpdatedMsg, 100),
-		recv:                 make(chan *types.Header, resultQueueSize),
+		recv:                 make(chan *Result, resultQueueSize),
 		localMiningRequestCh: make(chan *mc.BlockGenor_BroadcastMiningReqMsg, 100),
-		mineReqCtrl:          newMinReqCtrl(dposEngine, validatorReader),
-		hd:                   hd,
-		mineResultSender:     nil,
+
+		coinbase: coinbase,
+		agents:   make(map[Agent]struct{}),
+
+		dposEngine: dposEngine,
+
+		currentHeight:   0,
+		currentCAHeight: 0,
+		queue:           make([]*mc.HD_MiningReqMsg, 0),
+		currentRole:     common.RoleDefault, //从CA要当前身份！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
+		hd:              hd,
 	}
 
 	atomic.StoreInt32(&worker.mining, 0)
 
+	log.INFO(ModuleWork, "CurrentRole:", worker.currentRole)
+
 	err := worker.init_SubscribeEvent()
 	if err != nil {
-		log.Error(ModuleMiner, "worker创建失败", err)
+		log.Error(ModuleWork, "worker创建失败", err)
 		return nil, err
 	}
 	go worker.update()
 	go worker.wait()
-	log.INFO(ModuleMiner, "worker创建成功", err)
+	log.INFO(ModuleWork, "worker创建成功", err)
 	return worker, nil
 }
 func (self *worker) init_SubscribeEvent() error {
@@ -134,26 +161,26 @@ func (self *worker) init_SubscribeEvent() error {
 
 	self.localMiningRequestSub, err = mc.SubscribeEvent(mc.HD_BroadcastMiningReq, self.localMiningRequestCh) //广播节点
 	if err != nil {
-		log.Error(ModuleMiner, "广播节点挖矿请求订阅失败", err)
+		log.Error(ModuleWork, "广播节点挖矿请求订阅失败", err)
 		return err
 	} else {
-		log.INFO(ModuleMiner, "广播节点挖矿请求订阅成功", "")
+		log.INFO(ModuleWork, "广播节点挖矿请求订阅成功", "")
 	}
 
 	self.roleUpdateSub, err = mc.SubscribeEvent(mc.CA_RoleUpdated, self.roleUpdateCh) //身份到达
 	if err != nil {
-		log.Error(ModuleMiner, "身份更新订阅失败", err)
+		log.Error(ModuleWork, "身份更新订阅失败", err)
 		return err
 	} else {
-		log.INFO(ModuleMiner, "身份更新订阅成功", "")
+		log.INFO(ModuleWork, "身份更新订阅成功", "")
 	}
 
 	self.miningRequestSub, err = mc.SubscribeEvent(mc.HD_MiningReq, self.miningRequestCh) //挖矿请求
 	if err != nil {
-		log.Error(ModuleMiner, "普通矿工挖矿请求订阅失败", err)
+		log.Error(ModuleWork, "普通矿工挖矿请求订阅失败", err)
 		return err
 	} else {
-		log.INFO(ModuleMiner, "普通矿工挖矿请求订阅成功", err)
+		log.INFO(ModuleWork, "普通矿工挖矿请求订阅成功", err)
 	}
 	return nil
 
@@ -176,14 +203,18 @@ func (self *worker) update() {
 
 	for {
 		select {
+
 		case roleData := <-self.roleUpdateCh:
-			self.RoleUpdatedMsgHandler(roleData)
+			log.INFO(ModuleWork, "接收身份更新消息，高度", roleData.BlockNum, "身份", roleData.Role, "Leader", common.Bytes2Hex(roleData.Leader[:7]))
+			self.roleUpdatedMsgHandler(roleData)
 
 		case minerReqData := <-self.miningRequestCh:
 			self.MiningRequestHandle(minerReqData)
 
 		case data := <-self.localMiningRequestCh:
-			self.BroadcastHashLocalMiningReqMsgHandle(data.BlockMainData)
+			log.INFO(ModuleWork, "received localMiningReq", data, "交易数量", data.BlockMainData.Txs.Len())
+			self.minningReq = *data.BlockMainData
+			self.BroadcastHashLocalMiningReqMsgHandle(data.BlockMainData.Header)
 
 		case <-self.localMiningRequestSub.Err():
 			return
@@ -191,80 +222,247 @@ func (self *worker) update() {
 			return
 		case <-self.roleUpdateSub.Err():
 			return
+
 		}
 	}
 }
-func (self *worker) RoleUpdatedMsgHandler(data *mc.RoleUpdatedMsg) {
-	if data.BlockNum+1 > self.mineReqCtrl.curNumber {
-		self.stopMineResultSender()
+func (self *worker) roleUpdatedMsgHandler(data *mc.RoleUpdatedMsg) {
+
+	if data.BlockNum > self.currentHeight {
+		log.INFO(ModuleWork, "新区块已经生产，停止旧的. 新高度", data.BlockNum, "挖矿请求高度", self.currentHeight)
+		self.Stop()
 	}
-	self.mineReqCtrl.SetNewNumber(data.BlockNum+1, data.Role)
-	canMining := self.mineReqCtrl.CanMining()
-	log.INFO(ModuleMiner, "更新高度及身份", "完成", "高度", data.BlockNum, "角色", data.Role, "是否可以挖矿", canMining)
-	if canMining {
-		self.StartAgent()
-		self.processMineReq()
-	} else {
-		self.StopAgent()
-	}
+
+	self.currentCAHeight = data.BlockNum
+
+	self.HandleQueue()
+
+	self.currentRole = data.Role
 }
 
 func (self *worker) MiningRequestHandle(data *mc.HD_MiningReqMsg) {
-	if nil == data || nil == data.Header {
-		log.ERROR(ModuleMiner, "接受挖矿请求", "消息为nil")
+
+	if data.Header.Number.Uint64() > (self.currentCAHeight + 1) {
+		self.queue = append(self.queue, data)
 		return
 	}
-	log.INFO(ModuleMiner, "接收挖矿请求,高度", data.Header.Number, "难度值", data.Header.Difficulty)
-
-	reqData, err := self.mineReqCtrl.AddMineReq(data.Header, nil, false)
+	if data.Header.Number.Uint64() != self.currentCAHeight+1 {
+		return
+	}
+	//以下全是挖矿高度==当前CA高度+1
+	log.INFO(ModuleWork, "接收挖矿请求,高度", data.Header.Number)
+	err := self.CheckMiningReqError(data.Header)
 	if err != nil {
-		log.ERROR(ModuleMiner, "接受挖矿请求", "缓存挖矿请求错误", "err", err)
+		log.Error(ModuleWork, "挖矿请求错误", err)
 		return
 	}
+	log.INFO(ModuleMiner, "处理挖矿请求 高度", data.Header.Number, "难度值", data.Header.Difficulty)
+	self.currentHeader = types.CopyHeader(data.Header)
+	self.currentHeight = data.Header.Number.Uint64()
 
-	if reqData != nil {
-		self.processAppointedMineReq(reqData)
+	self.Stop()
+	self.Start()
+
+	difflist := self.CalDifflist(data.Header.Difficulty.Uint64())
+	self.CommitNewWork(data.Header, difflist, false)
+
+}
+func (self *worker) BroadcastHashLocalMiningReqMsgHandle(header *types.Header) {
+	log.INFO(ModuleWork, "BroadcastHashLocalMiningReqMsgHandle header--difficult", header.Difficulty.Uint64())
+	err := self.CheckLocalMiningReqError(header)
+	if err != nil {
+		log.INFO(ModuleWork, "BroadcastHashLocalMiningReqMsgHandle CheckLocalMiningReqError", err)
+		return
 	}
+	self.currentHeader = types.CopyHeader(header)
+	self.currentHeight = header.Number.Uint64()
+	self.Stop()
+	self.Start()
+
+	//log.INFO(ModuleWork, "CommitNewWork", "begin")
+
+	difficultyList := make([]*big.Int, 1)
+	difficultyList[0] = big.NewInt(int64(1))
+	self.CommitNewWork(header, difficultyList, true)
 }
 
-func (self *worker) BroadcastHashLocalMiningReqMsgHandle(req *mc.BlockData) {
-	if nil == req || nil == req.Header {
-		log.ERROR(ModuleMiner, "接受广播挖矿请求", "消息为nil")
-		return
+func (self *worker) checkCurrentHeader() bool {
+	if self.currentHeader != nil && self.currentHeader.Difficulty != nil {
+		return true
 	}
-	log.INFO(ModuleMiner, "接受广播挖矿请求 header--difficult", req.Header.Difficulty.Uint64())
-	reqData, err := self.mineReqCtrl.AddMineReq(req.Header, req.Txs, true)
-	if err != nil {
-		log.ERROR(ModuleMiner, "接受广播挖矿请求", "缓存挖矿请求错误", "err", err)
+	return false
+}
+func (self *worker) foundHandle(data *Result) {
+
+	if self.checkCurrentHeader() == false {
+		log.Error(ModuleWork, "挖矿结果错误", data)
 		return
 	}
 
-	if reqData != nil {
-		self.processAppointedMineReq(reqData)
+	if data.Difficulty.Cmp(self.currentHeader.Difficulty) == 0 {
+		//log.INFO(ModuleWork, "FoundHandle seal successfully!!!!!!!!!!!!! height", data.Header.Number)
+		log.INFO(ModuleWork, "挖矿成功，高度", data.Header.Number)
+		self.Stop()
 	}
+
+	//self.hd.SendNodeMsg(mc.MD_MiningRsp, &mc.MD_MiningRspMsg{
+	//	Blockhash:  data.Header.Hash(),
+	//	Difficulty: data.Difficulty,
+	//	Nonce:      data.Header.Nonce,
+	//	Coinbase:   self.ca.SelfAddress(),
+	//	MixDigest:  data.Header.MixDigest,
+	//	From:       "",
+	//	Signatures: data.Header.Signatures,
+	//}, common.RoleValidator, nil)
+
+	data.Header.Coinbase = ca.GetAddress()
+	var rsp = mc.HD_MiningRspMsg{
+		Blockhash:  data.Header.HashNoSignsAndNonce(),
+		Difficulty: data.Difficulty,
+		Number:     data.Header.Number.Uint64(),
+		Nonce:      data.Header.Nonce,
+		Coinbase:   ca.GetAddress(),
+		MixDigest:  data.Header.MixDigest,
+		Signatures: data.Header.Signatures}
+
+	log.INFO(ModuleWork, "Rsp Header", data.Header)
+	log.INFO(ModuleWork, "Rsp Hash", rsp.Blockhash)
+
+	self.hd.SendNodeMsg(mc.HD_MiningRsp, &rsp, common.RoleValidator, nil)
+	self.hd.SendNodeMsg(mc.HD_MiningRsp, &rsp, common.RoleBroadcast, nil)
+
+	/*
+		err := self.msgcenter.PostEvent(mc.MD_MiningRsp, &mc.MD_MiningRspMsg{
+			Blockhash:  data.Header.Hash(),
+			Difficulty: data.Difficulty,
+			Nonce:      data.Header.Nonce,
+			Coinbase:   data.Header.Coinbase,
+			MixDigest:  data.Header.MixDigest,
+			From:       self.addr,
+			Signatures: data.Header.Signatures,
+		})
+		if err != nil {
+			log.INFO(ModuleWork, "foundHandle PostEvent err ", err)
+		}
+	*/
+	log.INFO(ModuleWork, "foundHandle", mc.HD_MiningRspMsg{
+		Blockhash:  data.Header.Hash(),
+		Difficulty: data.Difficulty,
+		Nonce:      data.Header.Nonce,
+		Coinbase:   data.Header.Coinbase,
+		MixDigest:  data.Header.MixDigest,
+		Signatures: data.Header.Signatures,
+	})
+	log.INFO(ModuleWork, "RSP, BlockHash", rsp.Blockhash[:15], "Diff", rsp.Difficulty, "Nonce", rsp.Nonce)
+	log.INFO(ModuleWork, "RSP, CoinBase", common.Bytes2Hex(rsp.Coinbase[:7]), "Digest", rsp.MixDigest)
+
+}
+
+func (self *worker) broadcastHashFoundMsgHandle(data *Result) error {
+	log.INFO(ModuleWork, "broadcastHashFoundMsgHandle--difficult", data.Header.Difficulty)
+	if data == nil {
+		log.Info("Parameter is invalid!")
+		return invalidParameter
+	}
+
+	if data.Difficulty.Cmp(self.currentHeader.Difficulty) == 0 {
+		log.Info("miner", "broadcast Node Worker Stop mine")
+
+		self.Stop()
+	}
+	data.Header.Difficulty = self.minningReq.Header.Difficulty
+	msg := &mc.HD_BroadcastMiningRspMsg{
+		BlockMainData: &mc.BlockData{
+			Header: data.Header,
+			Txs:    self.minningReq.Txs,
+		},
+	}
+	self.sendHeaderToValidator(msg)
+	return nil
+}
+
+func (self *worker) sendHeaderToValidator(msg *mc.HD_BroadcastMiningRspMsg) {
+	log.INFO(ModuleWork, "广播挖矿结果", "发送", "交易数量", msg.BlockMainData.Txs.Len(), "交易数据", msg.BlockMainData.Txs, "头leader", msg.BlockMainData.Header.Leader)
+	//self.msgcenter.PostEvent(mc.BD_MiningRsp, msg)
+	self.hd.SendNodeMsg(mc.HD_BroadcastMiningRsp, msg, common.RoleValidator, nil)
+	/*
+		err := self.msgcenter.PostEvent(mc.BD_MiningReq, &msg)
+		if err != nil {
+			log.Error("miner", "Send BD_MiningRspMsg failed", err)
+		}
+	*/
 }
 
 func (self *worker) wait() {
 	for {
-		for header := range self.recv {
+		for result := range self.recv {
 			atomic.AddInt32(&self.atWork, -1)
 
-			if header == nil {
+			if result == nil {
 				continue
 			}
-			log.Info(ModuleMiner, "挖矿成功, Nonce", header.Nonce, "难度", header.Difficulty, "高度", header.Number.Uint64())
-			self.foundHandle(header)
+			log.Info(ModuleWork, "挖矿成功, Nonce", result.Header.Nonce, "难度", result.Difficulty)
+			if self.currentRole == common.RoleBroadcast {
+				self.broadcastHashFoundMsgHandle(result)
+			} else {
+				self.foundHandle(result)
+			}
 		}
 	}
 }
 
-func (self *worker) foundHandle(header *types.Header) {
-	cache, err := self.mineReqCtrl.SetMiningResult(header)
-	if err != nil {
-		log.ERROR(ModuleMiner, "挖矿结果处理", "保存失败", "err", err)
-		return
+func (self *worker) CalDifflist(difficulty uint64) []*big.Int {
+
+	difflist := make([]*big.Int, 0)
+	//if difficulty == 1 {
+	//	difflist = []*big.Int{big.NewInt(int64(1))}
+	//
+	//}
+	for i := 0; i < len(params.Difficultlist); i++ {
+		temp := difficulty / params.Difficultlist[i]
+		difflist = append(difflist, big.NewInt(int64(temp)))
 	}
-	self.startMineResultSender(cache)
+	log.INFO(ModuleWork, "难度列表", difflist)
+	return difflist
+}
+
+func (self *worker) CheckMiningReqError(header *types.Header) error {
+
+	if common.RoleMiner != self.currentRole {
+		log.Error(ModuleWork, "当前不是矿工,", "不处理")
+		return currentNotMiner
+	}
+	if header.Number.Uint64() <= self.currentHeight {
+		log.Error(ModuleWork, "挖矿请求块高过小, 请求高度", header.Number.Uint64(), "当前处理高度", self.currentHeader.Number.Uint64())
+		return smallThanCurrentHeightt
+	}
+	if header.Difficulty.Uint64() == 0 {
+		log.Error(ModuleWork, "挖矿请求难度值为0", "")
+		return difficultyIsZero
+	}
+
+	err := self.dposEngine.VerifyBlock(header)
+	if err != nil {
+		log.Error(ModuleWork, "挖矿请求DPOS验证错误", err)
+		return err
+	}
+	return nil
+}
+func (self *worker) CheckLocalMiningReqError(header *types.Header) error {
+	if common.RoleBroadcast != self.currentRole {
+		return currentRoleIsNotBroadcast
+	}
+	if header.Number.Uint64() <= self.currentHeight {
+		return smallThanCurrentHeightt
+	}
+	return nil
+}
+
+/////original
+func (self *worker) setManerbase(addr common.Address) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+	self.coinbase = addr
 }
 
 func (self *worker) setExtra(extra []byte) {
@@ -306,9 +504,10 @@ func (self *worker) pendingBlock() *types.Block {
 	return self.current.Block
 }
 
-func (self *worker) StartAgent() {
+func (self *worker) Start() {
 	self.mu.Lock()
 	defer self.mu.Unlock()
+
 	atomic.StoreInt32(&self.mining, 1)
 
 	// spin up agents
@@ -317,10 +516,12 @@ func (self *worker) StartAgent() {
 	}
 }
 
-func (self *worker) StopAgent() {
+func (self *worker) Stop() {
+	self.wg.Wait()
+
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	if atomic.LoadInt32(&self.mining) != 0 {
+	if atomic.LoadInt32(&self.mining) == 1 {
 		for agent := range self.agents {
 			agent.Stop()
 		}
@@ -356,143 +557,47 @@ func (self *worker) push(work *Work) {
 	}
 }
 
+//lcq todo
 // makeCurrent creates a new environment for the current cycle.
-func (self *worker) makeCurrent(header *types.Header, isBroadcastNode bool) error {
+func (self *worker) makeCurrent(header *types.Header, diffList []*big.Int, isBroadcastNode bool) error {
 	work := &Work{
-		header:          types.CopyHeader(header),
+		header:          header,
+		difficultyList:  diffList,
 		isBroadcastNode: isBroadcastNode,
 	}
-
-	work.header.Coinbase = ca.GetAddress()
 
 	self.current = work
 	return nil
 }
 
-func (self *worker) CommitNewWork(header *types.Header, isBroadcastNode bool) {
-	err := self.makeCurrent(header, isBroadcastNode)
+func (self *worker) CommitNewWork(header *types.Header, difficultyList []*big.Int, isBroadcastNode bool) {
+	err := self.makeCurrent(header, difficultyList, isBroadcastNode)
 	if err != nil {
-		log.Error(ModuleMiner, "创建挖矿work失败", err)
+		log.Error(ModuleWork, "创建挖矿worker失败", err)
 		return
 	}
-	log.Error(ModuleMiner, "挖矿work", "开始")
+	log.Error(ModuleWork, "开始挖矿worker", "")
 
 	//// Create the current work task and check any fork transitions needed
 	work := self.current
 
 	self.push(work)
 }
-
-func (self *worker) processAppointedMineReq(reqData *mineReqData) {
-	if nil == reqData {
+func (self *worker) HandleQueue() {
+	Need_Delete := make([]int, 0)
+	if len(self.queue) == 0 {
 		return
 	}
-
-	if self.mineReqCtrl.CanMining() == false {
-		log.INFO(ModuleMiner, "processAppointedMineReq", "当前身份不可挖矿", "身份", self.mineReqCtrl.role.String(), "高度", self.mineReqCtrl.curNumber)
-		return
-	}
-
-	if reqData.mined {
-		log.INFO(ModuleMiner, "processAppointedMineReq", "请求已挖完，直接发送挖矿结果", "hash", reqData.headerHash.TerminalString())
-		self.sendMineResultFunc(reqData, 0)
-	} else {
-		log.INFO(ModuleMiner, "processAppointedMineReq", "开始挖矿", "hash", reqData.headerHash.TerminalString())
-		self.beginMine(reqData)
-	}
-}
-
-func (self *worker) processMineReq() {
-	reqData := self.mineReqCtrl.GetUnMinedReq()
-	if reqData == nil {
-		log.INFO(ModuleMiner, "processMineReq", "获取未处理过的请求失败")
-		return
-	}
-	log.INFO(ModuleMiner, "processMineReq", "开始挖矿", "hash", reqData.headerHash.TerminalString())
-	self.beginMine(reqData)
-}
-
-func (self *worker) beginMine(reqData *mineReqData) {
-	if nil == reqData {
-		return
-	}
-	if atomic.LoadInt32(&self.mining) == 0 {
-		log.INFO(ModuleMiner, "beginMine", "当前不处于mining状态，不处理")
-		return
-	}
-
-	if curMineReq := self.mineReqCtrl.GetCurrentMineReq(); curMineReq != nil {
-		if curMineReq.mined == false && curMineReq.header.Time.Cmp(reqData.header.Time) >= 0 {
-			log.INFO(ModuleMiner, "beginMine", "当前挖矿时间较大，不处理本次挖矿",
-				"当前挖矿header时间", curMineReq.header.Time, "请求挖矿header时间", reqData.header.Time)
-			return
+	log.INFO(ModuleWork, "挖矿请求队列不为空,len", self.queue)
+	for k, v := range self.queue {
+		if v.Header.Number.Uint64() == self.currentCAHeight+1 {
+			self.MiningRequestHandle(v)
+			Need_Delete = append(Need_Delete, k)
 		}
 	}
-
-	if err := self.mineReqCtrl.SetCurrentMineReq(reqData.headerHash); err != nil {
-		log.ERROR(ModuleMiner, "beginMine", "保存当前挖矿请求错误", "err", err)
-		return
-	}
-	self.CommitNewWork(reqData.header, reqData.isBroadcastReq)
-}
-
-func (self *worker) startMineResultSender(data *mineReqData) {
-	self.stopMineResultSender()
-	sender, err := common.NewResendMsgCtrl(data, self.sendMineResultFunc, manparams.MinerResultSendInterval, 0)
-	if err != nil {
-		log.ERROR(ModuleMiner, "创建挖矿结果发送器", "失败", "err", err)
-		return
-	}
-	log.INFO(ModuleMiner, "创建挖矿结果发送器", "成功", "高度", data.header.Number.Uint64(), "hash", data.headerHash.TerminalString())
-	self.mineResultSender = sender
-}
-
-func (self *worker) stopMineResultSender() {
-	if self.mineResultSender == nil {
-		return
-	}
-	self.mineResultSender.Close()
-	self.mineResultSender = nil
-	log.INFO(ModuleMiner, "挖矿结果发送器", "停止")
-}
-
-func (self *worker) sendMineResultFunc(data interface{}, times uint32) {
-	resultData, OK := data.(*mineReqData)
-	if !OK {
-		log.ERROR(ModuleMiner, "发出挖矿结果", "反射消息失败", "次数", times)
-		return
+	for i := len(Need_Delete) - 1; i >= 0; i-- {
+		index := Need_Delete[i]
+		self.queue = append(self.queue[:index], self.queue[index+1:]...)
 	}
 
-	if nil == resultData || nil == resultData.header || resultData.mined == false {
-		log.ERROR(ModuleMiner, "发出挖矿结果", "入参错误", "次数", times)
-		return
-	}
-
-	if err := resultData.ResendMineResult(time.Now().Unix()); err != nil {
-		log.WARN(ModuleMiner, "发出挖矿结果", "发送挖矿结果失败", "原因", err, "次数", times)
-		return
-	}
-
-	if resultData.isBroadcastReq {
-		rsp := &mc.HD_BroadcastMiningRspMsg{
-			BlockMainData: &mc.BlockData{
-				Header: resultData.header,
-				Txs:    resultData.txs,
-			},
-		}
-		log.INFO(ModuleMiner, "广播挖矿结果", "发送", "交易数量", rsp.BlockMainData.Txs.Len(), "次数", times, "高度", rsp.BlockMainData.Header.Number)
-		self.hd.SendNodeMsg(mc.HD_BroadcastMiningRsp, rsp, common.RoleValidator, nil)
-	} else {
-		rsp := &mc.HD_MiningRspMsg{
-			BlockHash:  resultData.headerHash,
-			Difficulty: resultData.mineDiff,
-			Number:     resultData.header.Number.Uint64(),
-			Nonce:      resultData.header.Nonce,
-			Coinbase:   resultData.header.Coinbase,
-			MixDigest:  resultData.header.MixDigest,
-			Signatures: resultData.header.Signatures}
-
-		self.hd.SendNodeMsg(mc.HD_MiningRsp, rsp, common.RoleValidator|common.RoleBroadcast, nil)
-		log.INFO(ModuleMiner, "挖矿结果", "发送", "hash", rsp.BlockHash.TerminalString(), "次数", times, "高度", rsp.Number, "Nonce", rsp.Nonce)
-	}
 }

@@ -1,0 +1,936 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="BookmarkManager">
+    <bookmark url="file://$PROJECT_DIR$/core/state_transition.go" line="111" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="d0bb9a56-ca9c-4d77-902c-2bae343d486e" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/common/types.go" beforeDir="false" afterPath="$PROJECT_DIR$/common/types.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/consensus/manash/consensus.go" beforeDir="false" afterPath="$PROJECT_DIR$/consensus/manash/consensus.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/consensus/misc/dao.go" beforeDir="false" afterPath="$PROJECT_DIR$/consensus/misc/dao.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/evm.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/evm.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/genesis.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/genesis.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/state/dump.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/state/dump.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/state/journal.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/state/journal.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/state/state_object.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/state/state_object.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/state/statedb.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/state/statedb.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/state_transition.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/state_transition.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/tx_pool.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/tx_pool.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/vm/gas_table.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/vm/gas_table.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/vm/instructions.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/vm/instructions.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/vm/interface.go" beforeDir="false" afterPath="$PROJECT_DIR$/core/vm/interface.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/manapi/api.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/manapi/api.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/man/api_backend.go" beforeDir="false" afterPath="$PROJECT_DIR$/man/api_backend.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/man/tracers/tracer.go" beforeDir="false" afterPath="$PROJECT_DIR$/man/tracers/tracer.go" afterDir="false" />
+    </list>
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="TRACKING_ENABLED" value="true" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FavoritesManager">
+    <favorites_list name="go-matrix" />
+  </component>
+  <component name="FileEditorManager">
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+      <file leaf-file-name="consensus.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/consensus/manash/consensus.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="235">
+              <caret line="547" column="21" selection-start-line="547" selection-start-column="21" selection-end-line="547" selection-end-column="21" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="tx_pool.go" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/core/tx_pool.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="351">
+              <caret line="592" lean-forward="true" selection-start-line="592" selection-end-line="592" />
+              <folding>
+                <element signature="e#15984#16338#0" />
+                <element signature="e#16379#17465#0" />
+                <element signature="e#18515#18744#0" />
+                <element signature="e#18950#19007#0" />
+                <element signature="e#19132#19207#0" />
+                <element signature="e#21296#21570#0" />
+                <element signature="e#21680#22511#0" />
+                <element signature="e#22691#24983#0" />
+                <element signature="e#25100#26316#0" />
+                <element signature="e#26412#26995#0" />
+                <element signature="e#27130#29396#0" />
+                <element signature="e#31645#32444#0" />
+                <element signature="e#32525#32716#0" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="gas_table.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/core/vm/gas_table.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="247">
+              <caret line="391" column="27" selection-start-line="391" selection-start-column="27" selection-end-line="391" selection-end-column="27" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="api_backend.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/man/api_backend.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="41">
+              <caret line="117" column="5" selection-start-line="117" selection-start-column="5" selection-end-line="117" selection-end-column="5" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="api.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/internal/manapi/api.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="42">
+              <caret line="488" column="34" selection-start-line="488" selection-start-column="34" selection-end-line="488" selection-end-column="34" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="dump.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/core/state/dump.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="215">
+              <caret line="45" column="24" selection-start-line="45" selection-start-column="24" selection-end-line="45" selection-end-column="24" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="journal.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/core/state/journal.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="250">
+              <caret line="10" lean-forward="true" selection-start-line="10" selection-end-line="10" />
+              <folding>
+                <element signature="e#200#261#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="interface.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/core/vm/interface.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="215">
+              <caret line="20" column="4" selection-start-line="20" selection-start-column="4" selection-end-line="20" selection-end-column="4" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="dao.go" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/consensus/misc/dao.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="332">
+              <caret line="67" column="6" selection-start-line="67" selection-start-column="6" selection-end-line="67" selection-end-column="6" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>Kind</find>
+      <find>Kind()</find>
+      <find>msg.To()</find>
+      <find>InterfaceConstructorMap</find>
+      <find>Matrix message handling failed</find>
+      <find>typconstructor</find>
+      <find>TypeKind</find>
+      <find>GetConstructorType</find>
+      <find>NormalTxIndex</find>
+      <find>InterfaceRLP</find>
+      <find>constructor</find>
+      <find>insert</find>
+      <find>//YY</find>
+      <find>ldb</find>
+      <find>Unknown account information (func filter()  BroadCastTxPool)</find>
+      <find>sendBroadCastTransaction:tttttttttt</find>
+      <find>broadCast transaction add txpool success</find>
+      <find>ProcessTransactions</find>
+      <find>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</find>
+      <find>typeCache</find>
+      <find>sendBroadCastTransaction:ttttttttt</find>
+      <find>GetAllSpecialTxs</find>
+      <find>bPool.special</find>
+      <find>decodeInterfacer</find>
+      <find>cachedTypeInfo</find>
+      <find>promoteExecutables</find>
+      <find>Drop all transactions that are too costly</find>
+      <find>GetBal</find>
+      <find>big</find>
+      <find>reset(</find>
+    </findStrings>
+    <replaceStrings>
+      <replace>rPool</replace>
+      <replace>RevokeTxPool</replace>
+    </replaceStrings>
+  </component>
+  <component name="GOROOT" path="C:\Go" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GoLibraries">
+    <option name="urls">
+      <list>
+        <option value="file://$PROJECT_DIR$/../../../.." />
+      </list>
+    </option>
+  </component>
+  <component name="IdeDocumentHistory">
+    <option name="CHANGED_PATHS">
+      <list>
+        <option value="$PROJECT_DIR$/man/protocol.go" />
+        <option value="$PROJECT_DIR$/man/sync.go" />
+        <option value="$PROJECT_DIR$/run/gman/main.go" />
+        <option value="$PROJECT_DIR$/core/vm/evm.go" />
+        <option value="$PROJECT_DIR$/core/types/transactionInterfase.go" />
+        <option value="$PROJECT_DIR$/core/transactionInterface.go" />
+        <option value="$PROJECT_DIR$/core/txinterface/careInterface.go" />
+        <option value="$PROJECT_DIR$/core/types/aaaa.go" />
+        <option value="$PROJECT_DIR$/internal/manapi/backend.go" />
+        <option value="$PROJECT_DIR$/man/api_tracer.go" />
+        <option value="$PROJECT_DIR$/man/handler.go" />
+        <option value="$PROJECT_DIR$/core/tx_list.go" />
+        <option value="$PROJECT_DIR$/blkverify/blkverify/verify_process.go" />
+        <option value="$PROJECT_DIR$/mc/msgdef.go" />
+        <option value="$PROJECT_DIR$/core/txinterface/coreInterface.go" />
+        <option value="$PROJECT_DIR$/core/events.go" />
+        <option value="$PROJECT_DIR$/core/tx_pool_interface.go" />
+        <option value="$PROJECT_DIR$/txpoolCache/middle.go" />
+        <option value="$PROJECT_DIR$/blkgenor/process_header.go" />
+        <option value="$PROJECT_DIR$/mc/types.go" />
+        <option value="$PROJECT_DIR$/core/tx_pool_manager.go" />
+        <option value="$PROJECT_DIR$/core/tx_pool_timing.go" />
+        <option value="$PROJECT_DIR$/core/types/transactionrevoke.go" />
+        <option value="$PROJECT_DIR$/core/tx_pool_revoke.go" />
+        <option value="$PROJECT_DIR$/rlp/encode_test.go" />
+        <option value="$PROJECT_DIR$/core/rawdb/accessors_indexes_test.go" />
+        <option value="$PROJECT_DIR$/core/rawdb/accessors_chain.go" />
+        <option value="$PROJECT_DIR$/core/types/block.go" />
+        <option value="$PROJECT_DIR$/core/state_processor.go" />
+        <option value="$PROJECT_DIR$/rlp/encode.go" />
+        <option value="$PROJECT_DIR$/core/types/transactionInterface.go" />
+        <option value="$PROJECT_DIR$/rlp/interfaceDecode_test.go" />
+        <option value="$PROJECT_DIR$/core/rawdb/accessors_chain_test.go" />
+        <option value="$PROJECT_DIR$/core/types/transaction.go" />
+        <option value="$PROJECT_DIR$/core/types/transactionBroad.go" />
+        <option value="$PROJECT_DIR$/core/state_transition.go" />
+        <option value="$PROJECT_DIR$/core/blockchain.go" />
+        <option value="$PROJECT_DIR$/matrixwork/work.go" />
+        <option value="$PROJECT_DIR$/core/tx_pool_broad.go" />
+        <option value="$PROJECT_DIR$/rlp/typecache.go" />
+        <option value="$PROJECT_DIR$/broadcastTx/broadcast.go" />
+        <option value="$PROJECT_DIR$/rlp/decode.go" />
+        <option value="$PROJECT_DIR$/common/types.go" />
+        <option value="$PROJECT_DIR$/consensus/manash/consensus.go" />
+        <option value="$PROJECT_DIR$/consensus/misc/dao.go" />
+        <option value="$PROJECT_DIR$/core/tx_pool.go" />
+        <option value="$PROJECT_DIR$/core/vm/gas_table.go" />
+        <option value="$PROJECT_DIR$/man/api_backend.go" />
+        <option value="$PROJECT_DIR$/man/tracers/tracer.go" />
+        <option value="$PROJECT_DIR$/internal/manapi/api.go" />
+        <option value="$PROJECT_DIR$/core/state/dump.go" />
+      </list>
+    </option>
+  </component>
+  <component name="JsBuildToolGruntFileManager" detection-done="true" sorting="DEFINITION_ORDER" />
+  <component name="JsBuildToolPackageJson" detection-done="true" sorting="DEFINITION_ORDER" />
+  <component name="JsGulpfileManager">
+    <detection-done>true</detection-done>
+    <sorting>DEFINITION_ORDER</sorting>
+  </component>
+  <component name="NodePackageJsonFileManager">
+    <packageJsonPaths>
+      <path value="$PROJECT_DIR$/dashboard/assets/package.json" />
+    </packageJsonPaths>
+  </component>
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="596" />
+    <option name="y" value="73" />
+    <option name="width" value="1400" />
+    <option name="height" value="863" />
+  </component>
+  <component name="ProjectView">
+    <navigator proportions="" version="1">
+      <foldersAlwaysOnTop value="true" />
+    </navigator>
+    <panes>
+      <pane id="Scope" />
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="go-matrix" type="b2602c69:ProjectViewProjectNode" />
+              <item name="go-matrix" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+    </panes>
+  </component>
+  <component name="PropertiesComponent">
+    <property name="DefaultGoTemplateProperty" value="Go File" />
+    <property name="JavaScriptWeakerCompletionTypeGuess" value="true" />
+    <property name="configurable.Global.GOPATH.is.expanded" value="true" />
+    <property name="configurable.Module.GOPATH.is.expanded" value="false" />
+    <property name="configurable.Project.GOPATH.is.expanded" value="true" />
+    <property name="go.gopath.indexing.explicitly.defined" value="true" />
+    <property name="go.sdk.automatically.set" value="true" />
+    <property name="go.vendoring.notification.had.been.shown" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
+    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="RunManager" selected="Go Build.gman">
+    <configuration default="true" type="GoApplicationRunConfiguration" factoryName="Go Application">
+      <module name="go-matrix" />
+      <working_directory value="$PROJECT_DIR$/../release" />
+      <go_parameters value="-i" />
+      <kind value="PACKAGE" />
+      <filePath value="$PROJECT_DIR$/" />
+      <package value="github.com/matrix/go-matrix/run/gman" />
+      <directory value="$PROJECT_DIR$/" />
+      <output_directory value="$PROJECT_DIR$/../release" />
+    </configuration>
+    <configuration name="gman" type="GoApplicationRunConfiguration" factoryName="Go Application">
+      <module name="go-matrix" />
+      <working_directory value="$PROJECT_DIR$/../release" />
+      <go_parameters value="-i" />
+      <parameters value="--datadir=&quot;C:\GOPATH\src\github.com\matrix\release\chaindata&quot; init ./MANGenesis.json" />
+      <kind value="PACKAGE" />
+      <filePath value="$PROJECT_DIR$/" />
+      <package value="github.com/matrix/go-matrix/run/gman" />
+      <directory value="$PROJECT_DIR$/" />
+      <output_directory value="$PROJECT_DIR$/../release" />
+    </configuration>
+    <configuration name="TestBlockStorage in github.com/matrix/go-matrix/core/rawdb" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-matrix" />
+      <working_directory value="$PROJECT_DIR$/core/rawdb" />
+      <go_parameters value="-i" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/matrix/go-matrix/core/rawdb" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <pattern value="^TestBlockStorage$" />
+    </configuration>
+    <configuration name="TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-matrix" />
+      <working_directory value="$PROJECT_DIR$/core/rawdb" />
+      <go_parameters value="-i" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/matrix/go-matrix/core/rawdb" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <pattern value="^TestBodyStorage$" />
+    </configuration>
+    <configuration name="TestDecodeInterface in github.com/matrix/go-matrix/rlp" type="GoTestRunConfiguration" factoryName="Go Test" nameIsGenerated="true">
+      <module name="go-matrix" />
+      <working_directory value="$PROJECT_DIR$/rlp" />
+      <go_parameters value="-i" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/matrix/go-matrix/rlp" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <pattern value="^TestDecodeInterface$" />
+    </configuration>
+    <configuration name="TestDecodeInterface1 in github.com/matrix/go-matrix/rlp" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-matrix" />
+      <working_directory value="$PROJECT_DIR$/rlp" />
+      <go_parameters value="-i" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/matrix/go-matrix/rlp" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <pattern value="^TestDecodeInterface1$" />
+    </configuration>
+    <list>
+      <item itemvalue="Go Build.gman" />
+      <item itemvalue="Go Test.TestDecodeInterface in github.com/matrix/go-matrix/rlp" />
+      <item itemvalue="Go Test.TestBlockStorage in github.com/matrix/go-matrix/core/rawdb" />
+      <item itemvalue="Go Test.TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" />
+      <item itemvalue="Go Test.TestDecodeInterface1 in github.com/matrix/go-matrix/rlp" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Test.TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" />
+        <item itemvalue="Go Test.TestBlockStorage in github.com/matrix/go-matrix/core/rawdb" />
+        <item itemvalue="Go Test.TestDecodeInterface1 in github.com/matrix/go-matrix/rlp" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="TestHistory">
+    <history-entry file="TestBodyStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 19h 25m 14s.xml">
+      <configuration name="TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestDecodeInterface1_in_github_com_matrix_go-matrix_rlp - 2018.11.08 at 20h 07m 30s.xml">
+      <configuration name="TestDecodeInterface1 in github.com/matrix/go-matrix/rlp" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestDecodeInterface_in_github_com_matrix_go-matrix_rlp - 2018.11.08 at 20h 07m 36s.xml">
+      <configuration name="TestDecodeInterface in github.com/matrix/go-matrix/rlp" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestBlockStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 20h 08m 03s.xml">
+      <configuration name="TestBlockStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestBlockStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 20h 14m 45s.xml">
+      <configuration name="TestBlockStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestBodyStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 20h 15m 58s.xml">
+      <configuration name="TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestBodyStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 20h 16m 29s.xml">
+      <configuration name="TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestBodyStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 20h 17m 16s.xml">
+      <configuration name="TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestBodyStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 20h 17m 55s.xml">
+      <configuration name="TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="TestBodyStorage_in_github_com_matrix_go-matrix_core_rawdb - 2018.11.08 at 20h 18m 22s.xml">
+      <configuration name="TestBodyStorage in github.com/matrix/go-matrix/core/rawdb" configurationId="GoTestRunConfiguration" />
+    </history-entry>
+  </component>
+  <component name="ToolWindowManager">
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <editor active="true" />
+    <layout>
+      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="bottom" id="Event Log" order="7" sideWeight="0.5005208" side_tool="true" weight="0.20627062" />
+      <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.48679867" />
+      <window_info anchor="bottom" id="Version Control" order="7" />
+      <window_info anchor="bottom" id="Terminal" order="7" weight="0.32978722" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15671642" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.37260127" />
+      <window_info anchor="right" id="Database" order="3" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info anchor="bottom" id="Debug" order="3" sideWeight="0.49947917" visible="true" weight="0.26826608" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="bottom" id="Messages" order="7" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+    </layout>
+    <layout-to-restore>
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.19515885" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.48679867" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="right" id="Database" order="3" />
+      <window_info anchor="bottom" id="Terminal" order="8" weight="0.32978722" />
+      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.5005208" side_tool="true" weight="0.20627062" />
+      <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Version Control" order="10" />
+      <window_info anchor="bottom" id="Debug" order="3" sideWeight="0.49947917" weight="0.3960396" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Messages" order="11" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+    </layout-to-restore>
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+  <component name="VcsContentAnnotationSettings">
+    <option name="myLimit" value="2678400000" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/../../matrix_old/go-matrix/run/utils/cmd.go</url>
+          <line>54</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/man/handler.go</url>
+          <line>824</line>
+          <option name="timeStamp" value="17" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/core/tx_pool.go</url>
+          <line>818</line>
+          <option name="timeStamp" value="74" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/core/tx_pool.go</url>
+          <line>1150</line>
+          <option name="timeStamp" value="76" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/core/rawdb/accessors_chain_test.go</url>
+          <line>98</line>
+          <option name="timeStamp" value="78" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/core/rawdb/accessors_chain_test.go</url>
+          <line>74</line>
+          <option name="timeStamp" value="107" />
+        </line-breakpoint>
+      </breakpoints>
+      <option name="time" value="149" />
+    </breakpoint-manager>
+  </component>
+  <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/core/txinterface/coreInterface.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="437">
+          <caret line="27" column="4" selection-start-line="27" selection-start-column="4" selection-end-line="27" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/blkverify/votepool/vote_pool.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-399" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/blkverify/blkverify/broadcast_process.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-748" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/types.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="551">
+          <caret line="33" column="4" selection-start-line="33" selection-start-column="4" selection-end-line="33" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/mandb/interface.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="589">
+          <caret line="31" column="4" selection-start-line="31" selection-start-column="4" selection-end-line="31" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/vendor/github.com/syndtr/goleveldb/leveldb/db.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="209">
+          <caret line="213" column="49" lean-forward="true" selection-start-line="213" selection-start-column="49" selection-end-line="213" selection-end-column="49" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Go/src/runtime/panic.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="372">
+          <caret line="596" column="24" lean-forward="true" selection-start-line="596" selection-start-column="24" selection-end-line="596" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/types/transaction.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="399">
+          <caret line="324" column="49" lean-forward="true" selection-start-line="324" selection-start-column="49" selection-end-line="324" selection-end-column="49" />
+          <folding>
+            <element signature="e#200#467#0" expanded="true" />
+            <element signature="e#863#926#0" />
+            <element signature="e#4633#5688#0" />
+            <element signature="e#5823#6304#0" />
+            <element signature="e#6658#6798#0" />
+            <element signature="e#7015#7158#0" />
+            <element signature="e#7269#7354#0" />
+            <element signature="e#7471#7856#0" />
+            <element signature="e#8732#8823#0" />
+            <element signature="e#9035#9209#0" />
+            <element signature="e#9302#9523#0" />
+            <element signature="e#10004#10364#0" />
+            <element signature="e#10424#10835#0" />
+            <element signature="e#10888#11590#0" />
+            <element signature="e#11644#12324#0" />
+            <element signature="e#12742#12858#0" />
+            <element signature="e#12984#13106#0" />
+            <element signature="e#13307#13506#0" />
+            <element signature="e#13508#13563#0" />
+            <element signature="e#13675#13727#0" />
+            <element signature="e#14669#14943#0" />
+            <element signature="e#15909#16169#0" />
+            <element signature="e#16763#16836#0" />
+            <element signature="e#17368#17441#0" />
+            <element signature="e#17698#17995#0" />
+            <element signature="e#18381#18868#0" />
+            <element signature="e#18978#19040#0" />
+            <element signature="e#19169#19361#0" />
+            <element signature="e#19786#19838#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/accounts/keystore/keystore.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="297">
+          <caret line="300" column="20" selection-start-line="300" selection-start-column="20" selection-end-line="300" selection-end-column="20" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/accounts/accounts.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="297">
+          <caret line="116" column="4" selection-start-line="116" selection-start-column="4" selection-end-line="116" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/types/transaction_signing.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="289">
+          <caret line="203" column="22" selection-start-line="203" selection-start-column="22" selection-end-line="203" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/types/transactionInterface.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="209">
+          <caret line="14" column="29" selection-start-line="14" selection-start-column="29" selection-end-line="14" selection-end-column="29" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/internal/manapi/backend.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="817">
+          <caret line="59" column="4" selection-start-line="59" selection-start-column="4" selection-end-line="59" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/accounts/signhelper/sign_helper.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="376">
+          <caret line="131" selection-start-line="131" selection-end-line="131" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/accounts/keystore/keystore_wallet.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="278">
+          <caret line="122" column="72" lean-forward="true" selection-start-line="122" selection-start-column="72" selection-end-line="122" selection-end-column="72" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/types/transactionBroad.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="228">
+          <caret line="123" column="34" selection-start-line="123" selection-start-column="34" selection-end-line="123" selection-end-column="34" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/p2p/discover/node.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="223">
+          <caret line="214" column="5" selection-start-line="214" selection-start-column="5" selection-end-line="214" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ca/ca.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="215">
+          <caret line="291" column="5" selection-start-line="291" selection-start-column="5" selection-end-line="291" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/p2p/linker.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="487">
+          <caret line="264" column="5" selection-start-line="264" selection-start-column="5" selection-end-line="264" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/blockchain.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1070">
+          <caret line="1591" column="71" selection-start-line="1591" selection-start-column="60" selection-end-line="1591" selection-end-column="71" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/state_transition.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="608">
+          <caret line="185" column="36" selection-start-line="185" selection-start-column="20" selection-end-line="185" selection-end-column="36" />
+          <folding>
+            <element signature="n#!!block;n#UseGas#0" />
+            <element signature="n#!!block;n#BuyGas#0" />
+            <element signature="n#!!block;n#PreCheck#0" />
+            <element signature="n#!!block;n#RefundGas#0" />
+            <element signature="n#!!block;n#GasUsed#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/matrixwork/work.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="498">
+          <caret line="195" lean-forward="true" selection-start-line="195" selection-end-line="195" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/blkgenor/blockgenor.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="625">
+          <caret line="243" column="19" lean-forward="true" selection-start-line="243" selection-start-column="19" selection-end-line="243" selection-end-column="19" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/blkgenor/process.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5100">
+          <caret line="218" column="26" selection-start-line="218" selection-start-column="26" selection-end-line="218" selection-end-column="26" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/blkgenor/process_block.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4750">
+          <caret line="200" column="25" selection-start-line="200" selection-start-column="25" selection-end-line="200" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/types/block.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="7325">
+          <caret line="308" column="31" selection-start-line="308" selection-start-column="26" selection-end-line="308" selection-end-column="35" />
+          <folding>
+            <element signature="e#266#590#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/types/derive_sha.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="350">
+          <caret line="20" column="5" selection-start-line="20" selection-start-column="5" selection-end-line="20" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/common/broadcast.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="250">
+          <caret line="10" column="5" selection-start-line="10" selection-start-column="5" selection-end-line="10" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/blkgenor/process_header.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1575">
+          <caret line="76" column="18" selection-start-line="76" selection-start-column="18" selection-end-line="76" selection-end-column="18" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/tx_pool_broad.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5225">
+          <caret line="383" column="5" selection-start-line="383" selection-start-column="5" selection-end-line="383" selection-end-column="5" />
+          <folding>
+            <element signature="n#!!block;n#SetBroadcastTxs#0" />
+            <element signature="n#!!block;n#filter#0" />
+            <element signature="n#!!block;n#GetBroadcastTxs#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/broadcastTx/broadcast.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2150">
+          <caret line="100" column="22" selection-start-line="100" selection-start-column="22" selection-end-line="100" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/rlp/typecache.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1125">
+          <caret line="50" column="5" selection-start-line="50" selection-start-column="5" selection-end-line="50" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/rlp/decode.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="169">
+          <caret line="466" column="73" lean-forward="true" selection-start-line="466" selection-start-column="73" selection-end-line="466" selection-end-column="73" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/state/state_object.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="226">
+          <caret line="98" column="4" selection-start-line="98" selection-start-column="4" selection-end-line="98" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/common/types.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="346">
+          <caret line="41" lean-forward="true" selection-start-line="41" selection-end-line="41" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/state_processor.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="289">
+          <caret line="54" column="13" selection-start-line="54" selection-start-column="13" selection-end-line="54" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/chain_makers.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="365">
+          <caret line="185" column="22" selection-start-line="185" selection-start-column="22" selection-end-line="185" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/state/statedb.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="207">
+          <caret line="180" column="21" selection-start-line="180" selection-start-column="21" selection-end-line="180" selection-end-column="21" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/consensus/misc/dao.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="332">
+          <caret line="67" column="6" selection-start-line="67" selection-start-column="6" selection-end-line="67" selection-end-column="6" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/consensus/manash/consensus.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="235">
+          <caret line="547" column="21" selection-start-line="547" selection-start-column="21" selection-end-line="547" selection-end-column="21" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/tx_pool_test.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="215">
+          <caret line="1773" column="22" selection-start-line="1773" selection-start-column="22" selection-end-line="1773" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/vm/interface.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="215">
+          <caret line="20" column="4" selection-start-line="20" selection-start-column="4" selection-end-line="20" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Go/src/math/big/int.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="207">
+          <caret line="30" column="14" selection-start-line="30" selection-start-column="14" selection-end-line="30" selection-end-column="14" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/vm/gas_table.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="247">
+          <caret line="391" column="27" selection-start-line="391" selection-start-column="27" selection-end-line="391" selection-end-column="27" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/man/tracers/tracers.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="21">
+          <caret line="7" lean-forward="true" selection-start-line="7" selection-end-line="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/man/tracers/tracer.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="12">
+          <caret line="170" lean-forward="true" selection-start-line="170" selection-end-line="170" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/man/api_backend.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="41">
+          <caret line="117" column="5" selection-start-line="117" selection-start-column="5" selection-end-line="117" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/internal/manapi/api.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="42">
+          <caret line="488" column="34" selection-start-line="488" selection-start-column="34" selection-end-line="488" selection-end-column="34" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/state/dump.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="215">
+          <caret line="45" column="24" selection-start-line="45" selection-start-column="24" selection-end-line="45" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/state/journal.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="250">
+          <caret line="10" lean-forward="true" selection-start-line="10" selection-end-line="10" />
+          <folding>
+            <element signature="e#200#261#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/tx_pool.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="351">
+          <caret line="592" lean-forward="true" selection-start-line="592" selection-end-line="592" />
+          <folding>
+            <element signature="e#15984#16338#0" />
+            <element signature="e#16379#17465#0" />
+            <element signature="e#18515#18744#0" />
+            <element signature="e#18950#19007#0" />
+            <element signature="e#19132#19207#0" />
+            <element signature="e#21296#21570#0" />
+            <element signature="e#21680#22511#0" />
+            <element signature="e#22691#24983#0" />
+            <element signature="e#25100#26316#0" />
+            <element signature="e#26412#26995#0" />
+            <element signature="e#27130#29396#0" />
+            <element signature="e#31645#32444#0" />
+            <element signature="e#32525#32716#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+</project>

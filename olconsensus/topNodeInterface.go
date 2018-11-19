@@ -10,8 +10,6 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/log"
 )
 
 type OnlineState uint8
@@ -34,8 +32,7 @@ func (o OnlineState) String() string {
 
 type NodeOnLineInfo struct {
 	Address     common.Address
-	Role        common.RoleType
-	OnlineState []uint8
+	OnlineState [30]uint8
 }
 
 type TopNodeStateInterface interface {
@@ -70,20 +67,7 @@ func NewTopNodeInstance(sh *signhelper.SignHelper, hd *msgsend.HD) *TopNodeInsta
 }
 
 func (self *TopNodeInstance) GetTopNodeOnlineState() []NodeOnLineInfo {
-	onlineStat := make([]NodeOnLineInfo, 0)
-	//调用p2p的接口获取节点在线状态
-	result := p2p.GetTopNodeAliveInfo(common.RoleValidator | common.RoleBackupValidator)
-	for _, value := range result {
-		state := NodeOnLineInfo{
-			Address:     value.Account,
-			Role:        value.Type,
-			OnlineState: value.Heartbeats,
-		}
-		onlineStat = append(onlineStat, state)
-		log.Info("获取在线状态", "node", value.Account, "心跳", value.Heartbeats)
-	}
-
-	return onlineStat
+	return nil
 }
 
 func (self *TopNodeInstance) SignWithValidate(hash []byte, validate bool) (sig common.Signature, err error) {

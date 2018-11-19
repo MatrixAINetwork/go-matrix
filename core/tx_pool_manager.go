@@ -1,23 +1,17 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"sync"
 
-	"github.com/matrix/go-matrix/p2p"
-
-	"github.com/syndtr/goleveldb/leveldb"
-
-	"time"
-
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/ca"
+	"time"
 )
 
 var (
@@ -25,17 +19,16 @@ var (
 	ErrTxPoolIsNil        = errors.New("txpool is nil")
 	ErrTxPoolNonexistent  = errors.New("txpool nonexistent")
 )
-
 //YY
 type RetChan struct {
 	//Rxs   []types.SelfTransaction
 	AllTxs []*RetCallTx
-	Err    error
-	Resqe  int
+	Err   error
+	Resqe int
 }
 type RetChan_txpool struct {
-	Rxs  []types.SelfTransaction
-	Err  error
+	Rxs   []types.SelfTransaction
+	Err   error
 	Tx_t common.TxTypeInt
 }
 type byteNumber struct {
@@ -62,6 +55,7 @@ func (b3 *byteNumber) catNumber() uint32 {
 var byte3Number = &byteNumber{maxNum: 0x1ffff, num: 0}
 var byte4Number = &byteNumber{maxNum: 0x1ffffff, num: 0}
 
+
 // TxPoolManager
 type TxPoolManager struct {
 	txPoolsMutex sync.RWMutex
@@ -83,7 +77,6 @@ func NewTxPoolManager(config TxPoolConfig, chainconfig *params.ChainConfig, chai
 		addPool:      make(chan TxPool),
 		delPool:      make(chan TxPool),
 	}
-	ldb, _ = leveldb.OpenFile(path+"./broadcastdb", nil)
 	go txPoolManager.loop(config, chainconfig, chain, path)
 	return txPoolManager
 }
@@ -188,13 +181,13 @@ func (pm *TxPoolManager) Pending() (map[common.Address]types.SelfTransactions, e
 	pm.txPoolsMutex.Lock()
 	defer pm.txPoolsMutex.Unlock()
 	txser := make(map[common.Address]types.SelfTransactions)
-	for _, txpool := range pm.txPools {
-		txmap, _ := txpool.Pending()
-		for addr, txs := range txmap {
-			if txlist, ok := txser[addr]; ok {
+	for _,txpool := range pm.txPools{
+		txmap,_ := txpool.Pending()
+		for addr,txs:=range txmap{
+			if txlist,ok:=txser[addr];ok{
 				txlist = append(txlist, txs...)
 				txser[addr] = txlist
-			} else {
+			}else {
 				txser[addr] = txs
 			}
 		}
@@ -253,42 +246,6 @@ func (pm *TxPoolManager) ProcessMsg(m NetworkMsgData) {
 	}
 }
 
-// SendMsg
-func (pm *TxPoolManager) SendMsg(data MsgStruct) {
-	if data.Msgtype == BroadCast {
-		p2p.SendToSingle(data.NodeId, common.NetworkMsg, []interface{}{data})
-	}
-}
-
-// AddBroadTx add broadcast transaction.
-func (pm *TxPoolManager) AddBroadTx(tx types.SelfTransaction, bType bool) (err error) {
-	pool, ok := pm.txPools[types.BroadCastTxIndex]
-	if !ok {
-		txMx := types.GetTransactionMx(tx)
-		if txMx == nil {
-			// If it is nil, it may be because the assertion failed.
-			log.Error("Broad txpool", "AddBroadTx() txMx is nil", tx)
-
-			return errors.New("tx is nil or txMx assertion failed")
-		}
-		msData, err := json.Marshal(txMx)
-		if err != nil {
-			return err
-		}
-		bids := ca.GetRolesByGroup(common.RoleBroadcast)
-		for _, bid := range bids {
-			pm.SendMsg(MsgStruct{Msgtype: BroadCast, NodeId: bid, MsgData: msData, TxpoolType: types.BroadCastTxIndex})
-		}
-		return nil
-	}
-	if bType {
-		if err := pool.AddTxPool(tx); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // GetTxPoolByType get txpool by given type from manager.
 func (pm *TxPoolManager) GetTxPoolByType(tp common.TxTypeInt) (txPool TxPool, err error) {
 	pm.txPoolsMutex.RLock()
@@ -303,27 +260,27 @@ func (pm *TxPoolManager) GetTxPoolByType(tp common.TxTypeInt) (txPool TxPool, er
 func (pm *TxPoolManager) ReturnAllTxsByN(listretctx []*common.RetCallTxN, resqe int, addr common.Address, retch chan *RetChan) {
 	pm.txPoolsMutex.RLock()
 	defer pm.txPoolsMutex.RUnlock()
-	if len(listretctx) <= 0 {
+	if len(listretctx) <= 0{
 		retch <- &RetChan{nil, nil, resqe}
 		return
 	}
 	txAcquireCh := make(chan *RetChan_txpool, len(listretctx))
-	for _, retctx := range listretctx {
+	for _,retctx := range listretctx{
 		go pm.txPools[retctx.TXt].ReturnAllTxsByN(retctx.ListN, retctx.TXt, addr, txAcquireCh)
 	}
-	timeOut := time.NewTimer(5 * time.Second)
-	allTxs := make([]*RetCallTx, 0)
+	timeOut := time.NewTimer(5*time.Second)
+	allTxs := make([]*RetCallTx,0)
 	for {
 		select {
-		case txch := <-txAcquireCh:
-			if txch.Err != nil {
+		case txch := <- txAcquireCh:
+			if txch.Err != nil{
 				log.Info("File txpoolManager", "ReturnAllTxsByN:loss tx=", 0)
 				txerr := errors.New("File txpoolManager loss tx")
 				retch <- &RetChan{nil, txerr, resqe}
 				return
 			}
-			allTxs = append(allTxs, &RetCallTx{txch.Tx_t, txch.Rxs})
-			if len(allTxs) == len(listretctx) {
+			allTxs = append(allTxs,&RetCallTx{txch.Tx_t,txch.Rxs})
+			if len(allTxs) == len(listretctx){
 				retch <- &RetChan{allTxs, nil, resqe}
 				return
 			}
@@ -352,6 +309,6 @@ func (pm *TxPoolManager) GetAllSpecialTxs() (reqVal map[common.Address][]types.S
 	return
 }
 
-func (pm *TxPoolManager) Stats() (int, int) {
+func (pm *TxPoolManager)Stats()(int,int)  {
 	return 0, 0
 }

@@ -1,29 +1,18 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
 
 import (
-	"github.com/matrix/go-matrix/log"
-	"math/big"
-	"sort"
 	"testing"
 	"time"
-)
 
-func TestSliceSort(t *testing.T) {
-	log.InitLog(3)
-	testSlice := make([]*big.Int, 0)
-	testSlice = append(testSlice, big.NewInt(10), big.NewInt(-1), big.NewInt(22), big.NewInt(6))
-	log.INFO("before sort", "slice", testSlice)
-	sort.Slice(testSlice, func(i, j int) bool {
-		return testSlice[i].Cmp(testSlice[j]) > 0
-	})
-	log.INFO("after sort", "slice", testSlice)
-}
+	"github.com/matrix/go-matrix/log"
+)
 
 func TestTimer(t *testing.T) {
 	log.InitLog(3)
+
 	recvCh := make(chan struct{})
 	go TimerRunning(t, recvCh)
 
@@ -43,10 +32,6 @@ func TimerRunning(t *testing.T, recv chan struct{}) {
 			log.Info("停止定时器")
 			result := timer.Reset(10 * time.Second)
 			log.Info("重置定时器", "结果", result)
-			if result == false {
-				<-timer.C
-			}
-
 		case <-timer.C:
 			log.Info("超时了!!!")
 		}

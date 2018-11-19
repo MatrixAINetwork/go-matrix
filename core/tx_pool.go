@@ -69,8 +69,6 @@ var (
 
 	//YY
 	ErrTXCountOverflow = errors.New("transaction quantity spillover")
-	ErrTXToNil         = errors.New("transaction`s to(common.address) is nil")
-	ErrTXUnknownType   = errors.New("Unknown extra txtype")
 	ErrTxToRepeat      = errors.New("contains duplicate transfer accounts")
 	ErrTXWrongful      = errors.New("transaction is unlawful")
 	ErrTXPoolFull      = errors.New("txpool is full")
@@ -172,7 +170,7 @@ type TxPoolConfig struct {
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultTxPoolConfig = TxPoolConfig{
-	PriceLimit:   params.TxGasPrice, //YY 2018-08-29 由1改为此值
+	PriceLimit:   18000000000, //YY 2018-08-29 由1改为此值
 	AccountSlots: 16,
 	GlobalSlots:  4096 * 5 * 5 * 10, //YY 2018-08-30 改为乘以5
 	AccountQueue: 64 * 1000,
