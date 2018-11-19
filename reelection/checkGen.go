@@ -6,37 +6,38 @@ package reelection
 import (
 	"github.com/matrix/go-matrix/common"
 
-	"github.com/matrix/go-matrix/params/man"
 	"github.com/matrix/go-matrix/log"
 )
 
-func (self *ReElection)boolTopStatus(height uint64,types common.RoleType)bool{
-	if _,_,err:=self.readElectData(types,height);err!=nil{
+func (self *ReElection)boolTopStatus(hash common.Hash,types common.RoleType)bool{
+	if _,_,err:=self.readElectData(types,hash);err!=nil{
 		return false
 	}
 	return true
 }
-func (self *ReElection)checkTopGenStatus(height uint64)error{
+func (self *ReElection)checkTopGenStatus(hash common.Hash)error{
+	height,err:=self.GetNumberByHash(hash)
+	if err!=nil{
+		return err
+	}
 
-	if ok:=self.boolTopStatus(common.GetNextReElectionNumber(height),common.RoleMiner);ok==false{
-		log.Warn(Module,"height re-caculation needed for miner topology",height)
+	if ok:=self.boolTopStatus(hash,common.RoleMiner);ok==false{
+		log.Warn(Module,"矿工拓扑图需要重新算 hash",hash.String())
 		if height==0{
 			return nil
 		}
-		ReElectionHeight:=common.GetNextReElectionNumber(height)
-		 if err:=self.ToGenMinerTop(ReElectionHeight - man.MinerTopologyGenerateUpTime);err!=nil{
+		 if err:=self.ToGenMinerTop(hash);err!=nil{
 		 	return err
 		 }
 
 	}
 
-	if ok:=self.boolTopStatus(common.GetNextReElectionNumber(height),common.RoleValidator);ok==false{
-		log.Warn(Module,"height re-caculation needed for validator topology",height)
+	if ok:=self.boolTopStatus(hash,common.RoleValidator);ok==false{
+		log.Warn(Module,"验证者拓扑图需要重新算 高度",height)
 		if height==0{
 			return nil
 		}
-		ReElectionHeight:=common.GetNextReElectionNumber(height)
-		if err:=self.ToGenValidatorTop(ReElectionHeight-man.VerifyTopologyGenerateUpTime);err!=nil{
+		if err:=self.ToGenValidatorTop(hash);err!=nil{
 			return err
 		}
 	}
