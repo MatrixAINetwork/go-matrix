@@ -70,11 +70,11 @@ func (self *ReElection) HandleTopGen(height uint64) error {
 		}
 	}
 
-	if IsValidatorTopGenTiming(height) { //验证者生成时间 260
-		log.INFO(Module, "是驗證者拓撲生成時間點 height", height)
+	if IsValidatorTopGenTiming(height) { //validator generation time 260
+		log.INFO(Module, "is validator topology generation time height", height)
 		err = self.ToGenValidatorTop(height)
 		if err != nil {
-			log.ERROR(Module, "驗證者拓撲生成時間點錯誤 err", err)
+			log.ERROR(Module, "validator topology generation time err", err)
 		}
 	}
 
@@ -96,12 +96,12 @@ func (self *ReElection) UpdateNative(height uint64, allNative AllNative) error {
 	}
 
 	err=self.writeNativeData(height, allNative)
-	log.INFO(Module,"更新初选列表阶段","写初选列表到数据库","高度",height,"err",err)
+	log.INFO(Module,"update initial election list","write initial election list to db","height",height,"err",err)
 	return err
 
 }
 */
-//是不是矿工拓扑生成时间段
+//is miner topology generation time or not
 func IsMinerTopGenTiming(height uint64) bool {
 
 	now := height % common.GetReElectionInterval()
@@ -111,7 +111,7 @@ func IsMinerTopGenTiming(height uint64) bool {
 	return false
 }
 
-//是不是验证者拓扑生成时间段
+//is validator topology generation time or not
 func IsValidatorTopGenTiming(height uint64) bool {
 
 	now := height % common.GetReElectionInterval()
