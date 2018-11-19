@@ -24,7 +24,7 @@ var (
 )
 
 func (p *Process) verifyElection(header *types.Header) error {
-	info, err := p.reElection().GetElection(p.number)
+	info, err := p.reElection().GetElection(header.ParentHash)
 	if err != nil {
 		return errGetElection
 	}
@@ -55,7 +55,7 @@ func (p *Process) verifyNetTopology(header *types.Header) error {
 }
 
 func (p *Process) verifyAllNetTopology(header *types.Header) error {
-	info, err := p.reElection().GetNetTopologyAll(header.Number.Uint64())
+	info, err := p.reElection().GetNetTopologyAll(header.ParentHash)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (p *Process) verifyChgNetTopology(header *types.Header) error {
 	}
 
 	// get prev topology
-	prevTopology, err := ca.GetTopologyByNumber(common.RoleValidator|common.RoleBackupValidator|common.RoleMiner|common.RoleBackupMiner, p.number-1)
+	prevTopology, err := ca.GetTopologyByHash(common.RoleValidator|common.RoleBackupValidator|common.RoleMiner|common.RoleBackupMiner, header.ParentHash)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (p *Process) verifyChgNetTopology(header *types.Header) error {
 	}
 
 	// generate topology alter info
-	alterInfo, err := p.reElection().GetTopoChange(p.number, offlineTopNodes)
+	alterInfo, err := p.reElection().GetTopoChange(header.ParentHash, offlineTopNodes)
 	if err != nil {
 		return err
 	}
