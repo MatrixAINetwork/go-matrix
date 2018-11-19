@@ -1,13 +1,11 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package matrixwork
 
 import (
 	"encoding/json"
 	"errors"
-	"github.com/matrix/go-matrix/params"
 	"math/big"
 	"time"
 
@@ -22,10 +20,10 @@ import (
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params/man"
+	"github.com/matrix/go-matrix/params"
 )
 
-var packagename = "matrixwork"
+var packagename string = "matrixwork"
 
 // Work is the workers current environment and holds
 // all of the current state information
@@ -86,7 +84,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			break
 		}
 
-		if tx.N == nil {
+		if tx.N == nil{
 			log.Info("===========tx.N is nil")
 			txs.Pop()
 			continue
@@ -95,7 +93,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		// during transaction acceptance is the transaction pool.
 		//
 		// We use the eip155 signer regardless of the current hf.
-		from, _ := types.Sender(env.signer, tx)
+		from, _ := tx.GetTxFrom()
+
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !env.config.IsEIP155(env.header.Number) {
@@ -170,7 +169,7 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
-		log.Info("*************", "ApplyTransaction:err", err)
+		log.Info("*************","ApplyTransaction:err",err)
 		env.State.RevertToSnapshot(snap)
 		return err, nil
 	}
@@ -216,10 +215,10 @@ func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPool, bc *c
 	//	return nil, nil
 	//}
 
-	pending, err := tp.Pending()
+	pending, err :=  tp.Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
-		return nil, nil
+		return nil,nil
 	}
 	log.INFO("===========", "ProcessTransactions:pending:", len(pending))
 	txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
@@ -307,7 +306,7 @@ func (env *Work) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 
 	upTimeAccounts := make([]common.Address, 0)
 
-	minerNum := num - (num % common.GetBroadcastInterval()) - man.MinerTopologyGenerateUpTime
+	minerNum := num - (num % common.GetBroadcastInterval()) - params.MinerTopologyGenerateUptime
 	log.INFO(packagename, "candidate miners' uptime height", minerNum)
 	ans, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(minerNum)), common.RoleMiner)
 	if err != nil {
@@ -319,8 +318,8 @@ func (env *Work) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
 		log.INFO("v.Address", "v.Address", v.Address)
 	}
-	validatorNum := num - (num % common.GetBroadcastInterval()) - man.VerifyTopologyGenerateUpTime
-	log.INFO(packagename, "参选验证节点uptime高度", validatorNum)
+	validatorNum := num - (num % common.GetBroadcastInterval()) - params.VerifyTopologyGenerateUpTime
+	log.INFO(packagename, "candidate validators' uptime height", validatorNum)
 	ans1, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(validatorNum)), common.RoleValidator)
 	if err != nil {
 		return upTimeAccounts, err
@@ -338,13 +337,13 @@ func (env *Work) GetUpTimeData(num uint64) (map[common.Address]uint32, map[commo
 	log.INFO(packagename, "obtain all heartbeat transactions", "")
 	heatBeatUnmarshallMMap, error := core.GetBroadcastTxs(new(big.Int).SetUint64(num), mc.Heartbeat)
 	if nil != error {
-		log.ERROR(packagename, "获取主动心跳交易错误", error)
+		log.ERROR(packagename, "obtain all active heartbeat transactions errors", error)
 		return nil, nil, error
 	}
 
 	calltherollUnmarshall, error := core.GetBroadcastTxs(new(big.Int).SetUint64(num), mc.CallTheRoll)
 	if nil != error {
-		log.ERROR(packagename, "获取点名心跳交易错误", error)
+		log.ERROR(packagename, "obtain all roll-call heartbeat transaction errors", error)
 		return nil, nil, error
 	}
 	calltherollMap := make(map[common.Address]uint32, 0)
