@@ -39,7 +39,7 @@ const (
 type HeaderChain struct {
 	config *params.ChainConfig
 
-	chainDb       mandb.Database
+	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
@@ -61,7 +61,7 @@ type HeaderChain struct {
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -521,7 +521,7 @@ func (hc *HeaderChain) GetAncestorHash(sonHash common.Hash, ancestorNumber uint6
 	if sonHeader == nil {
 		return common.Hash{}, errors.Errorf("son header(%s) is not exist", sonHash)
 	}
-	if sonHeader.Number.Uint64() >= ancestorNumber {
+	if sonHeader.Number.Uint64() <= ancestorNumber {
 		return common.Hash{}, errors.Errorf("son header number(%d) is less then ancestor number(%d)", sonHeader.Number.Uint64(), ancestorNumber)
 	}
 
