@@ -1,29 +1,14 @@
-//1542516337.217921
-//1542516313.2800055
-//1542516251.1307955
-//1542516226.914763
-//1542516151.2990832
-//1542515509.2182508
-//1542515464.2608385
-//1542515446.0821104
-//1542515410.504039
-//1542515361.8037696
-//1542515335.3117235
-//1542514630.8462691
-//1542514594.910711
-//1542514561.3396022
-//1542514530.1808167
-//1542514456.3677745
-//1542514424.5079448
-//1542514388.0909204
-//1542513640.3629386
-//1542513597.535735
-//1542513561.440376
-//1542513529.9524665
-//1542513456.6925194
-// Copyright (c) 2018?The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
+
+// Package discover implements the Node Discovery Protocol.
+//
+// The Node Discovery protocol provides a way to find RLPx nodes that
+// can be connected to. It uses a Kademlia-like protocol to maintain a
+// distributed database of the IDs and endpoints of all listening
+// nodes.
 package discover
 
 import (

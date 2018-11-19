@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 package p2p
 
 import (
@@ -24,7 +25,7 @@ type Bucket struct {
 	bucket map[int64][]discover.NodeID
 
 	rings *ring.Ring
-	lock  *sync.RWMutex
+	lock  sync.RWMutex
 
 	ids []discover.NodeID
 
@@ -39,7 +40,6 @@ type Bucket struct {
 // Init bucket.
 var Buckets = &Bucket{
 	role:  common.RoleNil,
-	lock:  new(sync.RWMutex),
 	ids:   make([]discover.NodeID, 0),
 	quit:  make(chan struct{}),
 	rings: ring.New(4),
@@ -317,7 +317,7 @@ func (b *Bucket) inner(num int, bucket int64) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, 30303, 30303)
+		node := discover.NewNode(value, nil, defaultPort, defaultPort)
 		ServerP2p.AddPeer(node)
 	}
 }
@@ -331,7 +331,7 @@ func (b *Bucket) outer(num int, ids []discover.NodeID) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, 30303, 30303)
+		node := discover.NewNode(value, nil, defaultPort, defaultPort)
 		ServerP2p.AddPeer(node)
 	}
 }

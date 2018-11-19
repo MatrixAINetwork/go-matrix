@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package core
 
@@ -35,7 +36,7 @@ type BlockGen struct {
 	statedb     *state.StateDB
 
 	gasPool  *GasPool
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	receipts []*types.Receipt
 	uncles   []*types.Header
 
@@ -250,7 +251,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *B
 	)
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, params.AllManashProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil

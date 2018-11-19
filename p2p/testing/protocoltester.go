@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 /*
 the p2p/testing package provides a unit test scheme to check simple
@@ -21,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/p2p/simulations"

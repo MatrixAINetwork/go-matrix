@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package rpc_test
 
@@ -54,7 +55,7 @@ func subscribeBlocks(client *rpc.Client, subch chan Block) {
 	defer cancel()
 
 	// Subscribe to new blocks.
-	sub, err := client.EthSubscribe(ctx, subch, "newBlocks")
+	sub, err := client.ManSubscribe(ctx, subch, "newBlocks")
 	if err != nil {
 		fmt.Println("subscribe error:", err)
 		return

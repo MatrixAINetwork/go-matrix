@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package bind
 
@@ -429,11 +430,11 @@ import org.matrix.gman.internal.*;
 
 			// deploy deploys a new Matrix contract, binding an instance of {{.Type}} to it.
 			public static {{.Type}} deploy(TransactOpts auth, MatrixClient client{{range .Constructor.Inputs}}, {{bindtype .Type}} {{.Name}}{{end}}) throws Exception {
-				Interfaces args = Geth.newInterfaces({{(len .Constructor.Inputs)}});
+				Interfaces args = Gman.newInterfaces({{(len .Constructor.Inputs)}});
 				{{range $index, $element := .Constructor.Inputs}}
-				  args.set({{$index}}, Geth.newInterface()); args.get({{$index}}).set{{namedtype (bindtype .Type) .Type}}({{.Name}});
+				  args.set({{$index}}, Gman.newInterface()); args.get({{$index}}).set{{namedtype (bindtype .Type) .Type}}({{.Name}});
 				{{end}}
-				return new {{.Type}}(Geth.deployContract(auth, ABI, BYTECODE, client, args));
+				return new {{.Type}}(Gman.deployContract(auth, ABI, BYTECODE, client, args));
 			}
 
 			// Internal constructor used by contract deployment.
@@ -455,7 +456,7 @@ import org.matrix.gman.internal.*;
 
 		// Creates a new instance of {{.Type}}, bound to a specific deployed contract.
 		public {{.Type}}(Address address, MatrixClient client) throws Exception {
-			this(Geth.bindContract(address, ABI, client));
+			this(Gman.bindContract(address, ABI, client));
 		}
 
 		{{range .Calls}}
@@ -471,16 +472,16 @@ import org.matrix.gman.internal.*;
 			//
 			// Solidity: {{.Original.String}}
 			public {{if gt (len .Normalized.Outputs) 1}}{{capitalise .Normalized.Name}}Results{{else}}{{range .Normalized.Outputs}}{{bindtype .Type}}{{end}}{{end}} {{.Normalized.Name}}(CallOpts opts{{range .Normalized.Inputs}}, {{bindtype .Type}} {{.Name}}{{end}}) throws Exception {
-				Interfaces args = Geth.newInterfaces({{(len .Normalized.Inputs)}});
-				{{range $index, $item := .Normalized.Inputs}}args.set({{$index}}, Geth.newInterface()); args.get({{$index}}).set{{namedtype (bindtype .Type) .Type}}({{.Name}});
+				Interfaces args = Gman.newInterfaces({{(len .Normalized.Inputs)}});
+				{{range $index, $item := .Normalized.Inputs}}args.set({{$index}}, Gman.newInterface()); args.get({{$index}}).set{{namedtype (bindtype .Type) .Type}}({{.Name}});
 				{{end}}
 
-				Interfaces results = Geth.newInterfaces({{(len .Normalized.Outputs)}});
-				{{range $index, $item := .Normalized.Outputs}}Interface result{{$index}} = Geth.newInterface(); result{{$index}}.setDefault{{namedtype (bindtype .Type) .Type}}(); results.set({{$index}}, result{{$index}});
+				Interfaces results = Gman.newInterfaces({{(len .Normalized.Outputs)}});
+				{{range $index, $item := .Normalized.Outputs}}Interface result{{$index}} = Gman.newInterface(); result{{$index}}.setDefault{{namedtype (bindtype .Type) .Type}}(); results.set({{$index}}, result{{$index}});
 				{{end}}
 
 				if (opts == null) {
-					opts = Geth.newCallOpts();
+					opts = Gman.newCallOpts();
 				}
 				this.Contract.call(opts, results, "{{.Original.Name}}", args);
 				{{if gt (len .Normalized.Outputs) 1}}
@@ -498,8 +499,8 @@ import org.matrix.gman.internal.*;
 			//
 			// Solidity: {{.Original.String}}
 			public Transaction {{.Normalized.Name}}(TransactOpts opts{{range .Normalized.Inputs}}, {{bindtype .Type}} {{.Name}}{{end}}) throws Exception {
-				Interfaces args = Geth.newInterfaces({{(len .Normalized.Inputs)}});
-				{{range $index, $item := .Normalized.Inputs}}args.set({{$index}}, Geth.newInterface()); args.get({{$index}}).set{{namedtype (bindtype .Type) .Type}}({{.Name}});
+				Interfaces args = Gman.newInterfaces({{(len .Normalized.Inputs)}});
+				{{range $index, $item := .Normalized.Inputs}}args.set({{$index}}, Gman.newInterface()); args.get({{$index}}).set{{namedtype (bindtype .Type) .Type}}({{.Name}});
 				{{end}}
 
 				return this.Contract.transact(opts, "{{.Original.Name}}"	, args);

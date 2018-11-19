@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package params
 
@@ -29,7 +30,7 @@ var (
 		EIP158Block:         big.NewInt(2675000),
 		ByzantiumBlock:      big.NewInt(4370000),
 		ConstantinopleBlock: nil,
-		manash:              new(manashConfig),
+		Manash:              new(ManashConfig),
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -44,7 +45,7 @@ var (
 		EIP158Block:         big.NewInt(10),
 		ByzantiumBlock:      big.NewInt(1700000),
 		ConstantinopleBlock: nil,
-		manash:              new(manashConfig),
+		Manash:              new(ManashConfig),
 	}
 
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
@@ -65,21 +66,21 @@ var (
 		},
 	}
 
-	// AllmanashProtocolChanges contains every protocol change (EIPs) introduced
-	// and accepted by the matrix core developers into the manash consensus.
+	// AllManashProtocolChanges contains every protocol change (EIPs) introduced
+	// and accepted by the Matrix core developers into the Manash consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllmanashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(manashConfig), nil}
+	AllManashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(ManashConfig), nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
-	// and accepted by the matrix core developers into the Clique consensus.
+	// and accepted by the Matrix core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(manashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(ManashConfig), nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -107,15 +108,15 @@ type ChainConfig struct {
 	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
-	manash *manashConfig `json:"manash,omitempty"`
+	Manash *ManashConfig `json:"manash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
 }
 
-// manashConfig is the consensus engine configs for proof-of-work based sealing.
-type manashConfig struct{}
+// ManashConfig is the consensus engine configs for proof-of-work based sealing.
+type ManashConfig struct{}
 
 // String implements the stringer interface, returning the consensus engine details.
-func (c *manashConfig) String() string {
+func (c *ManashConfig) String() string {
 	return "manash"
 }
 
@@ -134,8 +135,8 @@ func (c *CliqueConfig) String() string {
 func (c *ChainConfig) String() string {
 	var engine interface{}
 	switch {
-	case c.manash != nil:
-		engine = c.manash
+	case c.Manash != nil:
+		engine = c.Manash
 	case c.Clique != nil:
 		engine = c.Clique
 	default:

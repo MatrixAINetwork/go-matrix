@@ -1,15 +1,18 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package miner
 
 import (
-	"github.com/matrix/go-matrix/consensus"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/log"
 	"sync"
+
 	"sync/atomic"
+
+	"github.com/matrix/go-matrix/consensus"
+	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/core/types"
 )
 
 type CpuAgent struct {
@@ -44,7 +47,6 @@ func (self *CpuAgent) Stop() {
 	if !atomic.CompareAndSwapInt32(&self.isMining, 1, 0) {
 		return // agent already stopped
 	}
-
 	self.stop <- struct{}{}
 done:
 	// Empty work channel

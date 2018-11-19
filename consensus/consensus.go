@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 // Package consensus implements different Matrix consensus engines.
 package consensus
@@ -11,9 +12,9 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
+	"github.com/matrix/go-matrix/mc"
 )
 
 // ChainReader defines a small collection of methods needed to access the local
@@ -72,7 +73,7 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []types.SelfTransaction,
 		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new block for the given input block with the local miner's
@@ -111,9 +112,11 @@ type DPOSEngine interface {
 	//verify hash in given number block
 	VerifyHashWithBlock(reader ValidatorReader, signHash common.Hash, signs []common.Signature, blockHash common.Hash) ([]common.Signature, error)
 
-	//VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error)
 
 	VerifyHashWithVerifiedSigns(reader ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error)
 
 	VerifyHashWithVerifiedSignsAndBlock(reader ValidatorReader, signs []*common.VerifiedSign, blockHash common.Hash) ([]common.Signature, error)
+
+	//verify validators have enough stocks
+	VerifyStocksWithBlock(reader ValidatorReader, validators []common.Address, blockHash common.Hash) bool
 }

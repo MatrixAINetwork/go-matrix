@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package state
 
@@ -11,6 +12,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/trie"
+	"math/big"
 )
 
 type DumpAccount struct {
@@ -41,9 +43,17 @@ func (self *StateDB) RawDump() Dump {
 			panic(err)
 		}
 
+		tBalance := new(big.Int)
+		for _,tAccount := range data.Balance{
+			if tAccount.AccountType == common.MainAccount {
+				tBalance = tAccount.Balance
+				break
+			}
+		}
 		obj := newObject(nil, common.BytesToAddress(addr), data)
 		account := DumpAccount{
-			Balance:  data.Balance.String(),
+			//Balance:  data.Balance.String(),
+			Balance:  tBalance.String(),
 			Nonce:    data.Nonce,
 			Root:     common.Bytes2Hex(data.Root[:]),
 			CodeHash: common.Bytes2Hex(data.CodeHash),

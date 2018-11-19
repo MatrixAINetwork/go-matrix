@@ -1,55 +1,33 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package reelection
 
 import (
 	"errors"
 
+	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mc"
 )
 
-//todo
-func (self *ReElection) GetNetTopologyAll(height uint64) (*ElectReturnInfo, error) {
-	if common.IsReElectionNumber(height + 1) {
-		heightMiner := height + 1
-		if err:=self.checkTopGenStatus(heightMiner);err!=nil{
-			log.ERROR(Module,"error checking top generation err",err)
+func checkInDiff(diff common.NetTopology, add common.Address) bool {
+	for _, v := range diff.NetTopologyData {
+		if v.Account == add {
+			return true
 		}
-		ans, _, err := self.readElectData(common.RoleMiner, heightMiner)
-		if err != nil {
-			return nil, err
-		}
-
-		heightValidator := height + 1
-		if err:=self.checkTopGenStatus(heightValidator);err!=nil{
-			log.ERROR(Module,"error checking top generation",err)
-		}
-		_, ans1, err := self.readElectData(common.RoleValidator, heightValidator)
-		if err != nil {
-			return nil, err
-		}
-		result := &ElectReturnInfo{
-			MasterMiner:     ans.MasterMiner,
-			BackUpMiner:     ans.BackUpMiner,
-			MasterValidator: ans1.MasterValidator,
-			BackUpValidator: ans1.BackUpValidator,
-		}
-		return result, nil
-
 	}
-
-	result := &ElectReturnInfo{
-		MasterMiner:     make([]mc.TopologyNodeInfo, 0),
-		BackUpMiner:     make([]mc.TopologyNodeInfo, 0),
-		MasterValidator: make([]mc.TopologyNodeInfo, 0),
-		BackUpValidator: make([]mc.TopologyNodeInfo, 0),
-	}
-	return result, nil
+	return false
 }
-
+func checkInGraph(top *mc.TopologyGraph, pos uint16) common.Address {
+	for _, v := range top.NodeList {
+		if v.Position == pos {
+			return v.Account
+		}
+	}
+	return common.Address{}
+}
 func (self *ReElection) ParseTopNodeOffline(topologyChg common.NetTopology, prevTopology *mc.TopologyGraph) []common.Address {
 	if topologyChg.Type != common.NetTopoTypeChange {
 		return nil
@@ -131,7 +109,7 @@ func (self *ReElection) TransferToNetTopologyAllStu(info *ElectReturnInfo) *comm
 	srcMap[common.ElectRoleMinerBackUp] = info.BackUpMiner
 	srcMap[common.ElectRoleValidator] = info.MasterValidator
 	srcMap[common.ElectRoleValidatorBackUp] = info.BackUpValidator
-	orderIndex := []common.ElectRoleType{common.ElectRoleValidator, common.ElectRoleValidatorBackUp, common.ElectRoleMiner, common.ElectRoleMinerBackUp}
+	orderIndex := []common.ElectRoleType{common.ElectRoleMiner, common.ElectRoleMinerBackUp, common.ElectRoleValidator, common.ElectRoleValidatorBackUp}
 
 	for _, role := range orderIndex {
 		src := srcMap[role]
@@ -181,34 +159,62 @@ func (self *ReElection) TransferToNetTopologyChgStu(alterInfo []mc.Alternative,
 	return result
 }
 
-func (self *ReElection) paraseNetTopology(topo *common.NetTopology) ([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo, error) {
-	if topo.Type != common.NetTopoTypeAll {
-		return nil, nil, nil, nil, errors.New("Net Topology is not all data")
+//
+//func (self *ReElection) paraseNetTopology(topo *common.NetTopology) ([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo, error) {
+//	if topo.Type != common.NetTopoTypeAll {
+//		return nil, nil, nil, nil, errors.New("Net Topology is not all data")
+//	}
+//
+//	MasterMiner := make([]mc.TopologyNodeInfo, 0)
+//	BackUpMiner := make([]mc.TopologyNodeInfo, 0)
+//	MasterValidator := make([]mc.TopologyNodeInfo, 0)
+//	BackUpValidator := make([]mc.TopologyNodeInfo, 0)
+//
+//	for _, data := range topo.NetTopologyData {
+//		node := mc.TopologyNodeInfo{
+//			Account:  data.Account,
+//			Position: data.Position,
+//			Type:     common.GetRoleTypeFromPosition(data.Position),
+//			Stock:    0,
+//		}
+//
+//		switch node.Type {
+//		case common.RoleMiner:
+//			MasterMiner = append(MasterMiner, node)
+//		case common.RoleBackupMiner:
+//			BackUpMiner = append(BackUpMiner, node)
+//		case common.RoleValidator:
+//			MasterValidator = append(MasterValidator, node)
+//		case common.RoleBackupValidator:
+//			BackUpValidator = append(BackUpValidator, node)
+//		}
+//	}
+//	return MasterMiner, BackUpMiner, MasterValidator, BackUpValidator, nil
+//}
+
+func (self *ReElection) GetNumberByHash(hash common.Hash) (uint64, error) {
+	tHeader := self.bc.GetHeaderByHash(hash)
+	if tHeader == nil {
+		log.Error(Module, "GetNumberByHash 根据hash算header失败 hash", hash.String())
+		return 0, errors.New("根据hash算header失败")
 	}
-
-	MasterMiner := make([]mc.TopologyNodeInfo, 0)
-	BackUpMiner := make([]mc.TopologyNodeInfo, 0)
-	MasterValidator := make([]mc.TopologyNodeInfo, 0)
-	BackUpValidator := make([]mc.TopologyNodeInfo, 0)
-
-	for _, data := range topo.NetTopologyData {
-		node := mc.TopologyNodeInfo{
-			Account:  data.Account,
-			Position: data.Position,
-			Type:     common.GetRoleTypeFromPosition(data.Position),
-			Stock:    0,
-		}
-
-		switch node.Type {
-		case common.RoleMiner:
-			MasterMiner = append(MasterMiner, node)
-		case common.RoleBackupMiner:
-			BackUpMiner = append(BackUpMiner, node)
-		case common.RoleValidator:
-			MasterValidator = append(MasterValidator, node)
-		case common.RoleBackupValidator:
-			BackUpValidator = append(BackUpValidator, node)
-		}
+	if tHeader.Number == nil {
+		log.Error(Module, "GetNumberByHash header 内的高度获取失败", hash.String())
+		return 0, errors.New("header 内的高度获取失败")
 	}
-	return MasterMiner, BackUpMiner, MasterValidator, BackUpValidator, nil
+	return tHeader.Number.Uint64(), nil
+}
+
+func (self *ReElection) GetHeaderHashByNumber(hash common.Hash, height uint64) (common.Hash, error) {
+	AimHash, err := self.bc.GetAncestorHash(hash, height)
+	if err != nil {
+		log.Error(Module, "获取祖先hash失败 hash", hash.String(), "height", height, "err", err)
+		return common.Hash{}, err
+	}
+	return AimHash, nil
+}
+
+func GetCurrentTopology(hash common.Hash, reqtypes common.RoleType) (*mc.TopologyGraph, error) {
+	return ca.GetTopologyByHash(reqtypes, hash)
+	//return ca.GetTopologyByNumber(reqtypes, height)
 }

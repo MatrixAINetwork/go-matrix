@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package gasprice
 
@@ -140,7 +141,7 @@ type getBlockPricesResult struct {
 	err   error
 }
 
-type transactionsByGasPrice []*types.Transaction
+type transactionsByGasPrice []types.SelfTransaction
 
 func (t transactionsByGasPrice) Len() int           { return len(t) }
 func (t transactionsByGasPrice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
@@ -156,7 +157,7 @@ func (gpo *Oracle) getBlockPrices(ctx context.Context, signer types.Signer, bloc
 	}
 
 	blockTxs := block.Transactions()
-	txs := make([]*types.Transaction, len(blockTxs))
+	txs := make([]types.SelfTransaction, len(blockTxs))
 	copy(txs, blockTxs)
 	sort.Sort(transactionsByGasPrice(txs))
 

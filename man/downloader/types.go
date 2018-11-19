@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package downloader
 
@@ -33,7 +34,7 @@ func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) 
 // bodyPack is a batch of block bodies returned by a peer.
 type bodyPack struct {
 	peerId       string
-	transactions [][]*types.Transaction
+	transactions [][]types.SelfTransaction
 	uncles       [][]*types.Header
 }
 

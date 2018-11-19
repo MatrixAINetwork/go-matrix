@@ -1,15 +1,7 @@
-//1542604402.8000598
-//1542603774.029655
-//1542603034.9947171
-//1542602326.1877475
-//1542601653.4538152
-//1542601018.713038
-//1542600197.7171118
-//1542599510.705656
-//1542598666.9501607
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package core
 
@@ -28,9 +20,9 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
 	"github.com/hashicorp/golang-lru"
+	"github.com/matrix/go-matrix/mc"
 	"github.com/pkg/errors"
 )
 
@@ -48,7 +40,7 @@ const (
 type HeaderChain struct {
 	config *params.ChainConfig
 
-	chainDb       ethdb.Database
+	chainDb       mandb.Database
 	genesisHeader *types.Header
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
@@ -70,7 +62,7 @@ type HeaderChain struct {
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -492,12 +484,12 @@ func (hc *HeaderChain) GetTopologyGraphByHash(blockHash common.Hash) (*mc.Topolo
 	return hc.topologyStore.GetTopologyGraphByHash(blockHash)
 }
 
-func (hc *HeaderChain) GetOriginalElect(number uint64) ([]common.Elect, error) {
-	return hc.topologyStore.GetOriginalElect(number)
+func (hc *HeaderChain) GetOriginalElectByHash(blockHash common.Hash) ([]common.Elect, error) {
+	return hc.topologyStore.GetOriginalElectByHash(blockHash)
 }
 
-func (hc *HeaderChain) GetNextElect(number uint64) ([]common.Elect, error) {
-	return hc.topologyStore.GetNextElect(number)
+func (hc *HeaderChain) GetNextElectByHash(blockHash common.Hash) ([]common.Elect, error) {
+	return hc.topologyStore.GetNextElectByHash(blockHash)
 }
 
 func (hc *HeaderChain) NewTopologyGraph(header *types.Header) (*mc.TopologyGraph, error) {
@@ -530,7 +522,10 @@ func (hc *HeaderChain) GetAncestorHash(sonHash common.Hash, ancestorNumber uint6
 	if sonHeader == nil {
 		return common.Hash{}, errors.Errorf("son header(%s) is not exist", sonHash)
 	}
-	if sonHeader.Number.Uint64() <= ancestorNumber {
+	sonNumber := sonHeader.Number.Uint64()
+	if sonNumber == ancestorNumber {
+		return sonHash, nil
+	} else if sonNumber < ancestorNumber {
 		return common.Hash{}, errors.Errorf("son header number(%d) is less then ancestor number(%d)", sonHeader.Number.Uint64(), ancestorNumber)
 	}
 

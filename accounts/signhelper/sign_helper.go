@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package signhelper
 
 import (
@@ -120,7 +120,7 @@ func (sh *SignHelper) SignHashWithValidate(hash []byte, validate bool) (common.S
 	return common.BytesToSignature(sign), nil
 }
 
-func (sh *SignHelper) SignTx(tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
 	sh.mu.RLock()
 	defer sh.mu.RUnlock()
 

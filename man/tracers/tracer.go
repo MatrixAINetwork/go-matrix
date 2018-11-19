@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package tracers
 
@@ -175,7 +176,14 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 
 	// Push the wrapper for statedb.GetBalance
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		pushBigInt(dw.db.GetBalance(common.BytesToAddress(popSlice(ctx))), ctx)
+		//pushBigInt(dw.db.GetBalance(common.BytesToAddress(popSlice(ctx))), ctx)
+		tmp := dw.db.GetBalance(common.BytesToAddress(popSlice(ctx)))
+		for _,tAccount := range tmp{
+			if tAccount.AccountType == common.MainAccount{
+				pushBigInt(tAccount.Balance, ctx)
+				break
+			}
+		}
 		return 1
 	})
 	vm.PutPropString(obj, "getBalance")

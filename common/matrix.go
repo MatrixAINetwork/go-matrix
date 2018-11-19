@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package common
 
 //RoleType
@@ -50,3 +50,8 @@ func GetRoleTypeFromPosition(position uint16) RoleType {
 func GeneratePosition(index uint16, electRole ElectRoleType) uint16 {
 	return uint16(electRole)<<12 + index
 }
+
+const (
+	MasterValidatorNum = 11
+	BackupValidatorNum = 3
+)

@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package man
 
@@ -26,28 +27,31 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
+	"errors"
+	"fmt"
+	"github.com/matrix/go-matrix/core/txinterface"
 )
 
-// EthAPIBackend implements manapi.Backend for full nodes
-type EthAPIBackend struct {
+// ManAPIBackend implements manapi.Backend for full nodes
+type ManAPIBackend struct {
 	man *Matrix
 	gpo *gasprice.Oracle
 }
 
-func (b *EthAPIBackend) ChainConfig() *params.ChainConfig {
+func (b *ManAPIBackend) ChainConfig() *params.ChainConfig {
 	return b.man.chainConfig
 }
 
-func (b *EthAPIBackend) CurrentBlock() *types.Block {
+func (b *ManAPIBackend) CurrentBlock() *types.Block {
 	return b.man.blockchain.CurrentBlock()
 }
 
-func (b *EthAPIBackend) SetHead(number uint64) {
+func (b *ManAPIBackend) SetHead(number uint64) {
 	b.man.protocolManager.downloader.Cancel()
 	b.man.blockchain.SetHead(number)
 }
 
-func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
+func (b *ManAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block := b.man.miner.PendingBlock()
@@ -60,7 +64,7 @@ func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 	return b.man.blockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
 
-func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
+func (b *ManAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block := b.man.miner.PendingBlock()
@@ -73,7 +77,7 @@ func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	return b.man.blockchain.GetBlockByNumber(uint64(blockNr)), nil
 }
 
-func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
+func (b *ManAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block, state := b.man.miner.Pending()
@@ -88,18 +92,18 @@ func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 	return stateDb, header, err
 }
 
-func (b *EthAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (b *ManAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return b.man.blockchain.GetBlockByHash(hash), nil
 }
 
-func (b *EthAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
+func (b *ManAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.man.chainDb, hash); number != nil {
 		return rawdb.ReadReceipts(b.man.chainDb, hash, *number), nil
 	}
 	return nil, nil
 }
 
-func (b *EthAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
+func (b *ManAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
 	number := rawdb.ReadHeaderNumber(b.man.chainDb, hash)
 	if number == nil {
 		return nil, nil
@@ -115,121 +119,186 @@ func (b *EthAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*typ
 	return logs, nil
 }
 
-func (b *EthAPIBackend) GetTd(blockHash common.Hash) *big.Int {
+func (b *ManAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.man.blockchain.GetTdByHash(blockHash)
 }
 
-func (b *EthAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(msg.From(), math.MaxBig256)
+func (b *ManAPIBackend) GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
+	state.SetBalance(common.MainAccount,msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
-	context := core.NewEVMContext(msg, header, b.man.BlockChain(), nil)
+	context := core.NewEVMContext(msg.From(), msg.GasPrice(), header, b.man.BlockChain(), nil)
 	return vm.NewEVM(context, state, b.man.chainConfig, vmCfg), vmError, nil
 }
 
-func (b *EthAPIBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
+func (b *ManAPIBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
 	return b.man.BlockChain().SubscribeRemovedLogsEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
+func (b *ManAPIBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
 	return b.man.BlockChain().SubscribeChainEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+func (b *ManAPIBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
 	return b.man.BlockChain().SubscribeChainHeadEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
+func (b *ManAPIBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
 	return b.man.BlockChain().SubscribeChainSideEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (b *ManAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return b.man.BlockChain().SubscribeLogsEvent(ch)
 }
 
-func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	return b.man.txPool.AddLocal(signedTx)
+//TODO 调用该方法的时候应该返回错误的切片
+func (b *ManAPIBackend) SendTx(ctx context.Context, signedTx types.SelfTransaction) (error) {
+	//txs := make(types.SelfTransactions, 0)
+	//txs = append(txs, signedTx)
+	return b.man.txPool.AddRemote(signedTx)
 }
 
-func (b *EthAPIBackend) GetPoolTransactions() (types.Transactions, error) {
+func (b *ManAPIBackend) GetPoolTransactions() (types.SelfTransactions, error) {
 	pending, err := b.man.txPool.Pending()
 	if err != nil {
 		return nil, err
 	}
-	var txs types.Transactions
+	var txs types.SelfTransactions
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
 	return txs, nil
 }
 
-func (b *EthAPIBackend) GetPoolTransaction(hash common.Hash) *types.Transaction {
-	return b.man.txPool.Get(hash)
+func (b *ManAPIBackend) GetPoolTransaction(hash common.Hash) types.SelfTransaction {
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			return npool.Get(hash)
+		} else {
+			return nil
+		}
+	}
+	return nil
 }
 
-func (b *EthAPIBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
-	return b.man.txPool.State().GetNonce(addr), nil
+func (b *ManAPIBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			return npool.State().GetNonce(addr), nil
+		} else {
+			return 0, errors.New("GetPoolNonce() unknown txpool")
+		}
+	}
+	return 0, nerr
 }
 
-func (b *EthAPIBackend) Stats() (pending int, queued int) {
-	return b.man.txPool.Stats()
+func (b *ManAPIBackend) Stats() (pending int, queued int) {
+	bpooler, err := b.man.TxPool().GetTxPoolByType(types.BroadCastTxIndex)
+	if err == nil {
+		_, ok := bpooler.(*core.BroadCastTxPool)
+		if ok {
+			//_,btxs = bpool.Content()
+		} else {
+			queued = 0
+		}
+	}
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			pending, _ = npool.Stats()
+		} else {
+			pending = 0
+		}
+	}
+	return pending, queued
 }
 
-func (b *EthAPIBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
-	return b.man.TxPool().Content()
+//TODO 应该将返回值加入切片中否则以后多一种交易就要添加一个返回值
+func (b *ManAPIBackend) TxPoolContent() (ntxs map[common.Address]types.SelfTransactions, btxs map[common.Address]types.SelfTransactions) {
+	bpooler, err := b.man.TxPool().GetTxPoolByType(types.BroadCastTxIndex)
+	if err == nil {
+		_, ok := bpooler.(*core.BroadCastTxPool)
+		if ok {
+			//_,btxs = bpool.Content()
+		} else {
+			btxs = nil
+		}
+	}
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			//ntxs, _ = npool.Content()
+			ntxs= nil //YYY TODO npool.Content()
+			fmt.Println(npool) //TODO 删除
+		} else {
+			ntxs = nil
+		}
+	}
+	return ntxs, btxs
 }
 
-func (b *EthAPIBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+func (b *ManAPIBackend) SubscribeNewTxsEvent(ch chan core.NewTxsEvent) event.Subscription {
 	return b.man.TxPool().SubscribeNewTxsEvent(ch)
 }
 
-func (b *EthAPIBackend) Downloader() *downloader.Downloader {
+func (b *ManAPIBackend) Downloader() *downloader.Downloader {
 	return b.man.Downloader()
 }
 
-func (b *EthAPIBackend) ProtocolVersion() int {
-	return b.man.EthVersion()
+func (b *ManAPIBackend) ProtocolVersion() int {
+	return b.man.ManVersion()
 }
 
-func (b *EthAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
+func (b *ManAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }
 
-func (b *EthAPIBackend) ChainDb() mandb.Database {
+func (b *ManAPIBackend) ChainDb() mandb.Database {
 	return b.man.ChainDb()
 }
 
-func (b *EthAPIBackend) EventMux() *event.TypeMux {
+func (b *ManAPIBackend) EventMux() *event.TypeMux {
 	return b.man.EventMux()
 }
 
-func (b *EthAPIBackend) AccountManager() *accounts.Manager {
+func (b *ManAPIBackend) AccountManager() *accounts.Manager {
 	return b.man.AccountManager()
 }
 
-func (b *EthAPIBackend) BloomStatus() (uint64, uint64) {
+func (b *ManAPIBackend) BloomStatus() (uint64, uint64) {
 	sections, _, _ := b.man.bloomIndexer.Sections()
 	return params.BloomBitsBlocks, sections
 }
 
-func (b *EthAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
+func (b *ManAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	for i := 0; i < bloomFilterThreads; i++ {
 		go session.Multiplex(bloomRetrievalBatch, bloomRetrievalWait, b.man.bloomRequests)
 	}
 }
 
 //YY
-func (b *EthAPIBackend) SignTx(signedTx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (b *ManAPIBackend) SignTx(signedTx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
 	return b.man.signHelper.SignTx(signedTx, chainID)
 }
 
 //YY
-func (b *EthAPIBackend) SendBroadTx(ctx context.Context, signedTx *types.Transaction, bType bool) error {
+func (b *ManAPIBackend) SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error {
 	return b.man.txPool.AddBroadTx(signedTx, bType)
 }
 
 //YY
-func (b *EthAPIBackend) FetcherNotify(hash common.Hash, number uint64) {
+func (b *ManAPIBackend) FetcherNotify(hash common.Hash, number uint64) {
+
+	/*
+		2018-09-29 因为改到其他地方实现，所以此方法没有被调用。废弃
+	*/
+	return
 	ids := ca.GetRolesByGroup(common.RoleValidator)
 	log.Info("==========YY===========", "FetcherNotify()��Validator`s count", len(ids))
 	for _, id := range ids {

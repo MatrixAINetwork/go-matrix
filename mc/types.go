@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package mc
 
 import (
@@ -13,10 +13,19 @@ import (
 //by hezi //YY 2018-08-18由tx_pool.go转移到此
 const (
 	Heartbeat   = "Heartbeat"      // 心跳交易（广播区块Hash对99取余）
-	Publickey   = "SeedProof"  // 公钥交易
-	Privatekey  = "Seed" // 私钥交易
+	Publickey   = "SeedPublicKey"  // 公钥交易
+	Privatekey  = "SeedPrivateKey" // 私钥交易
 	CallTheRoll = "CallTheRoll"    //点名交易  （广播节点随机连接1000个点）
 )
+
+func ReturnBroadCastType() (bType map[string]bool) {
+	bType = make(map[string]bool)
+	bType[Heartbeat] = true
+	bType[Publickey] = true
+	bType[Privatekey] = true
+	bType[CallTheRoll] = true
+	return bType
+}
 
 type BlockToBucket struct {
 	Ms     []discover.NodeID
@@ -48,14 +57,18 @@ type LeaderStateMsg struct {
 	ReelectTurn uint8
 }
 
+type SyncIdEvent struct { //lb
+	Role common.RoleType
+}
+
 // type BlockVerifyReqMsg struct {
 // 	Header  types.Header
 // 	TxsCode []uint32
 // }
 
 // type BlockVerifyResultMsg struct {
-// 	Header  *types.Header // header including signature list
-// 	TxsCode []uint32      // tx list
+// 	Header  *types.Header // 包含签名列表的header
+// 	TxsCode []uint32      // 交易列表
 // }
 
 // type VoteMsg struct {

@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package enr
 
@@ -196,7 +197,7 @@ func TestGetSetOverwrite(t *testing.T) {
 // TestSignEncodeAndDecode tests signing, RLP encoding and RLP decoding of a record.
 func TestSignEncodeAndDecode(t *testing.T) {
 	var r Record
-	r.Set(UDP(30303))
+	r.Set(UDP(50505))
 	r.Set(IP{127, 0, 0, 1})
 	require.NoError(t, SignV4(&r, privkey))
 
@@ -237,7 +238,7 @@ func TestPythonInterop(t *testing.T) {
 		wantAddr, _ = hex.DecodeString("a448f24c6d18e575453db13171562b71999873db5b286df957af199ec94617f7")
 		wantSeq     = uint64(1)
 		wantIP      = IP{127, 0, 0, 1}
-		wantUDP     = UDP(30303)
+		wantUDP     = UDP(50505)
 	)
 	if r.Seq() != wantSeq {
 		t.Errorf("wrong seq: got %d, want %d", r.Seq(), wantSeq)

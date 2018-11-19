@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package man
 
@@ -24,7 +25,7 @@ import (
 // DefaultConfig contains default settings for use on the Matrix main net.
 var DefaultConfig = Config{
 	SyncMode: downloader.FastSync,
-	Ethash: manash.Config{
+	Manash: manash.Config{
 		CacheDir:       "manash",
 		CachesInMem:    2,
 		CachesOnDisk:   3,
@@ -53,9 +54,9 @@ func init() {
 		}
 	}
 	if runtime.GOOS == "windows" {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Ethash")
+		DefaultConfig.Manash.DatasetDir = filepath.Join(home, "AppData", "Manash")
 	} else {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".manash")
+		DefaultConfig.Manash.DatasetDir = filepath.Join(home, ".manash")
 	}
 }
 
@@ -83,13 +84,13 @@ type Config struct {
 	TrieTimeout        time.Duration
 
 	// Mining-related options
-	Etherbase    common.Address `toml:",omitempty"`
+	Manerbase    common.Address `toml:",omitempty"`
 	MinerThreads int            `toml:",omitempty"`
 	ExtraData    []byte         `toml:",omitempty"`
 	GasPrice     *big.Int
 
-	// Ethash options
-	Ethash manash.Config
+	// Manash options
+	Manash manash.Config
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig

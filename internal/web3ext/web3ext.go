@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 // package web3ext contains gman specific web3.js extensions.
 package web3ext
@@ -10,7 +11,8 @@ var Modules = map[string]string{
 	"chequebook": Chequebook_JS,
 	"clique":     Clique_JS,
 	"debug":      Debug_JS,
-	"man":        Eth_JS,
+	"man":        Man_JS,
+	"eth":        Man_JS,
 	"miner":      Miner_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
@@ -378,7 +380,7 @@ web3._extend({
 });
 `
 
-const Eth_JS = `
+const Man_JS = `
 web3._extend({
 	property: 'man',
 	methods: [
@@ -463,8 +465,8 @@ web3._extend({
 			call: 'miner_stop'
 		}),
 		new web3._extend.Method({
-			name: 'setEtherbase',
-			call: 'miner_setEtherbase',
+			name: 'setManerbase',
+			call: 'miner_setManerbase',
 			params: 1,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
 		}),

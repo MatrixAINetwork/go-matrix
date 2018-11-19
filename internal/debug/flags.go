@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package debug
 
@@ -33,6 +34,11 @@ var (
 		Name:  "outputinfo",
 		Usage: "Logging output: 0=console, 1=file, 2=both",
 		Value: 0,
+	}
+	verOutPutDirFlag = cli.StringFlag{
+		Name:  "outputdir",
+		Usage: "Logging output dir:eg:linux  /var/log/MatrixLog, window C:\\MatrixLog, otherwise null means current path /MatrixLog/",
+		Value: "",
 	}
 	vmoduleFlag = cli.StringFlag{
 		Name:  "vmodule",
@@ -83,7 +89,7 @@ var (
 
 // Flags holds all command-line flags required for debugging.
 var Flags = []cli.Flag{
-	verbosityFlag, verOutPutFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
+	verbosityFlag, verOutPutFlag, verOutPutDirFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
 	pprofFlag, pprofAddrFlag, pprofPortFlag,
 	memprofilerateFlag, blockprofilerateFlag, cpuprofileFlag, traceFlag,
 }
@@ -110,11 +116,16 @@ func init() {
 func Setup(ctx *cli.Context, logdir string) error {
 	// logging
 	log.PrintOrigins(ctx.GlobalBool(debugFlag.Name))
+	logPath := ctx.GlobalString(verOutPutDirFlag.Name)
+	if logPath == "" {
+		logPath = "MatrixLog"
+	}
+
 	flg := ctx.GlobalInt(verOutPutFlag.Name)
 	if flg > 0 {
-		if logdir != "" {
+		if logPath != "" {
 			rfh, err := log.RotatingFileHandler(
-				logdir,
+				logPath,      //logdir,
 				1024*1024*50, //262144,
 				/*log.JSONFormatOrderedEx(false, true),*/
 				log.TerminalFormat(false),

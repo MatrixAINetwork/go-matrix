@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package manash
 
@@ -61,7 +62,6 @@ func GetdifficultyListAndTargetList(difficultyList []*big.Int) minerDifficultyLi
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-
 func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, isBroadcastNode bool) (*types.Header, error) {
 	log.INFO("seal", "挖矿", "开始", "高度", header.Number.Uint64())
 	defer log.INFO("seal", "挖矿", "结束", "高度", header.Number.Uint64())
@@ -132,6 +132,7 @@ func compareDifflist(result []byte, diffList []*big.Int, targets []*big.Int) (in
 // seed that results in correct final block difficulty.
 func (manash *Manash) mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan *types.Header, isBroadcastNode bool) {
 	// Extract some data from the header
+
 	var (
 		curHeader = types.CopyHeader(header)
 		hash      = curHeader.HashNoNonce().Bytes()
@@ -150,14 +151,14 @@ func (manash *Manash) mine(header *types.Header, id int, seed uint64, abort chan
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
-	logger.Trace("Started manash search for new nonces", "seed", seed)
-	//log.INFO("SEALER", "Started manash search for new nonces seed", seed)
+	logger.Trace("Started ethash search for new nonces", "seed", seed)
+	//log.INFO("SEALER", "Started ethash search for new nonces seed", seed)
 search:
 	for {
 		select {
 		case <-abort:
 			// Mining terminated, update stats and abort
-			logger.Trace("Manash nonce search aborted", "attempts", nonce-seed)
+			logger.Trace("Ethash nonce search aborted", "attempts", nonce-seed)
 			manash.hashrate.Mark(attempts)
 			return
 
@@ -182,9 +183,9 @@ search:
 				// Seal and return a block (if still needed)
 				select {
 				case found <- header:
-					logger.Trace("Manash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
 				case <-abort:
-					logger.Trace("Manash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
 				}
 				break search
 			}

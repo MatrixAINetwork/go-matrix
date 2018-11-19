@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 // Package miner implements Matrix block creation and mining.
 package miner
@@ -16,12 +17,13 @@ import (
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/hd"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/msgsend"
 )
 
 const (
+	ModuleWork  = "Miner_Work"
 	ModuleMiner = "Miner Miner"
 )
 
@@ -50,7 +52,7 @@ type Miner struct {
 
 func (s *Miner) Getworker() *worker { return s.worker }
 
-func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, dposEngine consensus.DPOSEngine, hd *hd.HD) (*Miner, error) {
+func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, dposEngine consensus.DPOSEngine, hd *msgsend.HD) (*Miner, error) {
 	miner := &Miner{
 		mux:    mux,
 		engine: engine,

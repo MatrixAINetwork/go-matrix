@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 package miner
 
 import (
@@ -9,10 +10,10 @@ import (
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params/man"
 	"github.com/pkg/errors"
 	"math/big"
 	"sync"
+	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type mineReqData struct {
@@ -21,12 +22,12 @@ type mineReqData struct {
 	headerHash         common.Hash
 	header             *types.Header
 	isBroadcastReq     bool
-	txs                types.Transactions
+	txs                types.SelfTransactions
 	mineDiff           *big.Int
 	mineResultSendTime int64
 }
 
-func newMineReqData(headerHash common.Hash, header *types.Header, txs types.Transactions, isBroadcastReq bool) *mineReqData {
+func newMineReqData(headerHash common.Hash, header *types.Header, txs types.SelfTransactions, isBroadcastReq bool) *mineReqData {
 	return &mineReqData{
 		mined:              false,
 		headerHash:         headerHash,
@@ -45,7 +46,7 @@ func (self *mineReqData) ResendMineResult(curTime int64) error {
 
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	if curTime-self.mineResultSendTime < man.MinerResultSendInterval {
+	if curTime-self.mineResultSendTime < manparams.MinerResultSendInterval {
 		return errors.Errorf("挖矿发送间隔尚未到, 上次发送时间(%d), 当前时间(%d)", self.mineResultSendTime, curTime)
 	}
 	self.mineResultSendTime = curTime
@@ -88,7 +89,7 @@ func (ctrl *mineReqCtrl) SetNewNumber(number uint64, role common.RoleType) {
 	}
 }
 
-func (ctrl *mineReqCtrl) AddMineReq(header *types.Header, txs types.Transactions, isBroadcastReq bool) (*mineReqData, error) {
+func (ctrl *mineReqCtrl) AddMineReq(header *types.Header, txs types.SelfTransactions, isBroadcastReq bool) (*mineReqData, error) {
 	if nil == header {
 		return nil, errors.New("header为nil")
 	}
