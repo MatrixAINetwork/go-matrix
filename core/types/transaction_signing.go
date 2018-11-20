@@ -254,7 +254,7 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	return addr, nil
 }
 
-//YY 将原来的deriveChainId方法改为deriveChainId1，然后重写deriveChainId方法
+//YY changed the original deriveChainId method to deriveChainId1, and restruct the deriveChainId method
 func deriveChainId(v *big.Int) *big.Int {
 	v1 := new(big.Int).Set(v)
 	tmp := big.NewInt(128)
