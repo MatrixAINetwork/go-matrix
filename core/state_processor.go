@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 
 package core
 
@@ -13,10 +14,6 @@ import (
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/params"
-	"encoding/json"
-	"strings"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/log"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -30,10 +27,10 @@ type StateProcessor struct {
 }
 
 //hezi
-var pubmap = make(map[common.Address][]byte)
-var primap = make(map[common.Address][]byte)
-var Heartmap = make(map[common.Address][]byte)
-var CallNamemap = make(map[common.Address][]byte)
+//var pubmap = make(map[common.Address][]byte)
+//var primap = make(map[common.Address][]byte)
+//var Heartmap = make(map[common.Address][]byte)
+//var CallNamemap = make(map[common.Address][]byte)
 
 // NewStateProcessor initialises a new StateProcessor.
 func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consensus.Engine) *StateProcessor {
@@ -44,7 +41,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
-// Process processes the state changes according to the Ethereum rules by running
+// Process processes the state changes according to the Matrix rules by running
 // the transaction messages using the statedb and applying any rewards to both
 // the processor (coinbase) and any included uncles.
 //
@@ -64,12 +61,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 	// Iterate over and process the individual transactions
-	if block.Number().Uint64() % common.GetBroadcastInterval() == 0 {
-		pubmap = make(map[common.Address][]byte)
-		primap = make(map[common.Address][]byte)
-		Heartmap = make(map[common.Address][]byte)
-		CallNamemap = make(map[common.Address][]byte)
-	}
+	//if block.Number().Uint64() % common.GetBroadcastInterval() == 0 {
+	//	pubmap = make(map[common.Address][]byte)
+	//	primap = make(map[common.Address][]byte)
+	//	Heartmap = make(map[common.Address][]byte)
+	//	CallNamemap = make(map[common.Address][]byte)
+	//}
 
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
@@ -81,44 +78,43 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 
-	if block.Number().Uint64() % common.GetBroadcastInterval() == 0 {
-		if len(pubmap) > 0 {
-			hash := block.Hash()
-			hash_key := types.RlpHash(mc.Publickey + hash.String())
-			log.INFO("store publickey success", "height",block.Number().Uint64(),"keydata", mc.Publickey+hash.String(), "len", len(pubmap))
-			insertdb(hash_key.Bytes(), pubmap)
-		} else {
-			log.ERROR("without publickey txs", "height", block.Number().Uint64())
-		}
-
-		if len(primap) > 0 {
-			hash := block.Hash()
-			hash_key := types.RlpHash(mc.Privatekey + hash.String())
-			log.INFO("store Privatekey success", "height",block.Number().Uint64(),"keydata", mc.Privatekey+hash.String(), "len", len(primap))
-			insertdb(hash_key.Bytes(), primap)
-		} else {
-			log.ERROR("without Privatekey txs", "height", block.Number().Uint64())
-		}
-
-		if len(Heartmap) > 0 {
-			hash := block.Hash()
-			hash_key := types.RlpHash(mc.Heartbeat + hash.String())
-			log.INFO("store Heartbeat success", "height",block.Number().Uint64(),"keydata", mc.Heartbeat+hash.String(), "len", len(Heartmap))
-			insertdb(hash_key.Bytes(), Heartmap)
-		} else {
-			log.ERROR("without Heartbeat txs", "height", block.Number().Uint64())
-		}
-
-		if len(CallNamemap) > 0 {
-			hash := block.Hash()
-			hash_key := types.RlpHash(mc.CallTheRoll + hash.String())
-			log.INFO("store CallTheRoll success", "height",block.Number().Uint64(),"keydata", mc.CallTheRoll+hash.String(), "len", len(CallNamemap))
-			insertdb(hash_key.Bytes(), CallNamemap)
-		} else {
-			log.ERROR("without CallTheRoll txs", "height", block.Number().Uint64())
-		}
-	}
-
+	//if block.Number().Uint64() % common.GetBroadcastInterval() == 0 {
+	//	if len(pubmap) > 0 {
+	//		hash := block.Hash()
+	//		hash_key := types.RlpHash(mc.Publickey + hash.String())
+	//		log.INFO("store publickey success", "height",block.Number().Uint64(),"keydata", mc.Publickey+hash.String(), "len", len(pubmap))
+	//		insertdb(hash_key.Bytes(), pubmap)
+	//	} else {
+	//		log.ERROR("without publickey txs", "height", block.Number().Uint64())
+	//	}
+	//
+	//	if len(primap) > 0 {
+	//		hash := block.Hash()
+	//		hash_key := types.RlpHash(mc.Privatekey + hash.String())
+	//		log.INFO("store Privatekey success", "height",block.Number().Uint64(),"keydata", mc.Privatekey+hash.String(), "len", len(primap))
+	//		insertdb(hash_key.Bytes(), primap)
+	//	} else {
+	//		log.ERROR("without Privatekey txs", "height", block.Number().Uint64())
+	//	}
+	//
+	//	if len(Heartmap) > 0 {
+	//		hash := block.Hash()
+	//		hash_key := types.RlpHash(mc.Heartbeat + hash.String())
+	//		log.INFO("store Heartbeat success", "height",block.Number().Uint64(),"keydata", mc.Heartbeat+hash.String(), "len", len(Heartmap))
+	//		insertdb(hash_key.Bytes(), Heartmap)
+	//	} else {
+	//		log.ERROR("without Heartbeat txs", "height", block.Number().Uint64())
+	//	}
+	//
+	//	if len(CallNamemap) > 0 {
+	//		hash := block.Hash()
+	//		hash_key := types.RlpHash(mc.CallTheRoll + hash.String())
+	//		log.INFO("store CallTheRoll success", "height",block.Number().Uint64(),"keydata", mc.CallTheRoll+hash.String(), "len", len(CallNamemap))
+	//		insertdb(hash_key.Bytes(), CallNamemap)
+	//	} else {
+	//		log.ERROR("without CallTheRoll txs", "height", block.Number().Uint64())
+	//	}
+	//}
 
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
@@ -134,27 +130,6 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err
-	}
-
-	//download store broadcast txs to db
-	//如果当前高度是广播区块高度
-	if header.Number.Uint64() % common.GetBroadcastInterval() == 0{
-		if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
-			tmpdt := make(map[string][]byte)
-			json.Unmarshal(tx.Data(), &tmpdt)
-
-			for keydata, valdata := range tmpdt {
-				if strings.Contains(keydata, mc.Publickey) {
-					pubmap[msg.From()] = valdata
-				} else if strings.Contains(keydata, mc.Privatekey) {
-					primap[msg.From()] = valdata
-				} else if strings.Contains(keydata, mc.Heartbeat) {
-					Heartmap[msg.From()] = valdata
-				} else if strings.Contains(keydata, mc.CallTheRoll) {
-					CallNamemap[msg.From()] = valdata
-				}
-			}
-		}
 	}
 
 	// Create a new context to be used in the EVM environment
