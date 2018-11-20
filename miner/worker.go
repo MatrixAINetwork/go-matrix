@@ -120,18 +120,18 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, validatorRea
 
 	err := worker.init_SubscribeEvent()
 	if err != nil {
-		log.Error(ModuleMiner, "worker创建失败", err)
+		log.Error(ModuleMiner, "worker creation failed", err)
 		return nil, err
 	}
 	go worker.update()
 	go worker.wait()
-	log.INFO(ModuleMiner, "worker创建成功", err)
+	log.INFO(ModuleMiner, "worker creation success", err)
 	return worker, nil
 }
 func (self *worker) init_SubscribeEvent() error {
 	var err error
 
-	self.localMiningRequestSub, err = mc.SubscribeEvent(mc.HD_BroadcastMiningReq, self.localMiningRequestCh) //广播节点
+	self.localMiningRequestSub, err = mc.SubscribeEvent(mc.HD_BroadcastMiningReq, self.localMiningRequestCh) //broadcastnode
 	if err != nil {
 		log.Error(ModuleMiner, "广播节点挖矿请求订阅失败", err)
 		return err
@@ -139,15 +139,15 @@ func (self *worker) init_SubscribeEvent() error {
 		log.INFO(ModuleMiner, "广播节点挖矿请求订阅成功", "")
 	}
 
-	self.roleUpdateSub, err = mc.SubscribeEvent(mc.CA_RoleUpdated, self.roleUpdateCh) //身份到达
+	self.roleUpdateSub, err = mc.SubscribeEvent(mc.CA_RoleUpdated, self.roleUpdateCh) //role updated
 	if err != nil {
-		log.Error(ModuleMiner, "身份更新订阅失败", err)
+		log.Error(ModuleMiner, "role update subscription error", err)
 		return err
 	} else {
-		log.INFO(ModuleMiner, "身份更新订阅成功", "")
+		log.INFO(ModuleMiner, "role update subscription success", "")
 	}
 
-	self.miningRequestSub, err = mc.SubscribeEvent(mc.HD_MiningReq, self.miningRequestCh) //挖矿请求
+	self.miningRequestSub, err = mc.SubscribeEvent(mc.HD_MiningReq, self.miningRequestCh) //mining request
 	if err != nil {
 		log.Error(ModuleMiner, "普通矿工挖矿请求订阅失败", err)
 		return err
