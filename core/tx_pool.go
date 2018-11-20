@@ -120,10 +120,10 @@ var (
 type TxStatus uint
 
 var mapNs sync.Map  //YY
-var mapCaclErrtxs = make(map[common.Hash][]common.Address) //YY  transaction used for error stastics
-var mapDelErrtxs = make(map[common.Hash]*big.Int)          //YY  used to delete mapErrorTxs
-var mapErrorTxs = make(map[*big.Int]*types.Transaction)    //YY  stores all error transactions (auto-delete each 20 blocks)
-var mapTxsTiming = make(map[common.Hash]time.Time)            //YY  transactions that need to be removed at specified time
+var mapCaclErrtxs = make(map[common.Hash][]common.Address) //YY  用来统计错误的交易
+var mapDelErrtxs = make(map[common.Hash]*big.Int)          //YY  用来删除mapErrorTxs
+var mapErrorTxs = make(map[*big.Int]*types.Transaction)    //YY  存放所有的错误交易（20个区块自动删除）
+var mapTxsTiming = make(map[common.Hash]time.Time)            //YY  需要做定时删除的交易
 //YY
 type RetChan struct {
 	Rxs   types.Transactions
@@ -2469,18 +2469,20 @@ func getBroadTxsFromblock(bc *BlockChain,hash common.Hash, txtype string)  map[c
 }
 
 func GetBroadcastTxs(bc *BlockChain,hash common.Hash, txtype string) (reqVal map[common.Address][]byte, err error) {
-	hv := types.RlpHash(txtype + hash.String())
-	log.INFO("GetBroadcastTxs", "keydata:", txtype+hash.String(), "write hash key:", hv)
-	dataval, err := ldb.Get(hv.Bytes(), nil)
-	if err != nil {
-		log.Info("GetBroadcastTxs", "Get broadcast from block", 0)
-		return getBroadTxsFromblock(bc,hash,txtype), nil
-	}
-	err = json.Unmarshal(dataval, &reqVal)
-	if err != nil {
-		log.ERROR("GetBroadcastTxs", "Unmarshal failed", 1)
-	}
-	return reqVal, err
+	return getBroadTxsFromblock(bc,hash,txtype), nil
+	//
+	//hv := types.RlpHash(txtype + hash.String())
+	//log.INFO("GetBroadcastTxs", "keydata:", txtype+hash.String(), "write hash key:", hv)
+	//dataval, err := ldb.Get(hv.Bytes(), nil)
+	//if err != nil {
+	//	log.Info("GetBroadcastTxs", "Get broadcast from block", 0)
+	//	return getBroadTxsFromblock(bc,hash,txtype), nil
+	//}
+	//err = json.Unmarshal(dataval, &reqVal)
+	//if err != nil {
+	//	log.ERROR("GetBroadcastTxs", "Unmarshal failed", 1)
+	//}
+	//return reqVal, err
 }
 
 //by hezi
