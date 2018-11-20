@@ -60,12 +60,12 @@ func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, en
 	var err error
 	miner.worker, err = newWorker(config, engine, bc, dposEngine, mux, hd)
 	if err != nil {
-		log.ERROR(ModuleMiner, "创建work", "失败")
+		log.ERROR(ModuleMiner, "creatework", "failure")
 		return miner, err
 	}
 	miner.Register(NewCpuAgent(bc, engine))
 	//go miner.update()
-	log.INFO(ModuleMiner, "创建miner", "成功")
+	log.INFO(ModuleMiner, "createminer", "success")
 	return miner, nil
 }
 
