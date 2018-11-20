@@ -7,7 +7,6 @@ package types
 
 import (
 	"bytes"
-	"github.com/matrix/go-matrix/log"
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/rlp"
@@ -22,13 +21,10 @@ type DerivableList interface {
 func DeriveSha(list DerivableList) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
-	log.Info("DeriveSha Empty Hash", "hash",trie.Hash())
-//	log.Info("DeriveSha Trie Root Type", "Type Name",trie.Root())
 	for i := 0; i < list.Len(); i++ {
 		keybuf.Reset()
 		rlp.Encode(keybuf, uint(i))
 		trie.Update(keybuf.Bytes(), list.GetRlp(i))
 	}
-	log.Info("DeriveSha Result Hash", "hash",trie.Hash())
 	return trie.Hash()
 }

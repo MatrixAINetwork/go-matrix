@@ -476,24 +476,16 @@ func writeEncoderNoPtr(val reflect.Value, w *encbuf) error {
 	}
 	return val.Addr().Interface().(Encoder).EncodeRLP(w)
 }
+
 func writeTypeInterface(val reflect.Value, w *encbuf)error{
 	if val.Type().Implements(typerInterface) {
 		valRLP := InterfaceRLP{val.Interface().(InterfaceTyper).GetConstructorType(),val.Interface()}
-		info,_ := cachedTypeInfo(reflect.TypeOf(valRLP),tags{})
-		return info.writer(reflect.ValueOf(valRLP),w)
+		writer,_ := makeStructWriter(reflect.TypeOf(valRLP))
+		return writer(reflect.ValueOf(valRLP),w)
 	}else {
 		return writeInterface(val,w)
 	}
 }
-//func writeTypeInterface(val reflect.Value, w *encbuf)error{
-//	if val.Type().Implements(typerInterface) {
-//		valRLP := InterfaceRLP{val.Interface().(InterfaceTyper).GetConstructorType(),val.Interface()}
-//		writer,_ := makeStructWriter(reflect.TypeOf(valRLP))
-//		return writer(reflect.ValueOf(valRLP),w)
-//	}else {
-//		return writeInterface(val,w)
-//	}
-//}
 func writeInterface(val reflect.Value, w *encbuf) error {
 	if val.IsNil() {
 		// Write empty list. This is consistent with the previous RLP

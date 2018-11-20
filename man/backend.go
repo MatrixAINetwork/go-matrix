@@ -228,7 +228,6 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 
 	man.topNode = olconsensus.NewTopNodeService(man.blockchain.DPOSEngine())
 	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
-	man.topNode.SetValidatorReader(man.blockchain)
 	man.topNode.SetTopNodeStateInterface(topNodeInstance)
 	man.topNode.SetValidatorAccountInterface(topNodeInstance)
 	man.topNode.SetMessageSendInterface(topNodeInstance)
@@ -475,7 +474,6 @@ func (s *Matrix) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Matrix protocol implementation.
 func (s *Matrix) Start(srvr *p2p.Server) error {
-	srvr.NetWorkId = s.config.NetworkId
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -508,7 +506,7 @@ func (s *Matrix) FetcherNotify(hash common.Hash, number uint64) {
 		}
 		peer := s.protocolManager.Peers.Peer(id.String()[:16])
 		if peer == nil {
-			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String()[:16])
+			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String()[:16], "Peers:", s.protocolManager.Peers.peers)
 			continue
 		}
 		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)

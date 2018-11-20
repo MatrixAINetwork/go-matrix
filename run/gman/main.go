@@ -30,14 +30,7 @@ import (
 	_ "github.com/matrix/go-matrix/random/electionseed"
 	_ "github.com/matrix/go-matrix/random/ereryblockseed"
 	_ "github.com/matrix/go-matrix/random/everybroadcastseed"
-
-	_ "github.com/matrix/go-matrix/crypto"
-	_ "github.com/matrix/go-matrix/crypto/vrf"
-	_ "github.com/matrix/go-matrix/election/layered"
-	_ "github.com/matrix/go-matrix/election/nochoice"
-	_ "github.com/matrix/go-matrix/election/stock"
 	"github.com/matrix/go-matrix/run/utils"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
 const (
@@ -54,7 +47,6 @@ var (
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
-		utils.AccountPasswordFileFlag,
 		utils.BootnodesFlag,
 		utils.BootnodesV4Flag,
 		utils.BootnodesV5Flag,
@@ -208,7 +200,6 @@ func init() {
 }
 
 func main() {
-	initPanicFile()
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -234,8 +225,6 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 
 	// Start up the node itself
 	utils.StartNode(stack)
-	mapp := utils.MakeEntrustPassword(ctx)
-	fmt.Println("委托交易mapp", mapp, "len", len(mapp))
 
 	// Unlock any account specifically requested
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
@@ -311,7 +300,7 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 		utils.Fatalf("Matrix service not running :%v", err)
 	}
 	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
-	log.INFO("BoradCastNode", "data", manparams.BroadCastNodes)
+	log.INFO("BoradCastNode", "data", params.BroadCastNodes)
 	log.Info("main", "nodeid", stack.Server().Self().ID.String())
 
 	go func() {
@@ -366,5 +355,5 @@ func Init_Config_PATH(ctx *cli.Context) {
 		log.Error("无创世文件", "请在启动时使用--datadir", "")
 	}
 
-	manparams.Config_Init(config_dir + "/man.json")
+	params.Config_Init(config_dir + "/man.json")
 }

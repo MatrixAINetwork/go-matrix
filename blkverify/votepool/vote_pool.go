@@ -10,10 +10,10 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/params"
 	"github.com/pkg/errors"
 
 	"sync"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type voteInfo struct {
@@ -39,8 +39,8 @@ func NewVotePool(legalRole common.RoleType, logInfo string) *VotePool {
 	return &VotePool{
 		voteMap:               make(map[common.Address]map[common.Hash]*voteInfo),
 		timeIndex:             list.New(),
-		timeoutInterval:       manparams.VotePoolTimeout,
-		AccountVoteCountLimit: manparams.VotePoolCountLimit,
+		timeoutInterval:       params.VotePoolTimeout,
+		AccountVoteCountLimit: params.VotePoolCountLimit,
 		legalRole:             legalRole,
 		logInfo:               logInfo,
 	}

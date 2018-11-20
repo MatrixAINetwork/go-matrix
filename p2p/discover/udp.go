@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package discover
 
@@ -32,7 +33,6 @@ var (
 	errTimeout          = errors.New("RPC timeout")
 	errClockWarp        = errors.New("reply deadline too far in the future")
 	errClosed           = errors.New("socket closed")
-	errWrongNetWorkId   = errors.New("wrong network id")
 )
 
 // Timeouts
@@ -56,9 +56,9 @@ const (
 // RPC request structures
 type (
 	ping struct {
-		Version               uint
-		From, To              rpcEndpoint
-		Expiration, NetWorkId uint64
+		Version    uint
+		From, To   rpcEndpoint
+		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
 	}
@@ -158,8 +158,6 @@ type udp struct {
 	closing chan struct{}
 	nat     nat.Interface
 
-	netWorkId uint64
-
 	*Table
 }
 
@@ -217,7 +215,6 @@ type Config struct {
 	NetRestrict  *netutil.Netlist  // network whitelist
 	Bootnodes    []*Node           // list of bootstrap nodes
 	Unhandled    chan<- ReadPacket // unhandled packets are sent on this channel
-	NetWorkId    uint64
 }
 
 // ListenUDP returns a new table that listens for UDP packets on laddr.
@@ -238,7 +235,6 @@ func newUDP(c conn, cfg Config) (*Table, *udp, error) {
 		closing:     make(chan struct{}),
 		gotreply:    make(chan reply),
 		addpending:  make(chan *pending),
-		netWorkId:   cfg.NetWorkId,
 	}
 	realaddr := c.LocalAddr().(*net.UDPAddr)
 	if cfg.AnnounceAddr != nil {
@@ -268,7 +264,6 @@ func (t *udp) ping(toid NodeID, toaddr *net.UDPAddr) error {
 	req := &ping{
 		Version:    Version,
 		From:       t.ourEndpoint,
-		NetWorkId:  t.netWorkId,
 		To:         makeEndpoint(toaddr, 0), // TODO: maybe use known TCP port from DB
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
@@ -575,9 +570,6 @@ func decodePacket(buf []byte) (packet, NodeID, []byte, error) {
 func (req *ping) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) error {
 	if expired(req.Expiration) {
 		return errExpired
-	}
-	if req.NetWorkId != t.netWorkId {
-		return errWrongNetWorkId
 	}
 	t.send(from, pongPacket, &pong{
 		To:         makeEndpoint(from, req.From.TCP),

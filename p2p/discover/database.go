@@ -56,7 +56,10 @@ var (
 // known peers in the network. If no path is given, an in-memory, temporary
 // database is constructed.
 func newNodeDB(path string, version int, self NodeID) (*nodeDB, error) {
-	return newMemoryNodeDB(self)
+	if path == "" {
+		return newMemoryNodeDB(self)
+	}
+	return newPersistentNodeDB(path, version, self)
 }
 
 // newMemoryNodeDB creates a new in-memory node database without a persistent

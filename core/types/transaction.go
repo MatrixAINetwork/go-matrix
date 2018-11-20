@@ -165,9 +165,9 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 		d.Price.Set(gasPrice)
 	}
 	//YY
-	matrixEx := new(Matrix_Extra)
-	arrayTx := make([]Tx_to, 0)
 	if len(ex) > 0 {
+		arrayTx := make([]Tx_to, 0)
+		matrixEx := new(Matrix_Extra)
 		for _, extro := range ex {
 			var input []byte
 			if extro.Input_tr == nil {
@@ -182,11 +182,11 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 			txto.Payload = input
 			arrayTx = append(arrayTx, *txto)
 		}
+		matrixEx.TxType = txType
+		matrixEx.LockHeight = localtime
+		matrixEx.ExtraTo = arrayTx
+		d.Extra = append(d.Extra, *matrixEx)
 	}
-	matrixEx.TxType = txType
-	matrixEx.LockHeight = localtime
-	matrixEx.ExtraTo = arrayTx
-	d.Extra = append(d.Extra, *matrixEx)
 	tx:=&Transaction{data: d}
 	return tx
 }
@@ -299,13 +299,6 @@ func (tx *Transaction) TxType() common.TxTypeInt		{ return tx.data.TxEnterType}
 //YY
 func (tx *Transaction) GetMatrix_EX() []Matrix_Extra { return tx.data.Extra }
 
-func (tx *Transaction) GetMatrixType() byte {
-	if tx.data.Extra != nil && len(tx.data.Extra)>0{
-		return tx.data.Extra[0].TxType
-	}
-	return common.ExtraNormalTxType
-}
-
 //YYY 为了兼容去掉的Message结构体
 func (tx *Transaction) From() common.Address {
 	addr, err := tx.GetTxFrom()
@@ -320,52 +313,14 @@ func (tx *Transaction)GetFromLoad() interface{}  {
 func (tx *Transaction)SetFromLoad(x interface{})  {
 	tx.from.Store(x)
 }
-func (tx *Transaction)GasFrom() (from common.Address){
-	//TODO 需要去委托中要💊 from
-	tmp,ok := tx.from.Load().(sigCache)
-	if !ok{
-		tmpfrom,isok :=tx.from.Load().(common.Address)
-		if !isok{
-			return common.Address{}
-		}
-		from = tmpfrom
-	}else {
-		from = tmp.from
-	}
-	return
-}
-func (tx *Transaction)AmontFrom() (from common.Address){
-	//TODO 需要去委托中要💊 from
-	tmp,ok := tx.from.Load().(sigCache)
-	if !ok{
-		tmpfrom,isok :=tx.from.Load().(common.Address)
-		if !isok{
-			return common.Address{}
-		}
-		from = tmpfrom
-	}else {
-		from = tmp.from
-	}
-	return
-}
 //YY
-func (tx *Transaction) GetTxFrom() (from common.Address,err error) {
+func (tx *Transaction) GetTxFrom() (common.Address,error) {
 	if tx.from.Load() == nil{
 		//如果交易没有做过验签则err不为空。
 		return common.Address{},errors.New("Address is Nil")
 	}
 	//如果交易做过验签则err为空。
-	tmp,ok := tx.from.Load().(sigCache)
-	if !ok{
-		tmpfrom,isok :=tx.from.Load().(common.Address)
-		if !isok{
-			return common.Address{},errors.New("load Address is Nil")
-		}
-		from = tmpfrom
-	}else {
-		from = tmp.from
-	}
-	return
+	return tx.from.Load().(sigCache).from, nil
 }
 //YY// Cost returns amount + gasprice * gaslimit.
 func (tx *Transaction) CostALL() *big.Int {
@@ -381,8 +336,7 @@ func (tx *Transaction)GetTxNLen()int{
 }
 //YY
 func (tx *Transaction) GetTxV() *big.Int { return tx.data.V }
-func (tx *Transaction) SetTxV(v *big.Int)  { tx.data.V = v}
-func (tx *Transaction) SetTxR(r *big.Int)  { tx.data.R = r}
+
 //YY
 func (tx *Transaction) GetTxS() *big.Int { return tx.data.S }
 //YY

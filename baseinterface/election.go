@@ -7,9 +7,8 @@ import (
 	"fmt"
 
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/election/support"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/matrix/go-matrix/params"
 )
 
 const (
@@ -28,8 +27,8 @@ func RegElectPlug(name string, value func() ElectionInterface) {
 
 func NewElect() ElectionInterface {
 	//从配置中获取参数
-	if _, ok := electionPlugs[manparams.ElectPlugs]; ok {
-		return electionPlugs[manparams.ElectPlugs]()
+	if _, ok := electionPlugs[params.ElectPlugs]; ok {
+		return electionPlugs[params.ElectPlugs]()
 	}
 	return electionPlugs[DefaultElectPlug]()
 }
@@ -37,6 +36,6 @@ func NewElect() ElectionInterface {
 type ElectionInterface interface {
 	MinerTopGen(*mc.MasterMinerReElectionReqMsg) *mc.MasterMinerReElectionRsp
 	ValidatorTopGen(*mc.MasterValidatorReElectionReqMsg) *mc.MasterValidatorReElectionRsq
-	ToPoUpdate([]common.Address, support.AllNative, *mc.TopologyGraph) []mc.Alternative
+	ToPoUpdate([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo, mc.TopologyGraph, []common.Address) []mc.Alternative
 	PrimarylistUpdate([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo, mc.TopologyNodeInfo, int) ([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo)
 }

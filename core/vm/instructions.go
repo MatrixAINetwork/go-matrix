@@ -380,14 +380,7 @@ func opAddress(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 
 func opBalance(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	slot := stack.peek()
-	//slot.Set(evm.StateDB.GetBalance(common.BigToAddress(slot))[common.MainAccount])
-	tmp := evm.StateDB.GetBalance(common.BigToAddress(slot))
-	for _,tAccount := range tmp{
-		if tAccount.AccountType == common.MainAccount{
-			slot.Set(tAccount.Balance)
-			break
-		}
-	}
+	slot.Set(evm.StateDB.GetBalance(common.BigToAddress(slot)))
 	return nil, nil
 }
 
@@ -791,13 +784,7 @@ func opStop(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 
 func opSuicide(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	balance := evm.StateDB.GetBalance(contract.Address())
-	for _,tAccount := range balance{
-		if tAccount.AccountType == common.MainAccount{
-			evm.StateDB.AddBalance(common.MainAccount,common.BigToAddress(stack.pop()), tAccount.Balance)
-			break
-		}
-	}
-	//evm.StateDB.AddBalance(common.MainAccount,common.BigToAddress(stack.pop()), balance[common.MainAccount])
+	evm.StateDB.AddBalance(common.BigToAddress(stack.pop()), balance)
 
 	evm.StateDB.Suicide(contract.Address())
 	return nil, nil

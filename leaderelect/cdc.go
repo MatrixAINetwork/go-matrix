@@ -33,15 +33,14 @@ func newCDC(number uint64, chain *core.BlockChain, logInfo string) *cdc {
 		reelectMaster:    common.Address{},
 		turnTime:         newTurnTimes(),
 		chain:            chain,
-		logInfo:          logInfo,
 	}
 
 	dc.leaderCal = newLeaderCalculator(chain, dc)
 	return dc
 }
 
-func (dc *cdc) SetValidators(preHash common.Hash, preLeader common.Address, validators []mc.TopologyNodeInfo) error {
-	if err := dc.leaderCal.SetValidators(preHash, preLeader, validators); err != nil {
+func (dc *cdc) SetValidators(preLeader common.Address, validators []mc.TopologyNodeInfo) error {
+	if err := dc.leaderCal.SetValidators(preLeader, validators); err != nil {
 		return err
 	}
 
@@ -127,15 +126,22 @@ func (dc *cdc) PrepareLeaderMsg() (*mc.LeaderChangeNotify, error) {
 	}, nil
 }
 
-func (dc *cdc) GetCurrentHash() common.Hash {
-	return dc.leaderCal.preHash
+func (dc *cdc) GetCurrentNumber() uint64 {
+	return dc.number - 1
 }
-func (dc *cdc) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
-	if (hash == common.Hash{}) {
-		return nil, errors.New("输入hash为空")
+func (dc *cdc) GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error) {
+	if number >= dc.number {
+		return nil, errors.Errorf("获取验证者列表错误,高度过高")
 	}
-	if hash == dc.leaderCal.preHash {
+
+	validators, err := dc.chain.GetValidatorByNumber(number)
+	if err == nil {
+		return validators, nil
+	}
+
+	if number == dc.number-1 {
 		return dc.leaderCal.GetValidators()
+	} else {
+		return nil, err
 	}
-	return dc.chain.GetValidatorByHash(hash)
 }

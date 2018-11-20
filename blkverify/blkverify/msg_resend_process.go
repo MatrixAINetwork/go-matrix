@@ -8,7 +8,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/matrix/go-matrix/params"
 )
 
 func (p *Process) stopSender() {
@@ -19,7 +19,7 @@ func (p *Process) stopSender() {
 
 func (p *Process) startSendMineReq(req *mc.HD_MiningReqMsg) {
 	p.closeMineReqMsgSender()
-	sender, err := common.NewResendMsgCtrl(req, p.sendMineReqFunc, manparams.MinerReqSendInterval, 0)
+	sender, err := common.NewResendMsgCtrl(req, p.sendMineReqFunc, params.MinerReqSendInterval, 0)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "创建挖矿请求发送器", "失败", "err", err)
 		return
@@ -49,7 +49,7 @@ func (p *Process) sendMineReqFunc(data interface{}, times uint32) {
 
 func (p *Process) startPosedReqSender(req *mc.HD_BlkConsensusReqMsg) {
 	p.closePosedReqSender()
-	sender, err := common.NewResendMsgCtrl(req, p.sendPosedReqFunc, manparams.PosedReqSendInterval, 0)
+	sender, err := common.NewResendMsgCtrl(req, p.sendPosedReqFunc, params.PosedReqSendInterval, 0)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
 		return
@@ -78,7 +78,7 @@ func (p *Process) sendPosedReqFunc(data interface{}, times uint32) {
 
 func (p *Process) startVoteMsgSender(vote *mc.HD_ConsensusVote) {
 	p.closeVoteMsgSender()
-	sender, err := common.NewResendMsgCtrl(vote, p.sendVoteMsgFunc, manparams.BlkVoteSendInterval, manparams.BlkVoteSendTimes)
+	sender, err := common.NewResendMsgCtrl(vote, p.sendVoteMsgFunc, params.BlkVoteSendInterval, params.BlkVoteSendTimes)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "创建投票消息发送器", "失败", "err", err)
 		return

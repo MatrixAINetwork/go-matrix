@@ -181,7 +181,7 @@ func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
 	}
 
 	//获取拓扑图
-	validators, err := ca.GetTopologyByHash(common.RoleValidator, msg.BlockHash)
+	validators, err := ca.GetTopologyByNumber(common.RoleValidator, msg.BlockNum)
 	if err != nil {
 		log.ERROR(self.extraInfo, "CA身份通知消息处理错误", "获取验证者拓扑图错误", "err", err, "高度", msg.BlockNum)
 		return

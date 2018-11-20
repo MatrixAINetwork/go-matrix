@@ -90,105 +90,53 @@ func Getkey() (*big.Int, []byte, error) {
 
 }
 
-func GetMinHash(hash common.Hash, support baseinterface.RandomChainSupport) common.Hash {
-
-	height, err := GetNumberByHash(hash, support)
+func GetKeyTransInfo(Height uint64, types string) map[common.Address][]byte {
+	//asd()
+	ans, err := core.GetBroadcastTxs(big.NewInt(int64(Height)), types)
 	if err != nil {
-		log.Error("electionseed", "计算种子失败 err", err, "hash", hash.String())
-		return common.Hash{}
+		log.Error(ModuleRandomCommon, "获取特殊交易失败 Height", Height, "types", types)
 	}
-	minhash := hash
+	return ans
+}
+
+func GetHashByNum(height uint64, bc *core.BlockChain) common.Hash {
+	return bc.GetBlockByNumber(height).Hash()
+}
+func GetMinHash(height uint64, bc *core.BlockChain) common.Hash {
+
+	minhash := GetHashByNum(height, bc)
 	BroadcastInterval := common.GetBroadcastInterval()
 	for i := height - 1; i > height-BroadcastInterval; i-- {
-		TempHash, err := GetHeaderHashByNumber(hash, i, support)
-		if err != nil {
-			break
-		}
-		if minhash.Big().Cmp(TempHash.Big()) == 1 { //前者大于后者
-			minhash = TempHash
+		fmt.Println("GetMinHash-i", i)
+		blockhash := GetHashByNum(uint64(i), bc)
+		if minhash.Big().Cmp(blockhash.Big()) == 1 { //前者大于后者
+			minhash = blockhash
 		}
 
 	}
 	return minhash
 }
 
-func GetNumberByHash(hash common.Hash, support baseinterface.RandomChainSupport) (uint64, error) {
-	tHeader := support.BlockChain().GetHeaderByHash(hash)
-	if tHeader == nil {
-		log.Error("electionseed", "GetNumberByHash 根据hash算header失败 hash", hash.String())
-		return 0, errors.New("根据hash算header失败")
-	}
-	if tHeader.Number == nil {
-		log.Error("electionseed", "GetNumberByHash header 内的高度获取失败", hash.String())
-		return 0, errors.New("header 内的高度获取失败")
-	}
-	return tHeader.Number.Uint64(), nil
-}
-func GetHeaderHashByNumber(hash common.Hash, height uint64, support baseinterface.RandomChainSupport) (common.Hash, error) {
-	AimHash, err := support.BlockChain().GetAncestorHash(hash, height)
-	if err != nil {
-		log.Error("electionseed", "获取祖先hash失败 hash", hash.String(), "height", height, "err", err)
-		return common.Hash{}, err
-	}
-	return AimHash, nil
-}
-
-//得到特殊交易
-func getKeyTransInfo(hash common.Hash, Height uint64, types string, support baseinterface.RandomChainSupport) map[common.Address][]byte {
-	aimHash, err := GetHeaderHashByNumber(hash, Height, support)
-	if err != nil {
-		log.Error("electionseed", "获取特殊交易阶段-获取祖先hash失败 hash", hash.String(), "height", Height)
-		return make(map[common.Address][]byte)
-	}
-
-	ans, err := core.GetBroadcastTxs(aimHash, types)
-	if err != nil {
-		log.Error("electionseed", "获取特殊交易失败 Height", Height, "types", types)
-	}
-	return ans
-}
-func GetCurrentKeys(hash common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error) {
-
-	height, err := GetNumberByHash(hash, support)
-	if err != nil {
-		log.Error("electionseed", "计算种子失败 err", err, "hash", hash.String())
-		return nil, errors.New("计算hash高度失败")
-	}
-	if height == 0 {
+func GetCurrentKeys(data uint64) (*big.Int, error) {
+	if common.IsBroadcastNumber(data) == false || data == 0 {
 		return nil, errors.New("请求的高度不是广播高度")
 	}
 
-	broadcastInterval := common.GetBroadcastInterval()
-	height_1 := height / broadcastInterval * broadcastInterval //上一个广播区块
-	height_2 := height_1 - common.GetBroadcastInterval()
-
-	PrivateMap := getKeyTransInfo(hash, height_1, mc.Privatekey, support)
-	PublicMap := getKeyTransInfo(hash, height_2, mc.Publickey, support)
-
+	LastBroadCastHeight := data - common.GetBroadcastInterval() //上一个广播区块
+	PrivateMap := GetKeyTransInfo(LastBroadCastHeight, mc.Privatekey)
+	PublicMap := GetKeyTransInfo(data, mc.Publickey)
 	return CompareMap(PrivateMap, PublicMap), nil
 }
 
-func GetMaxNonce(hash common.Hash, lastwHeight uint64, support baseinterface.RandomChainSupport) uint64 {
-	height, err := GetNumberByHash(hash, support)
-	if err != nil {
-		log.Error("electionseed", "计算种子失败 err", err, "hash", hash.String())
-		return 0
-	}
-
+func GetMaxNonce(nowHeight uint64, lastwHeight uint64, support baseinterface.RandomChainSupport) uint64 {
+	fmt.Println("nowHeight", nowHeight, "lastHeight", lastwHeight)
 	ans := support.BlockChain().GetBlockByNumber(lastwHeight).Header().Nonce.Uint64()
-	lastwHeight = height - lastwHeight
+	fmt.Println("nowHeight-128", lastwHeight)
+	fmt.Println("GetMaxNonce-129", ans)
 
-	for k := lastwHeight; k <= height; k++ {
+	for k := lastwHeight; k <= nowHeight; k++ {
 		fmt.Println("kkkk", k)
-		tempHash, err := support.BlockChain().GetAncestorHash(hash, k)
-		if err != nil {
-			break
-		}
-		tempHeader := support.BlockChain().GetHeaderByHash(tempHash)
-		if tempHeader == nil {
-			break
-		}
-		temp := tempHeader.Nonce.Uint64()
+		temp := support.BlockChain().GetBlockByNumber(k).Header().Nonce.Uint64()
 		if ans < temp {
 			ans = temp
 		}

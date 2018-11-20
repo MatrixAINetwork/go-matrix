@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/matrix/go-matrix/params"
 )
 
 const (
@@ -41,7 +40,7 @@ type RandomChainSupport interface {
 }
 type RandomSubService interface {
 	Prepare(uint64) error
-	CalcData(data common.Hash) (*big.Int, error)
+	CalcData(data uint64) (*big.Int, error)
 }
 
 func NewRandom(support RandomChainSupport) (*Random, error) {
@@ -50,7 +49,7 @@ func NewRandom(support RandomChainSupport) (*Random, error) {
 		quitChan:      make(chan struct{}, 1),
 		mapSubService: make(map[string]RandomSubService, 0),
 	}
-	for _, name := range manparams.RandomServiceName {
+	for _, name := range params.RandomServiceName {
 		Plug, needNewSubService := getSubServicePlug(name)
 		if needNewSubService == false {
 			log.WARN(ModuleRandom, "新建子服务阶段", "", "子服务不需要被创建 名称", name)
@@ -107,20 +106,20 @@ func (self *Random) NewSubServer(name string, plugConfig string, support RandomC
 	return nil
 }
 
-func (self *Random) GetRandom(hash common.Hash, Type string) (*big.Int, error) {
+func (self *Random) GetRandom(height uint64, Type string) (*big.Int, error) {
 
-	return self.mapSubService[Type].CalcData(hash)
+	return self.mapSubService[Type].CalcData(height)
 
 }
 
 func getSubServicePlug(name string) (string, bool) {
-	plug, ok := manparams.RandomConfig[name]
+	plug, ok := params.RandomConfig[name]
 	if ok == false {
-		log.ERROR(ModuleRandom, "获取插件状态", "", "配置中无该名字", manparams.RandomConfig[name])
+		log.ERROR(ModuleRandom, "获取插件状态", "", "配置中无该名字", params.RandomConfig[name])
 		return "", false
 	}
 	//检查配置中的插件正确性
-	plugs, ok := manparams.RandomServicePlugs[name]
+	plugs, ok := params.RandomServicePlugs[name]
 	if ok == false {
 		fmt.Println("无该自服务名", name)
 		log.ERROR(ModuleRandom, "获取插件阶段", "", "无该子服务 服务名称", name)
@@ -132,6 +131,6 @@ func getSubServicePlug(name string) (string, bool) {
 			return v, true
 		}
 	}
-	log.ERROR(ModuleRandom, "获取插件阶段", "", "配置中的插件不合法，使用默认插件 名称", manparams.RandomServiceDefaultPlugs[name])
-	return manparams.RandomServiceDefaultPlugs[name], true
+	log.ERROR(ModuleRandom, "获取插件阶段", "", "配置中的插件不合法，使用默认插件 名称", params.RandomServiceDefaultPlugs[name])
+	return params.RandomServiceDefaultPlugs[name], true
 }

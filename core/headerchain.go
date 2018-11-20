@@ -7,6 +7,7 @@ package core
 
 import (
 	crand "crypto/rand"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -23,7 +24,6 @@ import (
 	"github.com/matrix/go-matrix/params"
 	"github.com/hashicorp/golang-lru"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -472,36 +472,28 @@ func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	return nil
 }
 
-func (hc *HeaderChain) GetHashByNumber(number uint64) common.Hash {
-	header := hc.GetHeaderByNumber(number)
-	if header == nil {
-		return common.Hash{}
-	}
-	return header.Hash()
+func (hc *HeaderChain) GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error) {
+	return hc.topologyStore.GetTopologyGraphByNumber(number)
 }
 
-func (hc *HeaderChain) GetTopologyGraphByHash(blockHash common.Hash) (*mc.TopologyGraph, error) {
-	return hc.topologyStore.GetTopologyGraphByHash(blockHash)
+func (hc *HeaderChain) GetOriginalElect(number uint64) ([]common.Elect, error) {
+	return hc.topologyStore.GetOriginalElect(number)
 }
 
-func (hc *HeaderChain) GetOriginalElectByHash(blockHash common.Hash) ([]common.Elect, error) {
-	return hc.topologyStore.GetOriginalElectByHash(blockHash)
-}
-
-func (hc *HeaderChain) GetNextElectByHash(blockHash common.Hash) ([]common.Elect, error) {
-	return hc.topologyStore.GetNextElectByHash(blockHash)
+func (hc *HeaderChain) GetNextElect(number uint64) ([]common.Elect, error) {
+	return hc.topologyStore.GetNextElect(number)
 }
 
 func (hc *HeaderChain) NewTopologyGraph(header *types.Header) (*mc.TopologyGraph, error) {
 	return hc.topologyStore.NewTopologyGraph(header)
 }
 
-func (hc *HeaderChain) GetCurrentHash() common.Hash {
-	return hc.currentHeaderHash
+func (hc *HeaderChain) GetCurrentNumber() uint64 {
+	return hc.CurrentHeader().Number.Uint64()
 }
 
-func (hc *HeaderChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
-	tg, err := hc.GetTopologyGraphByHash(hash)
+func (hc *HeaderChain) GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error) {
+	tg, err := hc.GetTopologyGraphByNumber(number)
 	if err != nil {
 		return nil, err
 	}
@@ -515,30 +507,4 @@ func (hc *HeaderChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, 
 		}
 	}
 	return rlt, nil
-}
-
-func (hc *HeaderChain) GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error) {
-	sonHeader := hc.GetHeaderByHash(sonHash)
-	if sonHeader == nil {
-		return common.Hash{}, errors.Errorf("son header(%s) is not exist", sonHash)
-	}
-	sonNumber := sonHeader.Number.Uint64()
-	if sonNumber == ancestorNumber {
-		return sonHash, nil
-	} else if sonNumber < ancestorNumber {
-		return common.Hash{}, errors.Errorf("son header number(%d) is less then ancestor number(%d)", sonHeader.Number.Uint64(), ancestorNumber)
-	}
-
-	curHeader := sonHeader
-	parentHash := curHeader.ParentHash
-	for curHeader.Number.Uint64()-1 != ancestorNumber {
-		parentHeader := hc.GetHeaderByHash(parentHash)
-		if parentHeader == nil {
-			return common.Hash{}, errors.Errorf("parent header(number:%d, hash:%s) is not exist", curHeader.Number.Uint64()-1, parentHash)
-		}
-		curHeader = parentHeader
-		parentHash = curHeader.ParentHash
-	}
-
-	return parentHash, nil
 }

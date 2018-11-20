@@ -10,10 +10,10 @@ import (
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/params"
 	"github.com/pkg/errors"
 	"math/big"
 	"sync"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type mineReqData struct {
@@ -46,7 +46,7 @@ func (self *mineReqData) ResendMineResult(curTime int64) error {
 
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	if curTime-self.mineResultSendTime < manparams.MinerResultSendInterval {
+	if curTime-self.mineResultSendTime < params.MinerResultSendInterval {
 		return errors.Errorf("挖矿发送间隔尚未到, 上次发送时间(%d), 当前时间(%d)", self.mineResultSendTime, curTime)
 	}
 	self.mineResultSendTime = curTime

@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/matrix/go-matrix/baseinterface"
-	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/random/commonsupport"
 )
@@ -25,14 +24,14 @@ func init() {
 type EveryBroadcastSeedPlug1 struct {
 }
 
-func (self *EveryBroadcastSeedPlug1) CalcSeed(hash common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error) {
-	ans, err := commonsupport.GetCurrentKeys(hash, support)
+func (self *EveryBroadcastSeedPlug1) CalcSeed(data uint64, support baseinterface.RandomChainSupport) (*big.Int, error) {
+	ans, err := commonsupport.GetCurrentKeys(data)
 	if err != nil {
 		return nil, errors.New("获取当前广播区块有效私钥之和")
 	}
 
 	maxNonce := big.NewInt(0)
-	maxNonce.SetUint64(commonsupport.GetMaxNonce(hash, 100, support))
+	maxNonce.SetUint64(commonsupport.GetMaxNonce(data, data-100, support))
 
 	ans.Add(ans, maxNonce)
 	return ans, nil

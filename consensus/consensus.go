@@ -97,8 +97,9 @@ type PoW interface {
 }
 
 type ValidatorReader interface {
-	GetCurrentHash() common.Hash
-	GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error)
+	// GetHeaderByNumber retrieves a block header from the database by number.
+	GetCurrentNumber() uint64
+	GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error)
 }
 
 type DPOSEngine interface {
@@ -110,13 +111,11 @@ type DPOSEngine interface {
 	VerifyHash(reader ValidatorReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
 
 	//verify hash in given number block
-	VerifyHashWithBlock(reader ValidatorReader, signHash common.Hash, signs []common.Signature, blockHash common.Hash) ([]common.Signature, error)
+	VerifyHashWithNumber(reader ValidatorReader, signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error)
 
+	//VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error)
 
 	VerifyHashWithVerifiedSigns(reader ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error)
 
-	VerifyHashWithVerifiedSignsAndBlock(reader ValidatorReader, signs []*common.VerifiedSign, blockHash common.Hash) ([]common.Signature, error)
-
-	//verify validators have enough stocks
-	VerifyStocksWithBlock(reader ValidatorReader, validators []common.Address, blockHash common.Hash) bool
+	VerifyHashWithVerifiedSignsAndNumber(reader ValidatorReader, signs []*common.VerifiedSign, number uint64) ([]common.Signature, error)
 }

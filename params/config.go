@@ -17,6 +17,9 @@ var (
 	TestnetGenesisHash = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d") // Testnet genesis hash to enforce below configs on
 )
 
+//TODO: 其它难度pow和插链验证不过，暂时改成1
+//var Difficultlist = []uint64{1, 2, 10, 50}
+var Difficultlist = []uint64{1}
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{

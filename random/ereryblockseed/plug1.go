@@ -11,8 +11,6 @@ import (
 
 	"fmt"
 
-	"errors"
-
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/random/commonsupport"
@@ -28,27 +26,17 @@ type EveryBlockSeedPlug1 struct {
 	privatekey *big.Int
 }
 
-func (self *EveryBlockSeedPlug1) CalcSeed(hash common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error) {
-	height, err := commonsupport.GetNumberByHash(hash, support)
-	if err != nil {
-		log.Error("electionseed", "计算种子失败 err", err, "hash", hash.String())
-		return nil, errors.New("根据hash计算高度失败")
-	}
-
+func (self *EveryBlockSeedPlug1) CalcSeed(height uint64, support baseinterface.RandomChainSupport) (*big.Int, error) {
 	ans := big.NewInt(0)
-	ans.SetUint64(support.BlockChain().GetHeaderByHash(hash).Nonce.Uint64())
-	selfAddress := support.BlockChain().GetHeaderByHash(hash).Leader
+	ans.SetUint64(support.BlockChain().GetBlockByNumber(height).Nonce())
+	selfAddress := support.BlockChain().GetBlockByNumber(height).Header().Leader
 
-	prv := GetCurrentPrivateKey(hash) //TODO:获取当前区块私钥
+	prv := GetCurrentPrivateKey(height) //TODO:获取当前区块私钥
 	KeyData := big.NewInt(0)
 	for k := height - 1; k >= 0; k-- {
 		if IsBlockOwner(support, k, selfAddress) {
 			fmt.Println(ModuleEveryBlockSeed, "计算阶段", "", "找到上个区块高度", k, "当前区块高度", height)
-			tempHash, err := commonsupport.GetHeaderHashByNumber(hash, k, support)
-			if err != nil {
-				break
-			}
-			pub := GetCurrentPublicKey(tempHash) //TODO:获取上一出块的区块的公钥
+			pub := GetCurrentPublicKey(k) //TODO:获取上一出块的区块的公钥
 			if commonsupport.Compare(prv, pub) == true {
 				log.INFO(ModuleEveryBlockSeed, "计算阶段", "", "找到上个区块高度", k, "当前区块高度", height, "公私钥配对", "")
 				KeyData = common.BytesToHash(prv).Big()
@@ -84,9 +72,9 @@ func IsBlockOwner(support baseinterface.RandomChainSupport, height uint64, addre
 		return false
 	}
 }
-func GetCurrentPrivateKey(hash common.Hash) []byte {
+func GetCurrentPrivateKey(height uint64) []byte {
 	return []byte{}
 }
-func GetCurrentPublicKey(hash common.Hash) []byte {
+func GetCurrentPublicKey(height uint64) []byte {
 	return []byte{}
 }

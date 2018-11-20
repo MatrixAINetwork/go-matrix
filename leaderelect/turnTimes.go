@@ -4,9 +4,9 @@
 package leaderelect
 
 import (
+	"github.com/matrix/go-matrix/params"
 	"github.com/pkg/errors"
 	"time"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type turnTimes struct {
@@ -43,18 +43,18 @@ func (tt *turnTimes) GetPosEndTime(consensusTurn uint32) int64 {
 	_, endTime := tt.CalTurnTime(consensusTurn, 0)
 	return endTime
 
-	posTime := manparams.LRSPOSOutTime
+	posTime := params.LRSPOSOutTime
 	if consensusTurn == 0 {
-		posTime += manparams.LRSParentMiningTime
+		posTime += params.LRSParentMiningTime
 	}
 
 	return tt.GetBeginTime(consensusTurn) + posTime
 }
 
 func (tt *turnTimes) CalState(consensusTurn uint32, time int64) (st state, remainTime int64, reelectTurn uint32) {
-	posTime := manparams.LRSPOSOutTime
+	posTime := params.LRSPOSOutTime
 	if consensusTurn == 0 {
-		posTime += manparams.LRSParentMiningTime
+		posTime += params.LRSParentMiningTime
 	}
 
 	passTime := time - tt.GetBeginTime(consensusTurn)
@@ -63,7 +63,7 @@ func (tt *turnTimes) CalState(consensusTurn uint32, time int64) (st state, remai
 	}
 
 	st = stReelect
-	reelectTurn = uint32((passTime-posTime)/manparams.LRSReelectOutTime) + 1
+	reelectTurn = uint32((passTime-posTime)/params.LRSReelectOutTime) + 1
 	_, endTime := tt.CalTurnTime(consensusTurn, reelectTurn)
 	remainTime = endTime - time
 	return
@@ -75,17 +75,17 @@ func (tt *turnTimes) CalRemainTime(consensusTurn uint32, reelectTurn uint32, tim
 }
 
 func (tt *turnTimes) CalTurnTime(consensusTurn uint32, reelectTurn uint32) (beginTime int64, endTime int64) {
-	posTime := manparams.LRSPOSOutTime
+	posTime := params.LRSPOSOutTime
 	if consensusTurn == 0 {
-		posTime += manparams.LRSParentMiningTime
+		posTime += params.LRSParentMiningTime
 	}
 
 	if reelectTurn == 0 {
 		beginTime = tt.GetBeginTime(consensusTurn)
 		endTime = beginTime + posTime
 	} else {
-		beginTime = tt.GetBeginTime(consensusTurn) + posTime + int64(reelectTurn-1)*manparams.LRSReelectOutTime
-		endTime = beginTime + manparams.LRSReelectOutTime
+		beginTime = tt.GetBeginTime(consensusTurn) + posTime + int64(reelectTurn-1)*params.LRSReelectOutTime
+		endTime = beginTime + params.LRSReelectOutTime
 	}
 	return
 }

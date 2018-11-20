@@ -17,7 +17,6 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/reelection"
-	"time"
 )
 
 type State uint16
@@ -66,7 +65,6 @@ type Process struct {
 	insertBlockHash    []common.Hash
 	FullBlockReqCache  *common.ReuseMsgController
 	consensusReqSender *common.ResendMsgCtrl
-	minerPickTimer     *time.Timer
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
@@ -85,7 +83,6 @@ func newProcess(number uint64, pm *ProcessManage) *Process {
 		blockCache:         newBlockCache(),
 		FullBlockReqCache:  common.NewReuseMsgController(3),
 		consensusReqSender: nil,
-		minerPickTimer:     nil,
 	}
 
 	return p
@@ -108,7 +105,6 @@ func (p *Process) Close() {
 	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
 	p.closeConsensusReqSender()
-	p.stopMinerPikerTimer()
 }
 
 func (p *Process) ReInit() {
@@ -123,7 +119,6 @@ func (p *Process) ReInit() {
 	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
 	p.closeConsensusReqSender()
-	p.stopMinerPikerTimer()
 }
 
 func (p *Process) ReInitNextLeader() {
@@ -141,7 +136,6 @@ func (p *Process) SetCurLeader(leader common.Address, consensusTurn uint32) {
 	p.curLeader = leader
 	p.consensusTurn = consensusTurn
 	p.closeConsensusReqSender()
-	p.stopMinerPikerTimer()
 	log.INFO(p.logExtraInfo(), "process设置当前leader成功", p.curLeader.Hex(), "高度", p.number)
 	if p.checkState(StateIdle) {
 		return
@@ -194,7 +188,7 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 			return
 		}
 
-		if role, _ := ca.GetAccountOriginalRole(signAccount, p.preBlockHash); common.RoleBroadcast != role {
+		if role, _ := ca.GetAccountOriginalRole(signAccount, p.number-1); common.RoleBroadcast != role {
 			log.ERROR(p.logExtraInfo(), "广播区块插入消息非法，签名人别是广播身份, role", role.String())
 			return
 		}
@@ -205,6 +199,7 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 			return
 		}
 
+		//todo 不是原始难度的结果，需要修改POW seal验证过程
 		if err := p.engine().VerifySeal(p.blockChain(), header); err != nil {
 			log.ERROR(p.logExtraInfo(), "区块插入消息POW验证失败", err)
 			return
@@ -336,23 +331,6 @@ func (p *Process) checkRepeatInsert(blockHash common.Hash) bool {
 
 func (p *Process) saveInsertedBlockHash(blockHash common.Hash) {
 	p.insertBlockHash = append(p.insertBlockHash, blockHash)
-}
-
-func (p *Process) startMinerPikerTimer(outTime int64) {
-	if p.minerPickTimer != nil {
-		return
-	}
-
-	p.minerPickTimer = time.AfterFunc(time.Duration(outTime)*time.Second, func() {
-		p.minerPickTimeout()
-	})
-}
-
-func (p *Process) stopMinerPikerTimer() {
-	if nil != p.minerPickTimer {
-		p.minerPickTimer.Stop()
-		p.minerPickTimer = nil
-	}
 }
 
 func (p *Process) logExtraInfo() string {

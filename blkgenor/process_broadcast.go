@@ -4,7 +4,9 @@
 package blkgenor
 
 import (
+	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
@@ -27,14 +29,35 @@ func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
 }
 
 func (p *Process) preVerifyBroadcastMinerResult(result *mc.BlockData) bool {
+	if role, _ := ca.GetAccountOriginalRole(result.Header.Leader, result.Header.Number.Uint64()); common.RoleBroadcast != role {
+		log.ERROR(p.logExtraInfo(), "广播挖矿结果不是来自广播节点, role", role.String())
+		return false
+	}
+
+	if 1 != len(result.Header.Signatures) {
+		log.Error(p.logExtraInfo(), "广播挖矿结果非法, 签名列表数量错误", len(result.Header.Signatures))
+		return false
+	}
 	if false == common.IsBroadcastNumber(result.Header.Number.Uint64()) {
-		log.ERROR(p.logExtraInfo(), "验证广播挖矿结果", "高度不是广播区块高度", "高度", result.Header.Number.Uint64())
+		log.Error(p.logExtraInfo(), "广播挖矿结果非法, 不是广播区块高度", result.Header.Number.Uint64())
 		return false
 	}
-	if err := p.dposEngine().VerifyBlock(p.blockChain(), result.Header); err != nil {
-		log.ERROR(p.logExtraInfo(), "验证广播挖矿结果", "结果异常", "err", err)
+	from, validate, err := crypto.VerifySignWithValidate(result.Header.HashNoSignsAndNonce().Bytes(), result.Header.Signatures[0].Bytes())
+	if err != nil {
+		log.Error(p.logExtraInfo(), "广播挖矿结果非法, 签名解析错误", err)
 		return false
 	}
+
+	if from != result.Header.Leader {
+		log.Error(p.logExtraInfo(), "广播挖矿结果非法, 签名不匹配，签名人", from.Hex(), "Leader", result.Header.Leader.Hex())
+		return false
+	}
+
+	if false == validate {
+		log.Error(p.logExtraInfo(), "广播挖矿结果非法, 签名结果为", validate)
+		return false
+	}
+
 	return true
 }
 
@@ -53,16 +76,13 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 			continue
 		}
 
-
-		//执行交易
-		blkRward,txsReward:=p.calcRewardAndSlash(work.State, result.Header)
-		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), result.Txs, p.pm.bc,blkRward,txsReward)
-		retTxs:=work.GetTxs()
-		log.INFO("*********************", "len(result.Txs)", len(retTxs))
-		for _, tx := range retTxs {
-			log.INFO("==========", "Finalize:GasPrice", tx.GasPrice(), "amount", tx.Value())
+		log.INFO("*********************", "len(result.Txs)", len(result.Txs))
+		for _, tx := range result.Txs {
+			log.INFO("==========", "Finalize:GasPrice", tx.GasPrice(), "amount", tx.Value()) //hezi
 		}
-		_, err = p.blockChain().Engine().Finalize(p.blockChain(), result.Header, work.State, retTxs, nil, work.Receipts)
+		//执行交易
+		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), result.Txs, p.pm.bc)
+		_, err = p.blockChain().Engine().Finalize(p.blockChain(), result.Header, work.State, result.Txs, nil, work.Receipts)
 
 		if err != nil {
 			log.ERROR(p.logExtraInfo(), "Failed to finalize block for sealing", err)
@@ -72,7 +92,7 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 		p.blockCache.SaveReadyBlock(&mc.BlockLocalVerifyOK{
 			Header:    result.Header,
 			BlockHash: common.Hash{},
-			Txs:       retTxs,
+			Txs:       result.Txs,
 			Receipts:  work.Receipts,
 			State:     work.State,
 		})

@@ -23,6 +23,7 @@ func NewBroadCastTransaction(txType byte, data []byte) *TransactionBroad {
 func (tx *TransactionBroad) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, &tx.data)
 }
+
 // DecodeRLP implements rlp.Decoder
 func (tx *TransactionBroad) DecodeRLP(s *rlp.Stream) error {
 	_, size, _ := s.Kind()
@@ -74,21 +75,10 @@ func (tx *TransactionBroad) CheckNonce() bool   { return true }
 func (tx *TransactionBroad) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
 }
-func (tx *TransactionBroad)GasFrom() common.Address{
-	return common.Address{}
-}
-func (tx *TransactionBroad)AmontFrom() common.Address{
-	return common.Address{}
-}
-func (tx *TransactionBroad) GetMatrixType() byte {
-	return 1
-}
 //
 func (tx *TransactionBroad) From() common.Address {
 	return common.Address{}
 }
-func (tx *TransactionBroad) SetTxV(v *big.Int)  { tx.data.V = v}
-func (tx *TransactionBroad) SetTxR(r *big.Int)  { tx.data.R = r}
 //YY
 func (tx *TransactionBroad) GetTxFrom() (common.Address, error) {
 	if tx.from.Load() == nil {

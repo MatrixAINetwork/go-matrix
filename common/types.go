@@ -31,26 +31,8 @@ var (
 	addressT = reflect.TypeOf(Address{})
 )
 
-const (
-	MainAccount = iota	//主账户
-	FreezeAccount		//冻结账户
-	LockAccount			//锁仓账户
-	WithdrawAccount		//可撤销账户
-	EntrustAccount		//委托账户
-)
-var LastAccount uint32 = EntrustAccount	//必须赋值最后一个账户
-
-
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte
-
-//hezi账户属性定义
-type BalanceSlice struct {
-	AccountType	uint32
-	Balance	*big.Int
-}
-type BalanceType []BalanceSlice
-
 
 func BytesToHash(b []byte) Hash {
 	var h Hash
@@ -380,18 +362,11 @@ type NetTopology struct {
 	Type            uint8
 	NetTopologyData []NetTopologyData
 }
-
-var (
-	BlkRewardAddress   Address = HexToAddress("0x8000000000000000000000000000000000000000")
-	TxGasRewardAddress Address = HexToAddress("0x8000000000000000000000000000000000000001")
-)
-
 const (
 	//byte can not be 1,because 1 is occupied
 	ExtraNormalTxType    byte = 0
-	ExtraUnGasTxType     byte = 2  //无gas的奖励交易
-	ExtraRevocable       byte = 3  //可撤销的交易
-	ExtraRevertTxType    byte = 4  //撤销交易
+	ExtraUnGasTxType     byte = 2
+	ExtraRevertTxType    byte = 3
 )
 
 type TxTypeInt uint8

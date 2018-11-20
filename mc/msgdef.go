@@ -69,13 +69,13 @@ type TopologyNodeInfo struct {
 }
 type Alternative struct {
 	A        common.Address
+	B        common.Address
 	Position uint16
 }
 
 type TopologyGraph struct {
 	Number        uint64
 	NodeList      []TopologyNodeInfo
-	ElectList     []TopologyNodeInfo
 	CurNodeNumber uint8
 }
 
@@ -209,7 +209,6 @@ type HD_OnlineConsensusVotes struct {
 type HD_OnlineConsensusVoteResultMsg struct {
 	Req      *OnlineConsensusReq //请求结构
 	SignList []common.Signature  //签名列表
-	From     common.Address
 }
 
 //特殊交易

@@ -79,7 +79,6 @@ const (
 	MaxTxN               uint32 = 0x1FFFF            //交易编号最大值
 	FloodMaxTransactions int    = 200                //洪泛交易数量阈值
 	TxSize               uint64 = 32 * 1024          //交易的大小
-	TxGasPrice           uint64 = 18000000000        //交易费
 
 	// Udp buffer
 	MaxUdpBuf uint32 = 1024 * 64

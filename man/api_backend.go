@@ -124,7 +124,7 @@ func (b *ManAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 }
 
 func (b *ManAPIBackend) GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(common.MainAccount,msg.From(), math.MaxBig256)
+	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg.From(), msg.GasPrice(), header, b.man.BlockChain(), nil)
@@ -289,7 +289,16 @@ func (b *ManAPIBackend) SignTx(signedTx types.SelfTransaction, chainID *big.Int)
 
 //YY
 func (b *ManAPIBackend) SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error {
-	return b.man.txPool.AddBroadTx(signedTx, bType)
+	bpooler, err := b.man.txPool.GetTxPoolByType(types.BroadCastTxIndex)
+	if err == nil {
+		bpool, ok := bpooler.(*core.BroadCastTxPool)
+		if ok {
+			return bpool.AddBroadTx(signedTx, bType)
+		} else {
+			return errors.New("SendBroadTx() unknown txpool")
+		}
+	}
+	return err
 }
 
 //YY
