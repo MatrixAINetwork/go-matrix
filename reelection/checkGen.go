@@ -22,7 +22,7 @@ func (self *ReElection)checkTopGenStatus(hash common.Hash)error{
 	}
 
 	if ok:=self.boolTopStatus(hash,common.RoleMiner);ok==false{
-		log.Warn(Module,"矿工拓扑图需要重新算 hash",hash.String())
+		log.Warn(Module,"miner topology needs hash to be re-caculated",hash.String())
 		if height==0{
 			return nil
 		}
@@ -33,7 +33,7 @@ func (self *ReElection)checkTopGenStatus(hash common.Hash)error{
 	}
 
 	if ok:=self.boolTopStatus(hash,common.RoleValidator);ok==false{
-		log.Warn(Module,"验证者拓扑图需要重新算 高度",height)
+		log.Warn(Module,"validator topology needs height to be re-caculated",height)
 		if height==0{
 			return nil
 		}
