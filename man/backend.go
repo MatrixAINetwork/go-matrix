@@ -488,7 +488,7 @@ func (s *matrix) FetcherNotify(hash common.Hash, number uint64) {
 	for _, id := range ids {
 		peer := s.protocolManager.Peers.Peer(id.String()[:16])
 		if peer == nil {
-			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String(), "Peers:", s.protocolManager.Peers.peers)
+			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String())
 			continue
 		}
 		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)
