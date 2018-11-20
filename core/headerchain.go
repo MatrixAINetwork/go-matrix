@@ -185,7 +185,7 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	//write topology graph
 	if err := hc.topologyStore.WriteTopologyGraph(header); err != nil {
-		log.ERROR("header chain", "缓存拓扑信息错误", err)
+		log.ERROR("header chain", "Failed to cache the topology info", err)
 	}
 
 	hc.headerCache.Add(hash, header)
@@ -216,7 +216,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 
 	err := hc.dposEngine.VerifyBlocks(hc, chain)
 	if err != nil {
-		log.Error("区块下载验证头链", "DPOS共识错误", err)
+		log.Error("区块下载验证头链", "DPOS Consensus Error", err)
 		return 0, err
 	}
 	// Generate the list of seal verification requests, and start the parallel verifier
@@ -232,7 +232,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 			seals[index] = true
 		}
 	}
-	//todo:状态树
+	//todo:state tree
 	if common.IsBroadcastNumber(chain[len(seals)-1].Number.Uint64()) {
 		seals[len(seals)-1] = false
 	} else {
