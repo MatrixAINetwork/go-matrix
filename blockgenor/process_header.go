@@ -15,8 +15,8 @@ import (
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params/man"
-	"github.com/pkg/errors"
 	"github.com/matrix/go-matrix/txpoolCache"
+	"github.com/pkg/errors"
 )
 
 func (p *Process) processHeaderGen() error {
@@ -38,6 +38,9 @@ func (p *Process) processHeaderGen() error {
 	}
 
 	Elect := p.genElection(parentHash)
+	if Elect == nil {
+		return errors.New("生成elect信息失败")
+	}
 
 	log.Info(p.logExtraInfo(), "++++++++获取选举结果 ", Elect, "高度", p.number)
 	log.Info(p.logExtraInfo(), "++++++++获取拓扑结果 ", NetTopology, "高度", p.number)
@@ -160,7 +163,7 @@ func (p *Process) processHeaderGen() error {
 		p2pBlock := &mc.HD_BlkConsensusReqMsg{Header: header, TxsCode: txsCode, ConsensusTurn: p.consensusTurn, From: ca.GetAddress()}
 		//send to local block verify module
 		localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, Txs: Txs, Receipts: work.Receipts, State: work.State}
-		txpoolCache.MakeStruck(Txs,header.HashNoSignsAndNonce(),p.number)
+		txpoolCache.MakeStruck(Txs, header.HashNoSignsAndNonce(), p.number)
 		log.INFO(p.logExtraInfo(), "!!!!本地发送区块验证请求, root", p2pBlock.Header.Root.TerminalString(), "高度", p.number)
 		mc.PublishEvent(mc.BlockGenor_HeaderVerifyReq, localBlock)
 		p.startConsensusReqSender(p2pBlock)
