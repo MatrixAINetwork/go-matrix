@@ -40,7 +40,7 @@ func newMineReqData(headerHash common.Hash, header *types.Header, txs types.Tran
 
 func (self *mineReqData) ResendMineResult(curTime int64) error {
 	if false == self.mined {
-		return errors.New("尚未挖矿完成")
+		return errors.New("mining not completed yet")
 	}
 
 	self.mu.Lock()
@@ -129,16 +129,16 @@ func (ctrl *mineReqCtrl) CanMining() bool {
 func (ctrl *mineReqCtrl) GetMineReqData(headerHash common.Hash) (*mineReqData, error) {
 	reqData, exist := ctrl.reqCache[headerHash]
 	if !exist {
-		return nil, errors.New("请求消息未找到")
+		return nil, errors.New("request message not found")
 	}
 	if reqData == nil {
-		return nil, errors.New("请求消息找到，但是为nil")
+		return nil, errors.New("request message found, but it is nil")
 	}
 	return reqData, nil
 }
 
 func (ctrl *mineReqCtrl) GetUnMinedReq() *mineReqData {
-	//todo 获取时间戳最大的
+	//todo obtain the one with the biggest timestamp
 
 	for hash, req := range ctrl.reqCache {
 		if req == nil {
@@ -174,7 +174,7 @@ func (ctrl *mineReqCtrl) GetCurrentMineReq() *mineReqData {
 
 func (ctrl *mineReqCtrl) SetMiningResult(result *types.Header) (*mineReqData, error) {
 	if nil == result {
-		return nil, errors.New("消息为nil")
+		return nil, errors.New("message is nil")
 	}
 	headerHash := result.HashNoSignsAndNonce()
 	req, err := ctrl.GetMineReqData(headerHash)
@@ -239,7 +239,7 @@ func (ctrl *mineReqCtrl) fixMap() {
 		}
 		err := ctrl.checkMineReq(reqData.header)
 		if err != nil {
-			log.WARN(ModuleMiner, "fixMap", "检测请求时，验证失败", err, "高度", ctrl.curNumber)
+			log.WARN(ModuleMiner, "fixMap", "validations failed upon detecting the requests", err, "height", ctrl.curNumber)
 			continue
 		}
 		ctrl.reqCache[reqData.headerHash] = reqData
