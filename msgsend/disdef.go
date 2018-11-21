@@ -1,7 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-package hd
+package msgsend
 
 import (
 	"github.com/matrix/go-matrix/common"
@@ -20,7 +20,7 @@ type NetData struct {
 	Msg     []byte
 }
 
-type fullBlockMsgForMarshal struct {
+type BroadcastRspMsgForMarshal struct {
 	Header *types.Header
 	Txs    []*types.Transaction_Mx
 }
