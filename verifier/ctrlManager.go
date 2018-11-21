@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package verifier
 
 import (
@@ -29,7 +30,6 @@ func NewControllerManager(matrix Matrix, logInfo string) *ControllerManager {
 func (cm *ControllerManager) StartController(number uint64, msg *startControllerMsg) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-
 	if cm.curNumber > number {
 		log.INFO(cm.logInfo, "处理start controller消息", "高度低于当前高度,不处理", "curNumber", cm.curNumber, "number", number)
 		return
@@ -40,13 +40,15 @@ func (cm *ControllerManager) StartController(number uint64, msg *startController
 	cm.getController(number).ReceiveMsg(msg)
 }
 
-func (cm *ControllerManager) GetController(number uint64) (*controller, error) {
+func (cm *ControllerManager) ReceiveMsg(number uint64, msg interface{}) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	if err := cm.isLegalNumber(number); err != nil {
-		return nil, err
+		return err
 	}
-	return cm.getController(number), nil
+	ctrl := cm.getController(number)
+	ctrl.ReceiveMsg(msg)
+	return nil
 }
 
 func (cm *ControllerManager) GetCurController() *controller {
