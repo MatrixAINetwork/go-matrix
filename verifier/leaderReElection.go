@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package verifier
 
 import (
@@ -10,7 +11,6 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/man"
 	"github.com/pkg/errors"
 )
 
@@ -55,12 +55,13 @@ func NewLeaderIdentityService(matrix Matrix, extraInfo string) (*LeaderIdentity,
 	}
 
 	if err := server.subEvents(); err != nil {
-		log.ERROR(server.extraInfo, "service creation failed", err)
+		log.ERROR(server.extraInfo, "服务创建失败", err)
 		return nil, err
 	}
 
 	go server.run()
 
+	log.INFO(server.extraInfo, "服务创建", "成功")
 	return server, nil
 }
 
@@ -181,7 +182,7 @@ func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
 	}
 
 	//获取拓扑图
-	validators, err := ca.GetTopologyByNumber(common.RoleValidator, msg.BlockNum)
+	validators, err := ca.GetTopologyByHash(common.RoleValidator, msg.BlockHash)
 	if err != nil {
 		log.ERROR(self.extraInfo, "CA身份通知消息处理错误", "获取验证者拓扑图错误", "err", err, "高度", msg.BlockNum)
 		return
@@ -212,12 +213,10 @@ func (self *LeaderIdentity) blockPOSFinishedMsgHandle(msg *mc.BlockPOSFinishedNo
 	}
 
 	log.INFO(self.extraInfo, "收到区块POS完成消息", "开始", "高度", msg.Number)
-	ctrl, err := self.ctrlManager.GetController(msg.Number)
+	err := self.ctrlManager.ReceiveMsg(msg.Number, msg)
 	if err != nil {
-		log.ERROR(self.extraInfo, "区块POS完成消息处理", "获取controller失败", "err", err)
-		return
+		log.ERROR(self.extraInfo, "区块POS完成消息处理", "controller接受消息失败", "err", err)
 	}
-	ctrl.ReceiveMsg(msg)
 }
 
 func (self *LeaderIdentity) rlInquiryReqHandle(req *mc.HD_ReelectInquiryReqMsg) {
@@ -235,12 +234,10 @@ func (self *LeaderIdentity) rlInquiryReqHandle(req *mc.HD_ReelectInquiryReqMsg) 
 		return
 	}
 
-	ctrl, err := self.ctrlManager.GetController(req.Number)
+	err := self.ctrlManager.ReceiveMsg(req.Number, req)
 	if err != nil {
-		log.ERROR(self.extraInfo, "重选询问消息处理", "获取controller失败", "err", err)
-		return
+		log.ERROR(self.extraInfo, "重选询问消息处理", "controller接受消息失败", "err", err)
 	}
-	ctrl.ReceiveMsg(req)
 }
 
 func (self *LeaderIdentity) rlInquiryRspHandle(rsp *mc.HD_ReelectInquiryRspMsg) {
@@ -248,12 +245,10 @@ func (self *LeaderIdentity) rlInquiryRspHandle(rsp *mc.HD_ReelectInquiryRspMsg) 
 		log.Error(self.extraInfo, "重选询问响应", "错误", "消息不合法", ErrMsgIsNil)
 		return
 	}
-	ctrl, err := self.ctrlManager.GetController(rsp.Number)
+	err := self.ctrlManager.ReceiveMsg(rsp.Number, rsp)
 	if err != nil {
-		log.ERROR(self.extraInfo, "重选询问消息响应", "获取controller失败", "err", err)
-		return
+		log.ERROR(self.extraInfo, "重选询问消息响应", "controller接受消息失败", "err", err)
 	}
-	ctrl.ReceiveMsg(rsp)
 }
 
 func (self *LeaderIdentity) rlReqMsgHandle(req *mc.HD_ReelectLeaderReqMsg) {
@@ -261,12 +256,10 @@ func (self *LeaderIdentity) rlReqMsgHandle(req *mc.HD_ReelectLeaderReqMsg) {
 		log.Error(self.extraInfo, "leader重选请求", "错误", "消息不合法", ErrMsgIsNil)
 		return
 	}
-	ctrl, err := self.ctrlManager.GetController(req.InquiryReq.Number)
+	err := self.ctrlManager.ReceiveMsg(req.InquiryReq.Number, req)
 	if err != nil {
-		log.ERROR(self.extraInfo, "leader重选请求处理", "获取controller失败", "err", err)
-		return
+		log.ERROR(self.extraInfo, "leader重选请求处理", "controller接受消息失败", "err", err)
 	}
-	ctrl.ReceiveMsg(req)
 }
 
 func (self *LeaderIdentity) rlVoteMsgHandle(req *mc.HD_ReelectLeaderVoteMsg) {
@@ -276,12 +269,10 @@ func (self *LeaderIdentity) rlVoteMsgHandle(req *mc.HD_ReelectLeaderVoteMsg) {
 	}
 	log.INFO(self.extraInfo, "收到leader重选投票", "开始", "高度", req.Number)
 
-	ctrl, err := self.ctrlManager.GetController(req.Number)
+	err := self.ctrlManager.ReceiveMsg(req.Number, req)
 	if err != nil {
-		log.ERROR(self.extraInfo, "leader重选投票处理", "获取controller失败", "err", err)
-		return
+		log.ERROR(self.extraInfo, "leader重选投票处理", "controller接受消息失败", "err", err)
 	}
-	ctrl.ReceiveMsg(req)
 }
 
 func (self *LeaderIdentity) rlResultBroadcastHandle(msg *mc.HD_ReelectResultBroadcastMsg) {
@@ -291,12 +282,10 @@ func (self *LeaderIdentity) rlResultBroadcastHandle(msg *mc.HD_ReelectResultBroa
 	}
 	log.INFO(self.extraInfo, "收到重选结果广播", "开始", "高度", msg.Number, "结果类型", msg.Type, "from", msg.From.Hex())
 
-	ctrl, err := self.ctrlManager.GetController(msg.Number)
+	err := self.ctrlManager.ReceiveMsg(msg.Number, msg)
 	if err != nil {
-		log.ERROR(self.extraInfo, "重选结果广播处理", "获取controller失败", "err", err)
-		return
+		log.ERROR(self.extraInfo, "重选结果广播处理", "controller接受消息失败", "err", err)
 	}
-	ctrl.ReceiveMsg(msg)
 }
 
 func (self *LeaderIdentity) rlResultRspHandle(rsp *mc.HD_ReelectResultRspMsg) {
@@ -306,12 +295,10 @@ func (self *LeaderIdentity) rlResultRspHandle(rsp *mc.HD_ReelectResultRspMsg) {
 	}
 	log.INFO(self.extraInfo, "收到重选结果响应", "开始", "高度", rsp.Number)
 
-	ctrl, err := self.ctrlManager.GetController(rsp.Number)
+	err := self.ctrlManager.ReceiveMsg(rsp.Number, rsp)
 	if err != nil {
-		log.ERROR(self.extraInfo, "重选结果响应处理", "获取controller失败", "err", err)
-		return
+		log.ERROR(self.extraInfo, "重选结果响应处理", "controller接受消息失败", "err", err)
 	}
-	ctrl.ReceiveMsg(rsp)
 }
 
 func (self *LeaderIdentity) genValidatorList(header *types.Header) (*mc.TopologyGraph, error) {
@@ -341,17 +328,4 @@ func (self *LeaderIdentity) getRoleFromTopology(validators *mc.TopologyGraph) co
 		}
 	}
 	return common.RoleNil
-}
-
-func (self *LeaderIdentity) getBootPeerCount() int {
-	var nodeCount, bCount int
-	nodes, err := ca.GetTopologyByNumber(common.RoleValidator|common.RoleMiner, 0)
-	if err != nil {
-		nodeCount = 0
-	} else {
-		nodeCount = len(nodes.NodeList)
-	}
-
-	bCount = len(man.BroadCastNodes)
-	return nodeCount + bCount - 1
 }
