@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package state provides a caching layer atop the Matrix state trie.
@@ -178,12 +178,12 @@ func (self *StateDB) Empty(addr common.Address) bool {
 }
 
 // Retrieve the balance from the given address or 0 if object not found
-func (self *StateDB) GetBalance(addr common.Address) common.BalanceType {
+func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Balance()
 	}
-	return nil
+	return common.Big0
 }
 
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
@@ -263,25 +263,25 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
  */
 
 // AddBalance adds amount to the account associated with addr.
-func (self *StateDB) AddBalance(accountType uint32,addr common.Address, amount *big.Int) {
+func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.AddBalance(accountType,amount)
+		stateObject.AddBalance(amount)
 	}
 }
 
 // SubBalance subtracts amount from the account associated with addr.
-func (self *StateDB) SubBalance(accountType uint32,addr common.Address, amount *big.Int) {
+func (self *StateDB) SubBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SubBalance(accountType,amount)
+		stateObject.SubBalance(amount)
 	}
 }
 
-func (self *StateDB) SetBalance(accountType uint32,addr common.Address, amount *big.Int) {
+func (self *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetBalance(accountType,amount)
+		stateObject.SetBalance(amount)
 	}
 }
 
@@ -319,12 +319,10 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 	self.journal.append(suicideChange{
 		account:     &addr,
 		prev:        stateObject.suicided,
-		//prevbalance: new(big.Int).Set(stateObject.Balance()),
-		prevbalance: stateObject.Balance(),
+		prevbalance: new(big.Int).Set(stateObject.Balance()),
 	})
 	stateObject.markSuicided()
-	//stateObject.data.Balance = new(big.Int)
-	stateObject.data.Balance = make(common.BalanceType,0)
+	stateObject.data.Balance = new(big.Int)
 
 	return true
 }
@@ -418,10 +416,7 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 func (self *StateDB) CreateAccount(addr common.Address) {
 	new, prev := self.createObject(addr)
 	if prev != nil {
-		//new.setBalance(prev.data.Balance)
-		for _,tAccount := range prev.data.Balance{
-			new.setBalance(tAccount.AccountType,tAccount.Balance)
-		}
+		new.setBalance(prev.data.Balance)
 	}
 }
 

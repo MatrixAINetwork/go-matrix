@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
@@ -10,8 +10,8 @@ import (
 	"github.com/matrix/go-matrix/mc"
 )
 
-func (p *Process) genElection(parentHash common.Hash) []common.Elect {
-	info, err := p.reElection().GetElection(parentHash)
+func (p *Process) genElection(num uint64) []common.Elect {
+	info, err := p.reElection().GetElection(num)
 	if err != nil {
 		log.Warn(p.logExtraInfo(), "verifyElection: get election err", err)
 		return nil
@@ -20,16 +20,16 @@ func (p *Process) genElection(parentHash common.Hash) []common.Elect {
 	return p.reElection().TransferToElectionStu(info)
 }
 
-func (p *Process) getNetTopology(currentNetTopology common.NetTopology, num uint64,parentHash common.Hash) *common.NetTopology {
+func (p *Process) getNetTopology(currentNetTopology common.NetTopology, num uint64) *common.NetTopology {
 	if common.IsReElectionNumber(num + 1) {
-		return p.genAllNetTopology(parentHash)
+		return p.genAllNetTopology(num)
 	}
 
-	return p.genChgNetTopology(currentNetTopology, parentHash)
+	return p.genChgNetTopology(currentNetTopology, num)
 }
 
-func (p *Process) genAllNetTopology(parentHash common.Hash) *common.NetTopology {
-	info, err := p.reElection().GetNetTopologyAll(parentHash)
+func (p *Process) genAllNetTopology(num uint64) *common.NetTopology {
+	info, err := p.reElection().GetNetTopologyAll(num)
 	if err != nil {
 		log.Warn(p.logExtraInfo(), "verifyNetTopology: get prev topology from ca err", err)
 		return nil
@@ -38,9 +38,10 @@ func (p *Process) genAllNetTopology(parentHash common.Hash) *common.NetTopology 
 	return p.reElection().TransferToNetTopologyAllStu(info)
 }
 
-func (p *Process) getPrevTopology(parentHash common.Hash) (*mc.TopologyGraph, error) {
+func (p *Process) getPrevTopology(num uint64) (*mc.TopologyGraph, error) {
 	reqRoles := common.RoleType(common.RoleValidator | common.RoleBackupValidator | common.RoleMiner | common.RoleBackupMiner)
-	return ca.GetTopologyByHash(reqRoles, parentHash)
+
+	return ca.GetTopologyByNumber(reqRoles, num-1)
 }
 
 func (p *Process) parseOnlineState(currentNetTopology common.NetTopology, prevTopology *mc.TopologyGraph) ([]common.Address, []common.Address, []common.Address) {
@@ -49,101 +50,25 @@ func (p *Process) parseOnlineState(currentNetTopology common.NetTopology, prevTo
 	return offlineTopNodes, onlinePrimaryNods, offlinePrimaryNodes
 }
 
-func (p *Process) genChgNetTopology(currentNetTopology common.NetTopology, parentHash common.Hash) *common.NetTopology {
+func (p *Process) genChgNetTopology(currentNetTopology common.NetTopology, num uint64) *common.NetTopology {
 
-	// get local consensus on-line state
-	var eleNum uint64
-	if p.number < common.GetReElectionInterval() {
-		eleNum = 0
-	} else {
-		eleNum = common.GetLastReElectionNumber(p.number) - 1
-	}
-	originTopology, err := ca.GetTopologyByNumber(common.RoleValidator|common.RoleBackupValidator|common.RoleMiner|common.RoleBackupMiner, eleNum)
-	if err != nil {
-		log.Warn(p.logExtraInfo(), "get topology by number error", err)
-		return nil
-	}
-	originTopNodes := make([]common.Address, 0)
-	for _, node := range originTopology.NodeList {
-		originTopNodes = append(originTopNodes, node.Account)
-	}
-
-	p.pm.olConsensus.SetElectNodes(originTopNodes, eleNum)
-	//var currentNum uint64
-
-	//if p.number < 1 {
-	//	currentNum = 0
-	//} else {
-	//	currentNum = p.number - 1
-	//}
 	// get prev topology
-	//currentTopology, err := ca.GetTopologyByNumber(common.RoleValidator|common.RoleBackupValidator|common.RoleMiner|common.RoleBackupMiner, currentNum)
-	currentTopology, err := ca.GetTopologyByHash(common.RoleValidator|common.RoleBackupValidator|common.RoleMiner|common.RoleBackupMiner, parentHash)
-
+	prevTopology, err := p.getPrevTopology(num)
 	if err != nil {
-		log.Warn(p.logExtraInfo(), "get topology by number error", err)
+		log.Warn(p.logExtraInfo(), "get prev topology err", err)
 		return nil
 	}
 
 	// get online and offline info from header and prev topology
-	onlineTopNodes := make([]common.Address, 0)
-	for _, node := range currentTopology.NodeList {
-		onlineTopNodes = append(onlineTopNodes, node.Account)
-		log.Info(p.logExtraInfo(), "onlineTopNodes", node.Account)
+	offlineTopNodes, onlinePrimaryNods, offlinePrimaryNodes := p.parseOnlineState(currentNetTopology, prevTopology)
 
-	}
-
-	onlineElectNodes := make([]common.Address, 0)
-	for _, node := range currentTopology.ElectList {
-		onlineElectNodes = append(onlineElectNodes, node.Account)
-		log.Info(p.logExtraInfo(), "onlineElectNodes", node.Account)
-
-	}
-	log.Info(p.logExtraInfo(), "SetCurrentOnlineState:高度", p.number, "onlineElect", len(onlineElectNodes), "onlineTopnode", len(onlineTopNodes))
-
-	p.pm.olConsensus.SetCurrentOnlineState(onlineTopNodes, onlineElectNodes)
-	offlineTopNodes, onlineElectNods, offlineElectNodes := p.pm.olConsensus.GetConsensusOnlineState()
-
-	for _, value := range offlineTopNodes {
-		log.Info(p.logExtraInfo(), "offlineTopNodes", value.String())
-	}
-	for _, value := range onlineElectNods {
-		log.Info(p.logExtraInfo(), "onlineElectNods", value.String())
-	}
-
-	for _, value := range offlineElectNodes {
-		log.Info(p.logExtraInfo(), "offlineElectNodes", value.String())
-	}
-
-	saveData := []common.Address{}
-	for k, v := range offlineElectNodes {
-		flag := 0
-		for _, vv := range offlineTopNodes {
-			if v == vv {
-				flag = 1
-			}
-		}
-		if flag == 0 {
-			saveData = append(saveData, offlineElectNodes[k])
-		}
-	}
-	log.INFO("scfffff", "saveIndex", saveData)
-
-	offlineElectNodes = saveData
-	log.INFO("scffffff-Gen-GetTopoChange start ", "hash", parentHash.String(), "onlineElectNods", onlineElectNods, "offlineElectNodes", offlineElectNodes, "offlineTopNodes", offlineTopNodes)
 	// generate topology alter info
-	alterInfo, err := p.reElection().GetTopoChange(parentHash, offlineTopNodes)
-	log.INFO("scffffff-Gen-GetTopoChange end", "alterInfo", alterInfo, "err", err)
+	alterInfo, err := p.reElection().GetTopoChange(num, offlineTopNodes)
 	if err != nil {
 		log.Warn(p.logExtraInfo(), "get topology change info by reelection server err", err)
 		return nil
 	}
-	for _, value := range alterInfo {
-		log.Info(p.logExtraInfo(), "alter-A", value.A, "alter-B","", "position", value.Position, "number", p.number)
-	}
 
 	// generate self net topology
-	ans := p.reElection().TransferToNetTopologyChgStu(alterInfo, onlineElectNods, offlineElectNodes)
-	log.INFO("scfffff-TransferToNetTopologyChgStu", "ans", ans)
-	return ans
+	return p.reElection().TransferToNetTopologyChgStu(alterInfo, onlinePrimaryNods, offlinePrimaryNodes)
 }

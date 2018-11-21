@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 package rlp
@@ -15,7 +15,6 @@ import (
 	"math/big"
 	"reflect"
 	"strings"
-	"github.com/matrix/go-matrix/log"
 )
 
 var (
@@ -38,7 +37,6 @@ var (
 	errUintOverflow  = errors.New("rlp: uint overflow")
 	errNoPointer     = errors.New("rlp: interface given to Decode must be a pointer")
 	errDecodeIntoNil = errors.New("rlp: pointer given to Decode must not be nil")
-	InterfaceConstructorMap = make(map[uint16]func()interface{})
 )
 
 // Decoder is implemented by types that require custom RLP
@@ -212,7 +210,7 @@ func makeDecoder(typ reflect.Type, tags tags) (dec decoder, err error) {
 		}
 		return makePtrDecoder(typ)
 	case kind == reflect.Interface:
-		return decodeInterfaceRLP,nil
+		return decodeInterface, nil
 	default:
 		return nil, fmt.Errorf("rlp: type %v is not RLP-serializable", typ)
 	}
@@ -497,45 +495,6 @@ func makeOptionalPtrDecoder(typ reflect.Type) (decoder, error) {
 	return dec, nil
 }
 
-func decodeInterfaceRLP(s *Stream, val reflect.Value) error {
-	if !val.Type().Implements(typerInterface){
-		return decodeInterface(s,val)
-	}
-	valRLP := InterfaceRLP{}
-	val1 := reflect.ValueOf(&valRLP).Elem()
-	typ := reflect.TypeOf(valRLP)
-	fields, err := structFields(typ)
-	if err != nil {
-		return  err
-	}
-	if _, err := s.List(); err != nil {
-		return wrapStreamError(err, typ)
-	}
-	valueField := fields[0]
-	err = valueField.info.decoder(s, val1.Field(0))
-	if err == EOL {
-		return &decodeError{msg: "too few elements", typ: typ}
-	} else if err != nil {
-		return addErrorContext(err, "."+typ.Field(0).Name)
-	}
-	if creater,exist := InterfaceConstructorMap[valRLP.TypeKind];exist{
-		valRLP.Value = creater()
-	}else{
-		log.Info("interface constructor Error:" ,"typeKind",valRLP.TypeKind)
-		return &decodeError{msg: "interface constructor cannot find", typ: typ}
-	}
-	info, err := cachedTypeInfo(reflect.ValueOf(valRLP.Value).Elem().Type(),tags{} )
-	err = info.decoder(s, reflect.ValueOf(valRLP.Value).Elem())
-	if err == EOL {
-		return &decodeError{msg: "too few elements", typ: typ}
-	} else if err != nil {
-		return addErrorContext(err, "."+typ.Field(1).Name)
-	}
-//	reflect.SliceOf
-	val.Set(reflect.ValueOf(valRLP.Value))
-	return wrapStreamError(s.ListEnd(), typ)
-
-}
 var ifsliceType = reflect.TypeOf([]interface{}{})
 
 func decodeInterface(s *Stream, val reflect.Value) error {

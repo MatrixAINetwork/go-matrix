@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package keystore implements encrypted storage of secp256k1 private keys.
@@ -264,7 +264,7 @@ func (ks *KeyStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
 }
 
 // SignTx signs the given transaction with the requested account.
-func (ks *KeyStore) SignTx(a accounts.Account, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
+func (ks *KeyStore) SignTx(a accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	// Look up the key to sign with and abort if it cannot be found
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
@@ -273,15 +273,11 @@ func (ks *KeyStore) SignTx(a accounts.Account, tx types.SelfTransaction, chainID
 	if !found {
 		return nil, ErrLocked
 	}
-	//YYY ==================begin======================
 	// Depending on the presence of the chain ID, sign with EIP155 or homestead
-	//if chainID != nil {
-	//	return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
-	//}
-	//return types.SignTx(tx, types.HomesteadSigner{}, unlockedKey.PrivateKey)
-
-	return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
-	//YYY===================end=======================
+	if chainID != nil {
+		return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
+	}
+	return types.SignTx(tx, types.HomesteadSigner{}, unlockedKey.PrivateKey)
 }
 
 // SignHashWithPassphrase signs hash if the private key matching the given address
@@ -298,7 +294,7 @@ func (ks *KeyStore) SignHashWithPassphrase(a accounts.Account, passphrase string
 
 // SignTxWithPassphrase signs the transaction if the private key matching the
 // given address can be decrypted with the given passphrase.
-func (ks *KeyStore) SignTxWithPassphrase(a accounts.Account, passphrase string, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
+func (ks *KeyStore) SignTxWithPassphrase(a accounts.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	//todo 暂时修改为使用缓存方式
 	key := ks.findSignKeyInTemp(a)
 	if key == nil {
@@ -320,12 +316,10 @@ func (ks *KeyStore) SignTxWithPassphrase(a accounts.Account, passphrase string, 
 	defer zeroKey(key.PrivateKey)*/
 
 	// Depending on the presence of the chain ID, sign with EIP155 or homestead
-	//if chainID != nil {
-	//	return types.SignTx(tx, types.NewEIP155Signer(chainID), key.PrivateKey)
-	//}
-	//return types.SignTx(tx, types.HomesteadSigner{}, key.PrivateKey)
-
-	return types.SignTx(tx, types.NewEIP155Signer(chainID), key.PrivateKey)
+	if chainID != nil {
+		return types.SignTx(tx, types.NewEIP155Signer(chainID), key.PrivateKey)
+	}
+	return types.SignTx(tx, types.HomesteadSigner{}, key.PrivateKey)
 }
 
 func (ks *KeyStore) SignHashValidate(a accounts.Account, hash []byte, validate bool) (signature []byte, err error) {

@@ -1,11 +1,13 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 package state
 
 import (
+	"math/big"
+
 	"github.com/matrix/go-matrix/common"
 )
 
@@ -82,15 +84,13 @@ type (
 	suicideChange struct {
 		account     *common.Address
 		prev        bool // whether account had already suicided
-		//prevbalance *big.Int
-		prevbalance common.BalanceType
+		prevbalance *big.Int
 	}
 
 	// Changes to individual accounts.
 	balanceChange struct {
 		account *common.Address
-		//prev    *big.Int
-		prev    common.BalanceType
+		prev    *big.Int
 	}
 	nonceChange struct {
 		account *common.Address
@@ -143,10 +143,7 @@ func (ch suicideChange) revert(s *StateDB) {
 	obj := s.getStateObject(*ch.account)
 	if obj != nil {
 		obj.suicided = ch.prev
-		//obj.setBalance(ch.prevbalance)
-		for _,tAccount := range ch.prevbalance{
-			obj.setBalance(tAccount.AccountType,tAccount.Balance)
-		}
+		obj.setBalance(ch.prevbalance)
 	}
 }
 
@@ -164,10 +161,7 @@ func (ch touchChange) dirtied() *common.Address {
 }
 
 func (ch balanceChange) revert(s *StateDB) {
-	//s.getStateObject(*ch.account).setBalance(ch.prev)
-	for _,tAccount := range ch.prev{
-		s.getStateObject(*ch.account).setBalance(tAccount.AccountType,tAccount.Balance)
-	}
+	s.getStateObject(*ch.account).setBalance(ch.prev)
 }
 
 func (ch balanceChange) dirtied() *common.Address {

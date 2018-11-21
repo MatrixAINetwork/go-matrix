@@ -1,12 +1,13 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 package core
 
 import (
 	crand "crypto/rand"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -22,8 +23,6 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
 	"github.com/hashicorp/golang-lru"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -52,17 +51,15 @@ type HeaderChain struct {
 
 	procInterrupt func() bool
 
-	rand          *mrand.Rand
-	engine        consensus.Engine
-	dposEngine    consensus.DPOSEngine
-	topologyStore *TopologyStore
+	rand   *mrand.Rand
+	engine consensus.Engine
 }
 
 // NewHeaderChain creates a new HeaderChain structure.
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -82,7 +79,6 @@ func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine c
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
-		dposEngine:    dposEngine,
 	}
 
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
@@ -97,9 +93,6 @@ func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine c
 		}
 	}
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
-
-	hc.topologyStore = NewTopologyStore(hc, hc.chainDb)
-	hc.topologyStore.WriteTopologyGraph(hc.genesisHeader)
 
 	return hc, nil
 }
@@ -184,11 +177,6 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 		status = SideStatTy
 	}
 
-	//write topology graph
-	if err := hc.topologyStore.WriteTopologyGraph(header); err != nil {
-		log.ERROR("header chain", "缓存拓扑信息错误", err)
-	}
-
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 
@@ -215,11 +203,6 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 		}
 	}
 
-	err := hc.dposEngine.VerifyBlocks(hc, chain)
-	if err != nil {
-		log.Error("区块下载验证头链", "DPOS共识错误", err)
-		return 0, err
-	}
 	// Generate the list of seal verification requests, and start the parallel verifier
 	seals := make([]bool, len(chain))
 	for i := 0; i < len(seals)/checkFreq; i++ {
@@ -470,75 +453,4 @@ func (hc *HeaderChain) Engine() consensus.Engine { return hc.engine }
 // a header chain does not have blocks available for retrieval.
 func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	return nil
-}
-
-func (hc *HeaderChain) GetHashByNumber(number uint64) common.Hash {
-	header := hc.GetHeaderByNumber(number)
-	if header == nil {
-		return common.Hash{}
-	}
-	return header.Hash()
-}
-
-func (hc *HeaderChain) GetTopologyGraphByHash(blockHash common.Hash) (*mc.TopologyGraph, error) {
-	return hc.topologyStore.GetTopologyGraphByHash(blockHash)
-}
-
-func (hc *HeaderChain) GetOriginalElectByHash(blockHash common.Hash) ([]common.Elect, error) {
-	return hc.topologyStore.GetOriginalElectByHash(blockHash)
-}
-
-func (hc *HeaderChain) GetNextElectByHash(blockHash common.Hash) ([]common.Elect, error) {
-	return hc.topologyStore.GetNextElectByHash(blockHash)
-}
-
-func (hc *HeaderChain) NewTopologyGraph(header *types.Header) (*mc.TopologyGraph, error) {
-	return hc.topologyStore.NewTopologyGraph(header)
-}
-
-func (hc *HeaderChain) GetCurrentHash() common.Hash {
-	return hc.currentHeaderHash
-}
-
-func (hc *HeaderChain) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
-	tg, err := hc.GetTopologyGraphByHash(hash)
-	if err != nil {
-		return nil, err
-	}
-	rlt := &mc.TopologyGraph{
-		Number:        tg.Number,
-		CurNodeNumber: tg.CurNodeNumber,
-	}
-	for _, node := range tg.NodeList {
-		if node.Type&common.RoleValidator != 0 {
-			rlt.NodeList = append(rlt.NodeList, node)
-		}
-	}
-	return rlt, nil
-}
-
-func (hc *HeaderChain) GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error) {
-	sonHeader := hc.GetHeaderByHash(sonHash)
-	if sonHeader == nil {
-		return common.Hash{}, errors.Errorf("son header(%s) is not exist", sonHash)
-	}
-	sonNumber := sonHeader.Number.Uint64()
-	if sonNumber == ancestorNumber {
-		return sonHash, nil
-	} else if sonNumber < ancestorNumber {
-		return common.Hash{}, errors.Errorf("son header number(%d) is less then ancestor number(%d)", sonHeader.Number.Uint64(), ancestorNumber)
-	}
-
-	curHeader := sonHeader
-	parentHash := curHeader.ParentHash
-	for curHeader.Number.Uint64()-1 != ancestorNumber {
-		parentHeader := hc.GetHeaderByHash(parentHash)
-		if parentHeader == nil {
-			return common.Hash{}, errors.Errorf("parent header(number:%d, hash:%s) is not exist", curHeader.Number.Uint64()-1, parentHash)
-		}
-		curHeader = parentHeader
-		parentHash = curHeader.ParentHash
-	}
-
-	return parentHash, nil
 }

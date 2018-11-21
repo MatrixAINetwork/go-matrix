@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package rawdb contains a collection of low level database accessors.
@@ -48,10 +48,8 @@ var (
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
 
-	preimageCounter     = metrics.NewRegisteredCounter("db/preimage/total", nil)
-	preimageHitCounter  = metrics.NewRegisteredCounter("db/preimage/hits", nil)
-	topologyGraphPrefix = []byte("g") //topologyGraphPrefix + num + blockHash -> topology graph
-	electIndexPrefix    = []byte("e") //electIndexPrefix + num + blockHash -> {header hash with v elect, header hash with m elect}
+	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
+	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
 )
 
 // TxLookupEntry is a positional metadata to help looking up the data content of
@@ -67,9 +65,4 @@ func encodeBlockNumber(number uint64) []byte {
 	enc := make([]byte, 8)
 	binary.BigEndian.PutUint64(enc, number)
 	return enc
-}
-
-type ElectIndexData struct {
-	VElectBlock common.Hash
-	MElectBlock common.Hash
 }

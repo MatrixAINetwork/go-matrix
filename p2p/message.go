@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 package p2p
@@ -79,16 +79,11 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
-var (
-	ErrCanNotFindPeer = errors.New("p2p: can`t find peer")
-	ErrMsgWriterIsNil = errors.New("p2p: message writer is nil")
-)
-
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	if w == nil {
-		return ErrMsgWriterIsNil
+		return errors.New("peer disconnect in send duration.")
 	}
 	size, r, err := rlp.EncodeToReader(data)
 	if err != nil {
@@ -96,6 +91,8 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	}
 	return w.WriteMsg(Msg{Code: msgcode, Size: uint32(size), Payload: r})
 }
+
+var ErrCanNotFindPeer = errors.New("p2p: can`t find peer")
 
 // SendToSingle send message to single peer.
 func SendToSingle(to discover.NodeID, msgCode uint64, data interface{}) error {
@@ -115,7 +112,7 @@ func SendToSingle(to discover.NodeID, msgCode uint64, data interface{}) error {
 
 // SendToGroup send message to a group.
 func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{}) error {
-	ids := ca.GetRolesByGroupWithNextElect(to)
+	ids := ca.GetRolesByGroupWithBackup(to)
 	peers := ServerP2p.Peers()
 	for _, id := range ids {
 		for _, peer := range peers {

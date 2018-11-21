@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package olconsensus
 
 import (
@@ -39,15 +39,13 @@ func (ds *DPosVoteState) addVote(vote *mc.HD_ConsensusVote) (interface{}, []vote
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 	insVote := voteInfo{messageState.RlpFnvHash(vote), vote}
-	log.Info("投票hash", "fnvHash", insVote.hash, "From", vote.From.String())
 	for _, item := range ds.AffirmativeVotes {
 		if item.hash == insVote.hash {
-			log.Error("topnodeOnline", "添加投票,投票已经存在 vote", vote, "已经收到的票数", len(ds.AffirmativeVotes))
 			return nil, nil
 		}
 	}
 	ds.AffirmativeVotes = append(ds.AffirmativeVotes, insVote)
-	log.Info("topnodeOnline", "添加投票length", len(ds.AffirmativeVotes), "proposal", ds.Proposal)
+	log.Info("DPosVoteState", "length", len(ds.AffirmativeVotes))
 	return ds.Proposal, ds.AffirmativeVotes[:]
 }
 func (ds *DPosVoteState) clear(proposal common.Hash) {
@@ -106,12 +104,10 @@ func (ring *DPosVoteRing) getVotes(hash common.Hash) (interface{}, []voteInfo) {
 func (ring *DPosVoteRing) addProposal(hash common.Hash, proposal interface{}) bool {
 	ds, have := ring.findProposal(hash)
 	add := ds.addProposal(proposal)
-	log.Info("topnodeOnline", "have", have, "add", add, "hash", hash, "ds.proposal", ds.Proposal, "proposal", proposal)
 	return !(have && add)
 }
 func (ring *DPosVoteRing) addVote(hash common.Hash, vote *mc.HD_ConsensusVote) (interface{}, []voteInfo) {
-	ds, ret := ring.findProposal(hash)
-	log.Info("topnodeOnline", "找到hash", ret)
+	ds, _ := ring.findProposal(hash)
 	return ds.addVote(vote)
 }
 func (ring *DPosVoteRing) findProposal(hash common.Hash) (*DPosVoteState, bool) {

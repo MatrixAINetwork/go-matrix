@@ -1,30 +1,38 @@
-// Copyright (c) 2018 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package vrf
 
 import (
-	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
-
-	"github.com/matrix/go-matrix/baseinterface"
+	"crypto/ecdsa"
 )
 
-type vrfWithHash struct {
+type vrfData struct {
+	BlockNum uint32 `json:"block_num"`
+	PrevVrf  []byte `json:"prev_vrf"`
 }
 
-func newVrfWithHash() baseinterface.VrfInterface {
-	return &vrfWithHash{}
-}
-func init() {
-	baseinterface.RegVrf("withHash", newVrfWithHash)
-}
-func (self *vrfWithHash) ComputeVrf(sk *ecdsa.PrivateKey, prevVrf []byte) ([]byte, []byte, error) {
-	return Vrf(sk, prevVrf)
+func computeVrf(sk *ecdsa.PrivateKey, blkNum uint32, prevVrf []byte) ([]byte, []byte, error) {
+	data, err := json.Marshal(&vrfData{
+		BlockNum: blkNum,
+		PrevVrf:  prevVrf,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("computeVrf failed to marshal vrfData: %s", err)
+	}
+
+	return Vrf(sk, data)
 }
 
-func (self *vrfWithHash) VerifyVrf(pk *ecdsa.PublicKey, prevVrf, newVrf, proof []byte) error {
-	result, err := Verify(pk, prevVrf, newVrf, proof)
+func verifyVrf(pk *ecdsa.PublicKey, blkNum uint32, prevVrf, newVrf, proof []byte) error {
+	data, err := json.Marshal(&vrfData{
+		BlockNum: blkNum,
+		PrevVrf:  prevVrf,
+	})
+	if err != nil {
+		return fmt.Errorf("verifyVrf failed to marshal vrfData: %s", err)
+	}
+
+	result, err := Verify(pk, data, newVrf, proof)
 	if err != nil {
 		return fmt.Errorf("verifyVrf failed: %s", err)
 	}

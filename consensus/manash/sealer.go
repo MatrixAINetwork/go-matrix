@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 package manash
@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"math/rand"
 	"runtime"
+	"sort"
 	"sync"
 
 	"github.com/matrix/go-matrix/common"
@@ -62,21 +63,22 @@ func GetdifficultyListAndTargetList(difficultyList []*big.Int) minerDifficultyLi
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, isBroadcastNode bool) (*types.Header, error) {
-	log.INFO("seal", "挖矿", "开始", "高度", header.Number.Uint64())
-	defer log.INFO("seal", "挖矿", "结束", "高度", header.Number.Uint64())
+func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, foundMsgCh chan *consensus.FoundMsg, difficultyList []*big.Int, isBroadcastNode bool) error {
+
+	curHeader := types.CopyHeader(header)
+	sort.Sort(diffiList(difficultyList))
+	difficultyListAndTargetList := GetdifficultyListAndTargetList(difficultyList)
 
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
-	found := make(chan *types.Header)
+	found := make(chan consensus.FoundMsg)
 	manash.lock.Lock()
-	curHeader := types.CopyHeader(header)
 	threads := manash.threads
 	if manash.rand == nil {
 		seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
 		if err != nil {
 			manash.lock.Unlock()
-			return nil, err
+			return err
 		}
 		manash.rand = rand.New(rand.NewSource(seed.Int64()))
 	}
@@ -92,30 +94,34 @@ func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, st
 		pend.Add(1)
 		go func(id int, nonce uint64) {
 			defer pend.Done()
-			manash.mine(curHeader, id, nonce, abort, found, isBroadcastNode)
+			manash.mine(curHeader, id, nonce, abort, found, &difficultyListAndTargetList)
 
 		}(i, uint64(manash.rand.Int63()))
 	}
 	// Wait until sealing is terminated or a nonce is found
-	var result *types.Header
-	select {
-	case <-stop:
-		log.INFO("SEALER", "Sealer receive stop mine, curHeader", curHeader.HashNoSignsAndNonce().TerminalString())
-		// Outside abort, stop all miner threads
-		close(abort)
-	case result = <-found:
-		// One of the threads found a block, abort all others
-		close(abort)
-	case <-manash.update:
-		// Thread count was changed on user request, restart
-		close(abort)
-		pend.Wait()
-		return manash.Seal(chain, curHeader, stop, isBroadcastNode)
-	}
 
+	for {
+		select {
+		case <-stop:
+			log.INFO("SEALER", "Sealer Recv stop mine", "")
+			// Outside abort, stop all miner threads
+			close(abort)
+			return nil
+		case result := <-found:
+			log.INFO("SEALER", "recv found msg from mine difficulty", result.Difficulty)
+			foundMsgCh <- &result
+			// One of the threads found a block, abort all others
+			//close(abort)
+		case <-manash.update:
+			// Thread count was changed on user request, restart
+			close(abort)
+			pend.Wait()
+			return manash.Seal(chain, curHeader, stop, foundMsgCh, difficultyList, isBroadcastNode)
+		}
+	}
 	// Wait for all miners to terminate and return the block
 	pend.Wait()
-	return result, nil
+	return nil
 }
 
 func compareDifflist(result []byte, diffList []*big.Int, targets []*big.Int) (int, bool) {
@@ -130,35 +136,29 @@ func compareDifflist(result []byte, diffList []*big.Int, targets []*big.Int) (in
 
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
-func (manash *Manash) mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan *types.Header, isBroadcastNode bool) {
+func (manash *Manash) mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan consensus.FoundMsg, diffiList *minerDifficultyList) {
 	// Extract some data from the header
 
 	var (
-		curHeader = types.CopyHeader(header)
-		hash      = curHeader.HashNoNonce().Bytes()
-		target    = new(big.Int).Div(maxUint256, header.Difficulty)
-		number    = curHeader.Number.Uint64()
-		dataset   = manash.dataset(number)
+		curHeader     = types.CopyHeader(header)
+		hash          = curHeader.HashNoNonce().Bytes()
+		number        = curHeader.Number.Uint64()
+		dataset       = manash.dataset(number)
+		NowDifficulty *big.Int
 	)
-	if isBroadcastNode {
-		target = maxUint256
-	}
 	// Start generating random nonces until we abort or find a good one
-	log.INFO("SEALER begin mine", "target", target, "isBroadcast", isBroadcastNode, "number", curHeader.Number.Uint64(), "diff", header.Difficulty.Uint64())
-	defer log.INFO("SEALER stop mine", "number", curHeader.Number.Uint64(), "diff", header.Difficulty.Uint64())
 	var (
 		attempts = int64(0)
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
-	logger.Trace("Started ethash search for new nonces", "seed", seed)
-	//log.INFO("SEALER", "Started ethash search for new nonces seed", seed)
-search:
+	logger.Trace("Started manash search for new nonces", "seed", seed)
+	//log.INFO("SEALER", "Started manash search for new nonces seed", seed)
 	for {
 		select {
 		case <-abort:
 			// Mining terminated, update stats and abort
-			logger.Trace("Ethash nonce search aborted", "attempts", nonce-seed)
+			logger.Trace("Manash nonce search aborted", "attempts", nonce-seed)
 			manash.hashrate.Mark(attempts)
 			return
 
@@ -170,25 +170,43 @@ search:
 				attempts = 0
 			}
 			// Compute the PoW value of this nonce
-			digest, result := hashimotoFull(dataset.dataset, hash, nonce)
+			digest, result := hashimotoFull(nil, hash, nonce)
 
-			//log.Info("sealer","result",new(big.Int).SetBytes(result))
-			//log.Info("sealer","target",target)
-			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
-				// Correct nonce found, create a new header with it
-				header = types.CopyHeader(header)
-				header.Nonce = types.EncodeNonce(nonce)
-				header.MixDigest = common.BytesToHash(digest)
-
-				// Seal and return a block (if still needed)
-				select {
-				case found <- header:
-					logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
-				case <-abort:
-					logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
-				}
-				break search
+			//compare difficuty list
+			if result == nil {
+				continue
 			}
+			//todo 锁的位置加的有问题
+			diffiList.lock.Lock()
+			num, ret := compareDifflist(result, diffiList.diffiList, diffiList.targets)
+
+			if ret == true {
+				NowDifficulty = diffiList.diffiList[num]
+				diffiList.targets = diffiList.targets[:num]
+				diffiList.diffiList = diffiList.diffiList[:num]
+				diffiList.lock.Unlock()
+				// Correct nonce found, create a new header with it
+				FoundHeader := types.CopyHeader(curHeader)
+				FoundHeader.Nonce = types.EncodeNonce(nonce)
+				FoundHeader.MixDigest = common.BytesToHash(digest)
+				log.INFO("SEALER", "Send found message to update! NowDifficulty", NowDifficulty, "id", id)
+
+				select {
+				case found <- consensus.FoundMsg{Header: FoundHeader, Difficulty: NowDifficulty}:
+					logger.Trace("Manash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+				case <-abort:
+					logger.Trace("Manash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+				}
+
+				if NowDifficulty == header.Difficulty {
+					log.INFO("SEALER", "quit minning", "", "id", id)
+					return
+				}
+
+			} else {
+				diffiList.lock.Unlock()
+			}
+
 			nonce++
 		}
 	}

@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 package core
@@ -11,10 +11,7 @@ import (
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
-type NewTxsEvent struct {
-	Txs      types.SelfTransactions
-	poolType common.TxTypeInt
-}
+type NewTxsEvent struct{ Txs []*types.Transaction }
 
 //type NewSNEvent struct{ SN map[*big.Int]uint32 } //by hezi
 

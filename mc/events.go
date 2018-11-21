@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
 
 type EventCode int
@@ -15,28 +15,35 @@ const (
 
 	//CA
 	CA_RoleUpdated // RoleUpdatedMsg
-	CA_ReqCurrentBlock
 
 	//P2P
 	P2P_BlkVerifyRequest // BlockVerifyReqMsg
 
 	//Leader service
 	Leader_LeaderChangeNotify // LeaderChangeNotify
-	Leader_RecoveryState
 
 	//BlockVerify service
 	HD_BlkConsensusReq
 	HD_BlkConsensusVote
 	BlkVerify_VerifyConsensusOK //BlockVerifyConsensusOK
-	BlkVerify_POSFinishedNotify //BlockPOSFinishedNotify
+	BlkVerify_VerifyStateNotify //BlockVerifyStateNotify
+	BlockGenor_NewBlockReady
+
+	ReElect_MasterMinerReElectionReqMsg
 
 	//BlockGenor service
 	BlockGenor_HeaderGenerateReq
+	BlockGenor_HeaderBlockReq
 	HD_NewBlockInsert
 	BlockGenor_HeaderVerifyReq
-	BlockGenor_NewBlockReady
-	HD_FullBlockReq
-	HD_FullBlockRsp
+	HDBlockGenor_BlockVerifyReqMsg
+	BCBlockGenor_HeaderBlockReq
+	GBlock_HeaderGenNotify
+	BlockGenor_PreBlockBroadcastFinished
+
+	//ReElection service
+	ReElec_RandomSeedReq
+	Random_ElectionSeedRsp
 
 	//topnode online
 	HD_TopNodeConsensusReq
@@ -44,12 +51,9 @@ const (
 	HD_TopNodeConsensusVoteResult
 
 	//leader
-	HD_LeaderReelectInquiryReq
-	HD_LeaderReelectInquiryRsp
-	HD_LeaderReelectReq
-	HD_LeaderReelectVote
-	HD_LeaderReelectResultBroadcast
-	HD_LeaderReelectResultBroadcastRsp
+	HD_LeaderReelectVoteReq
+	HD_LeaderReelectVoteRsp
+	HD_LeaderReelectConsensusBroadcast
 
 	//Topology
 	ReElec_MasterMinerReElectionReq
@@ -62,15 +66,12 @@ const (
 	Random_TopoSeedRsp
 
 	P2P_HDMSG
+	P2PSENDDISPATCHERMSG
 
 	BlockToBuckets
+	BlockToElected
 	BlockToLinkers
 	SendUdpTx
-	SendSyncRole //lb
-	TxPoolManager
-
-	//1030_scf
-	EveryBlockSeedRsp
-
+	SendSyncRole      //lb
 	LastEventCode
 )

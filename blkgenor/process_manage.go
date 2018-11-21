@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
@@ -13,7 +13,6 @@ import (
 	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/reelection"
 	"github.com/pkg/errors"
-	"github.com/matrix/go-matrix/olconsensus"
 )
 
 type ProcessManage struct {
@@ -24,11 +23,10 @@ type ProcessManage struct {
 	hd         *msgsend.HD
 	signHelper *signhelper.SignHelper
 	bc         *core.BlockChain
-	txPool     *core.TxPoolManager //YYY
+	txPool     *core.TxPool
 	reElection *reelection.ReElection
 	engine     consensus.Engine
 	dposEngine consensus.DPOSEngine
-	olConsensus    *olconsensus.TopNodeService
 }
 
 func NewProcessManage(matrix Backend) *ProcessManage {
@@ -43,7 +41,6 @@ func NewProcessManage(matrix Backend) *ProcessManage {
 		reElection: matrix.ReElection(),
 		engine:     matrix.BlockChain().Engine(),
 		dposEngine: matrix.BlockChain().DPOSEngine(),
-		olConsensus:    matrix.TopNode(),
 	}
 }
 
@@ -108,6 +105,8 @@ func (pm *ProcessManage) fixProcessMap() {
 		if key < pm.curNumber-1 {
 			process.Close()
 			delKeys = append(delKeys, key)
+		} else if key == pm.curNumber-1 {
+			process.Sleep() //注：需要缓存 -1 高度的process，用于换leader后的区块广播
 		}
 	}
 
@@ -119,14 +118,7 @@ func (pm *ProcessManage) fixProcessMap() {
 }
 
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
-	var minNumber uint64
-	if pm.curNumber < 1 {
-		minNumber = 0
-	} else {
-		minNumber = pm.curNumber - 1
-	}
-
-	if number < minNumber {
+	if number < pm.curNumber-1 {
 		return errors.Errorf("number(%d) is less than current number(%d)", number, pm.curNumber)
 	}
 

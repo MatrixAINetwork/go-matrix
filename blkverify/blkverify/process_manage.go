@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
 
 import (
@@ -26,7 +26,7 @@ type ProcessManage struct {
 	hd         *msgsend.HD
 	signHelper *signhelper.SignHelper
 	bc         *core.BlockChain
-	txPool     *core.TxPoolManager //YYY
+	txPool     *core.TxPool
 	reElection *reelection.ReElection
 	topNode    *olconsensus.TopNodeService
 	event      *event.TypeMux
@@ -68,6 +68,7 @@ func (pm *ProcessManage) GetProcess(number uint64) (*Process, error) {
 	if err := pm.isLegalNumber(number); err != nil {
 		return nil, err
 	}
+	//log.INFO(pm.logExtraInfo(), "问题定位", "step6")
 	return pm.getProcess(number), nil
 }
 
@@ -108,7 +109,7 @@ func (pm *ProcessManage) fixProcessMap() {
 }
 
 func (pm *ProcessManage) AddVoteToPool(signHash common.Hash, sign common.Signature, fromAccount common.Address, height uint64) error {
-	return pm.votePool.AddVote(signHash, sign, fromAccount, height, true)
+	return pm.votePool.AddVote(signHash, sign, fromAccount, height)
 }
 
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
@@ -130,6 +131,7 @@ func (pm *ProcessManage) getProcess(number uint64) *Process {
 		process = newProcess(number, pm)
 		pm.processMap[number] = process
 	}
+	//log.INFO(pm.logExtraInfo(), "问题定位", "process_manane.go-134")
 	return process
 }
 

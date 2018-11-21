@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package downloader contains the manual full chain synchronisation.
@@ -148,7 +148,7 @@ type Downloader struct {
 type BlockIpfs struct {
 	Headeripfs       *types.Header
 	Unclesipfs       []*types.Header
-	Transactionsipfs types.SelfTransactions
+	Transactionsipfs types.Transactions
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -1611,7 +1611,7 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err err
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string, transactions [][]types.SelfTransaction, uncles [][]*types.Header) (err error) {
+func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, uncles [][]*types.Header) (err error) {
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, uncles}, bodyInMeter, bodyDropMeter)
 }
 

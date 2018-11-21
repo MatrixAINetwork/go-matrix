@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package vm
 
 import (
@@ -161,9 +161,6 @@ func (md *MatrixDeposit) GetOnlineTime(contract *Contract, stateDB StateDB, addr
 func (md *MatrixDeposit) AddOnlineTime(contract *Contract, stateDB StateDB, address common.Address, ot *big.Int) error {
 	onlineKey := append(address[:], 'O', 'T')
 	info := stateDB.GetState(contract.Address(), common.BytesToHash(onlineKey))
-	if info == emptyHash{
-		info = common.BigToHash(big.NewInt(0))
-	}
 	dep := info.Big()
 	dep.Add(dep, ot)
 	if len(dep.Bytes()) > 32 {
@@ -498,57 +495,4 @@ func (md *MatrixDeposit) modifyRefundState(contract *Contract, evm *EVM) (*big.I
 	md.SetOnlineTime(contract, evm.StateDB, contract.CallerAddress, big.NewInt(0))
 	md.removeDepositList(contract, evm.StateDB)
 	return deposit, nil
-}
-func (md *MatrixDeposit) GetSlash(contract *Contract, stateDB StateDB, addr common.Address) *big.Int {
-	slashKey := append(addr[:], 'S', 'L', 'A', 'S', 'H')
-	info := stateDB.GetState(contract.Address(), common.BytesToHash(slashKey))
-	if info != emptyHash {
-		return info.Big()
-	}
-	return nil
-}
-
-func (md *MatrixDeposit) AddSlash(contract *Contract, stateDB StateDB, addr common.Address, slash *big.Int) error {
-	slashKey := append(addr[:], 'S', 'L', 'A', 'S', 'H')
-	info := stateDB.GetState(contract.Address(), common.BytesToHash(slashKey))
-	dep := info.Big()
-	dep.Add(dep, slash)
-	if len(dep.Bytes()) > 32 {
-		return errOverflow
-	}
-	stateDB.SetState(contract.Address(), common.BytesToHash(slashKey), common.BigToHash(dep))
-	return nil
-}
-
-func (md *MatrixDeposit) SetSlash(contract *Contract, stateDB StateDB, addr common.Address, slash *big.Int) error {
-	slashKey := append(addr[:], 'S', 'L', 'A', 'S', 'H')
-	stateDB.SetState(contract.Address(), common.BytesToHash(slashKey), common.BigToHash(slash))
-	return nil
-}
-
-func (md *MatrixDeposit) GetReward(contract *Contract, stateDB StateDB, addr common.Address) *big.Int {
-	rewardKey := append(addr[:], 'R', 'E', 'W', 'A', 'R', 'D')
-	info := stateDB.GetState(contract.Address(), common.BytesToHash(rewardKey))
-	if info != emptyHash {
-		return info.Big()
-	}
-	return nil
-}
-
-func (md *MatrixDeposit) AddReward(contract *Contract, stateDB StateDB, addr common.Address, slash *big.Int) error {
-	rewardKey := append(addr[:], 'R', 'E', 'W', 'A', 'R', 'D')
-	info := stateDB.GetState(contract.Address(), common.BytesToHash(rewardKey))
-	dep := info.Big()
-	dep.Add(dep, slash)
-	if len(dep.Bytes()) > 32 {
-		return errOverflow
-	}
-	stateDB.SetState(contract.Address(), common.BytesToHash(rewardKey), common.BigToHash(dep))
-	return nil
-}
-
-func (md *MatrixDeposit) SetReward(contract *Contract, stateDB StateDB, addr common.Address, slash *big.Int) error {
-	rewardKey := append(addr[:], 'R', 'E', 'W', 'A', 'R', 'D')
-	stateDB.SetState(contract.Address(), common.BytesToHash(rewardKey), common.BigToHash(slash))
-	return nil
 }

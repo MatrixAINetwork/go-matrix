@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 // Hook go-metrics into expvar
 // on any /debug/metrics request, load all vars from the registry into expvar, and execute regular expvar handler
 package exp

@@ -1,271 +1,239 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package random
 
 import (
-	"testing"
-
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/params"
-	. "github.com/smartystreets/goconvey/convey"
-
 	"fmt"
 	"math/big"
+	"testing"
 	"time"
 
-	"bou.ke/monkey"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/mc"
-	"github.com/ethereum/go-ethereum/random/commonsupport"
-	"github.com/ethereum/go-ethereum/random/electionseed"
+	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/crypto"
+	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mc"
 )
 
-func Monkey_NeedVote() *monkey.PatchGuard {
-	return monkey.Patch(electionseed.NeedVote, func(uint64) bool {
-		return true
-	})
-}
-func Monkey_GetKeyTransInfo() *monkey.PatchGuard {
-	return monkey.Patch(commonsupport.GetKeyTransInfo, func(uint64, string) map[common.Address][]byte {
-		ans := make(map[common.Address][]byte, 0)
-		return ans
-	})
-}
-
-func NewBlockChain(n int) *core.BlockChain {
-	_, bc, err := core.NewCanonical(ethash.NewFaker(), n, true)
+func TestIsChanInFeed(t *testing.T) {
+	seedSrv, err := NewElectionSeed()
 	if err != nil {
-		fmt.Println("生成blockchain失败")
+		t.Error("新建随机种子对象失败")
 	}
-	return bc
+	log.Info("asd", seedSrv, err)
+	ans := mc.IsChInFeed("ReElec_TopoSeedReq", seedSrv.randomSeedReqCh)
+	fmt.Println("订阅成功后的状态", ans)
+	seedSrv.randomSeedReqSub.Unsubscribe()
+	ans = mc.IsChInFeed("ReElec_TopoSeedReq", seedSrv.randomSeedReqCh)
+	fmt.Println("取消后的状态", ans)
+	ans1, _ := mc.SubscribeEvent("ReElec_TopoSeedReq", seedSrv.randomSeedReqCh)
+	ans = mc.IsChInFeed("ReElec_TopoSeedReq", seedSrv.randomSeedReqCh)
+	fmt.Println("重新订阅后的状态", ans)
 
-}
+	var ch chan int
+	ch = make(chan int, 10)
+	ans = mc.IsChInFeed("ReElec_TopoSeedReq", ch)
+	fmt.Println("查看其他通道的状态", ans)
 
-type TestEth struct {
-}
-
-func (self *TestEth) BlockChain() *core.BlockChain {
-	return NewBlockChain(321)
-}
-
-func TestUnit0(t *testing.T) {
-	//子服务的注册
-	//因为子服务的注册时放在init出，所以执行永远在test文件执行之前，所以，不能在这里该参数，会晚
-}
-
-func TestUnit1(t *testing.T) {
-
-}
-
-func TestUnit2(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["electionseed"] = "Minhash&Key"
-	///mapConfig["everyblockseed"]="Nonce&Address&Coinbase"
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	random, err := New(testEth)
-	Convey("初始化", t, func() {
-		So(err, ShouldBeNil)
-	})
-	random.Stop()
-	//time.Sleep(100*time.Second)
-}
-
-func TestUnit3(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["electionseed"] = "Minhash&Key"
-	mapConfig["everyblockseed"] = "Nonce&Address&Coinbase"
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	random, err := New(testEth)
-	Convey("初始化", t, func() {
-		So(err, ShouldBeNil)
-	})
-	random.Stop()
-	//time.Sleep(100*time.Second)
-}
-
-func TestUnit4(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["ss"] = "sss"
-	mapConfig["cc"] = "ccc"
-	mapConfig["ff"] = "fff"
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	random, err := New(testEth)
-	Convey("初始化", t, func() {
-		So(err, ShouldBeNil)
-	})
-	random.Stop()
-}
-
-func TestUnit5(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["electionseed"] = "Minhash&Key"
-	///mapConfig["everyblockseed"]="Nonce&Address&Coinbase"
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	random, err := New(testEth)
-	Convey("初始化", t, func() {
-		So(err, ShouldBeNil)
-	})
-	SendNum := 0
-	go func() {
-		for {
-			time.Sleep(2 * time.Second)
-			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{BlockNum: uint64(0), Leader: common.BigToAddress(big.NewInt(100)), Role: common.RoleMiner})
-			if SendNum == 3 {
-				fmt.Println("SendNum", SendNum)
-				random.Stop()
-			}
-			SendNum++
-		}
-	}()
 	time.Sleep(100 * time.Second)
+	fmt.Println(ans1)
+}
+func testRandomVote_1(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleValidator
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleMiner, BlockNum: 90})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func testRandomVote_2(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleValidator
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleMiner, BlockNum: 70})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func testRandomVote_3(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleValidator
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 90})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func testRandomVote_4(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleValidator
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 70})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func testRandomVote_5(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleMiner
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 90})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func testRandomVote_6(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleMiner
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 70})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func testRandomVote_7(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleMiner
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleMiner, BlockNum: 90})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func testRandomVote_8(t *testing.T) {
+	randomvote, _ := newRandomVote()
+	randomvote.currentRole = common.RoleMiner
+	mc.PostEvent("CA_RoleUpdated", mc.RoleUpdatedMsg{Role: common.RoleMiner, BlockNum: 70})
+	randomvote.roleUpdateSub.Unsubscribe()
+
+}
+func TestRandomVote(t *testing.T) {
+	t.Run("testRandomVote_1", testRandomVote_1)
+	time.Sleep(1 * time.Second)
+	t.Run("testRandomVote_2", testRandomVote_2)
+	time.Sleep(1 * time.Second)
+	t.Run("testRandomVote_3", testRandomVote_3)
+	time.Sleep(1 * time.Second)
+	t.Run("testRandomVote_4", testRandomVote_4)
+	time.Sleep(1 * time.Second)
+	t.Run("testRandomVote_5", testRandomVote_5)
+	time.Sleep(1 * time.Second)
+	t.Run("testRandomVote_6", testRandomVote_6)
+	time.Sleep(1 * time.Second)
+	t.Run("testRandomVote_7", testRandomVote_7)
+	time.Sleep(1 * time.Second)
+	t.Run("testRandomVote_8", testRandomVote_8)
+	time.Sleep(5 * time.Second)
+
 }
 
-//RandomServiceName = []string{"electionseed", "everyblockseed", "everybroadcastseed"}
-func TestUnit6(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["electionseed"] = "1"
-	///mapConfig["everyblockseed"]="Nonce&Address&Coinbase"
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	_, err := New(testEth)
-	fmt.Println(err)
-	Convey("初始化", t, func() {
-		needVote := Monkey_NeedVote()
-		defer needVote.Unpatch()
-
-		for i := 95; i < 1000; i += 100 {
-			time.Sleep(2 * time.Second)
-			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{BlockNum: uint64(i), Leader: common.BigToAddress(big.NewInt(100)), Role: common.RoleMiner})
-		}
-	})
-	time.Sleep(100 * time.Second)
+//公用方法：
+func bigToHash(data int) common.Hash {
+	data_1 := big.NewInt(int64(data))
+	return common.BigToHash(data_1)
+}
+func bigToBytes(data int) []byte {
+	data_1 := bigToHash(data)
+	return data_1.Bytes()
 }
 
-//RandomServiceName = []string{"electionseed", "everyblockseed", "everybroadcastseed"}
-func TestUnit7(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["everyblockseed"] = "2"
-	///mapConfig["everyblockseed"]="Nonce&Address&Coinbase"
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	_, err := New(testEth)
-	fmt.Println(err)
-	Convey("初始化", t, func() {
-		needVote := Monkey_NeedVote()
-		defer needVote.Unpatch()
-
-		for i := 90; i < 101; i++ {
-			time.Sleep(2 * time.Second)
-			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{BlockNum: uint64(i), Leader: common.BigToAddress(big.NewInt(100)), Role: common.RoleMiner})
-		}
-	})
-	time.Sleep(100 * time.Second)
-}
-
-func TestUnit8(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["everybroadcastseed"] = "2"
-
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	_, err := New(testEth)
-	fmt.Println(err)
-
-	for i := 90; i <= 101; i++ {
-		time.Sleep(2 * time.Second)
-		mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{BlockNum: uint64(i), Leader: common.BigToAddress(big.NewInt(100)), Role: common.RoleMiner})
+func testSeed_1(t *testing.T) {
+	seedSrv, err := NewElectionSeed()
+	if err != nil {
+		t.Error("新建随机种子对象失败")
+	}
+	seedSrv.randomSeedReqSub.Unsubscribe()
+	seedSrv.randomSeedReqSub, err = mc.SubscribeEvent("ReElec_TopoSeedReq_1", seedSrv.randomSeedReqCh)
+	if err != mc.SubErrorNoThisEvent {
+		t.Error("Need ", mc.SubErrorNoThisEvent, "is", err)
 	}
 
-	time.Sleep(100 * time.Second)
 }
 
-func TestUnit9(t *testing.T) {
-	log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["electionseed"] = "Minhash&Key"
-	mapConfig["everybroadcastseed"] = "2"
-	mapConfig["everyblockseed"] = "2"
-
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	_, err := New(testEth)
-	fmt.Println(err)
-
-	Convey("初始化", t, func() {
-		needVote := Monkey_NeedVote()
-		defer needVote.Unpatch()
-		for i := 90; i <= 101; i++ {
-			time.Sleep(2 * time.Second)
-			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{BlockNum: uint64(i), Leader: common.BigToAddress(big.NewInt(100)), Role: common.RoleMiner})
-		}
-	})
-
-	time.Sleep(100 * time.Second)
-
-}
-
-func TestUnit10(t *testing.T) {
-	//log.InitLog(3)
-	mapConfig := make(map[string]string)
-	mapConfig["electionseed"] = "Minhash&Key"
-	mapConfig["everybroadcastseed"] = "2"
-	mapConfig["everyblockseed"] = "2"
-
-	params.RandomConfig = mapConfig
-	testEth := &TestEth{}
-	_, err := New(testEth)
-	fmt.Println(err)
-	fmt.Println(testEth.BlockChain().GetBlockByNumber(0).Header().Leader)
-	fmt.Println(time.Now())
-	ans := testEth.BlockChain().GetBlockByNumber(1).Hash().Big()
-	fmt.Println(time.Now())
-	ansi := 1
-
-	fmt.Println(time.Now())
-	for i := 1; i <= 100; i++ {
-		temp := testEth.BlockChain().GetBlockByNumber(uint64(i)).Hash().Big()
-		if ans.Cmp(temp) >= 0 {
-			ans = temp
-			ansi = i
-		}
+func testSeed_2(t *testing.T) {
+	ans := big.NewInt(100)
+	err := mc.PostEvent("Random_TopoSeedRsp_1", mc.ElectionEvent{Seed: ans})
+	if err != mc.PostErrorNoThisEvent {
+		t.Error("Need", mc.PostErrorNoThisEvent, "is", err)
 	}
-	fmt.Println(time.Now())
-	fmt.Println("---ans,", ans, "ansi", ansi)
 
-	Convey("获取选举种子数据", t, func() {
-		Getkey := Monkey_GetKeyTransInfo()
-		defer Getkey.Unpatch()
-		ans, err := GetRandom(100, "electionseed")
-		fmt.Println("electionseed-100-------", ans, "err", err, "uint64", ans.Uint64())
-	})
+}
 
-	fmt.Println("nonce", testEth.BlockChain().GetBlockByNumber(34).Header().Nonce, "leader", testEth.BlockChain().GetBlockByNumber(34).Header().Leader)
-	Convey("获取每个块一个的随机数", t, func() {
-		ans, err := GetRandom(34, "everyblockseed")
-		fmt.Println("everyblockseed-34------", ans, "err", err)
-	})
+func GetminHash(data int) common.Hash {
+	return bigToHash(data)
+}
 
-	Convey("每个广播区块一个的随机数", t, func() {
-		Getkey := Monkey_GetKeyTransInfo()
-		defer Getkey.Unpatch()
+func GetMap(data int, count int) (map[common.Address][]byte, map[common.Address][]byte, *big.Int) {
+	prv := make(map[common.Address][]byte)
+	pub := make(map[common.Address][]byte)
+	temp := 400
+	need := big.NewInt(int64(0))
+	for i := 0; i < count; i++ {
+		p1, p2, err := getkey()
+		if err != nil {
+			fmt.Println("得到公私钥失败,err", err)
+		}
+		//fmt.Println("私钥：", p1, p1.Bytes())
+		address := common.BigToAddress(big.NewInt(int64(temp)))
+		prv[address] = p1.Bytes()
+		pub[address] = p2
+		need.Add(need, common.BytesToHash(prv[address]).Big())
+		temp += 100
+	}
 
-		fmt.Println("nonce", testEth.BlockChain().GetBlockByNumber(100).Header().Nonce.Uint64(), "leader", testEth.BlockChain().GetBlockByNumber(100).Header().Leader)
-		ans, err := GetRandom(100, "everybroadcastseed")
-		fmt.Println("everybroadcastseed-100---", ans, "err", err)
-	})
+	return prv, pub, need
+
+}
+
+func testSeed_3(t *testing.T) {
+	seedSrv, err := NewElectionSeed()
+	if err != nil {
+		t.Error("新建随机种子对象失败")
+	}
+	log.Info("asd", seedSrv, err)
+
+	minHash := GetminHash(100)
+	PrivateMap, PublicMap, need := GetMap(100, 2)
+
+	var recvCh chan mc.ElectionEvent
+	var recvSub event.Subscription
+	recvCh = make(chan mc.ElectionEvent, 10)
+	recvSub, _ = mc.SubscribeEvent("Random_TopoSeedRsp", recvCh)
+
+	err = mc.PostEvent("ReElec_TopoSeedReq", mc.RandomRequest{MinHash: minHash, PrivateMap: PrivateMap, PublicMap: PublicMap})
+	data := <-recvCh
+
+	need.Add(need, minHash.Big())
+	if need.Cmp(data.Seed) != 0 {
+		t.Error("Need", need, "is", data.Seed)
+	}
+	recvSub.Unsubscribe()
+
+}
+func testSeed_4(t *testing.T) {
+	seedSrv, err := NewElectionSeed()
+	if err != nil {
+		t.Error("新建随机种子对象失败")
+	}
+	log.Info("asd", seedSrv, err)
+
+	minHash := GetminHash(100)
+	PrivateMap, PublicMap, need := GetMap(100, 1)
+
+	var recvCh chan mc.ElectionEvent
+	var recvSub event.Subscription
+	recvCh = make(chan mc.ElectionEvent, 10)
+	recvSub, _ = mc.SubscribeEvent("Random_TopoSeedRsp", recvCh)
+
+	err = mc.PostEvent("ReElec_TopoSeedReq", mc.RandomRequest{MinHash: minHash, PrivateMap: PrivateMap, PublicMap: PublicMap})
+	data := <-recvCh
+
+	need.Add(need, minHash.Big())
+	if need.Cmp(data.Seed) != 0 {
+		t.Error("Need", need, "is", data.Seed)
+	}
+	recvSub.Unsubscribe()
+
+}
+func TestSeed(t *testing.T) {
+
+	/*
+		t.Run("testSeed_1", testSeed_1)
+		t.Run("testSeed_2", testSeed_2)
+		t.Run("testSeed_3", testSeed_3)
+		t.Run("testSeed_4", testSeed_4)
+
+		ans:=big.NewInt(100)
+		ans_1:=commjjkjjk
+	*/
+	fmt.Println(crypto.Keccak256Hash([]byte("sdfsfsd")).String())
 
 }

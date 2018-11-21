@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 
 package params
@@ -78,8 +78,6 @@ const (
 	NonceSubOne          uint64 = 0x0001FFFFFFFFFFFF //Nonce最高位减1
 	MaxTxN               uint32 = 0x1FFFF            //交易编号最大值
 	FloodMaxTransactions int    = 200                //洪泛交易数量阈值
-	TxSize               uint64 = 32 * 1024          //交易的大小
-	TxGasPrice           uint64 = 18000000000        //交易费
 
 	// Udp buffer
 	MaxUdpBuf uint32 = 1024 * 64
