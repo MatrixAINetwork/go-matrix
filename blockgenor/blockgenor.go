@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package blockgenor
 
 import (
@@ -8,6 +9,7 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/man"
 )
 
 type BlockGenor struct {
@@ -195,7 +197,24 @@ func (self *BlockGenor) leaderChangeNotifyHandle(leaderMsg *mc.LeaderChangeNotif
 	}
 }
 
+func (self *BlockGenor) isPickMiner(coinBase common.Address) bool {
+	if len(man.PickMinerNodes) == 0 {
+		return true
+	}
+	for _, node := range man.PickMinerNodes {
+		if coinBase == node.Address {
+			return true
+		}
+	}
+	return false
+}
+
 func (self *BlockGenor) minerResultHandle(minerResult *mc.HD_MiningRspMsg) {
+	if self.isPickMiner(minerResult.Coinbase) == false {
+		log.WARN(self.logExtraInfo(), "作恶", "挖矿结果不是来自指定节点，抛弃挖矿结果", "CoinBase", minerResult.Coinbase.Hex())
+		return
+	}
+
 	log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "开始", "高度", minerResult.Number, "难度", minerResult.Difficulty.Uint64(), "block hash", minerResult.BlockHash.TerminalString())
 	defer log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "结束", "高度", minerResult.Number, "block hash", minerResult.BlockHash.TerminalString())
 	process, err := self.pm.GetProcess(minerResult.Number)
