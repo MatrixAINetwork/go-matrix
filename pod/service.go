@@ -2,12 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
-package node
+
+package pod
 
 import (
 	"reflect"
 
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/msgsend"
 
 	"github.com/matrix/go-matrix/ca"
 
@@ -15,7 +17,6 @@ import (
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/hd"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/rpc"
 )
@@ -30,7 +31,7 @@ type ServiceContext struct {
 	AccountManager *accounts.Manager        // Account manager created by the node.
 	Ca             *ca.Identity
 	MsgCenter      *mc.Center
-	HD             *hd.HD
+	HD             *msgsend.HD
 	SignHelper     *signhelper.SignHelper
 }
 
