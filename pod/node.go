@@ -2,7 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
-package node
+
+package pod
 
 import (
 	"errors"
@@ -21,9 +22,9 @@ import (
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/hd"
 	"github.com/matrix/go-matrix/internal/debug"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/rpc"
 	"github.com/prometheus/prometheus/util/flock"
@@ -61,7 +62,7 @@ type Node struct {
 	wsHandler  *rpc.Server  // Websocket RPC request handler to process the API requests
 
 	MsgCenter  *mc.Center
-	hd         *hd.HD
+	hd         *msgsend.HD
 	signHelper *signhelper.SignHelper
 
 	stop chan struct{} // Channel to wait for termination notifications
@@ -105,7 +106,7 @@ func New(conf *Config) (*Node, error) {
 	}
 	// Note: any interaction with Config that would create/touch files
 	// in the data directory or instance directory is delayed until Start.
-	hd, err := hd.NewHD()
+	hd, err := msgsend.NewHD()
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +228,9 @@ func (n *Node) Start() error {
 		running.Stop()
 		return err
 	}
+	//var bc *core.BlockChain
+	//boot := boot.New(bc, n.Server().NodeInfo().ID)
+	//boot.Run()
 	// start ca
 	go ca.Start(running.Self().ID, n.config.DataDir)
 

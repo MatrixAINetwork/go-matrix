@@ -2,13 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
-package node_test
+
+package pod_test
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/rpc"
 )
@@ -38,7 +39,7 @@ func ExampleService() {
 	// of a node.ServiceConstructor that will instantiate a node.Service. The reason for
 	// the factory method approach is to support service restarts without relying on the
 	// individual implementations' support for such operations.
-	constructor := func(context *node.ServiceContext) (node.Service, error) {
+	constructor := func(context *pod.ServiceContext) (pod.Service, error) {
 		return new(SampleService), nil
 	}
 	if err := stack.Register(constructor); err != nil {
