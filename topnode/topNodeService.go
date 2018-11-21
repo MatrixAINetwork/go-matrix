@@ -126,33 +126,33 @@ func (self *TopNodeService) unSubMsg() {
 
 	self.leaderChangeSub.Unsubscribe()
 
-	//取消订阅顶层节点状态共识请求消息
+	//Unsubscribe for Top Node State Consensus Request Message
 
 	self.consensusReqSub.Unsubscribe()
-	//取消订共识投票消息
+	//Unsubscribe for Consensus Vote Message
 
 	self.consensusVoteSub.Unsubscribe()
-	//取消订阅共识结果消息
+	//Unsubscribe for Consensus Result Message
 
 	self.consensusResultSub.Unsubscribe()
-	log.Info(self.extraInfo, "取消服务订阅完成", "")
+	log.Info(self.extraInfo, "Unsubcription Success", "")
 
 }
 
 func (serv *TopNodeService) update() {
-	log.Info(serv.extraInfo, "启动顶层节点服务，等待接收消息", "")
+	log.Info(serv.extraInfo, "Start topnode service, and wait for the messages", "")
 	defer serv.unSubMsg()
 	for {
 		select {
 
 		case data := <-serv.leaderChangeCh:
 			if serv.msgCheck.checkLeaderChangeNotify(data) {
-				log.Info(serv.extraInfo, "收到leader变更通知消息", "")
+				log.Info(serv.extraInfo, "Received leader change notification", "")
 				go serv.LeaderChangeNotifyHandler(data)
 			}
 
 		case data := <-serv.consensusReqCh:
-			log.Info(serv.extraInfo, "收到共识请求消息", "")
+			log.Info(serv.extraInfo, "Received consensus request message", "")
 			go serv.consensusReqMsgHandler(data.ReqList)
 
 		case data := <-serv.consensusVoteCh:
