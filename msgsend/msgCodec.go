@@ -1,10 +1,11 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-package hd
+package msgsend
 
 import (
 	"encoding/json"
+
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
@@ -19,17 +20,12 @@ func (self *HD) initCodec() {
 	self.registerCodec(mc.HD_MiningRsp, new(miningRspCodec))
 	self.registerCodec(mc.HD_BroadcastMiningRsp, new(broadcastMiningRspCodec))
 	self.registerCodec(mc.HD_NewBlockInsert, new(newBlockInsertCodec))
+	self.registerCodec(mc.HD_LeaderReelectVoteReq, new(leaderReelectVoteReqCodec))
+	self.registerCodec(mc.HD_LeaderReelectVoteRsp, new(leaderReelectVoteRspCodec))
+	self.registerCodec(mc.HD_LeaderReelectConsensusBroadcast, new(leaderConsensusBCCodec))
 	self.registerCodec(mc.HD_TopNodeConsensusReq, new(onlineConsensusReqCodec))
 	self.registerCodec(mc.HD_TopNodeConsensusVote, new(onlineConsensusVoteCodec))
 	self.registerCodec(mc.HD_TopNodeConsensusVoteResult, new(onlineConsensusResultCodec))
-	self.registerCodec(mc.HD_LeaderReelectInquiryReq, new(lrInquiryReqCodec))
-	self.registerCodec(mc.HD_LeaderReelectInquiryRsp, new(lrInquiryRspCodec))
-	self.registerCodec(mc.HD_LeaderReelectReq, new(lrReqCodec))
-	self.registerCodec(mc.HD_LeaderReelectVote, new(lrVoteCodec))
-	self.registerCodec(mc.HD_LeaderReelectResultBroadcast, new(lrResultBCCodec))
-	self.registerCodec(mc.HD_LeaderReelectResultBroadcastRsp, new(lrResultBCRspCodec))
-	self.registerCodec(mc.HD_FullBlockReq, new(fullBlockReqCodec))
-	self.registerCodec(mc.HD_FullBlockRsp, new(fullBlockRspCodec))
 }
 
 //每个模块需要自己实现这两个接口
@@ -57,9 +53,6 @@ func (*blkConsensusReqCodec) DecodeFn(data []byte, from common.Address) (interfa
 	err := json.Unmarshal([]byte(data), msg)
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	if msg.Header == nil {
-		return nil, errors.Errorf("'header' of the msg is nil")
 	}
 	msg.From.Set(from)
 	return msg, nil
@@ -109,9 +102,6 @@ func (*miningReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, 
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
-	if msg.Header == nil {
-		return nil, errors.Errorf("'header' of the msg is nil")
-	}
 	msg.From.Set(from)
 	return msg, nil
 }
@@ -136,9 +126,6 @@ func (*miningRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, 
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
-	if msg.Difficulty == nil {
-		return nil, errors.Errorf("'Difficulty' of the msg is nil")
-	}
 	msg.From.Set(from)
 	return msg, nil
 }
@@ -156,11 +143,11 @@ func (*broadcastMiningRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
 	}
 
 	size := rsp.BlockMainData.Txs.Len()
-	marshalMsg := fullBlockMsgForMarshal{}
+	marshalMsg := BroadcastRspMsgForMarshal{}
 	marshalMsg.Txs = make([]*types.Transaction_Mx, 0, size)
 	for i := 0; i < size; i++ {
 		tx := rsp.BlockMainData.Txs[i]
-		log.DEBUG("HD", "广播挖矿结果消息, Marshal前的tx", tx)
+		log.INFO("HD", "广播挖矿结果消息, Marshal前的tx", tx)
 		marshalMsg.Txs = append(marshalMsg.Txs, types.GetTransactionMx(tx))
 	}
 	marshalMsg.Header = rsp.BlockMainData.Header
@@ -172,13 +159,10 @@ func (*broadcastMiningRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
 }
 
 func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := &fullBlockMsgForMarshal{}
+	msg := &BroadcastRspMsgForMarshal{}
 	err := json.Unmarshal([]byte(data), msg)
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	if msg.Header == nil {
-		return nil, errors.Errorf("'Header' of the msg is nil")
 	}
 
 	sendMsg := &mc.HD_BroadcastMiningRspMsg{
@@ -191,7 +175,7 @@ func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (inte
 	size := len(msg.Txs)
 	for i := 0; i < size; i++ {
 		tx := types.SetTransactionMx(msg.Txs[i])
-		log.DEBUG("HD", "广播挖矿结果消息, Unmarshal后的tx", tx)
+		log.INFO("HD", "广播挖矿结果消息, Unmarshal后的tx", tx)
 		sendMsg.BlockMainData.Txs = append(sendMsg.BlockMainData.Txs, tx)
 	}
 
@@ -218,10 +202,77 @@ func (*newBlockInsertCodec) DecodeFn(data []byte, from common.Address) (interfac
 	if err != nil {
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
-	if msg.Header == nil {
-		return nil, errors.Errorf("'Header' of the msg is nil")
+	msg.From.Set(from)
+	return msg, nil
+}
+
+////////////////////////////////////////////////////////////////////////
+// leader重选请求消息
+// msg code = mc.HD_LeaderReelectVoteRep
+type leaderReelectVoteReqCodec struct {
+}
+
+func (*leaderReelectVoteReqCodec) EncodeFn(msg interface{}) ([]byte, error) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, errors.Errorf("json.Marshal failed: %s", err)
+	}
+	return data, nil
+}
+
+func (*leaderReelectVoteReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
+	msg := new(mc.HD_LeaderReelectVoteReqMsg)
+	err := json.Unmarshal([]byte(data), msg)
+	if err != nil {
+		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+	}
+	return msg, nil
+}
+
+////////////////////////////////////////////////////////////////////////
+// leader重选投票消息
+// msg code = mc.HD_LeaderReelectVoteRsp
+type leaderReelectVoteRspCodec struct {
+}
+
+func (*leaderReelectVoteRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, errors.Errorf("json.Marshal failed: %s", err)
+	}
+	return data, nil
+}
+
+func (*leaderReelectVoteRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
+	msg := new(mc.HD_ConsensusVote)
+	err := json.Unmarshal([]byte(data), msg)
+	if err != nil {
+		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
 	msg.From.Set(from)
+	return msg, nil
+}
+
+////////////////////////////////////////////////////////////////////////
+// leader重选共识结果消息
+// msg code = mc.HD_LeaderReelectConsensusBroadcast
+type leaderConsensusBCCodec struct {
+}
+
+func (*leaderConsensusBCCodec) EncodeFn(msg interface{}) ([]byte, error) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, errors.Errorf("json.Marshal failed: %s", err)
+	}
+	return data, nil
+}
+
+func (*leaderConsensusBCCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
+	msg := new(mc.HD_LeaderReelectConsensusBroadcastMsg)
+	err := json.Unmarshal([]byte(data), msg)
+	if err != nil {
+		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+	}
 	return msg, nil
 }
 
@@ -298,226 +349,4 @@ func (*onlineConsensusResultCodec) DecodeFn(data []byte, from common.Address) (i
 		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
 	}
 	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// 重选询问请求消息
-// msg code = mc.HD_LeaderReelectInquiryReq
-type lrInquiryReqCodec struct {
-}
-
-func (*lrInquiryReqCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*lrInquiryReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := new(mc.HD_ReelectInquiryReqMsg)
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	msg.From.Set(from)
-	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// 重选询问响应消息
-// msg code = mc.HD_LeaderReelectInquiryRsp
-type lrInquiryRspCodec struct {
-}
-
-func (*lrInquiryRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*lrInquiryRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := new(mc.HD_ReelectInquiryRspMsg)
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	msg.From.Set(from)
-	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// leader重选请求消息
-// msg code = mc.HD_LeaderReelectReq
-type lrReqCodec struct {
-}
-
-func (*lrReqCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*lrReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := new(mc.HD_ReelectLeaderReqMsg)
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	if msg.InquiryReq == nil {
-		return nil, errors.Errorf("'InquiryReq' of the msg is nil")
-	}
-	msg.InquiryReq.From.Set(from)
-	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// leader重选投票消息
-// msg code = mc.HD_LeaderReelectVote
-type lrVoteCodec struct {
-}
-
-func (*lrVoteCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*lrVoteCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := new(mc.HD_ReelectLeaderVoteMsg)
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	msg.Vote.From.Set(from)
-	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// leader重选结果广播消息
-// msg code = mc.HD_LeaderReelectResultBroadcast
-type lrResultBCCodec struct {
-}
-
-func (*lrResultBCCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*lrResultBCCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := new(mc.HD_ReelectResultBroadcastMsg)
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	msg.From.Set(from)
-	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// leader重选结果广播响应消息
-// msg code = mc.HD_LeaderReelectResultBroadcastRsp
-type lrResultBCRspCodec struct {
-}
-
-func (*lrResultBCRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*lrResultBCRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := new(mc.HD_ReelectResultRspMsg)
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	msg.From.Set(from)
-	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// 完整区块获取请求
-// msg code = mc.HD_FullBlockReq
-type fullBlockReqCodec struct {
-}
-
-func (*fullBlockReqCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*fullBlockReqCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := new(mc.HD_FullBlockReqMsg)
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	msg.From.Set(from)
-	return msg, nil
-}
-
-////////////////////////////////////////////////////////////////////////
-// 完整区块获取响应
-// msg code = mc.HD_FullBlockRsp
-type fullBlockRspCodec struct {
-}
-
-func (*fullBlockRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
-	rsp, OK := msg.(*mc.HD_FullBlockRspMsg)
-	if !OK {
-		return nil, errors.New("reflect err! HD_FullBlockRspMsg")
-	}
-
-	size := rsp.Txs.Len()
-	marshalMsg := fullBlockMsgForMarshal{}
-	marshalMsg.Txs = make([]*types.Transaction_Mx, 0, size)
-	for i := 0; i < size; i++ {
-		tx := rsp.Txs[i]
-		marshalMsg.Txs = append(marshalMsg.Txs, types.GetTransactionMx(tx))
-	}
-	marshalMsg.Header = rsp.Header
-	data, err := json.Marshal(marshalMsg)
-	if err != nil {
-		return nil, errors.Errorf("json.Marshal failed: %s", err)
-	}
-	return data, nil
-}
-
-func (*fullBlockRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
-	msg := &fullBlockMsgForMarshal{}
-	err := json.Unmarshal([]byte(data), msg)
-	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
-	}
-	if msg.Header == nil {
-		return nil, errors.Errorf("'Header' of the msg is nil")
-	}
-
-	sendMsg := &mc.HD_FullBlockRspMsg{
-		From:   from,
-		Header: msg.Header,
-		Txs:    make(types.Transactions, 0),
-	}
-	size := len(msg.Txs)
-	for i := 0; i < size; i++ {
-		tx := types.SetTransactionMx(msg.Txs[i])
-		sendMsg.Txs = append(sendMsg.Txs, tx)
-	}
-
-	return sendMsg, nil
 }
