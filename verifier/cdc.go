@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package verifier
 
 import (
@@ -17,6 +18,7 @@ type cdc struct {
 	consensusLeader  common.Address
 	curReelectTurn   uint32
 	reelectMaster    common.Address
+	isMaster         bool
 	leaderCal        *leaderCalculator
 	turnTime         *turnTimes
 	chain            *core.BlockChain
@@ -31,16 +33,18 @@ func newCDC(number uint64, chain *core.BlockChain, logInfo string) *cdc {
 		consensusLeader:  common.Address{},
 		curReelectTurn:   0,
 		reelectMaster:    common.Address{},
+		isMaster:         false,
 		turnTime:         newTurnTimes(),
 		chain:            chain,
+		logInfo:          logInfo,
 	}
 
 	dc.leaderCal = newLeaderCalculator(chain, dc)
 	return dc
 }
 
-func (dc *cdc) SetValidators(preLeader common.Address, validators []mc.TopologyNodeInfo) error {
-	if err := dc.leaderCal.SetValidators(preLeader, validators); err != nil {
+func (dc *cdc) SetValidators(preHash common.Hash, preLeader common.Address, validators []mc.TopologyNodeInfo) error {
+	if err := dc.leaderCal.SetValidators(preHash, preLeader, validators); err != nil {
 		return err
 	}
 
@@ -126,22 +130,15 @@ func (dc *cdc) PrepareLeaderMsg() (*mc.LeaderChangeNotify, error) {
 	}, nil
 }
 
-func (dc *cdc) GetCurrentNumber() uint64 {
-	return dc.number - 1
+func (dc *cdc) GetCurrentHash() common.Hash {
+	return dc.leaderCal.preHash
 }
-func (dc *cdc) GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error) {
-	if number >= dc.number {
-		return nil, errors.Errorf("获取验证者列表错误,高度过高")
+func (dc *cdc) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
+	if (hash == common.Hash{}) {
+		return nil, errors.New("输入hash为空")
 	}
-
-	validators, err := dc.chain.GetValidatorByNumber(number)
-	if err == nil {
-		return validators, nil
-	}
-
-	if number == dc.number-1 {
+	if hash == dc.leaderCal.preHash {
 		return dc.leaderCal.GetValidators()
-	} else {
-		return nil, err
 	}
+	return dc.chain.GetValidatorByHash(hash)
 }
