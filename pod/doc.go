@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
+
 /*
 Package node sets up multi-protocol Matrix nodes.
 
@@ -75,4 +76,4 @@ directory. Mode instance A opens the database "db", node instance B opens the da
         B.ipc                  -- JSON-RPC UNIX domain socket endpoint of instance B
         keystore/              -- account key store, used by both instances
 */
-package node
+package pod
