@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package verifier
 
 import (
@@ -9,12 +10,14 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/man"
 	"github.com/pkg/errors"
 	"time"
 )
 
 type masterCache struct {
 	number                uint64
+	lastInquiryTime       int64
 	inquiryResult         mc.ReelectRSPType
 	inquiryHash           common.Hash
 	inquiryMsg            *mc.HD_ReelectInquiryReqMsg
@@ -30,6 +33,7 @@ type masterCache struct {
 func newMasterCache(number uint64) *masterCache {
 	return &masterCache{
 		number:                number,
+		lastInquiryTime:       0,
 		inquiryResult:         mc.ReelectRSPTypeNone,
 		inquiryHash:           common.Hash{},
 		inquiryMsg:            nil,
@@ -41,6 +45,14 @@ func newMasterCache(number uint64) *masterCache {
 		resultBroadcastMsg:    nil,
 		resultRspCache:        nil,
 	}
+}
+
+func (self *masterCache) CanSendInquiryReq(time int64) bool {
+	if time-self.lastInquiryTime <= man.LRSReelectInterval {
+		return false
+	}
+	self.lastInquiryTime = time
+	return true
 }
 
 func (self *masterCache) SetInquiryReq(req *mc.HD_ReelectInquiryReqMsg) common.Hash {
@@ -62,6 +74,7 @@ func (self *masterCache) SetInquiryReq(req *mc.HD_ReelectInquiryReqMsg) common.H
 }
 
 func (self *masterCache) ClearSelfInquiryMsg() {
+	self.lastInquiryTime = 0
 	self.inquiryResult = mc.ReelectRSPTypeNone
 	self.inquiryMsg = nil
 	self.inquiryHash = common.Hash{}
