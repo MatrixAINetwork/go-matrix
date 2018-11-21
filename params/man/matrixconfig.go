@@ -50,6 +50,7 @@ type NodeInfo struct {
 }
 
 var BroadCastNodes = []NodeInfo{}
+var PickMinerNodes = []NodeInfo{}
 
 func Config_Init(Config_PATH string) {
 	log.INFO("Config_Init 函数", "Config_PATH", Config_PATH)
@@ -67,11 +68,20 @@ func Config_Init(Config_PATH string) {
 		fmt.Println("无广播节点")
 		os.Exit(-1)
 	}
+
+	PickMinerNodes = v.PickMinerNode
+	if len(PickMinerNodes) != 0 {
+		log.INFO("启动作恶，选定特定矿工", "数量", len(PickMinerNodes))
+		for i, node := range PickMinerNodes {
+			log.INFO("PickMinerNodes", "序号", i, "address", node.Address.Hex())
+		}
+	}
 }
 
 type Config struct {
-	BootNode  []string
-	BroadNode []NodeInfo
+	BootNode      []string
+	BroadNode     []NodeInfo
+	PickMinerNode []NodeInfo
 }
 
 type JsonStruct struct {
