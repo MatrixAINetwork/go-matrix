@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // gman is the official command-line client for Matrix.
 package main
@@ -117,6 +117,8 @@ var (
 		utils.TestLocalMiningFlag,
 		utils.TestHeaderGenFlag,
 		utils.TestChangeRoleFlag,
+		utils.GetCommitFlag,
+
 	}
 
 	rpcFlags = []cli.Flag{
@@ -144,7 +146,7 @@ func init() {
 	// Initialize the CLI app and start Gman
 	app.Action = gman
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2018 The MATRIX Authors"
+	app.Copyright = "Copyright (c) 2018 The MATRIX Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
@@ -172,6 +174,8 @@ func init() {
 		licenseCommand,
 		// See config.go
 		dumpConfigCommand,
+		CommitCommand,
+
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
