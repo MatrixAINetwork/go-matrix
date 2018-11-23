@@ -49,11 +49,11 @@ type Backend interface {
 	ChainDb() mandb.Database
 }
 type AllNative struct {
-	MasterMiner        []mc.TopologyNodeInfo //矿工主节点
-	BackUpMiner        []mc.TopologyNodeInfo //矿工备份
-	MasterValidator    []mc.TopologyNodeInfo //验证者主节点
-	BackUpValidator    []mc.TopologyNodeInfo //验证者备份
-	CandidateValidator []mc.TopologyNodeInfo //验证者候选
+	MasterMiner        []mc.TopologyNodeInfo //Miner Node (Masternode)
+	BackUpMiner        []mc.TopologyNodeInfo //Backup Miner
+	MasterValidator    []mc.TopologyNodeInfo //Validator Node (Masternode)
+	BackUpValidator    []mc.TopologyNodeInfo //Backup Validator
+	CandidateValidator []mc.TopologyNodeInfo //Candidate Validator
 
 }
 
@@ -75,21 +75,21 @@ type ElectReturnInfo struct {
 	BackUpValidator []mc.TopologyNodeInfo
 }
 type ReElection struct {
-	bc  *core.BlockChain //man实例：生成种子时获取一周期区块的最小hash
-	ldb *leveldb.DB      //本都db数据库
+	bc  *core.BlockChain //man Instance: Obtain the Minimum hash of blocks during one cycle when Generating seeds
+	ldb *leveldb.DB      //local database
 
-	roleUpdateCh    chan *mc.RoleUpdatedMsg //身份变更信息通道
+	roleUpdateCh    chan *mc.RoleUpdatedMsg //Identity Change Message Channel
 	roleUpdateSub   event.Subscription
-	minerGenCh      chan *mc.MasterMinerReElectionRsp //矿工主节点生成消息通道
+	minerGenCh      chan *mc.MasterMinerReElectionRsp //Miner Generation Message Channel
 	minerGenSub     event.Subscription
-	validatorGenCh  chan *mc.MasterValidatorReElectionRsq //验证者主节点生成消息通道
+	validatorGenCh  chan *mc.MasterValidatorReElectionRsq //Validator Generation Message Channel
 	validatorGenSub event.Subscription
-	electionSeedCh  chan *mc.ElectionEvent //选举种子请求消息通道
+	electionSeedCh  chan *mc.ElectionEvent //Election Seed Request Message Channel
 	electionSeedSub event.Subscription
 
 	//allNative AllNative
 
-	currentID common.RoleType //当前身份
+	currentID common.RoleType //current role
 
 	elect *election.Elector
 	lock  sync.Mutex
