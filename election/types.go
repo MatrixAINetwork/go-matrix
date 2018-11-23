@@ -22,11 +22,3 @@ type topoGen interface {
 	// Hashrate returns the current mining hashrate of a PoW consensus engine.
 	ValidatorTopoGen()
 }
-
-
-var (
-	ValidatorNum =11
-	BackupValidatorNum=5
-	MinerNum=21
-
-)
