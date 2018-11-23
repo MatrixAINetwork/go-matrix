@@ -27,3 +27,21 @@
     c974233f: a
     f8561e47: 奖励部分修改
     4ae39660: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+
+![](https://i.imgur.com/Qi4idTK.png)
+
+
+
+    11.16：huyuankai pushed to branch master_algorithm at repository go-matrix
+    e8a3d85c: Merge branch 'master_algorithm' of http://192.168.3.81/matrix/go-matrix into master_algorithm
+    3bf747e2: 修改基金会矿工的bug
+
+![](https://i.imgur.com/vgSTkui.png)
+
+
+    11.16：叶营 pushed to branch master_1115 at repository go-matrix
+    500a1102: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    5790e166: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+
+![](https://i.imgur.com/ao8MnoP.png)
+
