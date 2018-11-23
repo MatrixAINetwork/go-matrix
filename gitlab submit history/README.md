@@ -70,3 +70,17 @@
     9b9a562e: merge算法组相关内容
 
 ![](https://i.imgur.com/UbjKPyg.png)
+
+    11.17：zhenghe pushed to branch gman_Account at repository go-matrix
+    2b29a560: EntrustTx
+    02e8af02: Merge branch 'merge_algorithm_master1115' into master_1115
+    af46738e: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    978ec501: add tx from
+    12655e55: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    92878811: modify reward
+    7ccda0c6: add
+    500a1102: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    5790e166: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    9b9a562e: merge算法组相关内容
+
+![](https://i.imgur.com/3jPoGqX.png)
