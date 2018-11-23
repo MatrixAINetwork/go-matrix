@@ -19,14 +19,14 @@ import (
 
 /*
 const (
-	maxMinerNum              = params.MaxMinerNum              //Maximum candidates for miners
-	maxValidatorNum          = params.MaxValidatorNum          //Maximum candidates for validators
-	maxMasterMinerNum        = params.MaxMasterMinerNum        //Maximum Miners in Top Nodes
-	maxMasterValidatorNum    = params.MaxMasterValidatorNum    //Maximum Validators in Top Nodes
-	maxBackUpMinerNum        = params.MaxBackUpMinerNum        //Maximum Backup Miners
-	maxCandidateMinerNum     = params.MaxCandidateMinerNum     //Maximum candidates for miners
-	maxBackUpValidatorNum    = params.MaxBackUpValidatorNum    //Maximum Backup Validators
-	maxCandidateValidatorNum = params.MaxCandidateValidatorNum //Maximum candidates for validators
+	maxMinerNum              = params.MaxMinerNum              //支持的最大参选矿工数
+	maxValidatorNum          = params.MaxValidatorNum          //支持的最大参选验证者数
+	maxMasterMinerNum        = params.MaxMasterMinerNum        //顶层节点最大矿工主节点数
+	maxMasterValidatorNum    = params.MaxMasterValidatorNum    //顶层节点最大矿工主节点数
+	maxBackUpMinerNum        = params.MaxBackUpMinerNum        //最大备份矿工数
+	maxCandidateMinerNum     = params.MaxCandidateMinerNum     //最大候补矿工数
+	maxBackUpValidatorNum    = params.MaxBackUpValidatorNum    //最大备份验证者数
+	maxCandidateValidatorNum = params.MaxCandidateValidatorNum //最大候补验证者数
 )
 */
 
@@ -53,11 +53,11 @@ type Elector struct {
 	EleMVRs   chan *mc.MasterValidatorReElectionRsq
 	Engine    func(probVal []Stf, seed int64, M int, P int, J int) ([]Strallyint, []Strallyint, []Strallyint) //Engine    func(probVal []Stf, seed int64) ([]Strallyint, []Strallyint, []Strallyint) //func(probVal map[string]float32, seed int64) ([]Strallyint, []Strallyint, []Strallyint)
 	msgcenter *mc.Center
-	MaxSample int //Configuration Paramter. The limit of sampling is 1,000. It is a value far from P+M
-	J         int //The number of validator nodes from the Foundation tps_weight
-	M         int //The number of validator nodes
-	P         int //The number of backup masternodes
-	N         int //The number of miner nodes
+	MaxSample int //配置参数,采样最多发生1000次,是一个离P+M较远的值
+	J         int //基金会验证节点个数tps_weight
+	M         int //验证主节点个数
+	P         int //备份主节点个数
+	N         int //矿工主节点个数
 }
 
 type ElectMMSub struct {
@@ -291,10 +291,10 @@ func (Ele *Elector) SampleMinerNodes(probnormalized []pnormalized, seed int64, M
 		return RPricipalMinerNodes, RBakMinerNodes
 	}
 
-	// If the number of elected nodes is less than N, and other lists are blank
+	// 如果当选节点不到N个,其他列表为空
 	dict := make(map[string]int)
 	Ele.N = Ms
-	if len(probnormalized) <= Ele.N { //added an 'if' statement
+	if len(probnormalized) <= Ele.N { //加判断 定义为func
 		for _, item := range probnormalized {
 			//			probnormalized[index].value = 100 * iterm.value
 			temp := Strallyint{Value: int(100 * item.Value), Nodeid: item.Nodeid}
@@ -304,7 +304,7 @@ func (Ele *Elector) SampleMinerNodes(probnormalized []pnormalized, seed int64, M
 		return sort(probnormalized, PricipalMinerNodes, BakMinerNodes)
 	}
 
-	// If the number of elected nodes is greater than N, a maximum of consecutive 1,000 times of sampling is supported, or N nodes is elected
+	// 如果当选节点超过N,最多连续进行1000次采样或者选出N个节点
 	rand := mt19937.RandUniformInit(seed)
 	for i := 0; i < Ele.MaxSample; i++ {
 		node := Sample1NodesInValNodes(probnormalized, float64(rand.Uniform(0.0, 1.0)))
@@ -319,7 +319,7 @@ func (Ele *Elector) SampleMinerNodes(probnormalized []pnormalized, seed int64, M
 		}
 	}
 
-	// If the number of elected nodes is less than N
+	// 如果没有选够N个
 	for _, item := range probnormalized {
 		vint, ok := dict[item.Nodeid]
 
@@ -347,15 +347,15 @@ func CalcRemainingNodesVotes(RemainingProbNormalizedNodes []Strallyint) []Strall
 	return RemainingProbNormalizedNodes
 }
 
-//judgement for exception
+//做异常判断
 func (Ele *Elector) SampleMPlusPNodes(probnormalized []pnormalized, seed int64) ([]Strallyint, []Strallyint, []Strallyint) {
 	var PricipalValNodes []Strallyint
 	var RemainingProbNormalizedNodes []Strallyint //[]pnormalized
 	var BakValNodes []Strallyint
 
-	// If the number of elected nodes is less than M-J (or less than M with the foundation nodes counted in), all of them will win. And other lists kept blank
+	// 如果当选节点不到M-J个(加上基金会节点不足M个),则全部当选,其他列表为空
 	dict := make(map[string]int)
-	if len(probnormalized) <= Ele.M-Ele.J { //added an 'if' statement
+	if len(probnormalized) <= Ele.M-Ele.J { //加判断 定义为func
 		for _, item := range probnormalized {
 			temp := Strallyint{Value: int(100 * item.Value), Nodeid: item.Nodeid}
 			PricipalValNodes = append(PricipalValNodes, temp)
@@ -364,7 +364,7 @@ func (Ele *Elector) SampleMPlusPNodes(probnormalized []pnormalized, seed int64) 
 		return PricipalValNodes, BakValNodes, RemainingProbNormalizedNodes
 	}
 
-	// If the number of elected nodes is greater than M-J, a maximum of consecutive 1,000 times of sampling is supported, or M+P-J nodes is elected
+	// 如果当选节点超过M-J,最多连续进行1000次采样或者选出M+P-J个节点
 	rand := mt19937.RandUniformInit(seed)
 
 	for i := 0; i < Ele.MaxSample; i++ {
