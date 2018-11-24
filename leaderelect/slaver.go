@@ -148,3 +148,33 @@ func (self *ldreSlaver) reelectLeaderRequestHandle(msg *mc.HD_LeaderReelectVoteR
 	self.broadcastReelectLeaderVote(vote)
 	return nil
 }
+
+func (self *ldreSlaver) reelectLeaderResultHandle(msg *mc.HD_LeaderReelectConsensusBroadcastMsg, masterAddress common.Address, height uint64, turnNum uint8) error {
+	if self.consensusState == true {
+		return ErrSlaverConsensusRep
+	}
+
+	if !masterAddress.Equal(msg.Req.Leader) {
+		log.ERROR(self.extra, "LDRE共识,消息发起者错误, From", msg.Req.Leader.Hex(), "期望", masterAddress.Hex())
+		return ErrSlaverConsensusFrom
+	}
+	if msg.Req.Height != height {
+		log.ERROR(self.extra, "LDRE共识,消息高度错误, msg Height", msg.Req.Height, "期望", height)
+		return ErrSlaverConsensusHeigth
+	}
+	if msg.Req.ReelectTurn != turnNum {
+		log.ERROR(self.extra, "LDRE共识请求轮次错误，msg Turn", msg.Req.ReelectTurn, "期望", turnNum)
+		return ErrSlaverConsensusTurns
+	}
+
+	reqHash := types.RlpHash(msg.Req)
+	if _, err := self.ce.VerifyHashWithNumber(reqHash, msg.Signatures, height-1); err != nil {
+		log.ERROR(self.extra, "LDRE共识结果验签错误", err)
+		return ErrSlaverConsensusSign
+	}
+
+	// 发送重选leader成功消息
+	log.INFO(self.extra, "发布LDRE成功", "至LD控制模块")
+	self.sendReelectLeaderSuccessMsg(masterAddress, turnNum, height)
+	return nil
+}
