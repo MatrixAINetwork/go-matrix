@@ -25,15 +25,15 @@ const (
 func (s state) String() string {
 	switch s {
 	case idle:
-		return "闲置状态"
+		return "in idle"
 	case waitingBlockReq:
-		return "等待区块验证请求状态"
+		return "waitting for block validation request"
 	case waitingDPOSResult:
-		return "等待DPOS结果状态"
+		return "waitting for DPOS result"
 	case reelectLeader:
-		return "重选状态"
+		return "in re-election state"
 	default:
-		return "未知状态"
+		return "unknown state"
 	}
 }
 
@@ -42,7 +42,7 @@ var (
 	waitingDPOSResultTimer = 40 * time.Second
 	reelectLeaderTimer     = 40 * time.Second
 
-	ErrInvalidState = errors.New("不支持的状态")
+	ErrInvalidState = errors.New("unsupported state")
 )
 
 type controller struct {
