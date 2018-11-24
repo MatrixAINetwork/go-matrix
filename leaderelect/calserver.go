@@ -76,10 +76,10 @@ func (self *leaderCalculator) UpdateCacheByConsensus(height uint64, turns uint8,
 	defer self.mu.Unlock()
 
 	if height != self.curNumber {
-		return nil, errors.Errorf("高度不匹配, param height[%d] != cache height[%d]", height, self.curNumber)
+		return nil, errors.Errorf("The height doesn't match, param height[%d] != cache height[%d]", height, self.curNumber)
 	}
 
-	log.INFO(self.extra, "修改轮次成功, 原轮次", self.turns, "现轮次", turns, "共识结果", consensusState, "高度", height)
+	log.INFO(self.extra, "Turn modification success, original turn", self.turns, "current turn", turns, "consensus result", consensusState, "height", height)
 	self.turns = turns
 
 	if err := self.updateLeaders(); err != nil {
@@ -122,7 +122,7 @@ func (self *leaderCalculator) updateLeaders() error {
 
 	leader, err := self.calLeaderByHeader()
 	if err != nil {
-		return errors.Errorf("Leader计算错误, %s", err)
+		return errors.Errorf("Leader caculation error, %s", err)
 	}
 
 	self.leaders.number = self.curNumber
@@ -135,7 +135,7 @@ func (self *leaderCalculator) updateLeaders() error {
 
 func (self *leaderCalculator) calLeaderByHeader() (leaders [2]common.Address, err error) {
 	if self.validators == nil || len(self.validators.NodeList) == 0 {
-		return leaders, errors.New("验证者列表为空")
+		return leaders, errors.New("validator list is blank")
 	}
 
 	if common.IsReElectionNumber(self.curNumber - 1) {
