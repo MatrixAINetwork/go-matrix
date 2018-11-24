@@ -87,6 +87,32 @@ func (self *votePool) GetSignList() []*common.VerifiedSign {
 
 	return signList
 }
+func newMaster(matrix Matrix, extra string, msg *mc.LeaderReelectMsg, resultCh chan *mc.ReelectLeaderSuccMsg) (*ldreMaster, error) {
+
+	var err error
+	master := &ldreMaster{
+		quitCh:         make(chan bool, 1),
+		resultCh:       resultCh,
+		voteResultCh:   make(chan *mc.HD_ConsensusVote, 1),
+		voteMsgPool:    votePool{},
+		matrix:         matrix,
+		ce:             matrix.DPOSEngine(),
+		signHelper:     matrix.SignHelper(),
+		consensusState: false,
+		extra:          extra,
+	}
+
+	if master.voteResultSub, err = mc.SubscribeEvent(mc.HD_LeaderReelectVoteRsp, master.voteResultCh); err != nil {
+		log.ERROR(master.extra, "Master订阅投票请求消息错误", err)
+		return nil, err
+	}
+
+	master.voteMsgPool.Reset()
+	master.voteReqReg = &mc.HD_LeaderReelectVoteReqMsg{Leader: msg.Leader, Height: msg.Number, ReelectTurn: msg.ReelectTurn}
+
+	go master.run(msg)
+	return master, nil
+}
 func (self *ldreMaster) broadcastVoteConsensusMsg(signs []common.Signature) {
 	msg := &mc.HD_LeaderReelectConsensusBroadcastMsg{
 		Signatures: signs,
