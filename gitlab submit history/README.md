@@ -120,3 +120,17 @@
     44bf160f: 可以通过钱包同时源源不断的发送三个账户的交易
 
 ![](https://i.imgur.com/1x2hV35.png)
+
+
+    11.24：叶营 pushed to branch gman_Account at repository go-matrix
+    c198780e: add AI tx
+
+![](https://i.imgur.com/oTe805u.png)
+
+
+    11.24：sunchunfeng pushed to branch alg_vrf at repository go-matrix
+    e8f4ea01: 为抵押列表 为空的数据 设置默认值
+
+![](https://i.imgur.com/2rDkIoD.png)
+
+
