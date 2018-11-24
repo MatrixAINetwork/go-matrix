@@ -97,3 +97,15 @@
 
 ![](https://i.imgur.com/dvhNIvE.png)
 
+
+    11.17：zhenghe pushed to branch gman_Account at repository go-matrix
+    0d59c640: RPC修改
+
+![](https://i.imgur.com/1fFtwSL.png)
+
+
+    11.17：huyuankai pushed to branch restart_dev at repository go-ethereum
+    b2445051: 增加作恶，挑选指定矿工
+
+![](https://i.imgur.com/yeadzrq.png)
+
