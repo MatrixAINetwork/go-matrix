@@ -67,3 +67,6 @@ func nextLeaderByNum(validator []mc.TopologyNodeInfo, preLeader common.Address, 
 			return validator[nextIndex].Account, nil
 		}
 	}
+	log.ERROR(modelName, "计算Leader错误， 没有找到Leader， 前一个", preLeader.Hex())
+	return common.Address{}, ValidatorNotFound
+}
