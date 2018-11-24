@@ -84,3 +84,16 @@
     9b9a562e: merge算法组相关内容
 
 ![](https://i.imgur.com/3jPoGqX.png)
+
+    11.17：zhenghe pushed to branch gman_Account at repository go-matrix
+    fb15f9fb: 合并账户编码
+
+![](https://i.imgur.com/wP1ObtX.png)
+
+
+    11.17：zhenghe pushed to branch gman_Account at repository go-matrix
+    e1d64ce7: 可入池
+
+
+![](https://i.imgur.com/dvhNIvE.png)
+
