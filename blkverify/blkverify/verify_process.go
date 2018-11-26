@@ -1,14 +1,19 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
 
 import (
+	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/reward/blkreward"
+	"github.com/matrix/go-matrix/reward/txsreward"
+	"github.com/matrix/go-matrix/reward/util"
+	"math/big"
 	"sync"
 	"time"
 
 	"github.com/matrix/go-matrix/accounts/signhelper"
-	"github.com/matrix/go-matrix/blkconsensus/votepool"
+	"github.com/matrix/go-matrix/blkverify/votepool"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/types"
@@ -16,8 +21,8 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
-	"github.com/matrix/go-matrix/topnode"
 )
 
 type State uint16
@@ -386,8 +391,10 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 		return
 	}
 
-	log.INFO(p.logExtraInfo(), "开始交易验证, 数量", len(result.Rxs), "高度", p.number)
-	p.curProcessReq.txs = result.Rxs
+	log.INFO(p.logExtraInfo(), "开始交易验证, 数量", len(result.AllTxs), "高度", p.number)
+	for _, listN := range result.AllTxs {
+		p.curProcessReq.txs = append(p.curProcessReq.txs, listN.Txser...)
+	}
 
 	//跑交易交易验证， Root TxHash ReceiptHash Bloom GasLimit GasUsed
 	remoteHeader := p.curProcessReq.req.Header
@@ -400,37 +407,25 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
 		return
 	}
-	//todo add handleuptime
-	/*	if common.IsBroadcastNumber(p.number-1) && p.number > common.GetBroadcastInterval() {
-		upTimeAccounts, err := work.GetUpTimeAccounts(p.number)
-		if err != nil {
-			log.ERROR(p.logExtraInfo(), "获取所有抵押账户错误!", err, "高度", p.number)
-			return
-		}
-		calltherollMap, heatBeatUnmarshallMMap, err := work.GetUpTimeData(p.number)
-		if err != nil {
-			log.WARN(p.logExtraInfo(), "获取心跳交易错误!", err, "高度", p.number)
-		}
-		err = work.HandleUpTime(work.State, upTimeAccounts, calltherollMap, heatBeatUnmarshallMMap, p.number, p.pm.bc)
-		if nil != err {
-			log.ERROR(p.logExtraInfo(), "处理uptime错误", err)
-			return
-		}
-	}*/
-	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.txs, p.pm.bc)
+	p.processUpTime(work, localHeader.ParentHash)
+	blkRward, txsReward := p.calcRewardAndSlash(work.State, localHeader)
+	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.txs, p.pm.bc, blkRward, txsReward)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "交易验证，共识执行交易出错!", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultStateFailed)
 		return
 	}
-	_, err = p.blockChain().Engine().Finalize(p.blockChain(), localHeader, work.State,
-		p.curProcessReq.txs, nil, work.Receipts)
+	txs := work.GetTxs()
+	localBlock, err := p.blockChain().Engine().Finalize(p.blockChain(), localHeader, work.State,
+		txs, nil, work.Receipts)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "交易验证,错误", "Failed to finalize block for sealing", "err", err)
 		p.startDPOSVerify(localVerifyResultStateFailed)
 		return
 	}
+	log.Info(p.logExtraInfo(), "共识后的交易本地hash", localBlock.TxHash(), "共识后的交易远程hash", remoteHeader.TxHash)
 	//localBlock check
+	localHeader = localBlock.Header()
 	localHash := localHeader.HashNoSignsAndNonce()
 
 	if localHash != p.curProcessReq.hash {
@@ -448,9 +443,28 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 
 	p.curProcessReq.receipts = work.Receipts
 	p.curProcessReq.stateDB = work.State
-
+	p.curProcessReq.txs = txs
 	// 开始DPOS共识验证
 	p.startDPOSVerify(localVerifyResultSuccess)
+}
+func (p *Process) calcRewardAndSlash(State *state.StateDB, header *types.Header) (map[common.Address]*big.Int, map[common.Address]*big.Int) {
+	blkreward := blkreward.New(p.blockChain())
+	blkRewardMap := blkreward.CalcBlockRewards(util.ByzantiumBlockReward, header.Leader, header)
+	//for account, value := range blkRewardMap {
+	//	//depoistInfo.AddReward(State, account, value)
+	//}
+	txsReward := txsreward.New(p.blockChain())
+	txsRewardMap := txsReward.CalcBlockRewards(util.ByzantiumTxsRewardDen, header.Leader, header)
+	//for account, value := range txsRewardMap {
+	//	//depoistInfo.AddReward(State, account, value)
+	//}
+	//todo 惩罚
+	//slash := slash.New(p.blockChain())
+	//slash.CalcSlash(State, header.Number.Uint64())
+	//for account, value := range SlashMap {
+	//	//depoistInfo.SetSlash(State, account, value)
+	//}
+	return blkRewardMap, txsRewardMap
 }
 
 func (p *Process) sendVote(validate bool) {
@@ -502,6 +516,29 @@ func (p *Process) startDPOSVerify(lvResult uint8) {
 	p.processDPOSOnce()
 }
 
+func (p *Process) processUpTime(work *matrixwork.Work, hash common.Hash) error {
+
+	if common.IsBroadcastNumber(p.number-1) && p.number > common.GetBroadcastInterval() {
+		log.INFO("core", "区块插入验证", "完成创建work, 开始执行uptime")
+		upTimeAccounts, err := work.GetUpTimeAccounts(p.number)
+		if err != nil {
+			log.ERROR("core", "获取所有抵押账户错误!", err, "高度", p.number)
+			return err
+		}
+		calltherollMap, heatBeatUnmarshallMMap, err := work.GetUpTimeData(hash)
+		if err != nil {
+			log.WARN("core", "获取心跳交易错误!", err, "高度", p.number)
+		}
+
+		err = work.HandleUpTime(work.State, upTimeAccounts, calltherollMap, heatBeatUnmarshallMMap, p.number, p.blockChain())
+		if nil != err {
+			log.ERROR("core", "处理uptime错误", err)
+			return err
+		}
+	}
+
+	return nil
+}
 func (p *Process) processDPOSOnce() {
 	if p.checkState(StateDPOSVerify) == false {
 		return
@@ -575,7 +612,7 @@ func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 
 func (p *Process) blockChain() *core.BlockChain { return p.pm.bc }
 
-func (p *Process) txPool() *core.TxPool { return p.pm.txPool }
+func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //YYY
 
 func (p *Process) reElection() *reelection.ReElection { return p.pm.reElection }
 
@@ -583,4 +620,4 @@ func (p *Process) logExtraInfo() string { return p.pm.logExtraInfo() }
 
 func (p *Process) eventMux() *event.TypeMux { return p.pm.event }
 
-func (p *Process) topNode() *topnode.TopNodeService { return p.pm.topNode }
+func (p *Process) topNode() *olconsensus.TopNodeService { return p.pm.topNode }
