@@ -1,9 +1,13 @@
 // Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
+	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/reward/blkreward"
+	"github.com/matrix/go-matrix/reward/txsreward"
+	"github.com/matrix/go-matrix/reward/util"
 	"math/big"
 	"time"
 
@@ -14,9 +18,9 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/txpoolCache"
 	"github.com/pkg/errors"
+	"github.com/matrix/go-matrix/params/manparams"
 )
 
 func (p *Process) processUpTime(work *matrixwork.Work, header *types.Header) error {
@@ -42,7 +46,25 @@ func (p *Process) processUpTime(work *matrixwork.Work, header *types.Header) err
 
 	return nil
 }
-
+func (p *Process) calcRewardAndSlash(State *state.StateDB, header *types.Header) (map[common.Address]*big.Int, map[common.Address]*big.Int) {
+	blkreward := blkreward.New(p.blockChain())
+	blkRewardMap := blkreward.CalcBlockRewards(util.ByzantiumBlockReward, header.Leader, header)
+	//for account, value := range blkRewardMap {
+	//	depoistInfo.AddReward(State, account, value)
+	//}
+	txsReward := txsreward.New(p.blockChain())
+	txsRewardMap := txsReward.CalcBlockRewards(util.ByzantiumTxsRewardDen, header.Leader, header)
+	//for account, value := range txsRewardMap {
+	//	depoistInfo.AddReward(State, account, value)
+	//}
+	//todo 惩罚
+	//slash := slash.New(p.blockChain())
+	 //slash.CalcSlash(State, header.Number.Uint64())
+	//for account, value := range SlashMap {
+	//	depoistInfo.SetSlash(State, account, value)
+	//}
+	return blkRewardMap, txsRewardMap
+}
 func (p *Process) processHeaderGen() error {
 	log.INFO(p.logExtraInfo(), "processHeaderGen", "start")
 	defer log.INFO(p.logExtraInfo(), "processHeaderGen", "end")
@@ -62,6 +84,9 @@ func (p *Process) processHeaderGen() error {
 	}
 
 	Elect := p.genElection(parentHash)
+	if Elect == nil {
+		 return errors.New("生成elect信息错误!")
+	}
 
 	log.Info(p.logExtraInfo(), "++++++++获取选举结果 ", Elect, "高度", p.number)
 	log.Info(p.logExtraInfo(), "++++++++获取拓扑结果 ", NetTopology, "高度", p.number)
@@ -106,25 +131,17 @@ func (p *Process) processHeaderGen() error {
 			}
 			Txs = append(Txs, txs...)
 		}
-		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc)
-
-		for _, tx := range Txs {
+		// todo: add rewward and run
+		blkRward,txsReward:=p.calcRewardAndSlash(work.State, header)
+		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc,blkRward,txsReward)
+		//work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc)
+		retTxs:=work.GetTxs()
+		for _, tx := range retTxs {
 			log.INFO("==========", "Finalize:GasPrice", tx.GasPrice(), "amount", tx.Value())
 		}
 
-		//validators, _ := self.ca.GetPreValidatorsAddress()
-		//for validator := range pending {
-		//	for i, v := range validators {
-		//		if validator.String() == v.String() {
-		//			continue
-		//		}
-		//		if i == len(validators)-1 {
-		//			delete(pending, validator)
-		//		}
-		//	}
-		//}
 		//send to local block mining module
-		block, err := p.engine().Finalize(p.blockChain(), header, work.State, Txs, nil, work.Receipts)
+		block, err := p.engine().Finalize(p.blockChain(), header, work.State, retTxs, nil, work.Receipts)
 		if err != nil {
 			log.ERROR(p.logExtraInfo(), "Failed to finalize block for sealing", err)
 			return err
@@ -153,9 +170,12 @@ func (p *Process) processHeaderGen() error {
 
 		//work.commitTransactions(self.mux, Txs, self.chain)
 		// todo： update uptime
-		//p.processUpTime(work, header)
+		p.processUpTime(work, header)
+		log.INFO(p.logExtraInfo(), "区块验证请求生成，奖励部分", "执行奖励")
+		blkRward,txsReward:=p.calcRewardAndSlash(work.State, header)
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "完成创建work, 开始执行交易")
-		txsCode, Txs := work.ProcessTransactions(p.pm.matrix.EventMux(), p.pm.txPool, p.pm.bc)
+		txsCode, Txs := work.ProcessTransactions(p.pm.matrix.EventMux(), p.pm.txPool, p.blockChain(),blkRward,txsReward)
+		//txsCode, Txs := work.ProcessTransactions(p.pm.matrix.EventMux(), p.pm.txPool, p.blockChain(),nil,nil)
 		log.INFO("=========", "ProcessTransactions finish", len(txsCode))
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "完成执行交易, 开始finalize")
 		block, err := p.engine().Finalize(p.blockChain(), header, work.State, Txs, nil, work.Receipts)
@@ -163,13 +183,13 @@ func (p *Process) processHeaderGen() error {
 			log.ERROR(p.logExtraInfo(), "Failed to finalize block for sealing", err)
 			return err
 		}
-		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "完成finalize")
+		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分,完成finaliz tx hash",block.TxHash())
 		header = block.Header()
 		p2pBlock := &mc.HD_BlkConsensusReqMsg{Header: header, TxsCode: txsCode, ConsensusTurn: p.consensusTurn, From: ca.GetAddress()}
 		//send to local block verify module
 		localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, Txs: Txs, Receipts: work.Receipts, State: work.State}
-		if len(Txs) > 0 {
-			txpoolCache.MakeStruck(Txs, header.HashNoSignsAndNonce(), p.number)
+		if len(Txs[2:]) > 0 {
+			txpoolCache.MakeStruck(Txs[2:], header.HashNoSignsAndNonce(), p.number)
 		}
 		log.INFO(p.logExtraInfo(), "!!!!本地发送区块验证请求, root", p2pBlock.Header.Root.TerminalString(), "高度", p.number)
 		mc.PublishEvent(mc.BlockGenor_HeaderVerifyReq, localBlock)
@@ -198,7 +218,7 @@ func (p *Process) getParentBlock() (*types.Block, error) {
 
 func (p *Process) startConsensusReqSender(req *mc.HD_BlkConsensusReqMsg) {
 	p.closeConsensusReqSender()
-	sender, err := common.NewResendMsgCtrl(req, p.sendConsensusReqFunc, params.BlkPosReqSendInterval, params.BlkPosReqSendTimes)
+	sender, err := common.NewResendMsgCtrl(req, p.sendConsensusReqFunc, manparams.BlkPosReqSendInterval, manparams.BlkPosReqSendTimes)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
 		return
