@@ -134,3 +134,21 @@
 ![](https://i.imgur.com/2rDkIoD.png)
 
 
+    11.26：huyuankai pushed to branch master_1115 at repository go-matrix
+    a600d740: 超级区块引起的Leader计算变更
+
+![](https://i.imgur.com/PU3xXSo.png)
+
+    zhangwen pushed to branch rollback_dev at repository go-matrix
+    c3979bbb: 归并geth 离线插入超级区块
+    ad8c9b9d: 修改leader服务bug：
+    46feeaea: Merge branch 'master_1115' of 192.168.3.81:matrix/go-matrix into master_1115
+    c8312329: 添加10个单测用例
+    a9666678: Merge branch 'master_1115' of http://192.168.4.81/matrix/go-matrix into master_1115
+    a2fa76eb: leader服务自检，测试用例添加
+    a030d897: 规范topnode的日志
+    c44aef11: 修改getBalance web3.js
+    90119940: 提交测试case -矿工部分
+    3e561cc7: 修改交易编解码错误的bug
+
+![](https://i.imgur.com/OoaRMHJ.png)
