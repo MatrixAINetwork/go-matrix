@@ -169,3 +169,39 @@
     13114788: 修改利息相关接口
 
 ![](https://i.imgur.com/xODCvq0.png)
+
+    11.27:zhangwen pushed to branch rollback_dev at repository go-matrix
+    4031b75e: 导入超级区块
+    3bedb57e: Merge branch 'master_1115' into rollback_dev
+    fcee254e: add quit chan
+    a600d740: 超级区块引起的Leader计算变更
+
+![](https://i.imgur.com/gL9vEOr.png)
+
+
+    11.27:zhangwen pushed to branch reward_dev at repository go-matrix
+    a4ae8eba: 修改打印日志
+
+    11.27:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    fcee254e: add quit chan
+    a600d740: 超级区块引起的Leader计算变更
+    ad8c9b9d: 修改leader服务bug：
+    46feeaea: Merge branch 'master_1115' of 192.168.3.81:matrix/go-matrix into master_1115
+    c8312329: 添加10个单测用例
+    a9666678: Merge branch 'master_1115' of http://192.168.4.81/matrix/go-matrix into master_1115
+    a2fa76eb: leader服务自检，测试用例添加
+    a030d897: 规范topnode的日志
+    c44aef11: 修改getBalance web3.js
+    90119940: 提交测试case -矿工部分
+
+
+![](https://i.imgur.com/HzUJqEP.png)
+
+
+    11.27:叶营 pushed to branch reward_dev at repository go-matrix
+    12570d40: del tx Protected
+
+
+![](https://i.imgur.com/7iGgFlo.png)
+
+
