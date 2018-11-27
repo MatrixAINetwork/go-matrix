@@ -152,3 +152,20 @@
     3e561cc7: 修改交易编解码错误的bug
 
 ![](https://i.imgur.com/OoaRMHJ.png)
+
+    11.27:sunanxiang pushed to branch reward_dev at repository go-matrix
+    7641c60f: modify deposit
+
+![](https://i.imgur.com/l07k7MY.png)
+
+
+    11.27:sunanxiang pushed to branch master_1115 at repository go-matrix
+    fcee254e: add quit chan
+
+![](https://i.imgur.com/XfYw8k4.png)
+
+
+    11.27:zhangwen pushed to branch reward_dev at repository go-matrix
+    13114788: 修改利息相关接口
+
+![](https://i.imgur.com/xODCvq0.png)
