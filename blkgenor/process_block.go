@@ -1,7 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-package blockgenor
+package blkgenor
 
 import (
 	"math/big"
@@ -14,6 +14,7 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 	"time"
 )
@@ -135,7 +136,7 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 	p.processBlockInsert()
 }
 
-func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types.Transactions) ([]*types.Receipt, *state.StateDB, error) {
+func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types.SelfTransactions) ([]*types.Receipt, *state.StateDB, error) {
 	parent := p.blockChain().GetBlockByHash(header.ParentHash)
 	if parent == nil {
 		return nil, nil, errors.Errorf("父区块(%s)获取失败!", header.ParentHash.TerminalString())
@@ -148,27 +149,28 @@ func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types
 	if err != nil {
 		return nil, nil, errors.Errorf("创建worker错误(%v)", err)
 	}
-	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc)
+	// 跑交易不能添加奖励，增加新接口或map为空
+	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc,nil)
 	if err != nil {
 		return nil, nil, errors.Errorf("执行交易错误(%v)", err)
 	}
-	_, err = p.blockChain().Engine().Finalize(p.blockChain(), localHeader, work.State,
+	block, err := p.blockChain().Engine().Finalize(p.blockChain(), localHeader, work.State,
 		Txs, nil, work.Receipts)
 	if err != nil {
 		return nil, nil, errors.Errorf("Finalize error(%v)", err)
 	}
 	//localBlock check
-	localHash := localHeader.HashNoSignsAndNonce()
+	localHash := block.Header().HashNoSignsAndNonce()
 
 	if localHash != headerHash {
 		log.ERROR(p.logExtraInfo(), "交易验证，错误", "block hash不匹配",
 			"local hash", localHash.TerminalString(), "remote hash", headerHash.TerminalString(),
-			"local root", localHeader.Root.TerminalString(), "remote root", header.Root.TerminalString(),
-			"local txHash", localHeader.TxHash.TerminalString(), "remote txHash", header.TxHash.TerminalString(),
-			"local ReceiptHash", localHeader.ReceiptHash.TerminalString(), "remote ReceiptHash", header.ReceiptHash.TerminalString(),
-			"local Bloom", localHeader.Bloom.Big(), "remote Bloom", header.Bloom.Big(),
-			"local GasLimit", localHeader.GasLimit, "remote GasLimit", header.GasLimit,
-			"local GasUsed", localHeader.GasUsed, "remote GasUsed", header.GasUsed)
+			"local root", block.Header().Root.TerminalString(), "remote root", header.Root.TerminalString(),
+			"local txHash", block.Header().TxHash.TerminalString(), "remote txHash", header.TxHash.TerminalString(),
+			"local ReceiptHash", block.Header().ReceiptHash.TerminalString(), "remote ReceiptHash", header.ReceiptHash.TerminalString(),
+			"local Bloom", block.Header().Bloom.Big(), "remote Bloom", header.Bloom.Big(),
+			"local GasLimit", block.Header().GasLimit, "remote GasLimit", header.GasLimit,
+			"local GasUsed", block.Header().GasUsed, "remote GasUsed", header.GasUsed)
 		return nil, nil, errors.Errorf("block hash不匹配.LocalHash(%s) != remoteHash(%s)", localHash.TerminalString(), headerHash.TerminalString())
 	}
 	return work.Receipts, work.State, nil
@@ -185,6 +187,18 @@ func (p *Process) AddMinerResult(minerResult *mc.HD_MiningRspMsg) {
 	p.processMinerResultVerify(p.curLeader, true)
 }
 
+func (p *Process) minerPickTimeout() {
+	p.mu.Lock()
+	log.INFO(p.logExtraInfo(), "minerPickTimeout", "开始处理", "高度", p.number)
+	defer func() {
+		defer log.INFO(p.logExtraInfo(), "minerPickTimeout", "结束处理", "高度", p.number)
+		p.mu.Unlock()
+	}()
+
+	p.stopMinerPikerTimer()
+	p.processMinerResultVerify(p.curLeader, true)
+}
+
 func (p *Process) AddConsensusBlock(block *mc.BlockLocalVerifyOK) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -194,11 +208,9 @@ func (p *Process) AddConsensusBlock(block *mc.BlockLocalVerifyOK) {
 }
 
 func (p *Process) processMinerResultVerify(leader common.Address, checkState bool) {
-	if checkState {
-		if p.checkState(StateMinerResultVerify) == false {
-			log.WARN(p.logExtraInfo(), "准备进行挖矿结果验证，状态错误", p.state.String())
-			return
-		}
+	if checkState && p.checkState(StateMinerResultVerify) == false {
+		log.WARN(p.logExtraInfo(), "准备进行挖矿结果验证，状态错误", p.state.String())
+		return
 	}
 
 	if common.IsBroadcastNumber(p.number) {
@@ -230,16 +242,26 @@ func (p *Process) dealMinerResultVerifyCommon(leader common.Address) {
 			log.WARN(p.logExtraInfo(), "挖矿结果验证，挖矿结果获取失败", err, "高度", p.number, "难度", diff, "block hash", blockData.block.BlockHash.TerminalString())
 			return
 		}
+		if len(results) == 0 {
+			log.INFO(p.logExtraInfo(), "进行挖矿结果验证", "当前没有挖矿结果", "高度", p.number, "block hash", blockData.block.BlockHash.TerminalString())
+			return
+		}
 
-		satisfyResult, err := p.pickSatisfyMinerResults(blockData.block.Header, results)
+		passTime := time.Now().Unix() - blockData.block.Header.Time.Int64()
+		innerMinerPick := passTime > manparams.MinerPickTimeout
+		satisfyResult, err := p.pickSatisfyMinerResults(blockData.block.Header, results, innerMinerPick)
 		if err != nil {
 			log.WARN(p.logExtraInfo(), "挖矿结果验证，获取合适挖矿结果错误", err, "高度", p.number)
+			//若未超时失败，则启动超时定时器
+			if innerMinerPick == false {
+				p.startMinerPikerTimer(manparams.MinerPickTimeout - passTime + 1)
+			}
 			return
 		}
 		blockData.block.Header = p.copyHeader(blockData.block.Header, satisfyResult)
 		blockData.state = blockStateReady
 	}
-
+	p.stopMinerPikerTimer()
 	readyMsg := &mc.NewBlockReadyMsg{
 		Header: blockData.block.Header,
 	}
@@ -289,15 +311,22 @@ func (p *Process) processBlockInsert() {
 	p.state = StateEnd
 }
 
-func (p *Process) pickSatisfyMinerResults(header *types.Header, results []*mc.HD_MiningRspMsg) (*mc.HD_MiningRspMsg, error) {
-	//todo 应该加入备选矿工滞后选择的流程
+func (p *Process) pickSatisfyMinerResults(header *types.Header, results []*mc.HD_MiningRspMsg, innerMinerPick bool) (*mc.HD_MiningRspMsg, error) {
 	for _, result := range results {
+		if innerMinerPick == false {
+			role, _ := ca.GetAccountOriginalRole(result.Coinbase, header.ParentHash)
+			if common.RoleInnerMiner == role {
+				log.WARN(p.logExtraInfo(), "基金会矿工结果", "当前未超时，暂时不选用", "from", result.Coinbase.Hex(), "diff", result.Difficulty, "高度", p.number)
+				continue
+			}
+		}
 		if err := p.verifyOneResult(header, result); err != nil {
 			log.WARN(p.logExtraInfo(), "验证挖矿结果失败，删除该挖矿结果, from", result.From, "diff", result.Difficulty,
 				"高度", p.number, "block hash", result.BlockHash.TerminalString())
 			p.powPool.DelOneResult(result.BlockHash, result.Difficulty, result.From)
 			continue
 		}
+		log.INFO(p.logExtraInfo(), "选择挖矿结果", "完成", "矿工", result.Coinbase.Hex(), "diff", result.Difficulty, "高度", p.number)
 		return result, nil
 	}
 	return nil, HaveNotOKResultError
