@@ -239,3 +239,24 @@
 
     11.28:叶营 pushed to branch rollback_dev at repository go-matrix
     a2fb4580: modify newTransaction
+
+
+![](https://i.imgur.com/DPCPqcP.png)
+
+
+
+    11.28:叶营 pushed to branch rollback_dev at repository go-matrix
+    a2fb4580: modify newTransaction
+
+
+    11.28:sunchunfeng pushed to branch alg_vrf at repository go-matrix
+    95ccc36c: 合并新版们 map加锁 造成的panic
+
+    11.28:sunanxiang pushed to branch master_1115 at repository go-matrix
+    6c7e0ece: turn on/off broadcast
+
+
+    11.28:sunanxiang pushed to branch master_1115 at repository go-matrix
+    0b486286: modify broadcast active
+
+![](https://i.imgur.com/6UdEzCY.png)
