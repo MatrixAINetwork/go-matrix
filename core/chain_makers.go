@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
+
 package core
 
 import (
@@ -35,7 +36,7 @@ type BlockGen struct {
 	statedb     *state.StateDB
 
 	gasPool  *GasPool
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	receipts []*types.Receipt
 	uncles   []*types.Header
 
@@ -243,6 +244,10 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
+func NewCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *BlockChain, error) {
+	return newCanonical(engine,n,full)
+}
+
 func newCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *BlockChain, error) {
 	var (
 		db      = mandb.NewMemDatabase()
@@ -250,7 +255,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *B
 	)
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, params.AllManashProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
