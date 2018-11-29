@@ -274,3 +274,51 @@
 
 
 ![](https://i.imgur.com/J0p0QHj.png)
+
+
+    11.29:huyuankai pushed to branch rollback_dev at repository go-matrix
+    61a04414: Merge branch 'rollback_dev' of http://192.168.3.81/matrix/go-matrix into rollback_dev
+    c122cbb6: 修改插入流程，支持在线超级区块插入
+    2b9bd45e: Merge branch 'rollback_dev' of http://192.168.3.81/matrix/go-matrix into rollback_dev
+    dadc8d04: Merge branch 'rollback_dev' of http://192.168.3.81/matrix/go-matrix into rollback_dev
+    94eeb337: 在线超级区块插入，web3接口增加
+
+
+    11.29:叶营 pushed to branch restart_dev at repository go-ethereum
+    e600a9f3: add log
+
+
+    11.29:zhenghe pushed to branch gman_Account at repository go-matrix
+    f16ea9e3: 广播交易输出matrix地址
+
+    11.29:huyuankai pushed to branch rollback_dev at repository go-matrix
+    6f99acb1: 修改编译问题，删除部分版本签名代码
+
+    11.29:叶营 pushed to branch restart_dev at repository go-ethereum
+    f9fa61c0: add log
+
+    11.29:叶营 pushed to branch restart_dev at repository go-ethereum
+    c5c9ba35: add log
+
+    11.29:叶营 pushed to branch restart_dev at repository go-ethereum
+    b88242ef: add log
+
+    11.29:zhangwen pushed to branch reward_dev at repository go-matrix
+    75be045e: Merge branch 'reward_dev' of gitlab.matrix.com:matrix/go-matrix into reward_dev
+    92c4ab48: 交易费奖励，由原来配置比例修改为先获取gas费用再配置金额，计算交易费奖励
+
+    11.29:zhangwen pushed to branch reward_dev at repository go-matrix
+    75be045e: Merge branch 'reward_dev' of gitlab.matrix.com:matrix/go-matrix into reward_dev
+    92c4ab48: 交易费奖励，由原来配置比例修改为先获取gas费用再配置金额，计算交易费奖励
+
+    11.29:zhenghe pushed to branch state_tree at repository go-matrix
+    e522df42: set/getmatrixdata方法加锁
+
+    11.29:叶营 pushed to branch restart_dev at repository go-ethereum
+    cb506c2a: modify log
+
+    11.29:huyuankai pushed to branch rollback_dev at repository go-matrix
+    c16a0364: 修改超级区块生成时，对当前区块后一区块的支持
+
+    11.29:huyuankai pushed to branch rollback_dev at repository go-matrix
+    bae3ad96: 修改leader服务对超级区块的判断
