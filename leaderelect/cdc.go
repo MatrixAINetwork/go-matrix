@@ -1,120 +1,144 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
-// Package consensus implements different Matrix consensus engines.
-package consensus
+package leaderelect
 
 import (
-	"math/big"
-
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/pkg/errors"
 )
 
-// ChainReader defines a small collection of methods needed to access the local
-// blockchain during header and/or uncle verification.
-type ChainReader interface {
-	// Config retrieves the blockchain's chain configuration.
-	Config() *params.ChainConfig
-
-	// CurrentHeader retrieves the current header from the local chain.
-	CurrentHeader() *types.Header
-
-	// GetHeader retrieves a block header from the database by hash and number.
-	GetHeader(hash common.Hash, number uint64) *types.Header
-
-	// GetHeaderByNumber retrieves a block header from the database by number.
-	GetHeaderByNumber(number uint64) *types.Header
-
-	// GetHeaderByHash retrieves a block header from the database by its hash.
-	GetHeaderByHash(hash common.Hash) *types.Header
-
-	// GetBlock retrieves a block from the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.Block
+type cdc struct {
+	state            state
+	number           uint64
+	curConsensusTurn uint32
+	consensusLeader  common.Address
+	curReelectTurn   uint32
+	reelectMaster    common.Address
+	isMaster         bool
+	leaderCal        *leaderCalculator
+	turnTime         *turnTimes
+	chain            *core.BlockChain
+	logInfo          string
 }
 
-// Engine is an algorithm agnostic consensus engine.
-type Engine interface {
-	// Author retrieves the Matrix address of the account that minted the given
-	// block, which may be different from the header's coinbase if a consensus
-	// engine is based on signatures.
-	Author(header *types.Header) (common.Address, error)
+func newCDC(number uint64, chain *core.BlockChain, logInfo string) *cdc {
+	dc := &cdc{
+		state:            stIdle,
+		number:           number,
+		curConsensusTurn: 0,
+		consensusLeader:  common.Address{},
+		curReelectTurn:   0,
+		reelectMaster:    common.Address{},
+		isMaster:         false,
+		turnTime:         newTurnTimes(),
+		chain:            chain,
+		logInfo:          logInfo,
+	}
 
-	// VerifyHeader checks whether a header conforms to the consensus rules of a
-	// given engine. Verifying the seal may be done optionally here, or explicitly
-	// via the VerifySeal method.
-	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
-
-	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
-	// concurrently. The method returns a quit channel to abort the operations and
-	// a results channel to retrieve the async verifications (the order is that of
-	// the input slice).
-	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
-
-	// VerifyUncles verifies that the given block's uncles conform to the consensus
-	// rules of a given engine.
-	VerifyUncles(chain ChainReader, block *types.Block) error
-
-	// VerifySeal checks whether the crypto seal on a header is valid according to
-	// the consensus rules of the given engine.
-	VerifySeal(chain ChainReader, header *types.Header) error
-
-	// Prepare initializes the consensus fields of a block header according to the
-	// rules of a particular engine. The changes are executed inline.
-	Prepare(chain ChainReader, header *types.Header) error
-
-	// Finalize runs any post-transaction state modifications (e.g. block rewards)
-	// and assembles the final block.
-	// Note: The block header and state database might be updated to reflect any
-	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
-
-	// Seal generates a new block for the given input block with the local miner's
-	// seal place on top.
-	Seal(chain ChainReader, header *types.Header, stop <-chan struct{}, isBroadcastNode bool) (*types.Header, error)
-
-	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
-	// that a new block should have.
-	CalcDifficulty(chain ChainReader, time uint64, parent *types.Header) *big.Int
-
-	// APIs returns the RPC APIs this consensus engine provides.
-	APIs(chain ChainReader) []rpc.API
+	dc.leaderCal = newLeaderCalculator(chain, dc)
+	return dc
 }
 
-// PoW is a consensus engine based on proof-of-work.
-type PoW interface {
-	Engine
+func (dc *cdc) SetValidators(preHash common.Hash, preIsSupper bool, preLeader common.Address, validators []mc.TopologyNodeInfo) error {
+	if err := dc.leaderCal.SetValidators(preHash, preIsSupper, preLeader, validators); err != nil {
+		return err
+	}
 
-	// Hashrate returns the current mining hashrate of a PoW consensus engine.
-	Hashrate() float64
+	consensusLeader, err := dc.GetLeader(dc.curConsensusTurn)
+	if err != nil {
+		return err
+	}
+	if dc.curReelectTurn != 0 {
+		reelectLeader, err := dc.GetLeader(dc.curConsensusTurn + dc.curReelectTurn)
+		if err != nil {
+			return err
+		}
+		dc.reelectMaster.Set(reelectLeader)
+	} else {
+		dc.reelectMaster.Set(common.Address{})
+	}
+	dc.consensusLeader.Set(consensusLeader)
+	return nil
 }
 
-type ValidatorReader interface {
-	// GetHeaderByNumber retrieves a block header from the database by number.
-	GetCurrentNumber() uint64
-	GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error)
+func (dc *cdc) SetConsensusTurn(consensusTurn uint32) error {
+	consensusLeader, err := dc.GetLeader(consensusTurn)
+	if err != nil {
+		return errors.Errorf("获取共识leader错误(%v), 共识轮次(%d)", err, consensusTurn)
+	}
+
+	dc.consensusLeader.Set(consensusLeader)
+	dc.curConsensusTurn = consensusTurn
+	dc.reelectMaster.Set(common.Address{})
+	dc.curReelectTurn = 0
+	return nil
 }
 
-type DPOSEngine interface {
-	VerifyBlock(reader ValidatorReader, header *types.Header) error
+func (dc *cdc) SetReelectTurn(reelectTurn uint32) error {
+	if dc.curReelectTurn == reelectTurn {
+		return nil
+	}
+	if reelectTurn == 0 {
+		dc.reelectMaster.Set(common.Address{})
+		dc.curReelectTurn = 0
+		return nil
+	}
+	master, err := dc.GetLeader(dc.curConsensusTurn + reelectTurn)
+	if err != nil {
+		return errors.Errorf("获取master错误(%v), 重选轮次(%d), 共识轮次(%d)", err, reelectTurn, dc.curConsensusTurn)
+	}
+	dc.reelectMaster.Set(master)
+	dc.curReelectTurn = reelectTurn
+	return nil
+}
 
-	VerifyBlocks(reader ValidatorReader, headers []*types.Header) error
+func (dc *cdc) GetLeader(turn uint32) (common.Address, error) {
+	leaders, err := dc.leaderCal.GetLeader(turn)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return leaders.leader, nil
+}
 
-	//verify hash in current block
-	VerifyHash(reader ValidatorReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
+func (dc *cdc) GetConsensusLeader() common.Address {
+	return dc.consensusLeader
+}
 
-	//verify hash in given number block
-	VerifyHashWithNumber(reader ValidatorReader, signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error)
+func (dc *cdc) GetReelectMaster() common.Address {
+	return dc.reelectMaster
+}
 
-	//VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error)
+func (dc *cdc) PrepareLeaderMsg() (*mc.LeaderChangeNotify, error) {
+	leaders, err := dc.leaderCal.GetLeader(dc.curConsensusTurn + dc.curReelectTurn)
+	if err != nil {
+		return nil, err
+	}
 
-	VerifyHashWithVerifiedSigns(reader ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error)
+	return &mc.LeaderChangeNotify{
+		PreLeader:      dc.leaderCal.preLeader,
+		Leader:         leaders.leader,
+		NextLeader:     leaders.nextLeader,
+		ConsensusTurn:  dc.curConsensusTurn,
+		ReelectTurn:    dc.curReelectTurn,
+		Number:         dc.number,
+		ConsensusState: dc.state != stReelect,
+		TurnBeginTime:  dc.turnTime.GetBeginTime(dc.curConsensusTurn),
+		TurnEndTime:    dc.turnTime.GetPosEndTime(dc.curConsensusTurn),
+	}, nil
+}
 
-	VerifyHashWithVerifiedSignsAndNumber(reader ValidatorReader, signs []*common.VerifiedSign, number uint64) ([]common.Signature, error)
+func (dc *cdc) GetCurrentHash() common.Hash {
+	return dc.leaderCal.preHash
+}
+func (dc *cdc) GetValidatorByHash(hash common.Hash) (*mc.TopologyGraph, error) {
+	if (hash == common.Hash{}) {
+		return nil, errors.New("输入hash为空")
+	}
+	if hash == dc.leaderCal.preHash {
+		return dc.leaderCal.GetValidators()
+	}
+	return dc.chain.GetValidatorByHash(hash)
 }
