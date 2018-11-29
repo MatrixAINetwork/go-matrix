@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package matrixwork
@@ -6,6 +6,13 @@ package matrixwork
 import (
 	"encoding/json"
 	"errors"
+	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/matrix/go-matrix/reward/blkreward"
+	"github.com/matrix/go-matrix/reward/interest"
+	"github.com/matrix/go-matrix/reward/lottery"
+	"github.com/matrix/go-matrix/reward/slash"
+	"github.com/matrix/go-matrix/reward/txsreward"
+	"github.com/matrix/go-matrix/reward/util"
 	"math/big"
 	"time"
 
@@ -14,6 +21,7 @@ import (
 	"github.com/matrix/go-matrix/mc"
 
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
@@ -21,6 +29,8 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
+	"sort"
+	"sync"
 )
 
 var packagename string = "matrixwork"
@@ -41,12 +51,50 @@ type Work struct {
 	Block *types.Block // the new block
 
 	header   *types.Header
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	Receipts []*types.Receipt
 
 	createdAt time.Time
 }
-
+type coingasUse struct {
+	mapcoin map[string]uint64
+	mapprice map[string]*big.Int
+	mu sync.RWMutex
+}
+var mapcoingasUse coingasUse = coingasUse{mapcoin:make(map[string]uint64),mapprice:make(map[string]*big.Int)}
+func (cu *coingasUse)setCoinGasUse(txers []types.SelfTransaction){
+	cu.mu.Lock()
+	defer cu.mu.Unlock()
+	cu.mapcoin = make(map[string]uint64)
+	cu.mapprice = make(map[string]*big.Int)
+	for _,tx := range txers{
+		gasAll := tx.Gas()
+		priceAll := tx.GasPrice()
+		if gas,ok := cu.mapcoin[tx.CoinType()];ok{
+			gasAll += gas
+		}
+		cu.mapcoin[tx.CoinType()] = gasAll
+		if price,ok := cu.mapprice[tx.CoinType()];ok{
+			priceAll = new(big.Int).Sub(priceAll,price)
+		}
+		cu.mapprice[tx.CoinType()] = priceAll
+	}
+}
+func (cu *coingasUse)getCoinGasPrice(typ string) *big.Int{
+	cu.mu.Lock()
+	defer cu.mu.Unlock()
+	price,ok:=cu.mapprice[typ]
+	if !ok{
+		price = new(big.Int).SetUint64(0)
+	}
+	return price
+}
+func (cu *coingasUse)getCoinGasUse(typ string) uint64{
+	cu.mu.Lock()
+	defer cu.mu.Unlock()
+	gas,_:=cu.mapcoin[typ]
+	return gas
+}
 func NewWork(config *params.ChainConfig, bc *core.BlockChain, gasPool *core.GasPool, header *types.Header) (*Work, error) {
 
 	Work := &Work{
@@ -65,84 +113,76 @@ func NewWork(config *params.ChainConfig, bc *core.BlockChain, gasPool *core.GasP
 	return Work, nil
 }
 
-func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, coinbase common.Address) (listN []uint32, retTxs []*types.Transaction) {
+//func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, coinbase common.Address) (listN []uint32, retTxs []types.SelfTransaction) {
+func (env *Work) commitTransactions(mux *event.TypeMux, txser types.SelfTransactions, bc *core.BlockChain, coinbase common.Address) (listret []*common.RetCallTxN, retTxs []types.SelfTransaction) {
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
 
 	var coalescedLogs []*types.Log
-
-	for {
+	tmpRetmap := make(map[common.TxTypeInt][]uint32)
+	for _, txer := range txser {
 		// If we don't have enough gas for any further transactions then we're done
 		if env.gasPool.Gas() < params.TxGas {
 			log.Trace("Not enough gas for further transactions", "have", env.gasPool, "want", params.TxGas)
 			break
 		}
-		// Retrieve the next transaction and abort if all done
-		tx := txs.Peek()
-		if tx == nil {
-			break
-		}
-
-		if tx.N == nil{
+		if txer.GetTxNLen() == 0 {
 			log.Info("===========tx.N is nil")
-			txs.Pop()
 			continue
 		}
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
 		// We use the eip155 signer regardless of the current hf.
-		from, _ := tx.GetTxFrom()
+		from, _ := txer.GetTxFrom()
 
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
-		if tx.Protected() && !env.config.IsEIP155(env.header.Number) {
-			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", env.config.EIP155Block)
-
-			txs.Pop()
+		//YYY TODO 是否需要当前这个if
+		if txer.Protected() && !env.config.IsEIP155(env.header.Number) {
+			log.Trace("Ignoring reply protected transaction", "hash", txer.Hash(), "eip155", env.config.EIP155Block)
 			continue
 		}
 		// Start executing the transaction
-		env.State.Prepare(tx.Hash(), common.Hash{}, env.tcount)
-		err, logs := env.commitTransaction(tx, bc, coinbase, env.gasPool)
+		env.State.Prepare(txer.Hash(), common.Hash{}, env.tcount)
+		err, logs := env.commitTransaction(txer, bc, coinbase, env.gasPool)
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
 			log.Trace("Gas limit exceeded for current block", "sender", from)
-			txs.Pop()
-
 		case core.ErrNonceTooLow:
 			// New head notification data race between the transaction pool and miner, shift
-			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
-			txs.Shift()
-
+			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", txer.Nonce())
 		case core.ErrNonceTooHigh:
 			// Reorg notification data race between the transaction pool and miner, skip account =
-			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
-			txs.Pop()
-
+			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", txer.Nonce())
 		case nil:
 			// Everything ok, collect the logs and shift in the next transaction from the same account
-			//==========hezi===================
-			if tx.N != nil {
-				listN = append(listN, tx.N[0])
-				retTxs = append(retTxs, tx)
-				//log.INFO("=======", "commitTransactions:len(listN)", len(listN))
+			if txer.GetTxNLen() != 0 {
+				n := txer.GetTxN(0)
+				if listN, ok := tmpRetmap[txer.TxType()]; ok {
+					listN = append(listN, n)
+					tmpRetmap[txer.TxType()] = listN
+				} else {
+					listN := make([]uint32, 0)
+					listN = append(listN, n)
+					tmpRetmap[txer.TxType()] = listN
+				}
+				retTxs = append(retTxs, txer)
 			}
-			//==================================
 			coalescedLogs = append(coalescedLogs, logs...)
 			env.tcount++
-			txs.Shift()
-
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
-			txs.Shift()
+			log.Debug("Transaction failed, account skipped", "hash", txer.Hash(), "err", err)
 		}
 	}
-
+	for t, n := range tmpRetmap {
+		ts := common.RetCallTxN{t, n}
+		listret = append(listret, &ts)
+	}
 	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can
@@ -161,15 +201,15 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			}
 		}(cpy, env.tcount)
 	}
-	return listN, retTxs
+	return listret, retTxs
 }
 
-func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
+func (env *Work) commitTransaction(tx types.SelfTransaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
 	snap := env.State.Snapshot()
 
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
-		log.Info("*************","ApplyTransaction:err",err)
+		log.Info("file work","func commitTransaction",err)
 		env.State.RevertToSnapshot(snap)
 		return err, nil
 	}
@@ -178,7 +218,27 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 
 	return nil, receipt.Logs
 }
+func (env *Work) s_commitTransaction(tx types.SelfTransaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
+	env.State.Prepare(tx.Hash(), common.Hash{}, env.tcount)
+	snap := env.State.Snapshot()
+	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
+	if err != nil {
+		log.Info("file work","func s_commitTransaction",err)
+		env.State.RevertToSnapshot(snap)
+		return err, nil
+	}
+	tmps :=make([]types.SelfTransaction,0)
+	tmps = append(tmps, tx)
+	tmps = append(tmps, env.txs...)
+	env.txs = tmps
 
+	tmpr := make([]*types.Receipt,0)
+	tmpr = append(tmpr, receipt)
+	tmpr = append(tmpr, env.Receipts...)
+	env.Receipts = tmpr
+	env.tcount++
+	return nil, receipt.Logs
+}
 //Leader
 var lostCnt int = 0
 
@@ -186,79 +246,108 @@ type retStruct struct {
 	no  []uint32
 	txs []*types.Transaction
 }
-
-func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPool, bc *core.BlockChain) ([]uint32, []*types.Transaction) {
-
-	//ret := make(chan *retStruct, 1)
-	//tm := time.NewTimer(time.Second * 5)
-	//go func(ret1 chan *retStruct) {
-	//	log.ERROR("Tx", "LostCnt", lostCnt)
-	//	log.Info("===========", "ProcessTransactions:befor", 0)
-	//	pending, err := tp.Pending()
-	//	log.Info("===========", "ProcessTransactions:after", 1)
-	//	if err != nil {
-	//		log.Error("Failed to fetch pending transactions", "err", err)
-	//		ret1 <- &retStruct{nil, nil}
-	//	}
-	//	log.INFO("===========", "ProcessTransactions:pending:", len(pending))
-	//	txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
-	//	log.INFO("===========", "ProcessTransactions:txs:", txs)
-	//	a, b := self.commitTransactions(mux, txs, bc, common.Address{})
-	//	ret1 <- &retStruct{a, b}
-	//}(ret)
-	//select {
-	//case val := <-ret:
-	//	return val.no, val.txs
-	//case <-tm.C:
-	//	log.ERROR("Tx", "Tx Proc TimeOut", lostCnt)
-	//	lostCnt++
-	//	return nil, nil
-	//}
-
-	pending, err :=  tp.Pending()
-	if err != nil {
-		log.Error("Failed to fetch pending transactions", "err", err)
-		return nil,nil
+func (env *Work)Reverse(s []common.RewarTx) []common.RewarTx {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
 	}
-	log.INFO("===========", "ProcessTransactions:pending:", len(pending))
-	txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
-	//log.INFO("===========", "ProcessTransactions:txs:", txs)
-	return self.commitTransactions(mux, txs, bc, common.Address{})
+	return s
 }
-
-/*//==============================================================================//
-//Leader
-func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPool, bc *core.BlockChain) ([]uint32, []*types.Transaction) {
+func (env *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPoolManager, bc *core.BlockChain,rewart []common.RewarTx) (listret []*common.RetCallTxN, retTxs []types.SelfTransaction) {
 	pending, err := tp.Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return nil, nil
 	}
-	log.INFO("===========", "ProcessTransactions:pending:", len(pending))
-	txs := types.NewTransactionsByPriceAndNonce(self.signer, pending)
-	log.INFO("===========", "ProcessTransactions:txs:", txs)
-	return self.commitTransactions(mux, txs, bc, common.Address{})
+	listTx := make(types.SelfTransactions, 0)
+	for _, txser := range pending {
+		listTx = append(listTx, txser...)
+	}
+	listret,retTxs = env.commitTransactions(mux, listTx, bc, common.Address{})
+	mapcoingasUse.setCoinGasUse(retTxs)
+	tmps :=make([]types.SelfTransaction,0)
+	txers := env.makeTransaction(rewart)
+	for _,tx:=range txers{
+		err, _ :=env.s_commitTransaction(tx,bc,common.Address{},new(core.GasPool).AddGas(0))
+		if err != nil {
+			log.Error("file work","func ProcessTransactions:::reward Tx call Error",err)
+			return nil ,nil
+		}
+		tmptxs :=make([]types.SelfTransaction,0)
+		tmptxs = append(tmptxs, tx)
+		tmptxs = append(tmptxs, tmps...)
+		tmps = tmptxs
+	}
+	tmps = append(tmps, retTxs...)
+	retTxs = tmps
+	return
+}
 
-}*/
-
-//Broadcast
-func (self *Work) ProcessBroadcastTransactions(mux *event.TypeMux, txs []*types.Transaction, bc *core.BlockChain) {
-
-	for _, tx := range txs {
-		//log.INFO("========","ProcessBroadcastTransactions:tx",tx)
-		//log.INFO("========","ProcessBroadcastTransactions:tx.price",tx.GasPrice())
-		self.commitTransaction(tx, bc, common.Address{}, nil)
+func (env *Work)makeTransaction(rewarts []common.RewarTx) (txers []types.SelfTransaction){
+	for _,rewart := range rewarts{
+		sorted_keys := make([]string, 0)
+		for k, _ := range rewart.To_Amont {
+			sorted_keys = append(sorted_keys, k.String())
+		}
+		sort.Strings(sorted_keys)
+		extra := make([]*types.ExtraTo_tr,0)
+		var to common.Address
+		var value *big.Int
+		tmpv := new(big.Int).SetUint64(10000)
+		price := mapcoingasUse.getCoinGasPrice(rewart.CoinType)
+		gas := mapcoingasUse.getCoinGasUse(rewart.CoinType)
+		tmpgas := new(big.Int).Mul(new(big.Int).SetUint64(gas),price)
+		isfirst := true
+		for _,addr := range sorted_keys{
+			k :=common.HexToAddress(addr)
+			v := rewart.To_Amont[k]
+			if rewart.Fromaddr == common.TxGasRewardAddress{
+				v = new(big.Int).Mul(v, tmpgas)
+				v = new(big.Int).Quo(v,tmpv)
+			}
+			if isfirst{
+				to = k
+				value = v
+				isfirst = false
+				continue
+			}
+			tmp := new(types.ExtraTo_tr)
+			vv := new(big.Int).Set(v)
+			var kk common.Address = k
+			tmp.To_tr = &kk
+			tmp.Value_tr = (*hexutil.Big)(vv)
+			extra = append(extra, tmp)
+		}
+		tx := types.NewTransactions(env.State.GetNonce(rewart.Fromaddr),to,value,0,new(big.Int),nil,extra,0,common.ExtraUnGasTxType)
+		tx.SetFromLoad(rewart.Fromaddr)
+		tx.SetTxS(big.NewInt(1))
+		tx.SetTxV(big.NewInt(1))
+		tx.SetTxR(big.NewInt(1))
+		tx.SetCoinType(rewart.CoinType)
+		txers = append(txers,tx)
 	}
 
 	return
 }
+//Broadcast
+func (env *Work) ProcessBroadcastTransactions(mux *event.TypeMux, txs []types.SelfTransaction, bc *core.BlockChain,rewart []common.RewarTx) {
+	for _, tx := range txs {
+		env.commitTransaction(tx, bc, common.Address{}, nil)
+	}
+	txers := env.makeTransaction(rewart)
+	for _,tx:=range txers{
+		err, _ :=env.s_commitTransaction(tx,bc,common.Address{},new(core.GasPool).AddGas(0))
+		if err != nil {
+			log.Error("file work","func ProcessTransactions:::reward Tx call Error",err)
+		}
+	}
+	return
+}
 
-func (env *Work) ConsensusTransactions(mux *event.TypeMux, txs []*types.Transaction, bc *core.BlockChain) error {
+func (env *Work) ConsensusTransactions(mux *event.TypeMux, txs []types.SelfTransaction, bc *core.BlockChain,rewart []common.RewarTx) error {
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
 	var coalescedLogs []*types.Log
-
 	for _, tx := range txs {
 		// If we don't have enough gas for any further transactions then we're done
 		if env.gasPool.Gas() < params.TxGas {
@@ -270,14 +359,21 @@ func (env *Work) ConsensusTransactions(mux *event.TypeMux, txs []*types.Transact
 		env.State.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 		err, logs := env.commitTransaction(tx, bc, common.Address{}, env.gasPool)
 		if err == nil {
-			//log.Info("=========","ConsensusTransactions:tx.N",tx.N)
 			env.tcount++
 			coalescedLogs = append(coalescedLogs, logs...)
 		} else {
 			return err
 		}
 	}
-
+	mapcoingasUse.setCoinGasUse(txs)
+	//if len(gasRewar) > 0{
+	txers := env.makeTransaction(rewart)
+	for _,tx:=range txers{
+		err, _ :=env.s_commitTransaction(tx,bc,common.Address{},new(core.GasPool).AddGas(0))
+		if err != nil {
+			return err
+		}
+	}
 	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can
@@ -299,59 +395,123 @@ func (env *Work) ConsensusTransactions(mux *event.TypeMux, txs []*types.Transact
 
 	return nil
 }
+func (env *Work) GetTxs()[]types.SelfTransaction{
+	return env.txs
+}
 
+type randSeed  struct{
+
+}
+func (r* randSeed)GetSeed(num uint64) *big.Int{
+
+	return big.NewInt(1000)
+}
+
+func (env *Work) CalcRewardAndSlash(bc *core.BlockChain) ([]common.RewarTx) {
+	if common.IsBroadcastNumber(env.header.Number.Uint64()){
+		return nil
+	}
+	blkreward := blkreward.New(bc)
+	rewardList := make([]common.RewarTx,0)
+
+	minerReward:=blkreward.CalcRewardMount(env.State,util.MinersBlockReward,common.BlkMinerRewardAddress)
+	minersRewardMap := blkreward.CalcMinerRewards(minerReward, env.header)
+	if nil!=minersRewardMap{
+		rewardList = append(rewardList,common.RewarTx{CoinType:"man",Fromaddr:common.BlkMinerRewardAddress,To_Amont:minersRewardMap})
+	}
+
+	validatorReward:=blkreward.CalcRewardMount(env.State,util.ValidatorsBlockReward,common.BlkValidatorRewardAddress)
+	validatorsRewardMap := blkreward.CalcValidatorRewards(validatorReward,env.header.Leader, env.header)
+	if nil!=validatorsRewardMap{
+		rewardList = append(rewardList,common.RewarTx{CoinType:"man",Fromaddr:common.BlkValidatorRewardAddress,To_Amont:validatorsRewardMap})
+	}
+
+	txsReward := txsreward.New(bc)
+	txsRewardMap := txsReward.CalcNodesRewards(util.ByzantiumTxsRewardDen, env.header.Leader, env.header)
+	if nil!=txsRewardMap{
+		rewardList = append(rewardList,common.RewarTx{CoinType:"man",Fromaddr:common.TxGasRewardAddress,To_Amont:txsRewardMap})
+	}
+
+	lottery:=lottery.New(bc,&randSeed{})
+	lotteryRewardMap := lottery.LotteryCalc(env.header.Number.Uint64())
+		for _,v :=range lotteryRewardMap{
+			if nil!=v{
+				rewardList = append(rewardList,common.RewarTx{CoinType:"",Fromaddr:common.LotteryRewardAddress,To_Amont:v})
+			}
+		}
+
+	// //todo:其它币种
+	////multiCoin:=multicoinreward.New(p.blockChain())
+	////multiCoinMap := multiCoin.CalcNodesRewards(util.MultilCoinBlockReward, header.Leader, header)
+	////if nil!=multiCoinMap{
+	////  rewardList = append(rewardList,common.RewarTx{CoinType:"other",Fromaddr:common.MinersRewardAddress,To_Amont:multiCoinMap})
+	////  }
+	//
+	////todo 利息
+	interestReward:=interest.New(bc)
+	interestReward.InterestCalc(env.State,env.header.Number.Uint64())
+	//todo 惩罚
+
+	slash := slash.New(bc)
+	slash.CalcSlash(env.State, env.header.Number.Uint64())
+
+	return env.Reverse(rewardList)
+}
 func (env *Work) GetUpTimeAccounts(num uint64) ([]common.Address, error) {
 
 	log.INFO(packagename, "获取所有参与uptime点名高度", num)
 
 	upTimeAccounts := make([]common.Address, 0)
 
-	minerNum := num - (num % common.GetBroadcastInterval()) - params.MinerTopologyGenerateUptime
-	log.INFO(packagename, "candidate miners' uptime height", minerNum)
+	minerNum := num - (num % common.GetBroadcastInterval()) - manparams.MinerTopologyGenerateUpTime
+	log.INFO(packagename, "参选矿工节点uptime高度", minerNum)
 	ans, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(minerNum)), common.RoleMiner)
 	if err != nil {
 		return nil, err
 	}
 
-	log.INFO("getUpTimeAccounts", "ans", ans)
 	for _, v := range ans {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
-		log.INFO("v.Address", "v.Address", v.Address)
+		log.INFO("packagename", "矿工节点账户", v.Address.Hex())
 	}
-	validatorNum := num - (num % common.GetBroadcastInterval()) - params.VerifyTopologyGenerateUpTime
-	log.INFO(packagename, "candidate validators' uptime height", validatorNum)
+	validatorNum := num - (num % common.GetBroadcastInterval()) - manparams.VerifyTopologyGenerateUpTime
+	log.INFO(packagename, "参选验证节点uptime高度", validatorNum)
 	ans1, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(validatorNum)), common.RoleValidator)
 	if err != nil {
 		return upTimeAccounts, err
 	}
 	for _, v := range ans1 {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
-		log.INFO("v.Address", "v.Address", v.Address)
+		log.INFO("packagename", "验证者节点账户", v.Address.Hex())
 	}
-	log.INFO(packagename, "obtain all uptime accounts", upTimeAccounts)
 	return upTimeAccounts, nil
 }
 
-func (env *Work) GetUpTimeData(num uint64) (map[common.Address]uint32, map[common.Address][]byte, error) {
+func (env *Work) GetUpTimeData(hash common.Hash) (map[common.Address]uint32, map[common.Address][]byte, error) {
 
-	log.INFO(packagename, "obtain all heartbeat transactions", "")
-	heatBeatUnmarshallMMap, error := core.GetBroadcastTxs(new(big.Int).SetUint64(num), mc.Heartbeat)
+	log.INFO(packagename, "获取所有心跳交易", "")
+	//%99
+	heatBeatUnmarshallMMap, error := core.GetBroadcastTxs(hash, mc.Heartbeat)
 	if nil != error {
-		log.ERROR(packagename, "obtain all active heartbeat transactions errors", error)
-		return nil, nil, error
+		log.WARN(packagename, "获取主动心跳交易错误", error)
 	}
-
-	calltherollUnmarshall, error := core.GetBroadcastTxs(new(big.Int).SetUint64(num), mc.CallTheRoll)
+	//每个广播周期发一次
+	calltherollUnmarshall, error := core.GetBroadcastTxs(hash, mc.CallTheRoll)
 	if nil != error {
-		log.ERROR(packagename, "obtain all roll-call heartbeat transaction errors", error)
+		log.ERROR(packagename, "获取点名心跳交易错误", error)
 		return nil, nil, error
 	}
 	calltherollMap := make(map[common.Address]uint32, 0)
 	for _, v := range calltherollUnmarshall {
-		error := json.Unmarshal(v, &calltherollMap)
+		temp := make(map[string]uint32, 0)
+		error := json.Unmarshal(v, &temp)
 		if nil != error {
-			log.ERROR(packagename, "序列化主动心跳交易错误", error)
+			log.ERROR(packagename, "序列化点名心跳交易错误", error)
 			return nil, nil, error
+		}
+		log.INFO(packagename, "++++++++点名心跳交易++++++++", temp)
+		for k, v := range temp {
+			calltherollMap[common.HexToAddress(k)] = v
 		}
 	}
 	return calltherollMap, heatBeatUnmarshallMMap, nil
@@ -363,12 +523,12 @@ func (env *Work) HandleUpTime(state *state.StateDB, accounts []common.Address, c
 	HeartBeatMap := make(map[common.Address]bool, 0)
 	blockNumRem := blockNum % common.GetBroadcastInterval()
 
-	//subVal latest broadcast block, eg, if the current block height is 198 or 101, then subVal is 100
+	//subVal就是最新的广播区块，例如当前区块高度是198或者是101，那么subVal就是100
 	subVal := blockNum - blockNumRem
-	//subVal latest broadcast block, eg, if the current block height is 198 or 101, then subVal is 100
+	//subVal就是最新的广播区块，例如当前区块高度是198或者是101，那么subVal就是100
 	subVal = subVal
 	if blockNum < common.GetBroadcastInterval() { //当前区块小于100说明是100区块内 (下面的if else是为了应对中途加入的参选节点)
-		blockHash = bc.GetBlockByNumber(0).Hash() //hash of genesis block
+		blockHash = bc.GetBlockByNumber(0).Hash() //创世区块的hash
 	} else {
 		blockHash = bc.GetBlockByNumber(subVal).Hash() //获取最近的广播区块的hash
 	}
@@ -393,6 +553,16 @@ func (env *Work) HandleUpTime(state *state.StateDB, accounts []common.Address, c
 	}
 
 	var upTime uint64
+	originTopologyNum := blockNum - blockNum%common.GetBroadcastInterval() - 1
+	log.Info(packagename, "获取原始拓扑图所有的验证者和矿工，高度为", originTopologyNum)
+	originTopology, err := ca.GetTopologyByNumber(common.RoleValidator|common.RoleBackupValidator|common.RoleMiner|common.RoleBackupMiner, originTopologyNum)
+	if err != nil {
+		return err
+	}
+	originTopologyMap := make(map[common.Address]uint32, 0)
+	for _, v := range originTopology.NodeList {
+		originTopologyMap[v.Account] = 0
+	}
 	for _, account := range accounts {
 		onlineBlockNum, ok := calltherollRspAccounts[account]
 		if ok { //被点名,使用点名的uptime
@@ -402,22 +572,28 @@ func (env *Work) HandleUpTime(state *state.StateDB, accounts []common.Address, c
 		} else { //没被点名，没有主动上报，则为最大值，
 			if v, ok := HeartBeatMap[account]; ok { //有主动上报
 				if v {
-					upTime = common.GetBroadcastInterval() - 2
+					upTime = common.GetBroadcastInterval() - 3
 					log.INFO(packagename, "没被点名，有主动上报有响应", account, "uptime", upTime)
 				} else {
 					upTime = 0
 					log.INFO(packagename, "没被点名，有主动上报无响应", account, "uptime", upTime)
 				}
 			} else { //没被点名和主动上报
-				upTime = common.GetBroadcastInterval() - 2
+				upTime = common.GetBroadcastInterval() - 3
 				log.INFO(packagename, "没被点名，没要求主动上报", account, "uptime", upTime)
 
 			}
 		}
 		// todo: add
 		depoistInfo.AddOnlineTime(state, account, new(big.Int).SetUint64(upTime))
-		if read, err := depoistInfo.GetOnlineTime(state, account); nil == err {
-			log.INFO(packagename, "read the state tree", account, "uptime", read)
+		read, err := depoistInfo.GetOnlineTime(state, account)
+		if nil == err {
+			log.INFO(packagename, "读取状态树", account, "upTime减半", read)
+			if _, ok := originTopologyMap[account]; ok {
+				updateData := new(big.Int).SetUint64(read.Uint64() / 2)
+				log.INFO(packagename, "是原始拓扑图节点，upTime减半", account, "upTime", updateData.Uint64())
+				depoistInfo.AddOnlineTime(state, account, updateData)
+			}
 		}
 
 	}
