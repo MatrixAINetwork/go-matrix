@@ -260,3 +260,17 @@
     0b486286: modify broadcast active
 
 ![](https://i.imgur.com/6UdEzCY.png)
+
+
+    11.29:sunchunfeng pushed to branch master at repository TestCase
+    c4757d23: 获取账户余额接口
+
+    11.29:zhangwen pushed to branch rollback_dev at repository go-matrix
+    65d20387: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    25d56f2a: signVersion
+
+    11.29:zhenghe pushed to branch gman_Account at repository go-matrix
+    80aca19f: 修改eth.accounts返回账户不对问题
+
+
+![](https://i.imgur.com/J0p0QHj.png)
