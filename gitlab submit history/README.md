@@ -322,3 +322,6 @@
 
     11.29:huyuankai pushed to branch rollback_dev at repository go-matrix
     bae3ad96: 修改leader服务对超级区块的判断
+
+    11.29:zhenghe pushed to branch restart_dev at repository go-ethereum
+    79dc044d: 去掉区块gaslimit自动调整
