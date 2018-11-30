@@ -382,3 +382,25 @@
 ![](https://i.imgur.com/2v9RSpj.png)
 
 
+    11.30：zhenghe pushed to branch gman_Account at repository go-matrix
+    ad9b41ef: newAccount修改
+
+
+    11.30：huyuankai pushed to branch rollback_dev at repository go-matrix
+    de6e8947: Merge branch 'rollback_dev' of http://192.168.3.81/matrix/go-matrix into rollback_dev
+    34cb9577: 删除无用日志
+
+    11.30：huyuankai pushed to branch restart_temp at repository go-ethereum
+    a5882f39: "删除备份矿工身份，拓扑图中不会体现备份矿工节点，不存在该概念",
+    79dc044d: 去掉区块gaslimit自动调整
+    cb506c2a: modify log
+    b88242ef: add log
+    c5c9ba35: add log
+    f9fa61c0: add log
+    e600a9f3: add log
+    b4f51534: 解决广播区块后一区块广播leader时，preleader错误的bug
+    bd0105b5: Revert "add log"
+    0ce4cb85: add log
+
+![](https://i.imgur.com/QVFG6cS.png)
+
