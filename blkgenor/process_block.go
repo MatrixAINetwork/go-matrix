@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
@@ -121,7 +121,7 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 
 	p.blockCache.SaveReadyBlock(&mc.BlockLocalVerifyOK{
 		Header:    rsp.Header,
-		BlockHash: common.Hash{},
+		BlockHash: rsp.Header.HashNoSignsAndNonce(),
 		Txs:       rsp.Txs,
 		Receipts:  receipts,
 		State:     stateDB,
@@ -133,7 +133,7 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 	mc.PublishEvent(mc.BlockGenor_NewBlockReady, readyMsg)
 
 	p.state = StateBlockInsert
-	p.processBlockInsert()
+	p.processBlockInsert(rsp.Header.Leader)
 }
 
 func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types.SelfTransactions) ([]*types.Receipt, *state.StateDB, error) {
@@ -150,7 +150,7 @@ func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types
 		return nil, nil, errors.Errorf("创建worker错误(%v)", err)
 	}
 	// 跑交易不能添加奖励，增加新接口或map为空
-	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc,nil)
+	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc, nil, nil)
 	if err != nil {
 		return nil, nil, errors.Errorf("执行交易错误(%v)", err)
 	}
@@ -269,10 +269,10 @@ func (p *Process) dealMinerResultVerifyCommon(leader common.Address) {
 	mc.PublishEvent(mc.BlockGenor_NewBlockReady, readyMsg)
 
 	p.state = StateBlockInsert
-	p.processBlockInsert()
+	p.processBlockInsert(p.curLeader)
 }
 
-func (p *Process) processBlockInsert() {
+func (p *Process) processBlockInsert(blockLeader common.Address) {
 	if p.state < StateBlockInsert {
 		log.WARN(p.logExtraInfo(), "准备进行区块插入，状态错误", p.state.String(), "高度", p.number)
 		return
@@ -301,7 +301,7 @@ func (p *Process) processBlockInsert() {
 	}
 
 	log.INFO(p.logExtraInfo(), "~~~~区块插入~~~~", "开始", "高度", p.number)
-	hash, err := p.insertAndBcBlock(true, nil)
+	hash, err := p.insertAndBcBlock(true, blockLeader, nil)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "区块插入，错误", err)
 		return
@@ -364,12 +364,12 @@ func (p *Process) copyHeader(header *types.Header, minerResult *mc.HD_MiningRspM
 	return newHeader
 }
 
-func (p *Process) insertAndBcBlock(isSelf bool, header *types.Header) (common.Hash, error) {
+func (p *Process) insertAndBcBlock(isSelf bool, leader common.Address, header *types.Header) (common.Hash, error) {
 	var blockData *blockCacheData = nil
 	if p.role == common.RoleBroadcast {
 		blockData = p.blockCache.GetLastBlockData()
 	} else {
-		blockData = p.blockCache.GetBlockData(p.curLeader)
+		blockData = p.blockCache.GetBlockData(leader)
 	}
 	if nil == blockData || blockData.state != blockStateReady {
 		return common.Hash{}, HaveNoGenBlockError
