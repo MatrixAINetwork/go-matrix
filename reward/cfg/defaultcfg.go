@@ -136,7 +136,7 @@ func New(RewardMount *RewardMountCfg, SetReward SetRewardsExec) *RewardCfg {
 		}
 
 	}
-	//默认配置
+	//default configs
 	if nil == SetReward {
 
 		SetReward = DefaultSetRewardNew()
