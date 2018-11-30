@@ -1,15 +1,13 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
-package blockgenor
+package blkgenor
 
 import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/man"
 )
 
 type BlockGenor struct {
@@ -37,14 +35,14 @@ type BlockGenor struct {
 
 func New(man Backend) (*BlockGenor, error) {
 	if nil == &man {
-		log.Error("nil == &man Error")
+		log.Error("nil == &manparams Error")
 		return nil, ParaNull
 	}
 	if nil == man.BlockChain().Engine() {
-		log.Error("man.BlockChain().Engine() Error")
+		log.Error("manparams.BlockChain().Engine() Error")
 		return nil, ParaNull
 	}
-	//if nil==man.ReElection(){
+	//if nil==manparams.ReElection(){
 	//	return nil,ParaNull
 	//}
 
@@ -179,9 +177,9 @@ func (self *BlockGenor) leaderChangeNotifyHandle(leaderMsg *mc.LeaderChangeNotif
 
 	if leaderMsg.ConsensusState {
 		process.SetCurLeader(leaderMsg.Leader, leaderMsg.ConsensusTurn)
-		process.SetNextLeader(leaderMsg.NextLeader)
+		process.SetNextLeader(leaderMsg.Leader, leaderMsg.NextLeader)
 		if preProcess != nil {
-			preProcess.SetNextLeader(leaderMsg.Leader)
+			preProcess.SetNextLeader(leaderMsg.PreLeader, leaderMsg.Leader)
 		}
 
 		// 提前设置下个process的leader
@@ -197,24 +195,7 @@ func (self *BlockGenor) leaderChangeNotifyHandle(leaderMsg *mc.LeaderChangeNotif
 	}
 }
 
-func (self *BlockGenor) isPickMiner(coinBase common.Address) bool {
-	if len(man.PickMinerNodes) == 0 {
-		return true
-	}
-	for _, node := range man.PickMinerNodes {
-		if coinBase == node.Address {
-			return true
-		}
-	}
-	return false
-}
-
 func (self *BlockGenor) minerResultHandle(minerResult *mc.HD_MiningRspMsg) {
-	if self.isPickMiner(minerResult.Coinbase) == false {
-		log.WARN(self.logExtraInfo(), "作恶", "挖矿结果不是来自指定节点，抛弃挖矿结果", "CoinBase", minerResult.Coinbase.Hex())
-		return
-	}
-
 	log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "开始", "高度", minerResult.Number, "难度", minerResult.Difficulty.Uint64(), "block hash", minerResult.BlockHash.TerminalString())
 	defer log.INFO(self.logExtraInfo(), "矿工挖矿结果消息处理", "结束", "高度", minerResult.Number, "block hash", minerResult.BlockHash.TerminalString())
 	process, err := self.pm.GetProcess(minerResult.Number)
