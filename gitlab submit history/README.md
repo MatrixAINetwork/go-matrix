@@ -404,3 +404,93 @@
 
 ![](https://i.imgur.com/QVFG6cS.png)
 
+
+    11.30：叶营 pushed to branch gman_Account at repository go-matrix
+    19497cd0: modify time
+
+    11.30：huyuankai pushed to branch restart_temp at repository go-ethereum
+    c7334716: 1.顶层节点服务代码合并
+
+    11.30：zhangwen pushed to branch rollback_dev at repository go-matrix
+    74d608cc: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    acb9985c: Merge branch 'master_1115' into rollback_dev
+    052f4a87: add log
+    c55dabae: "vrf上区块头",
+    0b486286: modify broadcast active
+    6c7e0ece: turn on/off broadcast
+
+    11.30：zhangwen pushed to branch master_1115 at repository go-matrix
+    74d608cc: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    acb9985c: Merge branch 'master_1115' into rollback_dev
+    de6e8947: Merge branch 'rollback_dev' of http://192.168.3.81/matrix/go-matrix into rollback_dev
+    34cb9577: 删除无用日志
+    bb20df1a: 离线导入超级区块命名修改
+    4bcfa3e2: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    d79f3af5: 版本号眼前修改
+    bae3ad96: 修改leader服务对超级区块的判断
+    c16a0364: 修改超级区块生成时，对当前区块后一区块的支持
+    6f99acb1: 修改编译问题，删除部分版本签名代码
+
+
+    11.30：sunanxiang pushed to branch restart_temp at repository go-ethereum
+    68edc06e: Merge branch 'topnode' into restart_temp
+    cff41ae6: modify timer
+    dc4896f3: add gap
+    7f7792b8: Merge branch 'topnode' of http://192.168.4.81/merge/go-ethereum into topnode
+    05112088: 从p2p获取节点在线信息
+    31def910: add lock
+    b3b7338f: modify top nodes
+
+
+    11.30：sunanxiang pushed to branch restart_temp at repository go-ethereum
+    a9fe7ad7: Merge branch 'topnode2' into restart_temp
+    c3422adb: del self
+    ca434e9b: fmt
+    3ed521c6: add gap
+    1af16531: 增加高层HD消息的丢包，时延，重发
+    ac9b9199: 添加下线再上线的测试用例，
+    39094145: topnode中加入获取ca消息
+    d5f0d830: 矿工生成时间点 错误
+    1c6cd064: 修改切片删除机制
+    146cb52e: 修改切片删除问题bug（其他人也需要注意）
+
+    11.30：sunanxiang pushed to branch restart_temp at repository go-ethereum
+    af70720a: modify gap
+
+
+    11.30：huyuankai pushed to branch restart_temp at repository go-ethereum
+    34dbefa7: 完成 基金会矿工 和 顶层节点服务 代码合并
+
+
+    11.30：sunanxiang pushed to branch restart_temp at repository go-ethereum
+    695bb30d: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    5c4188f5: Update p2p/linker.go
+
+    11.30：sunanxiang pushed to branch restart_temp at repository go-ethereum
+    6374eb4a: add darwin
+
+
+    11.30：zhangwen pushed to branch reward_dev at repository go-matrix
+    91ecb8b4: Merge branch 'master_1115' into reward_dev
+    74d608cc: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    acb9985c: Merge branch 'master_1115' into rollback_dev
+    de6e8947: Merge branch 'rollback_dev' of http://192.168.3.81/matrix/go-matrix into rollback_dev
+    34cb9577: 删除无用日志
+    052f4a87: add log
+    c55dabae: "vrf上区块头",
+    bb20df1a: 离线导入超级区块命名修改
+    4bcfa3e2: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    d79f3af5: 版本号眼前修改
+
+
+    11.30：zhangwen pushed to branch master_1115 at repository go-matrix
+    91ecb8b4: Merge branch 'master_1115' into reward_dev
+    350ea41e: 奖励定点化
+    75be045e: Merge branch 'reward_dev' of gitlab.matrix.com:matrix/go-matrix into reward_dev
+    92c4ab48: 交易费奖励，由原来配置比例修改为先获取gas费用再配置金额，计算交易费奖励
+    7ace3467: add log 
+    6c674153: modify
+    4dbc1cce: modify
+    116f39ef: Merge branch 'reward_dev' of gitlab.matrix.com:matrix/go-matrix into reward_dev
+    8870fc6e: 多币种大写
+    ec91deb7: 惩罚判断利息的3/
