@@ -119,6 +119,7 @@ type Wallet interface {
 	SignHashValidate(account Account, hash []byte, validate bool) ([]byte, error)
 
 	SignHashValidateWithPass(account Account, passphrase string, hash []byte, validate bool) ([]byte, error)
+	SignVrfWithPass(account Account,passphrase string ,msg []byte)([]byte,[]byte,[]byte,error)
 }
 
 // Backend is a "wallet provider" that may contain a batch of accounts they can
