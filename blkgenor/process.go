@@ -1,7 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-package blockgenor
+package blkgenor
 
 import (
 	"strconv"
@@ -17,6 +17,7 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/reelection"
+	"time"
 )
 
 type State uint16
@@ -65,6 +66,7 @@ type Process struct {
 	insertBlockHash    []common.Hash
 	FullBlockReqCache  *common.ReuseMsgController
 	consensusReqSender *common.ResendMsgCtrl
+	minerPickTimer     *time.Timer
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
@@ -83,6 +85,7 @@ func newProcess(number uint64, pm *ProcessManage) *Process {
 		blockCache:         newBlockCache(),
 		FullBlockReqCache:  common.NewReuseMsgController(3),
 		consensusReqSender: nil,
+		minerPickTimer:     nil,
 	}
 
 	return p
@@ -105,6 +108,7 @@ func (p *Process) Close() {
 	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
 	p.closeConsensusReqSender()
+	p.stopMinerPikerTimer()
 }
 
 func (p *Process) ReInit() {
@@ -119,6 +123,7 @@ func (p *Process) ReInit() {
 	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
 	p.closeConsensusReqSender()
+	p.stopMinerPikerTimer()
 }
 
 func (p *Process) ReInitNextLeader() {
@@ -136,6 +141,7 @@ func (p *Process) SetCurLeader(leader common.Address, consensusTurn uint32) {
 	p.curLeader = leader
 	p.consensusTurn = consensusTurn
 	p.closeConsensusReqSender()
+	p.stopMinerPikerTimer()
 	log.INFO(p.logExtraInfo(), "process设置当前leader成功", p.curLeader.Hex(), "高度", p.number)
 	if p.checkState(StateIdle) {
 		return
@@ -146,7 +152,7 @@ func (p *Process) SetCurLeader(leader common.Address, consensusTurn uint32) {
 	p.startBcBlock()
 }
 
-func (p *Process) SetNextLeader(leader common.Address) {
+func (p *Process) SetNextLeader(preLeader common.Address, leader common.Address) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.nextLeader == leader {
@@ -157,7 +163,7 @@ func (p *Process) SetNextLeader(leader common.Address) {
 	if p.state < StateBlockInsert {
 		return
 	}
-	p.processBlockInsert()
+	p.processBlockInsert(preLeader)
 }
 
 func (p *Process) AddInsertBlockInfo(blockInsert *mc.HD_BlockInsertNotify) {
@@ -166,6 +172,7 @@ func (p *Process) AddInsertBlockInfo(blockInsert *mc.HD_BlockInsertNotify) {
 
 	p.startBlockInsert(blockInsert)
 }
+
 func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 	blockHash := blkInsertMsg.Header.Hash()
 	log.INFO(p.logExtraInfo(), "区块插入", "启动", "block hash", blockHash.TerminalString())
@@ -199,7 +206,6 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 			return
 		}
 
-		//todo 不是原始难度的结果，需要修改POW seal验证过程
 		if err := p.engine().VerifySeal(p.blockChain(), header); err != nil {
 			log.ERROR(p.logExtraInfo(), "区块插入消息POW验证失败", err)
 			return
@@ -207,7 +213,7 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 		log.Info(p.logExtraInfo(), "开始插入", "普通区块")
 	}
 
-	if _, err := p.insertAndBcBlock(false, header); err != nil {
+	if _, err := p.insertAndBcBlock(false, header.Leader, header); err != nil {
 		log.INFO(p.logExtraInfo(), "区块插入失败, err", err, "fetch 高度", p.number, "fetch hash", blockHash.TerminalString())
 		p.backend().FetcherNotify(blockHash, p.number)
 	}
@@ -333,6 +339,23 @@ func (p *Process) saveInsertedBlockHash(blockHash common.Hash) {
 	p.insertBlockHash = append(p.insertBlockHash, blockHash)
 }
 
+func (p *Process) startMinerPikerTimer(outTime int64) {
+	if p.minerPickTimer != nil {
+		return
+	}
+	log.INFO(p.logExtraInfo(), "开启minerPickTimer,时间", outTime, "高度", p.number)
+	p.minerPickTimer = time.AfterFunc(time.Duration(outTime)*time.Second, func() {
+		p.minerPickTimeout()
+	})
+}
+
+func (p *Process) stopMinerPikerTimer() {
+	if nil != p.minerPickTimer {
+		p.minerPickTimer.Stop()
+		p.minerPickTimer = nil
+	}
+}
+
 func (p *Process) logExtraInfo() string {
 	return p.pm.logExtraInfo()
 }
@@ -343,7 +366,7 @@ func (p *Process) engine() consensus.Engine { return p.pm.engine }
 
 func (p *Process) dposEngine() consensus.DPOSEngine { return p.pm.dposEngine }
 
-func (p *Process) txPool() *core.TxPool { return p.pm.txPool }
+func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //YYY
 
 func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 
