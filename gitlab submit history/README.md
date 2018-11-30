@@ -350,3 +350,35 @@
 
 ![](https://i.imgur.com/xdOtTYP.png)
 
+
+
+    11.30：叶营 pushed to branch gman_Account at repository go-matrix
+    57622d55: add new tx
+
+    11.30：叶营 pushed to branch gman_Account at repository go-matrix
+    3e7cddb0: modify
+
+    11.30：root pushed to branch master at repository docs
+    a2e595ef: 目前支持的交易类型列表
+
+![](https://i.imgur.com/dYaonkt.png)
+
+
+    11.30：叶营 pushed to branch gman_Account at repository go-matrix
+    0ff6e4f1: 处理奖励交易不扣gas
+
+    11.30：sunchunfeng pushed to branch EntrustAccount at repository go-matrix
+    052f4a87: add log
+    c55dabae: "vrf上区块头",
+    0b486286: modify broadcast active
+    6c7e0ece: turn on/off broadcast
+    fcee254e: add quit chan
+    a600d740: 超级区块引起的Leader计算变更
+    ad8c9b9d: 修改leader服务bug：
+    46feeaea: Merge branch 'master_1115' of 192.168.3.81:matrix/go-matrix into master_1115
+    c8312329: 添加10个单测用例
+    a9666678: Merge branch 'master_1115' of http://192.168.4.81/matrix/go-matrix into master_1115
+
+![](https://i.imgur.com/2v9RSpj.png)
+
+
