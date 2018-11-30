@@ -1,85 +1,46 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
 
 import (
-	"errors"
 	"time"
 
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-)
-
-type state uint8
-
-const (
-	idle state = iota
-	waitingBlockReq
-	waitingDPOSResult
-	reelectLeader
-)
-
-func (s state) String() string {
-	switch s {
-	case idle:
-		return "in idle"
-	case waitingBlockReq:
-		return "waitting for block validation request"
-	case waitingDPOSResult:
-		return "waitting for DPOS result"
-	case reelectLeader:
-		return "in re-election state"
-	default:
-		return "unknown state"
-	}
-}
-
-var (
-	waitingBlockReqTimer   = 40 * time.Second
-	waitingDPOSResultTimer = 40 * time.Second
-	reelectLeaderTimer     = 40 * time.Second
-
-	ErrInvalidState = errors.New("unsupported state")
+	"strconv"
+	"sync"
 )
 
 type controller struct {
-	matrix                 Matrix
-	number                 uint64
-	state                  state
-	curLeader              common.Address
-	curTurns               uint8
-	timer                  *time.Timer
-	calServer              *leaderCalculator
-	slaver                 *ldreSlaver
-	master                 *ldreMaster
-	blockVerifyStateCh     chan *mc.BlockVerifyStateNotify
-	reelectLeaderSuccessCh chan *mc.ReelectLeaderSuccMsg
-	quitCh                 chan struct{}
-	extra                  string
+	timer        *time.Timer
+	reelectTimer *time.Timer
+	matrix       Matrix
+	dc           *cdc
+	mp           *msgPool
+	selfCache    *masterCache
+	msgCh        chan interface{}
+	quitCh       chan struct{}
+	mu           sync.Mutex
+	logInfo      string
 }
 
-func newController(matrix Matrix, extra string, calServer *leaderCalculator, number uint64) *controller {
+func newController(matrix Matrix, logInfo string, number uint64) *controller {
 	ctrller := &controller{
-		matrix:                 matrix,
-		number:                 number,
-		state:                  idle,
-		curLeader:              common.Address{},
-		curTurns:               0,
-		timer:                  nil,
-		calServer:              calServer,
-		slaver:                 nil,
-		master:                 nil,
-		blockVerifyStateCh:     make(chan *mc.BlockVerifyStateNotify, 2),
-		reelectLeaderSuccessCh: make(chan *mc.ReelectLeaderSuccMsg, 1),
-		quitCh:                 make(chan struct{}),
-		extra:                  extra,
+		timer:        time.NewTimer(time.Minute),
+		reelectTimer: time.NewTimer(time.Minute),
+		matrix:       matrix,
+		dc:           newCDC(number, matrix.BlockChain(), logInfo),
+		mp:           newMsgPool(),
+		selfCache:    newMasterCache(number),
+		msgCh:        make(chan interface{}, 10),
+		quitCh:       make(chan struct{}),
+		logInfo:      logInfo,
 	}
 
 	go ctrller.run()
-	log.INFO(ctrller.extra, "创建控制", "成功", "高度", ctrller.number)
 	return ctrller
 }
 
@@ -87,175 +48,86 @@ func (self *controller) Close() {
 	close(self.quitCh)
 }
 
-func (self *controller) SetBlockVerifyStateMsg(msg *mc.BlockVerifyStateNotify) {
-	self.blockVerifyStateCh <- msg
+func (self *controller) ReceiveMsg(msg interface{}) {
+	self.msgCh <- msg
+}
+
+func (self *controller) Number() uint64 {
+	return self.dc.number
+}
+
+func (self *controller) State() state {
+	return self.dc.state
+}
+
+func (self *controller) ConsensusTurn() uint32 {
+	return self.dc.curConsensusTurn
+}
+
+func (self *controller) ParentHash() common.Hash {
+	return self.dc.leaderCal.preHash
 }
 
 func (self *controller) run() {
-	log.INFO(self.extra, "控制服务", "启动", "高度", self.number)
-	leaders, err := self.calServer.GetLeaderInfo()
-	if err != nil {
-		log.ERROR(self.extra, "服务启动失败", "通过calServer获取leader信息失败", "err", err)
-		return
-	}
+	log.INFO(self.logInfo, "控制服务", "启动", "高度", self.dc.number)
+	defer log.INFO(self.logInfo, "控制服务", "退出", "高度", self.dc.number)
 
-	if leaders.number != self.number || leaders.turns != 0 {
-		log.ERROR(self.extra, "服务启动失败", "leader信息高度或轮次不匹配",
-			"leaders.number", leaders.number, "self.number", self.number,
-			"leaders.turns", leaders.turns)
-		return
-	}
-
-	self.curLeader.Set(leaders.leader)
-	self.curTurns = leaders.turns
-	self.state = waitingBlockReq
-	if self.number == 1 && self.curTurns == 0 {
-		self.timer = time.NewTimer(waitingBlockReqTimer + 60*time.Second)
-	} else {
-		self.timer = time.NewTimer(waitingBlockReqTimer)
-	}
-
+	self.setTimer(0, self.timer)
+	self.setTimer(0, self.reelectTimer)
 	for {
 		select {
-		case msg := <-self.blockVerifyStateCh:
-			log.INFO(self.extra, "接收Block验证状态通知消息, 高度", msg.Number, "状态", msg.State, "leader", msg.Leader.Hex())
-			self.blockVerifyStateMsgHandle(msg)
-
-		case data := <-self.reelectLeaderSuccessCh:
-			log.INFO(self.extra, "接收Leader重选成功消息, 高度", data.Height, "轮次", data.ReelectTurn, "leader", data.Leader.Hex())
-			self.reelectLeaderSuccessHandle(data)
+		case msg := <-self.msgCh:
+			self.handleMsg(msg)
 
 		case <-self.timer.C:
-			log.INFO(self.extra, "超时事件, 当前状态", self.state.String(), "高度", self.number, "轮次", self.curTurns, "leader", self.curLeader.Hex())
-			self.timeoutHandle()
+			self.timeOutHandle()
+
+		case <-self.reelectTimer.C:
+			self.reelectTimeOutHandle()
 
 		case <-self.quitCh:
-			self.StopSlaver()
-			self.StopMaster()
-			log.INFO(self.extra, "控制服务", "退出", "高度", self.number)
-
 			return
 		}
 	}
 }
 
-func (self *controller) blockVerifyStateMsgHandle(msg *mc.BlockVerifyStateNotify) {
-	if msg.Number != self.number {
-		log.ERROR(self.extra, "Block验证状态消息", "高度不匹配", "当前高度", self.number)
+func (self *controller) sendLeaderMsg() {
+	msg, err := self.dc.PrepareLeaderMsg()
+	if err != nil {
+		log.ERROR(self.logInfo, "公布leader身份", "准备消息错误", "err", err)
 		return
 	}
+	log.INFO(self.logInfo, "公布leader身份, leader", msg.Leader.Hex(), "Next Leader", msg.NextLeader.Hex(), "高度", msg.Number,
+		"共识状态", msg.ConsensusState, "共识轮次", msg.ConsensusTurn, "重选轮次", msg.ReelectTurn)
+	mc.PublishEvent(mc.Leader_LeaderChangeNotify, msg)
+}
 
-	if msg.Leader != self.curLeader {
-		log.ERROR(self.extra, "Block验证状态消息", "Leader不匹配", "当前Leader", self.curLeader.Hex())
-		return
-	}
-
-	// True: begin verify, False: end verify
-	if msg.State {
-		self.stateChangeToWaitingDPOSResult()
+func (self *controller) setTimer(outTime int64, timer *time.Timer) {
+	var OK bool
+	if outTime <= 0 {
+		OK = timer.Stop()
 	} else {
-		self.stateChangeToIdle()
+		OK = timer.Reset(time.Duration(outTime) * time.Second)
+	}
+	if !OK {
+		for {
+			select {
+			case <-timer.C:
+				log.DEBUG(self.logInfo, "超时器处理", "释放无用超时")
+			default:
+				return
+			}
+		}
 	}
 }
 
-func (self *controller) reelectLeaderSuccessHandle(msg *mc.ReelectLeaderSuccMsg) {
-	if msg.Height != self.number {
-		log.ERROR(self.extra, "Leader重选成功消息处理错误", "高度不匹配", "当前高度", self.number)
-		return
-	}
-
-	if msg.ReelectTurn != self.curTurns {
-		log.ERROR(self.extra, "Leader重选成功消息处理错误", "轮次不匹配", "当前轮次", self.curTurns)
-		return
-	}
-
-	if msg.Leader != self.curLeader {
-		log.ERROR(self.extra, "Leader重选成功消息处理错误", "leader不匹配", "当前leader", self.curLeader.Hex())
-		return
-	}
-
-	self.calServer.UpdateCacheByConsensus(msg.Height, msg.ReelectTurn, true)
-
-	self.StopMaster()
-	self.StopSlaver()
-
-	self.state = waitingBlockReq
-	self.timer = time.NewTimer(waitingBlockReqTimer)
+func (self *controller) curTurnInfo() string {
+	return "共识轮次(" + strconv.Itoa(int(self.dc.curConsensusTurn)) + ")&重选轮次(" + strconv.Itoa(int(self.dc.curReelectTurn)) + ")"
 }
 
-func (self *controller) stateChangeToWaitingDPOSResult() {
-	if self.state != waitingBlockReq {
-		log.ERROR(self.extra, "切换等待DPOS状态错误", "当前状态不正确", "当前状态", self.state.String())
-		return
+func (self *controller) isSupperBlock(header *types.Header) bool {
+	if header == nil {
+		return false
 	}
-
-	if self.number == 1 && self.curTurns == 0 {
-		self.timer = time.NewTimer(waitingDPOSResultTimer + 60*time.Second)
-	} else {
-		self.timer = time.NewTimer(waitingDPOSResultTimer)
-	}
-	self.state = waitingDPOSResult
-
-	return
-}
-
-func (self *controller) stateChangeToIdle() {
-	if self.state != waitingDPOSResult {
-		log.ERROR(self.extra, "切换等待idle状态错误", "当前状态不正确", "当前状态", self.state.String())
-		return
-	}
-
-	//关闭定时器，不可直接关闭，有可能定时器已经超时
-	self.timer = time.NewTimer(waitingBlockReqTimer)
-	self.timer.Stop()
-
-	self.state = idle
-}
-
-func (self *controller) StartMaster() {
-	self.StopMaster()
-
-	msg := mc.LeaderReelectMsg{Leader: self.curLeader, ReelectTurn: self.curTurns, Number: self.number}
-	if master, err := self.genMaster(&msg); err != nil {
-		log.ERROR(self.extra, "创建Master失败", err)
-	} else {
-		self.master = master
-	}
-}
-
-func (self *controller) StopMaster() {
-	if self.master == nil {
-		return
-	}
-	self.master.quitCh <- true
-	self.master = nil
-}
-
-func (self *controller) genMaster(msg *mc.LeaderReelectMsg) (*ldreMaster, error) {
-	master, err := newMaster(self.matrix, self.extra+" "+"Master", msg, self.reelectLeaderSuccessCh)
-	return master, err
-}
-
-func (self *controller) StartSlaver() {
-	self.StopSlaver()
-
-	msg := mc.FollowerReelectMsg{Leader: self.curLeader, ReelectTurn: self.curTurns, Number: self.number}
-	if slaver, err := self.genSlaver(&msg); err != nil {
-		log.ERROR(self.extra, "创建Slaver失败", err)
-	} else {
-		self.slaver = slaver
-	}
-}
-
-func (self *controller) StopSlaver() {
-	if self.slaver == nil {
-		return
-	}
-	self.slaver.quitCh <- true
-	self.slaver = nil
-}
-
-func (self *controller) genSlaver(msg *mc.FollowerReelectMsg) (*ldreSlaver, error) {
-	slaver, err := newSlaver(self.matrix, self.extra+" "+"Slaver", msg, self.reelectLeaderSuccessCh)
-	return slaver, err
+	return header.Leader == common.HexToAddress("0x8111111111111111111111111111111111111111")
 }
