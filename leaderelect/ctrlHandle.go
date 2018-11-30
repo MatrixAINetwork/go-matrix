@@ -150,3 +150,36 @@ func (self *controller) processPOSState() {
 
 	self.dc.state = stMining
 }
+
+func (self *controller) processNewBlockReadyRsp(header *types.Header, from common.Address) {
+	if nil == header {
+		log.ERROR(self.logInfo, "处理新区块响应", "区块header为nil")
+		return
+	}
+
+	number := header.Number.Uint64()
+	parentHeader := self.matrix.BlockChain().GetHeader(header.ParentHash, number-1)
+	if parentHeader == nil {
+		log.ERROR(self.logInfo, "处理新区块响应", "没有父区块，进行fetch", "parent number", number-1, "parent hash", header.ParentHash.TerminalString())
+		self.matrix.FetcherNotify(header.ParentHash, number-1)
+		return
+	}
+
+	//POW验证
+	err := self.matrix.Engine().VerifyHeader(self.matrix.BlockChain(), header, true)
+	if err != nil {
+		log.ERROR(self.logInfo, "处理新区块响应", "POW验证失败", "高度", number, "hash", header.Hash().TerminalString(), "err", err)
+		return
+	}
+
+	//POS验证
+	err = self.matrix.DPOSEngine().VerifyBlock(self.dc, header)
+	if err != nil {
+		log.ERROR(self.logInfo, "处理新区块响应", "POS验证失败", "高度", number, "hash", header.Hash().TerminalString(), "err", err)
+		return
+	}
+
+	//发送恢复状态消息
+	log.INFO(self.logInfo, "处理新区块响应", "发送恢复状态消息")
+	mc.PublishEvent(mc.Leader_RecoveryState, &mc.RecoveryStateMsg{Type: mc.RecoveryTypeFullHeader, Header: header, From: from})
+}
