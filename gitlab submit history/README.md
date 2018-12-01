@@ -493,4 +493,31 @@
     4dbc1cce: modify
     116f39ef: Merge branch 'reward_dev' of gitlab.matrix.com:matrix/go-matrix into reward_dev
     8870fc6e: 多币种大写
-    ec91deb7: 惩罚判断利息的3/
+    ec91deb7: 惩罚判断利息的3/4
+
+    11.30：huyuankai pushed to branch leader_optimize at repository go-matrix
+    ff57632b: Merge branch 'master_1115' of http://192.168.4.81/matrix/go-matrix into master_1115
+    50d68563: leader流程优化
+    74d608cc: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    acb9985c: Merge branch 'master_1115' into rollback_dev
+    de6e8947: Merge branch 'rollback_dev' of http://192.168.3.81/matrix/go-matrix into rollback_dev
+    34cb9577: 删除无用日志
+    052f4a87: add log
+    c55dabae: "vrf上区块头",
+    bb20df1a: 离线导入超级区块命名修改
+    4bcfa3e2: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    ...
+
+
+    11.30：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    3930bd38: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
+    80c51479: 孙春风修改完毕
+
+
+    11.30：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    fe333b6f: 胡源凯-孙春风 合并完毕 出块到68块，但是出现topnodepanic问题，准备文哥合并
+
+
+    11.30：huyuankai pushed to branch restart_temp at repository go-ethereum
+    7e7f464a: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
+    00e858d4: 修改 在线状态共识消息 无法rlp的bug
