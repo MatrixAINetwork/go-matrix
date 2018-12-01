@@ -594,3 +594,14 @@
 
 ![](https://i.imgur.com/n9Rh4tz.png)
 
+
+
+    12.1：zhangwen pushed to branch master_1115 at repository go-matrix
+    c17051fd: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    0f8fa603: 1. gman 停止 txpool没有退出导致statedb无法提交 2.固定区块奖励按区块折半 3. 参与奖励合并漏掉删除之前的代码
+
+
+    12.1：zhangwen pushed to branch master_1115 at repository go-matrix
+    69f80f8b: 前一个版本修改签名部分编译不过
+
+
