@@ -605,3 +605,39 @@
     69f80f8b: 前一个版本修改签名部分编译不过
 
 
+
+
+    12.1：叶营 pushed to branch gman_Account at repository go-matrix
+    d7a8b511: modify setForm
+
+    12.1：sunchunfeng pushed to branch EntrustAccount at repository go-matrix
+    619cadcb: 二次密钥接口修改
+
+    12.1：sunchunfeng pushed to branch EntrustAccount at repository go-matrix
+    6564aded: 删除多余fmt 二次密钥接口修改（depend郑贺）
+
+
+    12.1：zhenghe pushed to branch gman_Account at repository go-matrix
+    15f7e8a7: 修改账户余额验证，提交委托交易部分代码
+
+    12.1：sunchunfeng pushed to branch restart_topnode at repository go-ethereum
+    d48c20ca: "删除开发者模式 删除测试网模式 删除rinkeby模式",
+
+    12.1：叶营 pushed to branch restart_temp at repository go-ethereum
+    6bcbda6f: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    ff481c77: add reward tx and 批量解签
+
+
+    12.1：zhangwen pushed to branch master_1115 at repository go-matrix
+    13c4f688: 折半暂定100000块
+
+![](https://i.imgur.com/uIOMPUG.png)
+
+
+    12.1：zhangwen pushed to branch restart_temp at repository go-ethereum
+    582391e5: 固定区块奖励按高度折半
+
+
+    12.1：叶营 pushed to branch gman_Account at repository go-matrix
+    ff56b834: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    1c46d26d: add verifi by newtx
