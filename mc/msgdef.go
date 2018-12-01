@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -22,7 +22,7 @@ type HdRev struct {
 
 type BlockData struct {
 	Header *types.Header
-	Txs    types.Transactions
+	Txs    types.SelfTransactions
 }
 
 //Miner Module
@@ -69,13 +69,13 @@ type TopologyNodeInfo struct {
 }
 type Alternative struct {
 	A        common.Address
-	B        common.Address
 	Position uint16
 }
 
 type TopologyGraph struct {
 	Number        uint64
 	NodeList      []TopologyNodeInfo
+	ElectList     []TopologyNodeInfo
 	CurNodeNumber uint8
 }
 
@@ -118,6 +118,7 @@ type RoleUpdatedMsg struct {
 
 type LeaderChangeNotify struct {
 	ConsensusState bool //共识结果
+	PreLeader      common.Address
 	Leader         common.Address
 	NextLeader     common.Address
 	Number         uint64
@@ -132,29 +133,29 @@ type HD_BlkConsensusReqMsg struct {
 	From          common.Address
 	Header        *types.Header
 	ConsensusTurn uint32
-	TxsCode       []uint32
+	TxsCode       []*common.RetCallTxN
 }
 
 type LocalBlockVerifyConsensusReq struct {
 	BlkVerifyConsensusReq *HD_BlkConsensusReqMsg
-	Txs                   types.Transactions // 交易列表
-	Receipts              []*types.Receipt   // 收据
-	State                 *state.StateDB     // apply state changes here 状态数据库
+	Txs                   types.SelfTransactions // 交易列表
+	Receipts              []*types.Receipt       // 收据
+	State                 *state.StateDB         // apply state changes here 状态数据库
 }
 
 type BlockPOSFinishedNotify struct {
 	Number        uint64
 	Header        *types.Header // 包含签名列表的header
 	ConsensusTurn uint32
-	TxsCode       []uint32
+	TxsCode       []*common.RetCallTxN
 }
 
 type BlockLocalVerifyOK struct {
 	Header    *types.Header // 包含签名列表的header
 	BlockHash common.Hash
-	Txs       types.Transactions // 交易列表
-	Receipts  []*types.Receipt   // 收据
-	State     *state.StateDB     // apply state changes here 状态数据库
+	Txs       types.SelfTransactions // 交易列表
+	Receipts  []*types.Receipt       // 收据
+	State     *state.StateDB         // apply state changes here 状态数据库
 }
 
 //BolckGenor
@@ -209,6 +210,7 @@ type HD_OnlineConsensusVotes struct {
 type HD_OnlineConsensusVoteResultMsg struct {
 	Req      *OnlineConsensusReq //请求结构
 	SignList []common.Signature  //签名列表
+	From     common.Address
 }
 
 //特殊交易
@@ -302,6 +304,11 @@ type HD_FullBlockReqMsg struct {
 
 type HD_FullBlockRspMsg struct {
 	Header *types.Header
-	Txs    types.Transactions
+	Txs    types.SelfTransactions
 	From   common.Address
+}
+
+type EveryBlockSeedRspMsg struct {
+	PublicKey []byte
+	Private   []byte
 }
