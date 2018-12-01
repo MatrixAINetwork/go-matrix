@@ -1,7 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-package blockgenor
+package blkgenor
 
 import (
 	"github.com/matrix/go-matrix/common"
@@ -40,7 +40,7 @@ func (p *Process) preVerifyBroadcastMinerResult(result *mc.BlockData) bool {
 
 func (p *Process) dealMinerResultVerifyBroadcast() {
 	for _, result := range p.broadcastRstCache {
-		//add by hyk, 运行广播区块交易
+		// 运行广播区块交易
 		parent := p.blockChain().GetBlockByHash(result.Header.ParentHash)
 		if parent == nil {
 			log.ERROR(p.logExtraInfo(), "广播挖矿结果验证", "获取父区块错误!")
@@ -53,13 +53,16 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 			continue
 		}
 
-		log.INFO("*********************", "len(result.Txs)", len(result.Txs))
-		for _, tx := range result.Txs {
-			log.INFO("==========", "Finalize:GasPrice", tx.GasPrice(), "amount", tx.Value()) //hezi
-		}
+
 		//执行交易
-		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), result.Txs, p.pm.bc)
-		_, err = p.blockChain().Engine().Finalize(p.blockChain(), result.Header, work.State, result.Txs, nil, work.Receipts)
+		blkRward,txsReward:=p.calcRewardAndSlash(work.State, result.Header)
+		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), result.Txs, p.pm.bc,blkRward,txsReward)
+		retTxs:=work.GetTxs()
+		log.INFO("*********************", "len(result.Txs)", len(retTxs))
+		for _, tx := range retTxs {
+			log.INFO("==========", "Finalize:GasPrice", tx.GasPrice(), "amount", tx.Value())
+		}
+		_, err = p.blockChain().Engine().Finalize(p.blockChain(), result.Header, work.State, retTxs, nil, work.Receipts)
 
 		if err != nil {
 			log.ERROR(p.logExtraInfo(), "Failed to finalize block for sealing", err)
@@ -69,7 +72,7 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 		p.blockCache.SaveReadyBlock(&mc.BlockLocalVerifyOK{
 			Header:    result.Header,
 			BlockHash: common.Hash{},
-			Txs:       result.Txs,
+			Txs:       retTxs,
 			Receipts:  work.Receipts,
 			State:     work.State,
 		})
@@ -81,7 +84,7 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 		mc.PublishEvent(mc.BlockGenor_NewBlockReady, readyMsg)
 
 		p.changeState(StateBlockInsert)
-		p.processBlockInsert()
+		p.processBlockInsert(p.curLeader)
 		return
 	}
 }
