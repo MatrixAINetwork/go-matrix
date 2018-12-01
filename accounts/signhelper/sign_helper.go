@@ -131,3 +131,13 @@ func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int) (types.
 	// Sign the requested hash with the wallet
 	return sh.signWallet.SignTxWithPassphrase(sh.signAccount, sh.signPassword, tx, chainID)
 }
+
+
+func (sh *SignHelper)SignVrf(msg []byte)([]byte,[]byte,[]byte,error){
+	sh.mu.RLock()
+	defer sh.mu.RUnlock()
+	if nil==sh.signWallet{
+		return []byte{},[]byte{},[]byte{},ErrUnSetSignAccount
+	}
+	return sh.signWallet.SignVrfWithPass(sh.signAccount,sh.signPassword,msg)
+}
