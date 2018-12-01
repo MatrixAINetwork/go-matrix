@@ -521,3 +521,57 @@
     11.30：huyuankai pushed to branch restart_temp at repository go-ethereum
     7e7f464a: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
     00e858d4: 修改 在线状态共识消息 无法rlp的bug
+
+
+    11.30：zhangwen pushed to branch master_1115 at repository go-matrix
+    b122f7c7: 彩票合并vrf内容
+
+
+    11.30：zhangwen pushed to branch restart_temp at repository go-ethereum
+    9659a684: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    2b91a976: 加入奖励
+
+    11.30：zhenghe pushed to branch gman_Account at repository go-matrix
+    064e0023: newAccounts
+
+    11.30：huyuankai pushed to branch restart_topnode at repository go-ethereum
+    e3ebf543: 尝试解决topnode panic 错误
+    7e7f464a: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
+    00e858d4: 修改 在线状态共识消息 无法rlp的bug
+    fe333b6f: 胡源凯-孙春风 合并完毕 出块到68块，但是出现topnodepanic问题，准备文哥合并
+    3930bd38: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
+    80c51479: 孙春风修改完毕
+    6374eb4a: add darwin
+    695bb30d: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    5c4188f5: Update p2p/linker.go
+    34dbefa7: 完成 基金会矿工 和 顶层节点服务 代码合并
+
+
+    11.30：huyuankai pushed to branch restart_topnode at repository go-ethereum
+    b39d50f8: 尝试解决panic
+
+    11.30：huyuankai pushed to branch restart_topnode at repository go-ethereum
+    e5a3d40f: 增加日志
+
+
+    11.30：huyuankai pushed to branch restart_topnode at repository go-ethereum
+    893cdd20: 增加日志
+
+    11.30：huyuankai pushed to branch restart_topnode at repository go-ethereum
+    c21c0a56: 暂时关闭反对票
+
+    11.30：huyuankai pushed to branch restart_topnode at repository go-ethereum
+    1b2950b3: 定位问题
+
+
+    11.30：huyuankai pushed to branch restart_temp at repository go-ethereum
+    dc3b3ab9: 修改panic
+
+    11.30：huyuankai pushed to branch master_1115 at repository go-matrix
+    85fae73b: 修正失败签名可能导致panic的bug by 吕
+
+![](https://i.imgur.com/2jksPa6.png)
+
+
+![](https://i.imgur.com/crW9nnE.png)
+
