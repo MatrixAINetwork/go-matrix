@@ -1,12 +1,3 @@
-//1543666143.0389624
-//1543665516.2898781
-//1543664765.2700105
-//1543664039.3129122
-//1543663330.5668387
-//1543662487.5517383
-//1543661743.7736282
-//1543660943.9857063
-//1543660239.0132406
 // Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
