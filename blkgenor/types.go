@@ -1,19 +1,21 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-package blockgenor
+package blkgenor
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/hd"
+	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/reelection"
-	"math/big"
+	"github.com/matrix/go-matrix/olconsensus"
 )
 
 var (
@@ -41,11 +43,18 @@ var (
 type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
+	TxPool() *core.TxPoolManager //YYY
 	ChainDb() mandb.Database
 	EventMux() *event.TypeMux
 	SignHelper() *signhelper.SignHelper
-	HD() *hd.HD
+	HD() *msgsend.HD
 	ReElection() *reelection.ReElection
 	FetcherNotify(hash common.Hash, number uint64)
+	TopNode() *olconsensus.TopNodeService
+}
+
+type VrfMsg struct {
+	VrfValue []byte
+	VrfProof []byte
+	Hash common.Hash
 }
