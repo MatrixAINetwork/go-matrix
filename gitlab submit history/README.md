@@ -660,3 +660,8 @@
     0b6b9abd: "提交委托交易部分代码""
 
 ![](https://i.imgur.com/LZ0mmFF.png)
+
+
+    12.1：叶营 pushed to branch gman_Account at repository go-matrix
+    82093c14: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    58ae47a9: 可以正常发24小时可撤销交易并出块‘
