@@ -665,3 +665,10 @@
     12.1：叶营 pushed to branch gman_Account at repository go-matrix
     82093c14: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
     58ae47a9: 可以正常发24小时可撤销交易并出块‘
+
+    12.1：叶营 pushed to branch gman_Account at repository go-matrix
+    5645d44e: add committime by GetTransactionByHash
+
+    12.1：zhangwen pushed to branch restart_temp at repository go-ethereum
+    0174282e: 彩票账户余额不足，不发放
+
