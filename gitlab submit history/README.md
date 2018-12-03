@@ -647,3 +647,16 @@
 
     12.1：叶营 pushed to branch restart_dev at repository go-ethereum
     c0d664df: add log
+
+
+    12.1：zhenghe pushed to branch gman_Account at repository go-matrix
+    30d19307: Revert "修改账户余额验证，提交委托交易部分代码"
+
+    12.1：zhangwen pushed to branch restart_temp at repository go-ethereum
+    5361910c: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    60a1d5ff: balance panic err
+
+    12.1：zhenghe pushed to branch gman_Account at repository go-matrix
+    0b6b9abd: "提交委托交易部分代码""
+
+![](https://i.imgur.com/LZ0mmFF.png)
