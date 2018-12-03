@@ -24,7 +24,8 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 		Nonce       math.HexOrDecimal64                         `json:"nonce"`
 		Timestamp   math.HexOrDecimal64                         `json:"timestamp"`
 		ExtraData   hexutil.Bytes                               `json:"extraData"`
-		Version     hexutil.Bytes                               `json:"version"`
+		Version     string                               `json:"version"`
+		VrfValue   string                                `json:"vrfvalue"`
 		Leader      common.Address                              `json:"leader"`
 		Elect       []common.Elect                              `json:"elect"        gencodec:"required"`
 		NetTopology common.NetTopology                          `json:"nettopology"        gencodec:"required"`
@@ -43,7 +44,8 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 	enc.Nonce = math.HexOrDecimal64(g.Nonce)
 	enc.Timestamp = math.HexOrDecimal64(g.Timestamp)
 	enc.ExtraData = g.ExtraData
-	enc.Version = g.Version
+	enc.Version = string(g.Version)
+	enc.VrfValue=string(g.VrfValue)
 	enc.Leader = g.Leader
 	enc.Elect = g.Elect
 	enc.NetTopology = g.NetTopology
@@ -70,7 +72,8 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		Nonce       *math.HexOrDecimal64                        `json:"nonce"`
 		Timestamp   *math.HexOrDecimal64                        `json:"timestamp"`
 		ExtraData   *hexutil.Bytes                              `json:"extraData"`
-		Version     *hexutil.Bytes                              `json:"version"`
+		Version     string                              `json:"version"`
+		VrfValue     string                              `json:"vrfvalue"`
 		Leader      *common.Address                             `json:"leader"`
 		Elect       *[]common.Elect                             `json:"elect" gencodec:"required"`
 		NetTopology *common.NetTopology                         `json:"nettopology"        gencodec:"required"`
@@ -100,9 +103,10 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 	if dec.ExtraData != nil {
 		g.ExtraData = *dec.ExtraData
 	}
-	if dec.Version != nil {
-		g.Version = *dec.Version
-	}
+	//if dec.Version != nil {
+		g.Version = []byte(dec.Version)
+		g.VrfValue=[]byte(dec.VrfValue)
+	//}
 	if dec.Leader != nil {
 		g.Leader = *dec.Leader
 	}
