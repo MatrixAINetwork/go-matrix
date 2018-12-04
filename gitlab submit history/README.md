@@ -743,3 +743,20 @@
 
     12.1：sunchunfeng pushed to branch restart_temp at repository go-ethereum
     c0b98911: "参数通过配置修改:目前参数只能配boot节点，其他配置设置默认值，不允许配置修改",
+
+
+    12.1：sunchunfeng pushed to branch evil_1207_restart_temp at repository go-ethereum
+    c0b98911: "参数通过配置修改:目前参数只能配boot节点，其他配置设置默认值，不允许配置修改",
+    1823cfe1: 奖励为0，不上交易
+    0174282e: 彩票账户余额不足，不发放
+    5361910c: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    60a1d5ff: balance panic err
+    a494298c: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
+    22389a03: "合并奖励",
+    582391e5: 固定区块奖励按高度折半
+    6bcbda6f: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    ff481c77: add reward tx and 批量解签
+    ...
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    5532f7cc: 修改 上线共识结果多次上header的bug
