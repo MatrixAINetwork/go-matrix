@@ -698,3 +698,13 @@
 ![](https://i.imgur.com/eeOTGSE.png)
 
 
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    2418893a: 修改leader发送过多次请求的bug
+
+
+    12.1：zhangwen pushed to branch restart_temp at repository go-ethereum
+    1823cfe1: 奖励为0，不上交易
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    ed38c03d: 修改共识结果获取接口无数据的bug
