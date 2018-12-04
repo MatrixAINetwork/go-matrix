@@ -37,8 +37,9 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		Leader      common.Address     `json:"leader"            gencodec:"required"`
 		Elect       []common.Elect     `json:"elect"        gencodec:"required"`
 		NetTopology common.NetTopology `json:"nettopology"        gencodec:"required"`
-		Signatures  []common.Signature `json:"signatures "        gencodec:"required"`
-		Version     []byte             `json:" version "              gencodec:"required"`
+		Signatures  []common.Signature `json:"signatures"        gencodec:"required"`
+		Version     string            `json:"version"              gencodec:"required"`
+		VrfValue    hexutil.Bytes            `json:"vrfValue"              gencodec:"required"`
 
 		Hash common.Hash `json:"hash"`
 	}
@@ -62,7 +63,8 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.Elect = h.Elect
 	enc.NetTopology = h.NetTopology
 	enc.Signatures = h.Signatures
-	enc.Version = h.Version
+	enc.Version = string(h.Version)
+	enc.VrfValue = h.VrfValue
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -88,8 +90,9 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Leader      *common.Address     `json:"leader"            gencodec:"required"`
 		Elect       *[]common.Elect     `json:"elect"        gencodec:"required"`
 		NetTopology *common.NetTopology `json:"nettopology"        gencodec:"required"`
-		Signatures  *[]common.Signature `json:"signatures "        gencodec:"required"`
-		Version     *[]byte             `json:" version "              gencodec:"required"`
+		Signatures  *[]common.Signature `json:"signatures"        gencodec:"required"`
+		Version     string             `json:"version"              gencodec:"required"`
+		VrfValue     *hexutil.Bytes            `json:"vrfValue"              gencodec:"required"`
 	}
 	//TODO: 放开注释
 	var dec Header
@@ -162,10 +165,16 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.Signatures = *dec.Signatures
 
-	if dec.Version == nil {
-		return errors.New("missing required field 'version' for Header")
+	//if dec.Version == nil {
+	//	return errors.New("missing required field 'version' for Header")
+	//}
+	h.Version = []byte(dec.Version)
+
+	if dec.VrfValue == nil {
+		return errors.New("missing required field 'vrfvalue' for Header")
 	}
-	h.Version = *dec.Version
+	h.VrfValue = *dec.VrfValue
+
 
 	if dec.Leader == nil {
 		return errors.New("missing required field 'leader' for Header")
