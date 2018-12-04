@@ -760,3 +760,23 @@
 
     12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
     5532f7cc: 修改 上线共识结果多次上header的bug
+
+
+    12.2：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    e5292fdf: add signature
+
+    12.2：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    e242af3c: Update run/utils/flags.go
+
+    12.2：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    3e00bd43: Merge branch 'master_1115' into master_nodeId
+    13c4f688: 折半暂定100000块
+    69f80f8b: 前一个版本修改签名部分编译不过
+    c17051fd: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    0f8fa603: 1. gman 停止 txpool没有退出导致statedb无法提交 2.固定区块奖励按区块折半 3. 参与奖励合并漏掉删除之前的代码
+    85fae73b: 修正失败签名可能导致panic的bug by 吕
+    b122f7c7: 彩票合并vrf内容
+    91ecb8b4: Merge branch 'master_1115' into reward_dev
+    74d608cc: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    acb9985c: Merge branch 'master_1115' into rollback_dev
+    ...
