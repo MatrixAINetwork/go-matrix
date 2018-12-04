@@ -4,6 +4,11 @@
 package blkverify
 
 import (
+	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/reward/blkreward"
+	"github.com/matrix/go-matrix/reward/txsreward"
+	"github.com/matrix/go-matrix/reward/util"
+	"math/big"
 	"sync"
 	"time"
 
@@ -310,6 +315,15 @@ func (p *Process) processReqOnce() {
 
 	//todo Version
 
+
+	//verify vrf
+	if err:=p.verifyVrf(p.curProcessReq.req.Header);err!=nil{
+		log.Error(p.logExtraInfo(),"验证vrf失败",err,"高度",p.number)
+		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
+		return
+	}
+	log.INFO(p.logExtraInfo(),"验证vrf成功 高度",p.number)
+
 	p.startTxsVerify()
 }
 
@@ -403,9 +417,8 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 		return
 	}
 	p.processUpTime(work, localHeader.ParentHash)
-	rewardList:=work.CalcRewardAndSlash(p.blockChain())
-
-	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.txs, p.pm.bc, rewardList)
+	blkRward, txsReward := p.calcRewardAndSlash(work.State, localHeader)
+	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.txs, p.pm.bc, blkRward, txsReward)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "交易验证，共识执行交易出错!", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultStateFailed)
@@ -442,6 +455,25 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 	p.curProcessReq.txs = txs
 	// 开始DPOS共识验证
 	p.startDPOSVerify(localVerifyResultSuccess)
+}
+func (p *Process) calcRewardAndSlash(State *state.StateDB, header *types.Header) (map[common.Address]*big.Int, map[common.Address]*big.Int) {
+	blkreward := blkreward.New(p.blockChain())
+	blkRewardMap := blkreward.CalcBlockRewards(util.ByzantiumBlockReward, header.Leader, header)
+	//for account, value := range blkRewardMap {
+	//	//depoistInfo.AddReward(State, account, value)
+	//}
+	txsReward := txsreward.New(p.blockChain())
+	txsRewardMap := txsReward.CalcBlockRewards(util.ByzantiumTxsRewardDen, header.Leader, header)
+	//for account, value := range txsRewardMap {
+	//	//depoistInfo.AddReward(State, account, value)
+	//}
+	//todo 惩罚
+	//slash := slash.New(p.blockChain())
+	//slash.CalcSlash(State, header.Number.Uint64())
+	//for account, value := range SlashMap {
+	//	//depoistInfo.SetSlash(State, account, value)
+	//}
+	return blkRewardMap, txsRewardMap
 }
 
 func (p *Process) sendVote(validate bool) {
