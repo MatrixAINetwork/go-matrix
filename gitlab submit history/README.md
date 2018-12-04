@@ -734,3 +734,12 @@
 
     12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
     1c8fbc05: 删除日志
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    cef4464e: 调整日志  
+
+    12.1：sunchunfeng pushed to branch EntrustAccount at repository go-matrix
+    c0c6c990: 委托交易相关
+
+    12.1：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    c0b98911: "参数通过配置修改:目前参数只能配boot节点，其他配置设置默认值，不允许配置修改",
