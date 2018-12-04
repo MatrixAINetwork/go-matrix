@@ -415,6 +415,7 @@ func signHash(data []byte) []byte {
 //
 // The key used to calculate the signature is decrypted with the given password.
 //
+// https://github.com/matrix/go-matrix/wiki/Management-APIs#personal_sign
 func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
@@ -850,7 +851,8 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"elect":            head.Elect,
 		"nettopology":      head.NetTopology,
 		"signatures":       head.Signatures,
-		"version":          hexutil.Bytes(head.Version),
+		"version":          string(hexutil.Bytes(head.Version)),
+		"vrfvalue":  hexutil.Bytes(head.VrfValue),
 	}
 
 	if inclTx {
@@ -911,29 +913,16 @@ func newRPCTransaction(tx types.SelfTransaction, blockHash common.Hash, blockNum
 	if tx.Protected() {
 		signer = types.NewEIP155Signer(tx.ChainId())
 	}
-
-	var from common.Address
-
-	if tx.GetMatrixType() == common.ExtraUnGasTxType{
-		from = tx.From()
-	}else {
-		from, _ = types.Sender(signer, tx)
-	}
+	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
-	//var addr common.Address
-	//if tx.GetMatrixType() == common.ExtraUnGasTxType && from == addr {
-	//	if index == params.FirstTxIndex{
-	//		from = common.BlkRewardAddress
-	//	}else if index == params.SecondTxIndex{
-	//		from = common.TxGasRewardAddress
-	//	}else if index == params.ThreeTxIndex{
-	//		from = common.TxGasRewardAddress
-	//	}else if index == params.FourTxIndex{
-	//		from = common.TxGasRewardAddress
-	//	}else if index == params.FiveTxIndex{
-	//		from = common.TxGasRewardAddress
-	//	}
-	//}
+	var addr common.Address
+	if tx.GetMatrixType() == common.ExtraUnGasTxType && from == addr {
+		if index == params.FirstTxIndex{
+			from = common.BlkRewardAddress
+		}else if index == params.SecondTxIndex{
+			from = common.TxGasRewardAddress
+		}
+	}
 
 	result := &RPCTransaction{
 		From:     from,
