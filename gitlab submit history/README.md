@@ -708,3 +708,29 @@
 
     12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
     ed38c03d: 修改共识结果获取接口无数据的bug
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    8cd56ee4: 修改bug
+
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    aa845de8: 增加日志
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    dbc5ddc0: 修改日志
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    21a43a37: 修改bug 缓存elect在线信息的错误
+
+
+![](https://i.imgur.com/G5A5sEL.png)
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    8d7894d2: 修改bug
+
+
+    12.1：sunchunfeng pushed to branch evil at repository go-ethereum
+    14c05b65: 增加web3
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    1c8fbc05: 删除日志
