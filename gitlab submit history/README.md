@@ -672,3 +672,29 @@
     12.1：zhangwen pushed to branch restart_temp at repository go-ethereum
     0174282e: 彩票账户余额不足，不发放
 
+![](https://i.imgur.com/TwgQKQM.png)
+
+
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    8236250f: 顶点服务优化
+    a494298c: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
+    22389a03: "合并奖励",
+    582391e5: 固定区块奖励按高度折半
+    6bcbda6f: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    ff481c77: add reward tx and 批量解签
+    dc3b3ab9: 修改panic
+    9659a684: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    2b91a976: 加入奖励
+    7e7f464a: Merge branch 'restart_temp' of http://192.168.3.81/merge/go-ethereum into restart_temp
+    ...
+
+    12.1：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    8b14d7e1: Merge branch 'restart_temp' into tonode_optimize
+    0174282e: 彩票账户余额不足，不发放
+    5361910c: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    60a1d5ff: balance panic err
+
+![](https://i.imgur.com/eeOTGSE.png)
+
+
