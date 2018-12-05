@@ -937,3 +937,29 @@
 
     12.5：叶营 pushed to branch restart_temp at repository go-ethereum
     a39d33e3: Modified to block speed as close as 1 second
+
+    12.5：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    4d19f46e: add udp find by address
+
+
+    12.5：叶营 pushed to branch gman_Account at repository go-matrix
+    6522aea7: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    794d9765: 合并master_1115代码
+    3c4303c7: 顶点服务改进版本：
+    13c4f688: 折半暂定100000块
+    69f80f8b: 前一个版本修改签名部分编译不过
+    c17051fd: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    0f8fa603: 1. gman 停止 txpool没有退出导致statedb无法提交 2.固定区块奖励按区块折半 3. 参与奖励合并漏掉删除之前的代码
+    85fae73b: 修正失败签名可能导致panic的bug by 吕
+    b122f7c7: 彩票合并vrf内容
+    91ecb8b4: Merge branch 'master_1115' into reward_dev
+
+    12.5：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    33d41dc4: add lock
+
+    12.5：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    d5cd6b26: "vrf签名从缓存中拿密码",
+
+    12.5：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    f581d01d: Merge branch 'master_1115' into master_nodeId
+    3c4303c7: 顶点服务改进版本
