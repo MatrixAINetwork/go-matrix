@@ -804,3 +804,17 @@
 
     12.2：sunchunfeng pushed to branch evil_1207_restart_temp at repository go-ethereum
     2ee8aaab: 修改作恶 参数
+
+
+
+    12.2：huyuankai pushed to branch tonode_optimize at repository go-ethereum
+    f3a718e0: 修改拓扑图缓存更新错误的bug
+
+
+    12.2：huyuankai pushed to branch restart_temp at repository go-ethereum
+    8c248ee1: 顶点服务改造版本：
+
+    12.2：叶营 pushed to branch restart_temp at repository go-ethereum
+    6714d9c2: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    56828e9e: 计算交易费奖励错误
+
