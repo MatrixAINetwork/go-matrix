@@ -818,3 +818,45 @@
     6714d9c2: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
     56828e9e: 计算交易费奖励错误
 
+    12.2：叶营 pushed to branch gman_Account at repository go-matrix
+    31951013: 支持多交易池事件订阅
+
+    12.2：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    c26b4b67: add udp ping packet
+
+
+    12.2：叶营 pushed to branch gman_Account at repository go-matrix
+    b9694d70: modify set reward gas is 0
+    ad2e8613: modify reward
+
+    12.2：叶营 pushed to branch restart_temp at repository go-ethereum
+    888bdeeb: modify reward tx
+
+    12.2：huyuankai pushed to branch restart_temp at repository go-ethereum
+    637fd9cf: Merge branch 'restart_temp' of http://192.168.4.81/merge/go-ethereum into restart_temp
+    e1ac7f27: 增加 完全区块响应消息 对普通交易编解码的支持
+
+    12.2：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    0d03e565: add sign time
+
+    12.2：叶营 pushed to branch restart_temp at repository go-ethereum
+    33f2c7dd: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    da9f87e9: modify reward tx
+
+    12.2：叶营 pushed to branch gman_Account at repository go-matrix
+    79e7cc74: modify reward tx
+
+    12.2：huyuankai pushed to branch master_1115 at repository go-matrix
+    3c4303c7: 顶点服务改进版本：
+
+    12.2：sunchunfeng pushed to branch EntrustAccount at repository go-matrix
+    789ab671: 二次密钥 增加aes加密
+
+    12.2：huyuankai pushed to branch restart_temp at repository go-ethereum
+    e64cef9f: CA内置矿工身份丢失代码遗漏的问题 修改
+
+    12.2：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    01d59039: 关闭广播区块生成拓扑json文件(测试用)
+
+    12.2：sunchunfeng pushed to branch master at repository TestCase
+    bb666a06: 顶点测试:需注意
