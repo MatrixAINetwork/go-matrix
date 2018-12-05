@@ -963,3 +963,40 @@
     12.5：sunanxiang pushed to branch master_nodeId at repository go-matrix
     f581d01d: Merge branch 'master_1115' into master_nodeId
     3c4303c7: 顶点服务改进版本
+
+    12.5：zhenghe pushed to branch gman_Account at repository go-matrix
+    77746130: Merge branch 'master' into gman_Account
+    45832229: Update .gitlab-ci.yml
+
+
+    12.5：zhenghe pushed to branch master at repository go-matrix
+    77746130: Merge branch 'master' into gman_Account
+    6522aea7: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    794d9765: 合并master_1115代码
+    7da41137: 修改rpc getBlock
+    f4f3a370: modify filter
+    17843740: 委托gas和委托签名和钱包测试通过,取消委托也通过
+    3c4303c7: 顶点服务改进版本：
+    79e7cc74: modify reward tx
+    b9694d70: modify set reward gas is 0
+    ad2e8613: modify reward
+
+    12.5：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    d6857e01: add log
+
+    12.5：叶营 pushed to branch refact-YY at repository go-matrix
+
+    12.5：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    ac99d3a3: Merge branch 'master' into master_nodeId
+    77746130: Merge branch 'master' into gman_Account
+    6522aea7: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    794d9765: 合并master_1115代码
+    7da41137: 修改rpc getBlock
+    f4f3a370: modify filter
+    17843740: 委托gas和委托签名和钱包测试通过,取消委托也通过
+    79e7cc74: modify reward tx
+    b9694d70: modify set reward gas is 0
+    ad2e8613: modify reward
+
+    12.5：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    4fbad5b3: fmt
