@@ -839,24 +839,54 @@
     12.2：sunanxiang pushed to branch master_nodeId at repository go-matrix
     0d03e565: add sign time
 
-    12.2：叶营 pushed to branch restart_temp at repository go-ethereum
+    12.4：叶营 pushed to branch restart_temp at repository go-ethereum
     33f2c7dd: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
     da9f87e9: modify reward tx
 
-    12.2：叶营 pushed to branch gman_Account at repository go-matrix
+    12.4：叶营 pushed to branch gman_Account at repository go-matrix
     79e7cc74: modify reward tx
 
-    12.2：huyuankai pushed to branch master_1115 at repository go-matrix
+    12.4：huyuankai pushed to branch master_1115 at repository go-matrix
     3c4303c7: 顶点服务改进版本：
 
-    12.2：sunchunfeng pushed to branch EntrustAccount at repository go-matrix
+    12.4：sunchunfeng pushed to branch EntrustAccount at repository go-matrix
     789ab671: 二次密钥 增加aes加密
 
-    12.2：huyuankai pushed to branch restart_temp at repository go-ethereum
+    12.4：huyuankai pushed to branch restart_temp at repository go-ethereum
     e64cef9f: CA内置矿工身份丢失代码遗漏的问题 修改
 
-    12.2：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    12.4：sunchunfeng pushed to branch restart_temp at repository go-ethereum
     01d59039: 关闭广播区块生成拓扑json文件(测试用)
 
-    12.2：sunchunfeng pushed to branch master at repository TestCase
+    12.4：sunchunfeng pushed to branch master at repository TestCase
     bb666a06: 顶点测试:需注意
+
+    12.4：huyuankai pushed to branch restart_temp at repository go-ethereum
+    e0e80b2f: Merge branch 'restart_temp' of http://192.168.4.81/merge/go-ethereum into restart_temp
+    de53b4c3: 增加日志
+
+    12.4：zhenghe pushed to branch gman_Account at repository go-matrix
+    17843740: 委托gas和委托签名和钱包测试通过,取消委托也通过
+
+    12.4：叶营 pushed to branch restart_temp at repository go-ethereum
+    c51acdb4: modify block list
+
+    12.4：叶营 pushed to branch gman_Account at repository go-matrix
+    f4f3a370: modify filter
+
+    12.4：huyuankai pushed to branch restart_temp at repository go-ethereum
+    1d6a2c82: 增加出块关键时间点日志
+
+    12.4：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    7256d429: add address map
+
+    12.4：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    cc4ef17c: "修改拓扑更新计算方式(对二级在线节点进行排序)",
+
+    12.4：zhangwen pushed to branch restart_temp at repository go-ethereum
+    ab1c1d69: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    7caa2451: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    55e4f447: 增加奖励参数合法性检查
+
+    12.4：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    06c90596: Update pod/node.go
