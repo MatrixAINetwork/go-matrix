@@ -890,3 +890,50 @@
 
     12.4：sunanxiang pushed to branch master_nodeId at repository go-matrix
     06c90596: Update pod/node.go
+
+    12.4：sunanxiang pushed to branch restart_temp at repository go-ethereum
+    f3f77f03: modify bucket ip limit
+
+
+    12.5：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    f4f3a370: modify filter
+    17843740: 委托gas和委托签名和钱包测试通过,取消委托也通过
+    79e7cc74: modify reward tx
+    b9694d70: modify set reward gas is 0
+    ad2e8613: modify reward
+    31951013: 支持多交易池事件订阅
+    2404341f: add filter black address, and modify notes
+    346557c4: 支持txpool命令
+    5645d44e: add committime by GetTransactionByHash
+    82093c14: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    ...
+
+    12.5：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    6a20b58a: 第一次合并，准备测试委托交易
+
+    12.5：zhenghe pushed to branch gman_Account at repository go-matrix
+    7da41137: 修改rpc getBlock
+
+    12.5：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    830656ee: 修改YY交易部分
+
+    12.5：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    09491501: add log
+
+    12.5：叶营 pushed to branch restart_temp at repository go-ethereum
+    253616cc: Modify the timer to delete the transaction for 10 minutes
+
+    12.5：zhangwen pushed to branch longest_link at repository go-matrix
+    9c4fc01a: the first version
+    13c4f688: 折半暂定100000块
+    69f80f8b: 前一个版本修改签名部分编译不过
+    c17051fd: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    0f8fa603: 1. gman 停止 txpool没有退出导致statedb无法提交 2.固定区块奖励按区块折半 3. 参与奖励合并漏掉删除之前的代码
+    85fae73b: 修正失败签名可能导致panic的bug by 吕
+    b122f7c7: 彩票合并vrf内容
+    91ecb8b4: Merge branch 'master_1115' into reward_dev
+    74d608cc: Merge branch 'rollback_dev' of gitlab.matrix.com:matrix/go-matrix into rollback_dev
+    acb9985c: Merge branch 'master_1115' into rollback_dev
+
+    12.5：叶营 pushed to branch restart_temp at repository go-ethereum
+    a39d33e3: Modified to block speed as close as 1 second
