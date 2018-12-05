@@ -120,7 +120,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txser types.SelfTransact
 	}
 
 	var coalescedLogs []*types.Log
-	tmpRetmap := make(map[common.TxTypeInt][]uint32)
+	tmpRetmap := make(map[byte][]uint32)
 	for _, txer := range txser {
 		// If we don't have enough gas for any further transactions then we're done
 		if env.gasPool.Gas() < params.TxGas {
@@ -140,10 +140,10 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txser types.SelfTransact
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		//YYY TODO 是否需要当前这个if
-		if txer.Protected() && !env.config.IsEIP155(env.header.Number) {
-			log.Trace("Ignoring reply protected transaction", "hash", txer.Hash(), "eip155", env.config.EIP155Block)
-			continue
-		}
+		//if txer.Protected() && !env.config.IsEIP155(env.header.Number) {
+		//	log.Trace("Ignoring reply protected transaction", "hash", txer.Hash(), "eip155", env.config.EIP155Block)
+		//	continue
+		//}
 		// Start executing the transaction
 		env.State.Prepare(txer.Hash(), common.Hash{}, env.tcount)
 		err, logs := env.commitTransaction(txer, bc, coinbase, env.gasPool)
@@ -292,22 +292,16 @@ func (env *Work)makeTransaction(rewarts []common.RewarTx) (txers []types.SelfTra
 		extra := make([]*types.ExtraTo_tr,0)
 		var to common.Address
 		var value *big.Int
-		tmpv := new(big.Int).SetUint64(10000)
-		price := mapcoingasUse.getCoinGasPrice(rewart.CoinType)
-		gas := mapcoingasUse.getCoinGasUse(rewart.CoinType)
-		tmpgas := new(big.Int).Mul(new(big.Int).SetUint64(gas),price)
 		isfirst := true
 		for _,addr := range sorted_keys{
 			k :=common.HexToAddress(addr)
 			v := rewart.To_Amont[k]
-			if rewart.Fromaddr == common.TxGasRewardAddress{
-				v = new(big.Int).Mul(v, tmpgas)
-				v = new(big.Int).Quo(v,tmpv)
-			}
 			if isfirst{
 				to = k
 				value = v
 				isfirst = false
+				log.Info("11111111111111111","to:",to.String())
+				log.Info("22222222222222222","Value:",value)
 				continue
 			}
 			tmp := new(types.ExtraTo_tr)
@@ -315,6 +309,8 @@ func (env *Work)makeTransaction(rewarts []common.RewarTx) (txers []types.SelfTra
 			var kk common.Address = k
 			tmp.To_tr = &kk
 			tmp.Value_tr = (*hexutil.Big)(vv)
+			log.Info("33333333333333333","to:",tmp.To_tr.String(),"from",rewart.Fromaddr.String())
+			log.Info("44444444444444444","Value:",tmp.Value_tr,"VV",vv)
 			extra = append(extra, tmp)
 		}
 		tx := types.NewTransactions(env.State.GetNonce(rewart.Fromaddr),to,value,0,new(big.Int),nil,extra,0,common.ExtraUnGasTxType)
@@ -400,11 +396,13 @@ func (env *Work) GetTxs()[]types.SelfTransaction{
 }
 
 type randSeed  struct{
-
+	bc *core.BlockChain
 }
 func (r* randSeed)GetSeed(num uint64) *big.Int{
-
-	return big.NewInt(1000)
+    parent:=r.bc.GetBlockByNumber(num-1)
+	_,preVrfValue,_:=common.GetVrfInfoFromHeader(parent.Header().VrfValue)
+	seed:= common.BytesToHash(preVrfValue).Big()
+	return seed
 }
 
 func (env *Work) CalcRewardAndSlash(bc *core.BlockChain) ([]common.RewarTx) {
@@ -417,26 +415,30 @@ func (env *Work) CalcRewardAndSlash(bc *core.BlockChain) ([]common.RewarTx) {
 	minerReward:=blkreward.CalcRewardMount(env.State,util.MinersBlockReward,common.BlkMinerRewardAddress)
 	minersRewardMap := blkreward.CalcMinerRewards(minerReward, env.header)
 	if nil!=minersRewardMap{
-		rewardList = append(rewardList,common.RewarTx{CoinType:"man",Fromaddr:common.BlkMinerRewardAddress,To_Amont:minersRewardMap})
+		rewardList = append(rewardList,common.RewarTx{CoinType:"MAN",Fromaddr:common.BlkMinerRewardAddress,To_Amont:minersRewardMap})
 	}
 
 	validatorReward:=blkreward.CalcRewardMount(env.State,util.ValidatorsBlockReward,common.BlkValidatorRewardAddress)
 	validatorsRewardMap := blkreward.CalcValidatorRewards(validatorReward,env.header.Leader, env.header)
 	if nil!=validatorsRewardMap{
-		rewardList = append(rewardList,common.RewarTx{CoinType:"man",Fromaddr:common.BlkValidatorRewardAddress,To_Amont:validatorsRewardMap})
+		rewardList = append(rewardList,common.RewarTx{CoinType:"MAN",Fromaddr:common.BlkValidatorRewardAddress,To_Amont:validatorsRewardMap})
 	}
 
 	txsReward := txsreward.New(bc)
-	txsRewardMap := txsReward.CalcNodesRewards(util.ByzantiumTxsRewardDen, env.header.Leader, env.header)
+	price := mapcoingasUse.getCoinGasPrice("MAN")
+	gas := mapcoingasUse.getCoinGasUse("MAN")
+	allGas := new(big.Int).Mul(new(big.Int).SetUint64(gas),price)
+	log.INFO("奖励","交易费奖励总额",allGas.String())
+	txsRewardMap := txsReward.CalcNodesRewards(allGas, env.header.Leader, env.header)
 	if nil!=txsRewardMap{
-		rewardList = append(rewardList,common.RewarTx{CoinType:"man",Fromaddr:common.TxGasRewardAddress,To_Amont:txsRewardMap})
+		rewardList = append(rewardList,common.RewarTx{CoinType:"MAN",Fromaddr:common.TxGasRewardAddress,To_Amont:txsRewardMap})
 	}
 
-	lottery:=lottery.New(bc,&randSeed{})
+	lottery:=lottery.New(bc,&randSeed{bc})
 	lotteryRewardMap := lottery.LotteryCalc(env.header.Number.Uint64())
 		for _,v :=range lotteryRewardMap{
 			if nil!=v{
-				rewardList = append(rewardList,common.RewarTx{CoinType:"",Fromaddr:common.LotteryRewardAddress,To_Amont:v})
+				rewardList = append(rewardList,common.RewarTx{CoinType:"MAN",Fromaddr:common.LotteryRewardAddress,To_Amont:v})
 			}
 		}
 
