@@ -70,6 +70,7 @@ func (md *MtxDPOS) VerifyVersion(reader consensus.ValidatorReader, header *types
 	}
 
 	verifiedVersion := md.verifyHashWithSuperNodes(common.BytesToHash([]byte(header.Version)), header.VersionSignatures, manparams.SuperVersionNodes)
+	log.INFO("共识引擎","版本",string(header.Version),"签名",header.VersionSignatures[0].Bytes(),"版本节点",manparams.SuperVersionNodes[0].Address.String())
 	if len(verifiedVersion) < targetCount {
 		log.ERROR("共识引擎", "验证版本,验证后的签名数量不足 size", len(verifiedVersion), "target", targetCount)
 		return errSignCountErr
@@ -273,38 +274,6 @@ func (md *MtxDPOS) VerifyHashWithVerifiedSignsAndBlock(reader consensus.Validato
 	}
 
 	return md.verifyDPOS(verifiedSigns, target)
-}
-
-func (md *MtxDPOS) VerifyStocksWithBlock(reader consensus.ValidatorReader, validators []common.Address, blockHash common.Hash) bool {
-	stocks, err := md.getValidatorStocks(reader, blockHash)
-	if err != nil {
-		log.Error("Matrix Pos Consensus Error!", "Error", err)
-		return false
-	}
-	target, err := md.calculateDPOSTarget(stocks)
-	if err != nil {
-		log.Error("Matrix Pos Consensus Error!", "Error", err)
-		return false
-	}
-	if len(validators) < target.targetCount {
-		log.ERROR("共识引擎", "签名数量不足 size", len(validators), "target", target.targetCount)
-		return false
-	}
-	verifiedSigns := make(map[common.Address]*common.VerifiedSign)
-	for _, item := range validators {
-		stock, findStock := stocks[item]
-		if findStock == false {
-			// can't find in stock, discard
-			continue
-		}
-		verifiedSigns[item] = &common.VerifiedSign{Account: item, Validate: true, Stock: stock}
-	}
-	_, err = md.verifyDPOS(verifiedSigns, target)
-	if err != nil {
-		log.Error("Matrix Pos Consensus Error!", "Error", err)
-		return false
-	}
-	return true
 }
 
 func (md *MtxDPOS) calculateDPOSTarget(stocks map[common.Address]uint16) (*dposTarget, error) {
