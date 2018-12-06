@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
@@ -11,11 +11,11 @@ import (
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/reelection"
 	"github.com/matrix/go-matrix/olconsensus"
+	"github.com/matrix/go-matrix/reelection"
 )
 
 var (
@@ -50,11 +50,11 @@ type Backend interface {
 	HD() *msgsend.HD
 	ReElection() *reelection.ReElection
 	FetcherNotify(hash common.Hash, number uint64)
-	TopNode() *olconsensus.TopNodeService
+	OLConsensus() *olconsensus.TopNodeService
 }
 
 type VrfMsg struct {
 	VrfValue []byte
 	VrfProof []byte
-	Hash common.Hash
+	Hash     common.Hash
 }
