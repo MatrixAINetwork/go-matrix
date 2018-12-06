@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package selectedreward
 
 import (
@@ -84,23 +85,26 @@ func (sr *SelectedReward) SetSelectedRewards(reward *big.Int, chain ChainReader,
 		return
 	}
 
-	selectedNodesDeposit, totalDepositRate := sr.caclSelectedDeposit(newGraph, originElectNodes, num, roleType, rate)
+	selectedNodesDeposit, totalDeposit:= sr.caclSelectedDeposit(newGraph, originElectNodes, num, roleType, rate)
+	log.INFO(PackageName, "参与奖励大家共发放",reward)
 	for account, deposit := range selectedNodesDeposit {
-		depositRate := new(big.Rat).SetInt(deposit)
-		depositProportion := new(big.Rat).Quo(depositRate, totalDepositRate)
-		oneNodeReward, _ := new(big.Rat).Mul(new(big.Rat).SetInt(reward), depositProportion).Float64()
-		util.SetAccountRewards(topRewards, account, new(big.Int).SetUint64(uint64(oneNodeReward)))
-		log.INFO(PackageName, "selected reward all deposit", totalDepositRate.String(), "deposit", deposit.Uint64(), "depositProportion", depositProportion.String())
-		log.INFO(PackageName, "selected reward  all reward", reward, "account", account, "reward", uint64(oneNodeReward))
+
+		multiReward:=new(big.Int).Div(new(big.Int).Mul(deposit,reward),big.NewInt(100))
+		oneNodeReward:=new(big.Int).Mul(new(big.Int).Div(multiReward,totalDeposit),big.NewInt(100))
+		util.SetAccountRewards(topRewards, account,oneNodeReward)
+		log.INFO(PackageName, "账户", account, "金额", oneNodeReward.String(),"所有抵押", totalDeposit.String(), "当前抵押", deposit)
 	}
 
+	util.CalcDepositRate(reward,selectedNodesDeposit,topRewards)
 	return
 
 }
-func (sr *SelectedReward) caclSelectedDeposit(newGraph *mc.TopologyGraph, originElectNodes *mc.TopologyGraph, num *big.Int, roleType common.RoleType, rewardRate uint64) (map[common.Address]*big.Int, *big.Rat) {
+
+func (sr *SelectedReward) caclSelectedDeposit(newGraph *mc.TopologyGraph, originElectNodes *mc.TopologyGraph, num *big.Int, roleType common.RoleType, rewardRate uint64) (map[common.Address]*big.Int, *big.Int) {
 	NodesRewardMap := make(map[common.Address]uint64, 0)
 	for _, nodelist := range newGraph.NodeList {
 		NodesRewardMap[nodelist.Account] = rewardRate
+		log.INFO(PackageName,"当前节点",nodelist.Account.Hex())
 	}
 	for _, electList := range originElectNodes.NodeList {
 		if _, ok := NodesRewardMap[electList.Account]; ok {
@@ -108,11 +112,12 @@ func (sr *SelectedReward) caclSelectedDeposit(newGraph *mc.TopologyGraph, origin
 		} else {
 			NodesRewardMap[electList.Account] = util.RewardFullRate - rewardRate
 		}
+		log.INFO(PackageName,"初选节点",electList.Account.Hex(),"比例",NodesRewardMap[electList.Account] )
 	}
 	totalDeposit := new(big.Int)
 	selectedNodesDeposit := make(map[common.Address]*big.Int, 0)
 	var depositNum uint64
-	if num.Uint64() < common.GetBroadcastInterval(){
+	if num.Uint64() < common.GetReElectionInterval(){
 		depositNum = 0
 	}else{
 		if common.RoleValidator == common.RoleValidator&roleType {
@@ -129,8 +134,8 @@ func (sr *SelectedReward) caclSelectedDeposit(newGraph *mc.TopologyGraph, origin
 			deposit := util.CalcRateReward(v.Deposit, depositRate)
 			selectedNodesDeposit[v.Address] = deposit
 			totalDeposit.Add(totalDeposit, deposit)
+			log.INFO(PackageName,"计算抵押总额,账户",v.Address.Hex(),"抵押",deposit)
 		}
 	}
-	totalDepositRate := new(big.Rat).SetInt(totalDeposit)
-	return selectedNodesDeposit, totalDepositRate
+	return selectedNodesDeposit, totalDeposit
 }
