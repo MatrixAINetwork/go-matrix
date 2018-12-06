@@ -1033,3 +1033,16 @@
 
     12.5：sunchunfeng pushed to branch restart_temp at repository go-ethereum
     313b8b8f: 修改换届服务bug ,顶点更新计算有误
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    1af8757f: 测试 委托交易反射
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    23288da6: 增加dpos账户转换
+
+    12.6：zhenghe pushed to branch restart_temp at repository go-ethereum
+    70e079d8: 1206
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    efcdd120: 添加headerchain和cbc相关接口实现
+
