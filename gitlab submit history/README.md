@@ -1080,3 +1080,49 @@
 
     12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
     5d89d6dd: 修改 state 传hash错误问题
+
+
+    12.6：zhangwen pushed to branch longest_link at repository go-matrix
+    0e4e22fc: 区块生成和区块验证超级区块插入删除缓存的数据
+    2959b31a: download 对应超级区块序号和p2p序号判断
+
+    12.6：root pushed to branch master at repository docs
+    ccff8f84: peer 分层机制初步设想
+
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    6a100dcd: 调整接口位置
+
+    12.6：叶营 pushed to branch restart_temp at repository go-ethereum
+    46dad8c4: del log
+
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    5f4d4e90: add log
+
+    12.6：叶营 pushed to branch restart_temp at repository go-ethereum
+    54894bcf: modify DurationLimit val = 1
+
+    12.6：sunchunfeng pushed to branch evil_1207_restart_temp at repository go-ethereum
+    50be5182: 作恶模式 增加正常模式
+
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    faa21c1f: add log
+
+
+    12.6：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    012f2d91: modify deposit
+
+    12.6：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    639af73c: add address
+
+    12.6：叶营 pushed to branch gman_Account at repository go-matrix
+    5c7d282c: modify 参数
+
+    12.6：叶营 pushed to branch master_nodeId at repository go-matrix
+    420cabdb: modify nodeid to address
+
+
+    12.6：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    94600d28: fmt
