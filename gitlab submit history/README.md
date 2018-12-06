@@ -1046,3 +1046,37 @@
     12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
     efcdd120: 添加headerchain和cbc相关接口实现
 
+
+    12.6：叶营 pushed to branch restart_temp at repository go-ethereum
+    836c91a5: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    06131681: 同步区块后跑交易时改为批量解签名
+
+    12.6：叶营 pushed to branch restart_temp at repository go-ethereum
+    ea3d433a: 修改区块gaslimit
+
+    12.6：叶营 pushed to branch restart_temp at repository go-ethereum
+    00d75f04: modify
+
+
+    12.6：叶营 pushed to branch restart_temp at repository go-ethereum
+    67a5fc15: modify
+
+
+    12.6：zhenghe pushed to branch gman_Account at repository go-matrix
+    0066b528: 去掉注释
+
+
+    12.6：叶营 pushed to branch gman_Account at repository go-matrix
+    fcca361d: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    d7b3e433: 修改旷工批量解签名
+
+
+    12.6：zhenghe pushed to branch master at repository go-matrix
+    2a9d3188: 去注释，rpc显示特殊交易类型
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    b1f0df96: 新区快到来消息添加 stateDB
+
+
+    12.6：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    5d89d6dd: 修改 state 传hash错误问题
