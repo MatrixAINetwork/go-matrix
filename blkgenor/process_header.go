@@ -4,10 +4,7 @@
 package blkgenor
 
 import (
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/reward/blkreward"
-	"github.com/matrix/go-matrix/reward/txsreward"
-	"github.com/matrix/go-matrix/reward/util"
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -18,11 +15,9 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/matrix/go-matrix/txpoolCache"
 	"github.com/pkg/errors"
-	"github.com/matrix/go-matrix/params/manparams"
-	//"encoding/json"
-	"encoding/json"
 )
 
 func (p *Process) processUpTime(work *matrixwork.Work, header *types.Header) error {
@@ -48,25 +43,7 @@ func (p *Process) processUpTime(work *matrixwork.Work, header *types.Header) err
 
 	return nil
 }
-func (p *Process) calcRewardAndSlash(State *state.StateDB, header *types.Header) (map[common.Address]*big.Int, map[common.Address]*big.Int) {
-	blkreward := blkreward.New(p.blockChain())
-	blkRewardMap := blkreward.CalcBlockRewards(util.ByzantiumBlockReward, header.Leader, header)
-	//for account, value := range blkRewardMap {
-	//	depoistInfo.AddReward(State, account, value)
-	//}
-	txsReward := txsreward.New(p.blockChain())
-	txsRewardMap := txsReward.CalcBlockRewards(util.ByzantiumTxsRewardDen, header.Leader, header)
-	//for account, value := range txsRewardMap {
-	//	depoistInfo.AddReward(State, account, value)
-	//}
-	//todo 惩罚
-	//slash := slash.New(p.blockChain())
-	 //slash.CalcSlash(State, header.Number.Uint64())
-	//for account, value := range SlashMap {
-	//	depoistInfo.SetSlash(State, account, value)
-	//}
-	return blkRewardMap, txsRewardMap
-}
+
 func (p *Process) processHeaderGen() error {
 	log.INFO(p.logExtraInfo(), "processHeaderGen", "start")
 	defer log.INFO(p.logExtraInfo(), "processHeaderGen", "end")
@@ -78,20 +55,24 @@ func (p *Process) processHeaderGen() error {
 	}
 	parentHash := parent.Hash()
 
-	tstamp := tstart.Unix()
-	NetTopology := p.getNetTopology(parent.Header().NetTopology, p.number, parentHash)
+	NetTopology, onlineConsensusResults := p.getNetTopology(p.number, parentHash)
 	if nil == NetTopology {
 		log.Error(p.logExtraInfo(), "获取网络拓扑图错误 ", "")
 		NetTopology = &common.NetTopology{common.NetTopoTypeChange, nil}
 	}
+	if nil == onlineConsensusResults {
+		onlineConsensusResults = make([]*mc.HD_OnlineConsensusVoteResultMsg, 0)
+	}
 
 	Elect := p.genElection(parentHash)
 	if Elect == nil {
-		 return errors.New("生成elect信息错误!")
+		return errors.New("生成elect信息失败")
 	}
 
 	log.Info(p.logExtraInfo(), "++++++++获取选举结果 ", Elect, "高度", p.number)
 	log.Info(p.logExtraInfo(), "++++++++获取拓扑结果 ", NetTopology, "高度", p.number)
+
+	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
@@ -101,25 +82,27 @@ func (p *Process) processHeaderGen() error {
 		log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
 		time.Sleep(wait)
 	}
-	account,vrfValue,vrfProof,err:=p.getVrfValue(parent)
-	if err!=nil{
-		log.INFO(p.logExtraInfo(),"区块生成阶段 获取vrfValue失败 err",err)
+	account, vrfValue, vrfProof, err := p.getVrfValue(parent)
+	if err != nil {
+		log.INFO(p.logExtraInfo(), "区块生成阶段 获取vrfValue失败 err", err)
 		return err
 	}
 	header := &types.Header{
-		ParentHash:  parentHash,
-		Leader:      ca.GetAddress(),
-		Number:      new(big.Int).SetUint64(p.number),
-		GasLimit:    core.CalcGasLimit(parent),
-		Extra:       make([]byte, 0),
-		Time:        big.NewInt(tstamp),
-		Elect:       Elect,
-		NetTopology: *NetTopology,
-		Signatures:  make([]common.Signature, 0),
-		Version:     parent.Header().Version, //param
-		VrfValue:    common.GetHeaderVrf(account,vrfValue,vrfProof),
+		ParentHash:        parentHash,
+		Leader:            ca.GetAddress(),
+		Number:            new(big.Int).SetUint64(p.number),
+		GasLimit:          core.CalcGasLimit(parent),
+		Extra:             make([]byte, 0),
+		Time:              big.NewInt(tstamp),
+		Elect:             Elect,
+		NetTopology:       *NetTopology,
+		Signatures:        make([]common.Signature, 0),
+		Version:           parent.Header().Version, //param
+		VersionSignatures: parent.Header().VersionSignatures,
+		VrfValue:          common.GetHeaderVrf(account, vrfValue, vrfProof),
 	}
-	log.INFO(p.logExtraInfo()," vrf data headermsg",header.VrfValue,"账户户",account,"vrfValue",vrfValue,"vrfProff",vrfProof,"高度",header.Number.Uint64())
+	log.INFO("version-elect", "version", header.Version, "elect", header.Elect)
+	log.INFO(p.logExtraInfo(), " vrf data headermsg", header.VrfValue, "账户户", account, "vrfValue", vrfValue, "vrfProff", vrfProof, "高度", header.Number.Uint64())
 	if err := p.engine().Prepare(p.blockChain(), header); err != nil {
 		log.ERROR(p.logExtraInfo(), "Failed to prepare header for mining", err)
 		return err
@@ -141,10 +124,11 @@ func (p *Process) processHeaderGen() error {
 			Txs = append(Txs, txs...)
 		}
 		// todo: add rewward and run
-		blkRward,txsReward:=p.calcRewardAndSlash(work.State, header)
-		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc,blkRward,txsReward)
+		//rewardList:=p.calcRewardAndSlash(work.State, header)
+
+		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc, nil)
 		//work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc)
-		retTxs:=work.GetTxs()
+		retTxs := work.GetTxs()
 		for _, tx := range retTxs {
 			log.INFO("==========", "Finalize:GasPrice", tx.GasPrice(), "amount", tx.Value())
 		}
@@ -181,9 +165,9 @@ func (p *Process) processHeaderGen() error {
 		// todo： update uptime
 		p.processUpTime(work, header)
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，奖励部分", "执行奖励")
-		blkRward,txsReward:=p.calcRewardAndSlash(work.State, header)
+		rewardList := work.CalcRewardAndSlash(p.blockChain())
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "完成创建work, 开始执行交易")
-		txsCode, Txs := work.ProcessTransactions(p.pm.matrix.EventMux(), p.pm.txPool, p.blockChain(),blkRward,txsReward)
+		txsCode, Txs := work.ProcessTransactions(p.pm.matrix.EventMux(), p.pm.txPool, p.blockChain(), rewardList)
 		//txsCode, Txs := work.ProcessTransactions(p.pm.matrix.EventMux(), p.pm.txPool, p.blockChain(),nil,nil)
 		log.INFO("=========", "ProcessTransactions finish", len(txsCode))
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "完成执行交易, 开始finalize")
@@ -192,9 +176,14 @@ func (p *Process) processHeaderGen() error {
 			log.ERROR(p.logExtraInfo(), "Failed to finalize block for sealing", err)
 			return err
 		}
-		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分,完成finaliz tx hash",block.TxHash())
+		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分,完成finaliz tx hash", block.TxHash())
 		header = block.Header()
-		p2pBlock := &mc.HD_BlkConsensusReqMsg{Header: header, TxsCode: txsCode, ConsensusTurn: p.consensusTurn, From: ca.GetAddress()}
+		p2pBlock := &mc.HD_BlkConsensusReqMsg{
+			Header:                 header,
+			TxsCode:                txsCode,
+			ConsensusTurn:          p.consensusTurn,
+			OnlineConsensusResults: onlineConsensusResults,
+			From: ca.GetAddress()}
 		//send to local block verify module
 		localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, Txs: Txs, Receipts: work.Receipts, State: work.State}
 		if len(Txs[2:]) > 0 {
@@ -253,26 +242,26 @@ func (p *Process) sendConsensusReqFunc(data interface{}, times uint32) {
 	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, req, common.RoleValidator, nil)
 }
 
-func (p *Process)getVrfValue(parent *types.Block)([]byte,[]byte,[]byte,error){
-	_,preVrfValue,preVrfProof:=common.GetVrfInfoFromHeader(parent.Header().VrfValue)
-	parentMsg:=VrfMsg{
-		VrfProof:preVrfProof,
-		VrfValue:preVrfValue,
-		Hash:parent.Hash(),
+func (p *Process) getVrfValue(parent *types.Block) ([]byte, []byte, []byte, error) {
+	_, preVrfValue, preVrfProof := common.GetVrfInfoFromHeader(parent.Header().VrfValue)
+	parentMsg := VrfMsg{
+		VrfProof: preVrfProof,
+		VrfValue: preVrfValue,
+		Hash:     parent.Hash(),
 	}
-	vrfmsg,err:=json.Marshal(parentMsg)
-	if err!=nil{
-		log.Error(p.logExtraInfo(),"生成vefmsg出错",err,"parentMsg",parentMsg)
-		return []byte{},[]byte{},[]byte{},errors.New("生成vrfmsg出错")
-	}else{
+	vrfmsg, err := json.Marshal(parentMsg)
+	if err != nil {
+		log.Error(p.logExtraInfo(), "生成vefmsg出错", err, "parentMsg", parentMsg)
+		return []byte{}, []byte{}, []byte{}, errors.New("生成vrfmsg出错")
+	} else {
 		log.Error("生成vrfmsg成功")
 	}
 
-	log.Info("msgggggvrf_gen","preVrfMsg",vrfmsg,"高度",p.number,"VrfProof",parentMsg.VrfProof,"VrfValue",parentMsg.VrfValue,"Hash",parentMsg.Hash)
-	if err!=nil{
-		log.Error(p.logExtraInfo(),"生成vrfValue,vrfProof失败 err",err)
-	}else{
-		log.Error(p.logExtraInfo(),"生成vrfValue,vrfProof成功 err",err)
+	log.Info("msgggggvrf_gen", "preVrfMsg", vrfmsg, "高度", p.number, "VrfProof", parentMsg.VrfProof, "VrfValue", parentMsg.VrfValue, "Hash", parentMsg.Hash)
+	if err != nil {
+		log.Error(p.logExtraInfo(), "生成vrfValue,vrfProof失败 err", err)
+	} else {
+		log.Error(p.logExtraInfo(), "生成vrfValue,vrfProof成功 err", err)
 	}
 	return p.signHelper().SignVrf(vrfmsg)
 }
