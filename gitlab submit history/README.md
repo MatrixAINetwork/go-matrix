@@ -1000,3 +1000,36 @@
 
     12.5：sunanxiang pushed to branch master_nodeId at repository go-matrix
     4fbad5b3: fmt
+
+    12.5：sunanxiang pushed to branch restart_temp at repository go-ethereum
+    64c0c5e9: send block to broadcast
+
+
+    12.5：叶营 pushed to branch gman_Account at repository go-matrix
+    f6718683: 修改批量解签名时所使用的cpu核数
+
+    12.5：叶营 pushed to branch restart_temp at repository go-ethereum
+    ddc58a9f: modify gaslimit
+
+    12.5：叶营 pushed to branch gman_Account at repository go-matrix
+    ff76c781: modify
+
+
+    12.5：huyuankai pushed to branch state_tree at repository go-matrix
+    449ae420: 底层代码70%
+
+    12.5：zhenghe pushed to branch gman_Account at repository go-matrix
+    f8e1f10b: rpc gettransaction显示特殊交易类型
+
+    12.5：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    9cc24b4b: add log account wallet
+
+    12.5：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    0393b01c: dpos log
+
+
+    12.5：zhangwen pushed to branch longest_link at repository go-matrix
+    174b1c74: 1.离线插入超级区块增加序号检查 2.fetch 取消对于小于64高度block的限制
+
+    12.5：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    313b8b8f: 修改换届服务bug ,顶点更新计算有误
