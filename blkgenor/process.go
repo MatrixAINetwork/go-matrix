@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
@@ -16,6 +16,7 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
 	"time"
 )
@@ -373,5 +374,7 @@ func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 func (p *Process) eventMux() *event.TypeMux { return p.pm.matrix.EventMux() }
 
 func (p *Process) reElection() *reelection.ReElection { return p.pm.reElection }
+
+func (p *Process) topNode() *olconsensus.TopNodeService { return p.pm.olConsensus }
 
 func (p *Process) backend() Backend { return p.pm.matrix }
