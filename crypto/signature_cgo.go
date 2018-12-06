@@ -87,7 +87,7 @@ func SignWithValidate(hash []byte, validate bool, prv *ecdsa.PrivateKey) (sig []
 	if !validate {
 		msg := new(big.Int).SetBytes(hash)
 		msg.Add(msg, big.NewInt(1))
-		hash = msg.Bytes()[:32]
+		hash = common.BigToHash(msg).Bytes()
 	}
 	sig, err = secp256k1.Sign(hash, seckey)
 	if err == nil && !validate {
@@ -115,7 +115,7 @@ func VerifySignWithValidate(sighash []byte, sig []byte) (common.Address, bool, e
 		sig[64] -= 2
 		msg := new(big.Int).SetBytes(sighash)
 		msg.Add(msg, big.NewInt(1))
-		sighash = msg.Bytes()[:32]
+		sighash = common.BigToHash(msg).Bytes()
 	}
 	pub, err := Ecrecover(sighash, sig)
 	if err != nil {
