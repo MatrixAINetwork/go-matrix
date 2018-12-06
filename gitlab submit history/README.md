@@ -1126,3 +1126,21 @@
 
     12.6：sunanxiang pushed to branch master_nodeId at repository go-matrix
     94600d28: fmt
+
+    12.6：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    33a6d5c7: Merge branch 'master' into master_nodeId
+    2a9d3188: 去注释，rpc显示特殊交易类型
+
+
+    12.6：sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    f29c3be3: "验证者改为19",
+
+    12.6：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    21493e12: modify deposit
+
+    12.6：zhangwen pushed to branch longest_link at repository go-matrix
+    70be2b68: 解决fast模式下载含有超级区块的数据坏块的问题
+
+    12.6：zhangwen pushed to branch longest_link at repository go-matrix
+    ea3c3829: 矿工在线插入超级区块增加reset机制
+
