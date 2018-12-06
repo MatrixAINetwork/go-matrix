@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
@@ -8,21 +8,19 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/hd"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/reelection"
-	"github.com/matrix/go-matrix/topnode"
 )
 
 type Matrix interface {
-	HD() *hd.HD
+	HD() *msgsend.HD
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
+	TxPool() *core.TxPoolManager //YYY
 	SignHelper() *signhelper.SignHelper
 	ReElection() *reelection.ReElection
 	EventMux() *event.TypeMux
-	TopNode() *topnode.TopNodeService
 }
 
 type BlockVerify struct {
@@ -205,7 +203,7 @@ func (self *BlockVerify) handleVoteMsg(voteMsg *mc.HD_ConsensusVote) {
 	}
 	log.INFO(self.logExtraInfo(), "投票消息处理", "开始", "from", voteMsg.From.Hex(), "signHash", voteMsg.SignHash.TerminalString())
 	defer log.INFO(self.logExtraInfo(), "投票消息处理", "结束", "from", voteMsg.From.Hex(), "signHash", voteMsg.SignHash.TerminalString())
-	if err := self.processManage.AddVoteToPool(voteMsg.SignHash, voteMsg.Sign, voteMsg.From, voteMsg.Round); err != nil {
+	if err := self.processManage.AddVoteToPool(voteMsg.SignHash, voteMsg.Sign, voteMsg.From, voteMsg.Number); err != nil {
 		log.ERROR(self.logExtraInfo(), "投票消息，加入票池失败", err)
 		return
 	}
