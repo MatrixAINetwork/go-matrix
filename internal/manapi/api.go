@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package manapi
@@ -143,7 +143,7 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 	pending, queue := s.b.TxPoolContent()
 
 	// Define a formatter to flatten a transaction into a string
-	var format = func(tx *types.Transaction) string {
+	var format = func(tx types.SelfTransaction) string {
 		if to := tx.To(); to != nil {
 			return fmt.Sprintf("%s: %v wei + %v gas × %v wei", tx.To().Hex(), tx.Value(), tx.Gas(), tx.GasPrice())
 		}
@@ -330,7 +330,7 @@ func (s *PrivateAccountAPI) LockAccount(addr common.Address) bool {
 // signTransactions sets defaults and signs the given transaction
 // NOTE: the caller needs to ensure that the nonceLock is held, if applicable,
 // and release it after the transaction has been submitted to the tx pool
-func (s *PrivateAccountAPI) signTransaction(ctx context.Context, args SendTxArgs, passwd string) (*types.Transaction, error) {
+func (s *PrivateAccountAPI) signTransaction(ctx context.Context, args SendTxArgs, passwd string) (types.SelfTransaction, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 	wallet, err := s.am.Find(account)
@@ -487,12 +487,24 @@ func (s *PublicBlockChainAPI) BlockNumber() *big.Int {
 // GetBalance returns the amount of wei for the given address in the state of the
 // given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
 // block numbers are also allowed.
-func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*big.Int, error) {
+func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (common.BalanceType, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
 	}
 	b := state.GetBalance(address)
+	if b == nil{
+		b = make(common.BalanceType,0)
+		tmp := new(common.BalanceSlice)
+		var i uint32
+		for i = 0; i <= common.LastAccount; i++{
+			tmp.AccountType = i
+			tmp.Balance = new(big.Int)
+			b = append(b,*tmp)
+		}
+	}
+
+	log.Info("GetBalance","余额:",b)
 	return b, state.Error()
 }
 
@@ -631,7 +643,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	}
 
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false)
+	msg := new(types.Transaction) //types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -750,6 +762,9 @@ func (s *PublicBlockChainAPI) GetSignAccountsByHash(ctx context.Context, hash co
 	return nil, err
 }
 
+func (s *PublicBlockChainAPI) ImportSuperBlock(ctx context.Context, filePath string) (common.Hash, error) {
+	return s.b.ImportSuperBlock(ctx, filePath)
+}
 // ExecutionResult groups all structured logs emitted by the EVM
 // while replaying a transaction in debug mode as well as transaction
 // execution status, the amount of gas used and the return value
@@ -839,16 +854,18 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 		"elect":            head.Elect,
 		"nettopology":      head.NetTopology,
 		"signatures":       head.Signatures,
-		"version":          hexutil.Bytes(head.Version),
+		"version":           string(head.Version),
+		"versionSignatures": head.VersionSignatures,
+		"vrfvalue":  hexutil.Bytes(head.VrfValue),
 	}
 
 	if inclTx {
-		formatTx := func(tx *types.Transaction) (interface{}, error) {
+		formatTx := func(tx types.SelfTransaction) (interface{}, error) {
 			return tx.Hash(), nil
 		}
 
 		if fullTx {
-			formatTx = func(tx *types.Transaction) (interface{}, error) {
+			formatTx = func(tx types.SelfTransaction) (interface{}, error) {
 				return newRPCTransactionFromBlockHash(b, tx.Hash()), nil
 			}
 		}
@@ -895,13 +912,34 @@ type RPCTransaction struct {
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
-func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
+func newRPCTransaction(tx types.SelfTransaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
+	var signer types.Signer //= types.FrontierSigner{}
+	//if tx.Protected() {
 		signer = types.NewEIP155Signer(tx.ChainId())
+	//}
+
+	var from common.Address
+
+	if tx.GetMatrixType() == common.ExtraUnGasTxType{
+		from = tx.From()
+	}else {
+		from, _ = types.Sender(signer, tx)
 	}
-	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
+	//var addr common.Address
+	//if tx.GetMatrixType() == common.ExtraUnGasTxType && from == addr {
+	//	if index == params.FirstTxIndex{
+	//		from = common.BlkRewardAddress
+	//	}else if index == params.SecondTxIndex{
+	//		from = common.TxGasRewardAddress
+	//	}else if index == params.ThreeTxIndex{
+	//		from = common.TxGasRewardAddress
+	//	}else if index == params.FourTxIndex{
+	//		from = common.TxGasRewardAddress
+	//	}else if index == params.FiveTxIndex{
+	//		from = common.TxGasRewardAddress
+	//	}
+	//}
 
 	result := &RPCTransaction{
 		From:     from,
@@ -937,7 +975,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 }
 
 // newRPCPendingTransaction returns a pending transaction that will serialize to the RPC representation
-func newRPCPendingTransaction(tx *types.Transaction) *RPCTransaction {
+func newRPCPendingTransaction(tx types.SelfTransaction) *RPCTransaction {
 	return newRPCTransaction(tx, common.Hash{}, 0, 0)
 }
 
@@ -1057,7 +1095,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, has
 
 // GetRawTransactionByHash returns the bytes of the transaction for the given hash.
 func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, hash common.Hash) (hexutil.Bytes, error) {
-	var tx *types.Transaction
+	var tx types.SelfTransaction
 
 	// Retrieve a finalized transaction, or a pooled otherwise
 	if tx, _, _, _ = rawdb.ReadTransaction(s.b.ChainDb(), hash); tx == nil {
@@ -1085,10 +1123,10 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	}
 	receipt := receipts[index]
 
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
+	var signer types.Signer //= types.FrontierSigner{}
+	//if tx.Protected() {
 		signer = types.NewEIP155Signer(tx.ChainId())
-	}
+	//}
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
@@ -1122,7 +1160,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 }
 
 // sign is a helper function that signs a transaction with the private key of the given address.
-func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
+func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx types.SelfTransaction) (types.SelfTransaction, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
 
@@ -1178,8 +1216,8 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		if err != nil {
 			return err
 		}
-		if price.Cmp(big.NewInt(18000000000)) < 0 {
-			price.Set(big.NewInt(18000000000))
+		if price.Cmp(new(big.Int).SetUint64(params.TxGasPrice)) < 0 {
+			price.Set(new(big.Int).SetUint64(params.TxGasPrice))
 		}
 		args.GasPrice = (*hexutil.Big)(price)
 	}
@@ -1219,10 +1257,10 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		input = *args.Input
 	}
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input,0)
 	}
 	if args.TxType == 0 && args.LockHeight == 0 && args.ExtraTo == nil { //YY
-		return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+		return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input,0)
 	}
 	//YY
 	txtr := make([]*types.ExtraTo_tr, 0)
@@ -1244,7 +1282,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
-func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+func submitTransaction(ctx context.Context, b Backend, tx types.SelfTransaction) (common.Hash, error) {
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
@@ -1354,7 +1392,7 @@ func (s *PublicTransactionPoolAPI) Sign(addr common.Address, data hexutil.Bytes)
 // SignTransactionResult represents a RLP encoded signed transaction.
 type SignTransactionResult struct {
 	Raw hexutil.Bytes      `json:"raw"`
-	Tx  *types.Transaction `json:"tx"`
+	Tx  types.SelfTransaction `json:"tx"`
 }
 
 // SignTransaction will sign the given transaction with the from account.
@@ -1394,10 +1432,10 @@ func (s *PublicTransactionPoolAPI) PendingTransactions() ([]*RPCTransaction, err
 
 	transactions := make([]*RPCTransaction, 0, len(pending))
 	for _, tx := range pending {
-		var signer types.Signer = types.HomesteadSigner{}
-		if tx.Protected() {
+		var signer types.Signer //= types.HomesteadSigner{}
+		//if tx.Protected() {
 			signer = types.NewEIP155Signer(tx.ChainId())
-		}
+		//}
 		from, _ := types.Sender(signer, tx)
 		if _, err := s.b.AccountManager().Find(accounts.Account{Address: from}); err == nil {
 			transactions = append(transactions, newRPCPendingTransaction(tx))
@@ -1422,10 +1460,10 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	}
 
 	for _, p := range pending {
-		var signer types.Signer = types.HomesteadSigner{}
-		if p.Protected() {
+		var signer types.Signer //= types.HomesteadSigner{}
+		//if p.Protected() {
 			signer = types.NewEIP155Signer(p.ChainId())
-		}
+		//}
 		wantSigHash := signer.Hash(matchTx)
 
 		if pFrom, err := types.Sender(signer, p); err == nil && pFrom == sendArgs.From && signer.Hash(p) == wantSigHash {

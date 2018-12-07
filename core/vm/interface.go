@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package vm
@@ -16,9 +16,9 @@ import (
 type StateDB interface {
 	CreateAccount(common.Address)
 
-	SubBalance(common.Address, *big.Int)
-	AddBalance(common.Address, *big.Int)
-	GetBalance(common.Address) *big.Int
+	SubBalance(uint32,common.Address, *big.Int)
+	AddBalance(uint32,common.Address, *big.Int)
+	GetBalance(common.Address) common.BalanceType
 
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)

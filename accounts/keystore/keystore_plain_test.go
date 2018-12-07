@@ -1,14 +1,16 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package keystore
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/matrix/go-matrix/log"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,6 +32,13 @@ func tmpKeyStoreIface(t *testing.T, encrypted bool) (dir string, ks keyStore) {
 	} else {
 		ks = &keyStorePlain{d}
 	}
+	return d, ks
+}
+
+func LoadKeyStoreIface(d string) (dir string, ks keyStore) {
+
+	ks = &keyStorePassphrase{d, veryLightScryptN, veryLightScryptP}
+
 	return d, ks
 }
 
@@ -72,6 +81,76 @@ func TestKeyStorePassphrase(t *testing.T) {
 	}
 	if !reflect.DeepEqual(k1.PrivateKey, k2.PrivateKey) {
 		t.Fatal(err)
+	}
+}
+func TestKeyStorePassphraseVersion(t *testing.T) {
+	_, ks := LoadKeyStoreIface("keystore")
+
+	pass := "xxx"
+
+	k2, err := ks.GetKey(common.HexToAddress("e0b98f47c977267581df784de664074cad88c736"), ".\\keystore\\UTC--2018-11-06T07-06-28.309593000Z--e0b98f47c977267581df784de664074cad88c736", pass)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(common.HexToAddress("e0b98f47c977267581df784de664074cad88c736"), k2.Address) {
+		t.Fatal(err)
+	}
+	addr0 := common.HexToAddress("e0b98f47c977267581df784de664074cad88c736")
+	sig, error := crypto.SignWithVersion(common.HexToHash("1.0.1-stable").Bytes(), k2.PrivateKey)
+	fmt.Println("sig", sig)
+	if nil != error {
+		fmt.Println("Sign Version Error:%v", sig)
+	}
+	addr, error := crypto.VerifySignWithVersion(common.HexToHash("1.0.0-stable").Bytes(), sig)
+	if nil != error {
+		fmt.Println("Verify Sign Version Error:%v", sig)
+	}
+	if !addr0.Equal(addr) {
+		fmt.Errorf("Verify Sign Version error")
+	}
+}
+
+func TestKeyStorePassphraseHeader(t *testing.T) {
+
+	//pass := "xxx"
+	in := bufio.NewReader(os.Stdin)
+	fmt.Println(" please input path")
+	filename, _, err := in.ReadLine()
+	if err != nil {
+		log.Crit("Failed to read user input", "err", err)
+	}
+	keyjson, err := ioutil.ReadFile(string(filename))
+	if err != nil {
+		log.Crit("Failed to read user input", "err", err)
+	}
+	fmt.Println(" please input password")
+	pass, err := in.ReadString('\n')
+	if err != nil {
+		log.Crit("Failed to read user input", "err", err)
+	}
+
+	key, err := DecryptKey(keyjson, pass)
+	if err != nil {
+		log.Crit("Failed to read user input", "err", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(" please input sigh hash")
+
+	addr0 := common.HexToAddress("e0b98f47c977267581df784de664074cad88c736")
+	sig, error := crypto.SignWithVersion(common.HexToHash("1.0.1-stable").Bytes(), key.PrivateKey)
+	fmt.Println("sig", sig)
+	if nil != error {
+		fmt.Println("Sign Version Error:%v", sig)
+	}
+	addr, error := crypto.VerifySignWithVersion(common.HexToHash("1.0.0-stable").Bytes(), sig)
+	if nil != error {
+		fmt.Println("Verify Sign Version Error:%v", sig)
+	}
+	if !addr0.Equal(addr) {
+		fmt.Errorf("Verify Sign Version error")
 	}
 }
 

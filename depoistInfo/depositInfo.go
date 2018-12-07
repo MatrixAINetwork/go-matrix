@@ -1,11 +1,11 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 package depoistInfo
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/matrix/go-matrix/common"
@@ -53,12 +53,15 @@ func GetDepositList(tm *big.Int, getDeposit common.RoleType) ([]vm.DepositDetail
 		return nil, err
 	}
 	contract := vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 60000)
-	var depositList []vm.DepositDetail
-	switch getDeposit {
-	case common.RoleValidator:
-		depositList = depositInfo.MatrixDeposit.GetValidatorDepositList(contract, db)
-	case common.RoleMiner:
-		depositList = depositInfo.MatrixDeposit.GetMinerDepositList(contract, db)
+	//var depositList []vm.DepositDetail
+	depositList := make([]vm.DepositDetail, 0)
+	if common.RoleValidator == common.RoleValidator&getDeposit {
+
+		depositList = append(depositList, depositInfo.MatrixDeposit.GetValidatorDepositList(contract, db)...)
+	}
+
+	if common.RoleMiner == common.RoleMiner&getDeposit {
+		depositList = append(depositList, depositInfo.MatrixDeposit.GetMinerDepositList(contract, db)...)
 	}
 	return depositList, nil
 }
@@ -73,6 +76,7 @@ func GetDepositAndWithDrawList(tm *big.Int) ([]vm.DepositDetail, error) {
 	depositList = depositInfo.MatrixDeposit.GetAllDepositList(contract, db, true)
 	return depositList, nil
 }
+
 func GetAllDeposit(tm *big.Int) ([]vm.DepositDetail, error) {
 	db, err := getDepositInfo(tm)
 	if err != nil {
@@ -97,14 +101,50 @@ func getDepositInfo(tm *big.Int) (db vm.StateDB, err error) {
 	return db, err
 }
 
-func getDepositListTest() {
-	db, err := getDepositInfo(big.NewInt(0))
-	if err != nil {
-		return
-	}
-	contract := vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 60000)
-	address := depositInfo.MatrixDeposit.GetValidatorDepositList(contract, db)
-	fmt.Printf("get depositList:%v %d\n", address, len(address))
-	address = depositInfo.MatrixDeposit.GetMinerDepositList(contract, db)
-	fmt.Printf("get miner:%v %d\n", address, len(address))
+func ResetSlash(stateDB vm.StateDB, address common.Address) error {
+	return depositInfo.MatrixDeposit.ResetSlash(depositInfo.Contract, stateDB, address)
+}
+
+func GetSlash(stateDB vm.StateDB, address common.Address) (*big.Int, error) {
+	return depositInfo.MatrixDeposit.GetSlash(depositInfo.Contract, stateDB, address), nil
+}
+
+func GetAllSlash(stateDB vm.StateDB) map[common.Address]*big.Int {
+	return depositInfo.MatrixDeposit.GetAllSlash(depositInfo.Contract, stateDB)
+}
+
+func AddSlash(stateDB vm.StateDB, address common.Address, slash *big.Int) error {
+	return depositInfo.MatrixDeposit.AddSlash(depositInfo.Contract, stateDB, address, slash)
+}
+
+func SetSlash(stateDB vm.StateDB, address common.Address, slash *big.Int) error {
+	return depositInfo.MatrixDeposit.SetSlash(depositInfo.Contract, stateDB, address, slash)
+}
+
+func ResetInterest(stateDB vm.StateDB, address common.Address) error {
+	return depositInfo.MatrixDeposit.ResetInterest(depositInfo.Contract, stateDB, address)
+}
+
+func GetInterest(stateDB vm.StateDB, address common.Address) (*big.Int, error) {
+	return depositInfo.MatrixDeposit.GetInterest(depositInfo.Contract, stateDB, address), nil
+}
+
+func GetAllInterest(stateDB vm.StateDB) map[common.Address]*big.Int {
+	return depositInfo.MatrixDeposit.GetAllInterest(depositInfo.Contract, stateDB)
+}
+
+func AddInterest(stateDB vm.StateDB, address common.Address, reward *big.Int) error {
+	return depositInfo.MatrixDeposit.AddInterest(depositInfo.Contract, stateDB, address, reward)
+}
+
+func SetInterest(stateDB vm.StateDB, address common.Address, reward *big.Int) error {
+	return depositInfo.MatrixDeposit.SetInterest(depositInfo.Contract, stateDB, address, reward)
+}
+
+func GetDeposit(stateDB vm.StateDB) *big.Int {
+	return depositInfo.MatrixDeposit.GetDeposit(depositInfo.Contract, stateDB)
+}
+
+func SetDeposit(stateDB vm.StateDB, deposit *big.Int) error {
+	return depositInfo.MatrixDeposit.SetDeposit(depositInfo.Contract, stateDB, deposit)
 }

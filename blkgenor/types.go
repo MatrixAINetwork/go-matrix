@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
@@ -15,6 +15,7 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/reelection"
+	"github.com/matrix/go-matrix/olconsensus"
 )
 
 var (
@@ -39,23 +40,21 @@ var (
 	maxUint256              = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 )
 
-const (
-	MinerResultTimeout  = 20
-	maxTimeFutureBlocks = 20
-)
-
-func GetNetTopology(height uint64) (common.NetTopology, []common.Elect) {
-	return common.NetTopology{common.NetTopoTypeChange, nil}, make([]common.Elect, 0)
-}
-
 type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
+	TxPool() *core.TxPoolManager //YYY
 	ChainDb() mandb.Database
 	EventMux() *event.TypeMux
 	SignHelper() *signhelper.SignHelper
 	HD() *msgsend.HD
 	ReElection() *reelection.ReElection
 	FetcherNotify(hash common.Hash, number uint64)
+	TopNode() *olconsensus.TopNodeService
+}
+
+type VrfMsg struct {
+	VrfValue []byte
+	VrfProof []byte
+	Hash common.Hash
 }

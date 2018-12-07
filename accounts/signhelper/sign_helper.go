@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package signhelper
 
 import (
@@ -120,7 +120,7 @@ func (sh *SignHelper) SignHashWithValidate(hash []byte, validate bool) (common.S
 	return common.BytesToSignature(sign), nil
 }
 
-func (sh *SignHelper) SignTx(tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
 	sh.mu.RLock()
 	defer sh.mu.RUnlock()
 
@@ -130,4 +130,14 @@ func (sh *SignHelper) SignTx(tx *types.Transaction, chainID *big.Int) (*types.Tr
 
 	// Sign the requested hash with the wallet
 	return sh.signWallet.SignTxWithPassphrase(sh.signAccount, sh.signPassword, tx, chainID)
+}
+
+
+func (sh *SignHelper)SignVrf(msg []byte)([]byte,[]byte,[]byte,error){
+	sh.mu.RLock()
+	defer sh.mu.RUnlock()
+	if nil==sh.signWallet{
+		return []byte{},[]byte{},[]byte{},ErrUnSetSignAccount
+	}
+	return sh.signWallet.SignVrfWithPass(sh.signAccount,sh.signPassword,msg)
 }

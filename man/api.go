@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package man
@@ -32,6 +32,7 @@ import (
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/rpc"
 	"github.com/matrix/go-matrix/trie"
+	"github.com/matrix/go-matrix/man/wizard"
 )
 
 // PublicMatrixAPI provides an API to access Matrix full node-related
@@ -263,27 +264,36 @@ func (api *PrivateMinerAPI) TestLocalMining(kind string, s string) {
 }
 
 func (api *PrivateMinerAPI) TestHeaderGen(kind string, s string) {
-	int, err := strconv.Atoi(s)
+	num, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
-		int = 600000
+		num = 600000
 	}
 	time.Sleep(10 * time.Second)
 	fmt.Println("开始发送挖矿请求消息")
-	testHeader := &types.Header{
-		ParentHash: common.BigToHash(big.NewInt(100)),
-		Difficulty: big.NewInt(int64(int)),
-		Number:     big.NewInt(331),
-		Nonce:      types.EncodeNonce(8),
-		Time:       big.NewInt(888),
-		Coinbase:   common.BigToAddress(big.NewInt(123)),
-		MixDigest:  common.BigToHash(big.NewInt(777)),
-		Signatures: []common.Signature{common.BytesToSignature(common.BigToHash(big.NewInt(100)).Bytes())},
-	}
+	//testHeader := &types.Header{
+	//	ParentHash: common.BigToHash(big.NewInt(100)),
+	//	Difficulty: big.NewInt(int64(num)),
+	//	Number:     big.NewInt(331),
+	//	Nonce:      types.EncodeNonce(8),
+	//	Time:       big.NewInt(888),
+	//	Coinbase:   common.BigToAddress(big.NewInt(123)),
+	//	MixDigest:  common.BigToHash(big.NewInt(777)),
+	//	Signatures: []common.Signature{common.BytesToSignature(common.BigToHash(big.NewInt(100)).Bytes())},
+	//}
 	switch kind {
-	case "normal":
+	case "gen":
+		w := wizard.MakeWizard("MANSuperGenesis")
+
+		hash := api.e.BlockChain().GetCurrentHash()
+		currentNum:=api.e.BlockChain().GetBlockByHash(hash).Number().Uint64()
+		if num > currentNum+1 {
+			log.Error("num is error", "current num:", currentNum)
+
+		}
+		w.MakeSuperGenesis(api.e.BlockChain(), api.e.chainDb, num)
 		//mc.PublicEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 1})
 		//mc.PublicEvent(mc.BlkVerify_VerifyConsensusOK, &mc.BlockVerifyConsensusOK{testHeader, nil, nil, nil})
-		log.INFO("successfully normal ", "data", mc.BlockVerifyConsensusOK{Header: testHeader})
+		log.INFO("successfully gen superGenesis ", "MANSuperGenesis.", "nil")
 	case "start":
 		//type LeaderChangeNotify struct {
 		//	ConsensusState bool //共识结果
@@ -301,6 +311,7 @@ func (api *PrivateMinerAPI) TestHeaderGen(kind string, s string) {
 	}
 }
 
+
 // SetExtra sets the extra data string that is included when this miner mines a block.
 func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
 	if err := api.e.Miner().SetExtra([]byte(extra)); err != nil {
@@ -315,13 +326,7 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.gasPrice = (*big.Int)(&gasPrice)
 	api.e.lock.Unlock()
 
-	api.e.txPool.SetGasPrice((*big.Int)(&gasPrice))
-	return true
-}
-
-// SetManerbase sets the manbase of the miner
-func (api *PrivateMinerAPI) SetManerbase(manbase common.Address) bool {
-	api.e.SetManerbase(manbase)
+	//api.e.txPool.SetGasPrice((*big.Int)(&gasPrice)) //YYY
 	return true
 }
 
@@ -485,6 +490,12 @@ func (api *PrivateDebugAPI) Preimage(ctx context.Context, hash common.Hash) (hex
 // and returns them as a JSON list of block-hashes
 func (api *PrivateDebugAPI) GetBadBlocks(ctx context.Context) ([]core.BadBlockArgs, error) {
 	return api.man.BlockChain().BadBlocks()
+}
+func (api *PrivateDebugAPI)GetCommit(ctx context.Context)([]common.CommitContext,error){
+	/*for _,v:=range common.PutCommit{
+		fmt.Println(v)
+	}*/
+	return common.PutCommit,nil
 }
 
 // StorageRangeResult is the result of a debug_storageRangeAt API call.

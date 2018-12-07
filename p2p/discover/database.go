@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 // Contains the node database, storing previously seen nodes and any collected
@@ -56,10 +56,7 @@ var (
 // known peers in the network. If no path is given, an in-memory, temporary
 // database is constructed.
 func newNodeDB(path string, version int, self NodeID) (*nodeDB, error) {
-	if path == "" {
-		return newMemoryNodeDB(self)
-	}
-	return newPersistentNodeDB(path, version, self)
+	return newMemoryNodeDB(self)
 }
 
 // newMemoryNodeDB creates a new in-memory node database without a persistent

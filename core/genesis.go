@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package core
@@ -34,11 +34,13 @@ var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
-	Config      *params.ChainConfig `json:"config"`
+	Config      *params.ChainConfig `json:"config,omitempty"`
 	Nonce       uint64              `json:"nonce"`
-	Timestamp   uint64              `json:"timestamp"`
+	Timestamp   uint64              `json:"timestamp"    gencodec:"required"`
 	ExtraData   []byte              `json:"extraData"`
-	Version     []byte              `json:"version"`
+	Version     string             `json:"version"    gencodec:"required"`
+	VersionSignatures []common.Signature  `json:"versionSignatures"    gencodec:"required"`
+	VrfValue    []byte              `json:"vrfvalue"`
 	Leader      common.Address      `json:"leader"`
 	Elect       []common.Elect      `json:"elect"    gencodec:"required"`
 	NetTopology common.NetTopology  `json:"nettopology"       gencodec:"required"`
@@ -55,6 +57,8 @@ type Genesis struct {
 	Number     uint64      `json:"number"`
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
+	Root       common.Hash `json:"stateRoot,omitempty"`
+	TxHash     common.Hash `json:"transactionsRoot,omitempty"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -221,7 +225,13 @@ func (g *Genesis) ToBlock(db mandb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	for addr, account := range g.Alloc {
-		statedb.AddBalance(addr, account.Balance)
+		statedb.AddBalance(common.MainAccount,addr, account.Balance)
+		///*******************************************************/
+		////hezi 应该是通过发特殊交易添加账户
+		//statedb.AddBalance(common.LockAccount,addr, account.Balance)
+		//statedb.AddBalance(common.EntrustAccount,addr, account.Balance)
+		//statedb.AddBalance(common.FreezeAccount,addr, account.Balance)
+		///*******************************************************/
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce)
 		for key, value := range account.Storage {
@@ -235,7 +245,9 @@ func (g *Genesis) ToBlock(db mandb.Database) *types.Block {
 		Time:        new(big.Int).SetUint64(g.Timestamp),
 		ParentHash:  g.ParentHash,
 		Extra:       g.ExtraData,
-		Version:     g.Version,
+		Version:           []byte(g.Version),
+		VersionSignatures: g.VersionSignatures,
+		VrfValue:    g.VrfValue,
 		Elect:       g.Elect,
 		NetTopology: g.NetTopology,
 		Signatures:  g.Signatures,
@@ -249,7 +261,7 @@ func (g *Genesis) ToBlock(db mandb.Database) *types.Block {
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
-	}else if (g.GasLimit<params.MinGasLimit){
+	} else if g.GasLimit < params.MinGasLimit {
 		head.GasLimit = params.MinGasLimit
 	}
 	if g.Difficulty == nil {
@@ -259,6 +271,70 @@ func (g *Genesis) ToBlock(db mandb.Database) *types.Block {
 	statedb.Database().TrieDB().Commit(root, true)
 
 	return types.NewBlock(head, nil, nil, nil)
+}
+
+func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Database, chainCfg *params.ChainConfig) *types.Block {
+	if nil == parentHeader || nil == stateCache {
+		log.ERROR("genesis super block", "param err", "nil")
+		return nil
+	}
+
+	stateDB, err := state.New(parentHeader.Root, stateCache)
+	if err != nil {
+		log.Error("genesis super block", "get parent state db err", err)
+		return nil
+	}
+
+	for addr, account := range g.Alloc {
+		stateDB.SetBalance(common.MainAccount, addr, account.Balance)
+		stateDB.SetCode(addr, account.Code)
+		stateDB.SetNonce(addr, account.Nonce)
+		for key, value := range account.Storage {
+			stateDB.SetState(addr, key, value)
+		}
+	}
+
+	head := &types.Header{
+		Number:            new(big.Int).SetUint64(g.Number),
+		Nonce:             types.EncodeNonce(g.Nonce),
+		Time:              new(big.Int).SetUint64(g.Timestamp),
+		ParentHash:        g.ParentHash,
+		Extra:             g.ExtraData,
+		Version:           []byte(g.Version),
+		VersionSignatures: g.VersionSignatures,
+		Elect:             g.Elect,
+		NetTopology:       g.NetTopology,
+		Signatures:        g.Signatures,
+		Leader:            g.Leader,
+		GasLimit:          g.GasLimit,
+		GasUsed:           g.GasUsed,
+		Difficulty:        g.Difficulty,
+		MixDigest:         g.Mixhash,
+		Coinbase:          g.Coinbase,
+	}
+
+	head.Root = stateDB.IntermediateRoot(chainCfg.IsEIP158(head.Number))
+
+	if g.GasLimit == 0 {
+		head.GasLimit = params.GenesisGasLimit
+	}
+	if g.Difficulty == nil {
+		head.Difficulty = params.GenesisDifficulty
+	}
+
+	// 创建超级区块交易
+	data, err := json.Marshal(g.Alloc)
+	if err != nil {
+		log.ERROR("genesis super block", "marshal alloc info err", err)
+		return nil
+	}
+	tx := types.NewTransaction(g.Number, common.Address{}, nil, 0, nil, data, common.ExtraSuperBlockTx)
+	if tx == nil {
+		log.ERROR("genesis super block", "create super block tx err", "NewTransaction return nil")
+		return nil
+	}
+
+	return types.NewBlock(head, []types.SelfTransaction{tx}, nil, nil)
 }
 
 // Commit writes the block and state of a genesis specification to the database.

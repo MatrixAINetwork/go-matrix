@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package man implements the Matrix protocol.
 package man
@@ -13,8 +12,6 @@ import (
 	"runtime"
 	"sync/atomic"
 	"time"
-
-	"github.com/matrix/go-matrix/random"
 
 	"github.com/matrix/go-matrix/ca"
 
@@ -37,25 +34,27 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/depoistInfo"
+	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/internal/manapi"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/man/filters"
 	"github.com/matrix/go-matrix/man/gasprice"
 	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/internal/manapi"
-	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/miner"
 	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/rpc"
 
 	"sync"
 
+	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/leaderelect"
 	"github.com/matrix/go-matrix/olconsensus"
+	"github.com/matrix/go-matrix/trie"
 )
 
 var MsgCenter *mc.Center
@@ -76,7 +75,8 @@ type Matrix struct {
 	shutdownChan chan bool // Channel for shutting down the Matrix
 
 	// Handlers
-	txPool          *core.TxPool
+	//txPool          *core.TxPool
+	txPool          *core.TxPoolManager
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
@@ -93,9 +93,9 @@ type Matrix struct {
 
 	APIBackend *ManAPIBackend
 
-	miner     *miner.Miner
-	gasPrice  *big.Int
-	manbase common.Address
+	miner    *miner.Miner
+	gasPrice *big.Int
+	manbase  common.Address
 
 	networkId     uint64
 	netRPCService *manapi.PublicNetAPI
@@ -109,7 +109,7 @@ type Matrix struct {
 	signHelper *signhelper.SignHelper
 
 	reelection   *reelection.ReElection //换届服务
-	random       *random.Random
+	random       *baseinterface.Random
 	topNode      *olconsensus.TopNodeService
 	blockgen     *blkgenor.BlockGenor
 	blockVerify  *blkverify.BlockVerify
@@ -136,6 +136,19 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+	/************************************************/
+	//hezi
+	trie.MatrixDb, err = CreateDB(ctx, config, "Matrixdata")
+	if err != nil {
+		return nil, err
+	}
+	trie.Mantriedb = trie.NewDatabase(trie.MatrixDb)
+	troot := rawdb.ReadMatrixRoot()
+	trie.ManTrie, err = trie.New(troot, trie.Mantriedb)
+	if err != nil{
+		return nil, err
+	}
+	/************************************************/
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
@@ -157,7 +170,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		shutdownChan:  make(chan bool),
 		networkId:     config.NetworkId,
 		gasPrice:      config.GasPrice,
-		manbase:     config.Manerbase,
+		manbase:       config.Manerbase,
 		bloomRequests: make(chan chan *bloombits.Retrieval),
 		bloomIndexer:  NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
@@ -178,6 +191,10 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = man.blockchain.DPOSEngine().VerifyVersion(man.blockchain, man.blockchain.Genesis().Header())
+	if err != nil {
+		return nil, err
+	}
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -186,29 +203,32 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	}
 	man.bloomIndexer.Start(man.blockchain)
 
-	if config.TxPool.Journal != "" {
-		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
-	}
-	man.txPool = core.NewTxPool(config.TxPool, man.chainConfig, man.blockchain, ctx.GetConfig().DataDir)
+	ca.SetTopologyReader(man.blockchain.TopologyStore())
+
+	//if config.TxPool.Journal != "" {
+	//	config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
+	//}
+	man.txPool = core.NewTxPoolManager(config.TxPool, man.chainConfig, man.blockchain, ctx.GetConfig().DataDir)
 
 	if man.protocolManager, err = NewProtocolManager(man.chainConfig, config.SyncMode, config.NetworkId, man.eventMux, man.txPool, man.engine, man.blockchain, chainDb, ctx.MsgCenter); err != nil {
 		return nil, err
 	}
 	//man.protocolManager.Msgcenter = ctx.MsgCenter
 	MsgCenter = ctx.MsgCenter
-	man.miner, err = miner.New(man.blockchain, man.chainConfig, man.EventMux(), man.engine, man.blockchain.DPOSEngine(), man.hd, man.CA())
+	man.miner, err = miner.New(man.blockchain, man.chainConfig, man.EventMux(), man.engine, man.blockchain.DPOSEngine(), man.hd)
 	if err != nil {
 		return nil, err
 	}
 	man.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	//algorithm
-	dbDir := ctx.GetConfig().DataDir
-	man.reelection, err = reelection.New(man.blockchain, dbDir)
+	man.random, err = baseinterface.NewRandom(man)
 	if err != nil {
 		return nil, err
 	}
-	man.random, err = random.New(man.msgcenter)
+
+	dbDir := ctx.GetConfig().DataDir
+	man.reelection, err = reelection.New(man.blockchain, dbDir, man.random)
 	if err != nil {
 		return nil, err
 	}
@@ -226,6 +246,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 
 	man.topNode = olconsensus.NewTopNodeService(man.blockchain.DPOSEngine())
 	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
+	man.topNode.SetValidatorReader(man.blockchain)
 	man.topNode.SetTopNodeStateInterface(topNodeInstance)
 	man.topNode.SetValidatorAccountInterface(topNodeInstance)
 	man.topNode.SetMessageSendInterface(topNodeInstance)
@@ -413,15 +434,6 @@ func (s *Matrix) Manerbase() (eb common.Address, err error) {
 	return common.Address{}, fmt.Errorf("manbase must be explicitly specified")
 }
 
-// SetManerbase sets the mining reward address.
-func (s *Matrix) SetManerbase(manbase common.Address) {
-	s.lock.Lock()
-	s.manbase = manbase
-	s.lock.Unlock()
-
-	s.miner.SetManerbase(manbase)
-}
-
 func (s *Matrix) StartMining(local bool) error {
 	eb, err := s.Manerbase()
 	if err != nil {
@@ -443,7 +455,7 @@ func (s *Matrix) StartMining(local bool) error {
 		// will ensure that private networks work in single miner mode too.
 		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)
 	}
-	go s.miner.Start(eb)
+	go s.miner.Start()
 	return nil
 }
 
@@ -453,7 +465,7 @@ func (s *Matrix) Miner() *miner.Miner { return s.miner }
 
 func (s *Matrix) AccountManager() *accounts.Manager    { return s.accountManager }
 func (s *Matrix) BlockChain() *core.BlockChain         { return s.blockchain }
-func (s *Matrix) TxPool() *core.TxPool                 { return s.txPool }
+func (s *Matrix) TxPool() *core.TxPoolManager          { return s.txPool } //YYY
 func (s *Matrix) EventMux() *event.TypeMux             { return s.eventMux }
 func (s *Matrix) Engine() consensus.Engine             { return s.engine }
 func (s *Matrix) DPOSEngine() consensus.DPOSEngine     { return s.blockchain.DPOSEngine() }
@@ -481,6 +493,7 @@ func (s *Matrix) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Matrix protocol implementation.
 func (s *Matrix) Start(srvr *p2p.Server) error {
+	srvr.NetWorkId = s.config.NetworkId
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -505,10 +518,15 @@ func (s *Matrix) Start(srvr *p2p.Server) error {
 }
 func (s *Matrix) FetcherNotify(hash common.Hash, number uint64) {
 	ids := ca.GetRolesByGroup(common.RoleValidator | common.RoleBroadcast)
+	selfId := p2p.ServerP2p.Self().ID.String()
 	for _, id := range ids {
+		if id.String() == selfId {
+			log.Info("func FetcherNotify  NodeID is same ", "selfID", selfId, "ca`s nodeID", id.String())
+			continue
+		}
 		peer := s.protocolManager.Peers.Peer(id.String()[:16])
 		if peer == nil {
-			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String(), "Peers:", s.protocolManager.Peers.peers)
+			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String()[:16])
 			continue
 		}
 		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)

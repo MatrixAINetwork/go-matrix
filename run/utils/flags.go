@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package utils contains internal helper functions for go-matrix commands.
 package utils
@@ -16,8 +16,11 @@ import (
 	"strconv"
 	"strings"
 
+	"encoding/json"
+
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
+	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/fdlimit"
 	"github.com/matrix/go-matrix/consensus"
@@ -28,19 +31,19 @@ import (
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/dashboard"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/man/gasprice"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/manstats"
-	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/p2p/nat"
 	"github.com/matrix/go-matrix/p2p/netutil"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/pod"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -229,26 +232,26 @@ var (
 		Name:  "txpool.nolocals",
 		Usage: "Disables price exemptions for locally submitted transactions",
 	}
-	TxPoolJournalFlag = cli.StringFlag{
-		Name:  "txpool.journal",
-		Usage: "Disk journal for local transaction to survive node restarts",
-		Value: core.DefaultTxPoolConfig.Journal,
-	}
-	TxPoolRejournalFlag = cli.DurationFlag{
-		Name:  "txpool.rejournal",
-		Usage: "Time interval to regenerate the local transaction journal",
-		Value: core.DefaultTxPoolConfig.Rejournal,
-	}
+	//TxPoolJournalFlag = cli.StringFlag{ //YYY
+	//	Name:  "txpool.journal",
+	//	Usage: "Disk journal for local transaction to survive node restarts",
+	//	Value: core.DefaultTxPoolConfig.Journal,
+	//}
+	//TxPoolRejournalFlag = cli.DurationFlag{
+	//	Name:  "txpool.rejournal",
+	//	Usage: "Time interval to regenerate the local transaction journal",
+	//	Value: core.DefaultTxPoolConfig.Rejournal,
+	//}
 	TxPoolPriceLimitFlag = cli.Uint64Flag{
 		Name:  "txpool.pricelimit",
 		Usage: "Minimum gas price limit to enforce for acceptance into the pool",
 		Value: man.DefaultConfig.TxPool.PriceLimit,
 	}
-	TxPoolPriceBumpFlag = cli.Uint64Flag{
-		Name:  "txpool.pricebump",
-		Usage: "Price bump percentage to replace an already existing transaction",
-		Value: man.DefaultConfig.TxPool.PriceBump,
-	}
+	//TxPoolPriceBumpFlag = cli.Uint64Flag{ //YYY
+	//	Name:  "txpool.pricebump",
+	//	Usage: "Price bump percentage to replace an already existing transaction",
+	//	Value: eth.DefaultConfig.TxPool.PriceBump,
+	//}
 	TxPoolAccountSlotsFlag = cli.Uint64Flag{
 		Name:  "txpool.accountslots",
 		Usage: "Minimum number of executable transaction slots guaranteed per account",
@@ -269,11 +272,11 @@ var (
 		Usage: "Maximum number of non-executable transaction slots for all accounts",
 		Value: man.DefaultConfig.TxPool.GlobalQueue,
 	}
-	TxPoolLifetimeFlag = cli.DurationFlag{
-		Name:  "txpool.lifetime",
-		Usage: "Maximum amount of time non-executable transaction are queued",
-		Value: man.DefaultConfig.TxPool.Lifetime,
-	}
+	//TxPoolLifetimeFlag = cli.DurationFlag{ //YYY
+	//	Name:  "txpool.lifetime",
+	//	Usage: "Maximum amount of time non-executable transaction are queued",
+	//	Value: eth.DefaultConfig.TxPool.Lifetime,
+	//}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
@@ -336,6 +339,10 @@ var (
 		Name:  "testchangerole",
 		Usage: "change role",
 	}
+	GetCommitFlag=cli.StringFlag{
+		Name:"testgetcommit",
+		Usage:"get commit",
+	}
 	// Account settings
 	UnlockedAccountFlag = cli.StringFlag{
 		Name:  "unlock",
@@ -347,7 +354,11 @@ var (
 		Usage: "Password file to use for non-interactive password input",
 		Value: "",
 	}
-
+	AccountPasswordFileFlag = cli.StringFlag{
+		Name:  "entrust",
+		Usage: "Password file to entrustment transaction",
+		Value: "",
+	}
 	VMEnableDebugFlag = cli.BoolFlag{
 		Name:  "vmdebug",
 		Usage: "Record information useful for VM and contract debugging",
@@ -766,6 +777,48 @@ func setManerbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *man.Config) {
 	}
 }
 
+type JsonStruct struct {
+}
+
+func NewJsonStruct() *JsonStruct {
+	return &JsonStruct{}
+}
+
+func (jst *JsonStruct) Load(filename string, v interface{}) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		fmt.Println("读取通用配置文件失败 err", err, "file", filename)
+
+		return
+	}
+	err = json.Unmarshal(data, v)
+	if err != nil {
+		fmt.Println("通用配置文件数据获取失败 err", err)
+		return
+	}
+}
+
+type EntrustPassword struct {
+	Password map[common.Address]string
+}
+
+func MakeEntrustPassword(ctx *cli.Context) map[common.Address]string {
+	path := ctx.GlobalString(AccountPasswordFileFlag.Name)
+	fmt.Println("MakeEntrustPassword", "path", path)
+
+	JsonParse := NewJsonStruct()
+	v := EntrustPassword{}
+	JsonParse.Load(path, &v)
+	fmt.Println("MakeEntrustPassword", v.Password)
+	for k, _ := range v.Password {
+		fmt.Println(k, v.Password[k])
+	}
+	fmt.Println("MakeEntrustPassword len()", len(v.Password))
+
+	signhelper.EntrustValue = v.Password
+	return v.Password
+}
+
 // MakePasswordList reads password lines from the file specified by the global --password flag.
 func MakePasswordList(ctx *cli.Context) []string {
 	path := ctx.GlobalString(PasswordFileFlag.Name)
@@ -819,6 +872,9 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 
 	if ctx.GlobalIsSet(MaxPendingPeersFlag.Name) {
 		cfg.MaxPendingPeers = ctx.GlobalInt(MaxPendingPeersFlag.Name)
+	}
+	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
+		cfg.NetWorkId = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
 	if ctx.GlobalIsSet(NoDiscoverFlag.Name) || lightClient {
 		cfg.NoDiscovery = true
@@ -891,21 +947,21 @@ func setGPO(ctx *cli.Context, cfg *gasprice.Config) {
 }
 
 func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
-	if ctx.GlobalIsSet(TxPoolNoLocalsFlag.Name) {
-		cfg.NoLocals = ctx.GlobalBool(TxPoolNoLocalsFlag.Name)
-	}
-	if ctx.GlobalIsSet(TxPoolJournalFlag.Name) {
-		cfg.Journal = ctx.GlobalString(TxPoolJournalFlag.Name)
-	}
-	if ctx.GlobalIsSet(TxPoolRejournalFlag.Name) {
-		cfg.Rejournal = ctx.GlobalDuration(TxPoolRejournalFlag.Name)
-	}
+	//if ctx.GlobalIsSet(TxPoolNoLocalsFlag.Name) { //YYY
+	//	cfg.NoLocals = ctx.GlobalBool(TxPoolNoLocalsFlag.Name)
+	//}
+	//if ctx.GlobalIsSet(TxPoolJournalFlag.Name) {
+	//	cfg.Journal = ctx.GlobalString(TxPoolJournalFlag.Name)
+	//}
+	//if ctx.GlobalIsSet(TxPoolRejournalFlag.Name) {
+	//	cfg.Rejournal = ctx.GlobalDuration(TxPoolRejournalFlag.Name)
+	//}
 	if ctx.GlobalIsSet(TxPoolPriceLimitFlag.Name) {
 		cfg.PriceLimit = ctx.GlobalUint64(TxPoolPriceLimitFlag.Name)
 	}
-	if ctx.GlobalIsSet(TxPoolPriceBumpFlag.Name) {
-		cfg.PriceBump = ctx.GlobalUint64(TxPoolPriceBumpFlag.Name)
-	}
+	//if ctx.GlobalIsSet(TxPoolPriceBumpFlag.Name) {//YYY
+	//	cfg.PriceBump = ctx.GlobalUint64(TxPoolPriceBumpFlag.Name)
+	//}
 	if ctx.GlobalIsSet(TxPoolAccountSlotsFlag.Name) {
 		cfg.AccountSlots = ctx.GlobalUint64(TxPoolAccountSlotsFlag.Name)
 	}
@@ -918,9 +974,9 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	if ctx.GlobalIsSet(TxPoolGlobalQueueFlag.Name) {
 		cfg.GlobalQueue = ctx.GlobalUint64(TxPoolGlobalQueueFlag.Name)
 	}
-	if ctx.GlobalIsSet(TxPoolLifetimeFlag.Name) {
-		cfg.Lifetime = ctx.GlobalDuration(TxPoolLifetimeFlag.Name)
-	}
+	//if ctx.GlobalIsSet(TxPoolLifetimeFlag.Name) {//YYY
+	//	cfg.Lifetime = ctx.GlobalDuration(TxPoolLifetimeFlag.Name)
+	//}
 }
 
 func setManash(ctx *cli.Context, cfg *man.Config) {
@@ -1119,7 +1175,6 @@ func RegisterManStatsService(stack *pod.Node, url string) {
 		// Retrieve both man and les services
 		var manServ *man.Matrix
 		ctx.Service(&manServ)
-
 
 		return manstats.New(url, manServ)
 	}); err != nil {
