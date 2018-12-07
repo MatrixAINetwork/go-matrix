@@ -1169,3 +1169,37 @@
 
     12.7：huyuankai pushed to branch state_tree at repository go-matrix
     568cd119: 拓扑选举上树 70%
+
+
+    12.7：叶营 pushed to branch gman_Account at repository go-matrix
+    1f7c9d30: 去掉一些日志，同时修改彩票奖励
+
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    62350bd6: 接口调整
+
+
+    12.7：叶营 pushed to branch gman_Account at repository go-matrix
+    8e08e404: modify log
+
+
+    12.7：root pushed to branch master at repository docs
+    389a61dc: peer 分层机制设想更新
+
+
+    12.7：叶营 pushed to branch gman_Account at repository go-matrix
+    c276ab85: add log
+
+    12.7：zhangwen pushed to branch longest_link at repository go-matrix
+    77033ee5: 在线插入超级区块，部分节点无法同步问题修改
+
+
+    12.7：sunchunfeng pushed to branch state_tree at repository go-matrix
+    7e6d6bd3: 拓扑 上树
+
+    12.7：叶营 pushed to branch gman_Account at repository go-matrix
+    971d6069: add log
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    b9156533: Merge branch 'state_tree' of http://192.168.3.81/matrix/go-matrix into state_tree
+    d4b0ec3c: 生成修改 30%
