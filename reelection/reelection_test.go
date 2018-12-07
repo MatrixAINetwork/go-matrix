@@ -1,21 +1,14 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package reelection
 
 import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/random"
-
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mc"
-
-	"github.com/matrix/go-matrix/man"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 //func Post() {
@@ -38,8 +31,8 @@ import (
 //	log.Info("electseed", electseed)
 //	log.Info("seed err", err)
 //
-//	var man *man.Matrix
-//	reElect, err := New(man)
+//	var eth *eth.Ethereum
+//	reElect, err := New(eth)
 //	log.Info("err", err)
 //
 //	go Post()

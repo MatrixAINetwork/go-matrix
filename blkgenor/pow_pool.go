@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
@@ -9,10 +9,10 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
 	"github.com/pkg/errors"
 
 	"sync"
+	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type blockPowCache struct {
@@ -90,7 +90,7 @@ func NewPowPool(logInfo string) *PowPool {
 	return &PowPool{
 		powMap:     make(map[common.Hash]*blockPowCache),
 		countMap:   make(map[common.Address]int),
-		countLimit: params.VotePoolCountLimit,
+		countLimit: manparams.VotePoolCountLimit,
 		logInfo:    logInfo,
 	}
 }
@@ -98,6 +98,18 @@ func NewPowPool(logInfo string) *PowPool {
 func (self *PowPool) AddMinerResult(blockHash common.Hash, diff *big.Int, minerResult *mc.HD_MiningRspMsg) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
+
+	if common.EmptyHash(blockHash) {
+		return errors.Errorf("block hash is null")
+	}
+
+	if nil == diff || 0 == diff.Uint64() {
+		return errors.Errorf("diff is  illegal")
+	}
+
+	if nil == minerResult {
+		return errors.Errorf("minerResult is  null")
+	}
 
 	if count := self.getFromCount(minerResult.From); count >= self.countLimit {
 		return errors.Errorf("from account had send too much mining result!")
@@ -118,13 +130,24 @@ func (self *PowPool) AddMinerResult(blockHash common.Hash, diff *big.Int, minerR
 	return nil
 }
 
-func (self *PowPool) DelOneResult(blockHash common.Hash, diff *big.Int, from common.Address) {
+func (self *PowPool) DelOneResult(blockHash common.Hash, diff *big.Int, from common.Address) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
+	if common.EmptyHash(blockHash) {
+		return errors.Errorf("block hash is null")
+	}
+
+	if nil == diff || 0 == diff.Uint64() {
+		return errors.Errorf("diff is  illegal")
+	}
+
+	if (from == common.Address{}) {
+		return errors.Errorf("block hash is 0")
+	}
 	blockCache, OK := self.powMap[blockHash]
 	if !OK {
-		return
+		return errors.Errorf("dont have data,delete fail")
 	}
 
 	success := blockCache.delPow(diff, from)
@@ -133,11 +156,20 @@ func (self *PowPool) DelOneResult(blockHash common.Hash, diff *big.Int, from com
 		log.INFO(self.logInfo, "删除挖矿结果成功, from", from.Hex(), "原结果总数", count)
 		self.minusFromCount(from)
 	}
+	return nil
 }
 
 func (self *PowPool) GetMinerResults(blockHash common.Hash, diff *big.Int) ([]*mc.HD_MiningRspMsg, error) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
+
+	if common.EmptyHash(blockHash) {
+		return nil, errors.Errorf("block hash is null")
+	}
+
+	if nil == diff || 0 == diff.Uint64() {
+		return nil, errors.Errorf("diff is  illegal")
+	}
 
 	blockCache, OK := self.powMap[blockHash]
 	if !OK {

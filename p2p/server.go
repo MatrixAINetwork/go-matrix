@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package p2p implements the Matrix p2p network protocols.
 package p2p
@@ -131,6 +130,9 @@ type Config struct {
 
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
+
+	// NetWorkId
+	NetWorkId uint64
 }
 
 // Server manages all peer connections.
@@ -407,13 +409,13 @@ func (srv *Server) Start() (err error) {
 	srv.peerOpDone = make(chan struct{})
 
 	var (
-		conn      *net.UDPConn
+		conn *net.UDPConn
 		//sconn     *sharedUDPConn
 		realaddr  *net.UDPAddr
 		unhandled chan discover.ReadPacket
 	)
 
-	if !srv.NoDiscovery /*|| srv.DiscoveryV5 */{
+	if !srv.NoDiscovery /*|| srv.DiscoveryV5 */ {
 		addr, err := net.ResolveUDPAddr("udp", srv.ListenAddr)
 		if err != nil {
 			return err
@@ -448,6 +450,7 @@ func (srv *Server) Start() (err error) {
 			NetRestrict:  srv.NetRestrict,
 			Bootnodes:    srv.BootstrapNodes,
 			Unhandled:    unhandled,
+			NetWorkId:    srv.NetWorkId,
 		}
 		ntab, err := discover.ListenUDP(conn, cfg)
 		if err != nil {

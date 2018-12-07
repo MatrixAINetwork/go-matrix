@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package core
@@ -14,6 +14,7 @@ import (
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/params"
+	"errors"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -55,7 +56,21 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 	// Iterate over and process the individual transactions
-	for i, tx := range block.Transactions() {
+	txs := block.Transactions()[2:]
+	stxs := make([]types.SelfTransaction,0)
+	tmptx := block.Transactions()[params.FirstTxIndex]
+	tmptx1 := block.Transactions()[params.SecondTxIndex]
+	tmptx.SetFromLoad(common.BlkRewardAddress)
+	tmptx1.SetFromLoad(common.TxGasRewardAddress)
+	stxs = append(stxs,tmptx1)
+	stxs = append(stxs,tmptx)
+	var txcount int
+	for i, tx := range txs {
+		_,addrerr := tx. GetTxFrom()
+		if addrerr == nil{
+			//err is nil means from not nil
+			return nil, nil, 0, errors.New("This tx from must is nil")
+		}
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {
@@ -63,6 +78,22 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+		txcount = i
+	}
+	for _, tx := range stxs {
+		statedb.Prepare(tx.Hash(), block.Hash(), txcount+1)
+		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		tmpr := make(types.Receipts,0)
+		tmpr = append(tmpr, receipt)
+		tmpr = append(tmpr, receipts...)
+		receipts = tmpr
+		tmpl := make([]*types.Log,0)
+		tmpl = append(tmpl, receipt.Logs...)
+		tmpl = append(tmpl,allLogs...)
+		allLogs = tmpl
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
@@ -74,30 +105,30 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
-	if err != nil {
-		return nil, 0, err
-	}
+func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx types.SelfTransaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+
 	// Create a new context to be used in the EVM environment
-	context := NewEVMContext(msg, header, bc, author)
-	// Create a new environment which holds all relevant information
-	// about the transaction and calling mechanisms.
+	from, err := tx.GetTxFrom()
+	if err != nil {
+		from, err = types.Sender(types.NewEIP155Signer(config.ChainId), tx)
+	}
+	context := NewEVMContext(from, tx.GasPrice(), header, bc, author)
+
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
-	//===============hezi====================
 	var gas uint64
 	var failed bool
-	if msg.Extra().TxType == 1 {
-		gas = uint64(0)
-		failed = true
+	if tx.TxType() == types.BroadCastTxIndex{
+		if extx := tx.GetMatrix_EX(); (extx != nil) && len(extx) > 0 && extx[0].TxType == 1{
+			gas = uint64(0)
+			failed = true
+		}
 	} else {
-		_, gas, failed, err = ApplyMessage(vmenv, msg, gp)
+		_, gas, failed, err = ApplyMessage(vmenv, tx, gp)
 		if err != nil {
 			return nil, 0, err
 		}
 	}
-	//==========================================
 	// Update the state with pending changes
 	var root []byte
 	if config.IsByzantium(header.Number) {
@@ -105,8 +136,6 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
-	//root1 := statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
-	//log.Info("*************","ApplyTransaction before:usedGas",*usedGas,"gas",gas,"root",root1)
 	*usedGas += gas
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
@@ -115,7 +144,7 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = gas
 	// if the transaction created a contract, store the creation address in the receipt.
-	if msg.To() == nil {
+	if tx.To() == nil {
 		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
 	}
 	// Set the receipt logs and create a bloom for filtering

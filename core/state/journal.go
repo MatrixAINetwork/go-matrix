@@ -1,13 +1,11 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package state
 
 import (
-	"math/big"
-
 	"github.com/matrix/go-matrix/common"
 )
 
@@ -84,13 +82,15 @@ type (
 	suicideChange struct {
 		account     *common.Address
 		prev        bool // whether account had already suicided
-		prevbalance *big.Int
+		//prevbalance *big.Int
+		prevbalance common.BalanceType
 	}
 
 	// Changes to individual accounts.
 	balanceChange struct {
 		account *common.Address
-		prev    *big.Int
+		//prev    *big.Int
+		prev    common.BalanceType
 	}
 	nonceChange struct {
 		account *common.Address
@@ -113,6 +113,9 @@ type (
 		txhash common.Hash
 	}
 	addPreimageChange struct {
+		hash common.Hash
+	}
+	addMatrixDataChange struct {
 		hash common.Hash
 	}
 	touchChange struct {
@@ -143,7 +146,10 @@ func (ch suicideChange) revert(s *StateDB) {
 	obj := s.getStateObject(*ch.account)
 	if obj != nil {
 		obj.suicided = ch.prev
-		obj.setBalance(ch.prevbalance)
+		//obj.setBalance(ch.prevbalance)
+		for _,tAccount := range ch.prevbalance{
+			obj.setBalance(tAccount.AccountType,tAccount.Balance)
+		}
 	}
 }
 
@@ -161,7 +167,10 @@ func (ch touchChange) dirtied() *common.Address {
 }
 
 func (ch balanceChange) revert(s *StateDB) {
-	s.getStateObject(*ch.account).setBalance(ch.prev)
+	//s.getStateObject(*ch.account).setBalance(ch.prev)
+	for _,tAccount := range ch.prev{
+		s.getStateObject(*ch.account).setBalance(tAccount.AccountType,tAccount.Balance)
+	}
 }
 
 func (ch balanceChange) dirtied() *common.Address {
@@ -219,5 +228,13 @@ func (ch addPreimageChange) revert(s *StateDB) {
 }
 
 func (ch addPreimageChange) dirtied() *common.Address {
+	return nil
+}
+
+func (ch addMatrixDataChange) revert(s *StateDB) {
+	delete(s.matrixData, ch.hash)
+}
+
+func (ch addMatrixDataChange) dirtied() *common.Address {
 	return nil
 }

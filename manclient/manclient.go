@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package manclient provides a client for the Matrix RPC API.
@@ -128,7 +128,7 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 		}
 	}
 	// Fill the sender cache of transactions in the block.
-	txs := make([]*types.Transaction, len(body.Transactions))
+	txs := make([]types.SelfTransaction, len(body.Transactions))
 	for i, tx := range body.Transactions {
 		setSenderFromServer(tx.tx, tx.From, body.Hash)
 		txs[i] = tx.tx

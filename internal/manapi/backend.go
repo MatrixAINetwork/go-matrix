@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package manapi implements the general Matrix API functions.
@@ -21,6 +21,7 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
+	"github.com/matrix/go-matrix/core/txinterface"
 )
 
 // Backend interface provides the common API services (that are provided by
@@ -42,22 +43,22 @@ type Backend interface {
 	GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error)
 	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
 	GetTd(blockHash common.Hash) *big.Int
-	GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error)
+	GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error)
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
 	SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription
 
 	// TxPool API
-	SendTx(ctx context.Context, signedTx *types.Transaction) error
-	GetPoolTransactions() (types.Transactions, error)
-	GetPoolTransaction(txHash common.Hash) *types.Transaction
+	SendTx(ctx context.Context, signedTx types.SelfTransaction) error
+	GetPoolTransactions() (types.SelfTransactions, error)
+	GetPoolTransaction(txHash common.Hash) types.SelfTransaction
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
 	Stats() (pending int, queued int)
-	TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions)
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	TxPoolContent() (map[common.Address]types.SelfTransactions, map[common.Address]types.SelfTransactions)
+	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription //YYY
 
-	SignTx(signedTx *types.Transaction, chainID *big.Int) (*types.Transaction, error) //YY
-	SendBroadTx(ctx context.Context, signedTx *types.Transaction, bType bool) error   //YY
+	SignTx(signedTx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) //YY
+	SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error   //YY
 	FetcherNotify(hash common.Hash, number uint64)                                    //YY
 
 	ChainConfig() *params.ChainConfig

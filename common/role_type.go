@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package common
 
 import "strconv"
@@ -9,17 +9,18 @@ import "strconv"
 type RoleType uint32
 
 const (
-	RoleNil             RoleType = 0x001
-	RoleDefault                  = 0x002
-	RoleBucket                   = 0x004
-	RoleBackupMiner              = 0x008
-	RoleMiner                    = 0x010
-	RoleInnerMiner               = 0x020
-	RoleBackupValidator          = 0x040
-	RoleValidator                = 0x080
-	RoleBackupBroadcast          = 0x100
-	RoleBroadcast                = 0x200
-	RoleAll                      = 0xFFFF
+	RoleNil                RoleType = 0x001
+	RoleDefault                     = 0x002
+	RoleBucket                      = 0x004
+	RoleBackupMiner                 = 0x008
+	RoleMiner                       = 0x010
+	RoleInnerMiner                  = 0x020
+	RoleBackupValidator             = 0x040
+	RoleValidator                   = 0x080
+	RoleBackupBroadcast             = 0x100
+	RoleBroadcast                   = 0x200
+	RoleCandidateValidator          = 0x400
+	RoleAll                         = 0xFFFF
 )
 
 func (rt RoleType) String() string {

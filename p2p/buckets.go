@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 package p2p
 
 import (
@@ -24,7 +25,7 @@ type Bucket struct {
 	bucket map[int64][]discover.NodeID
 
 	rings *ring.Ring
-	lock  *sync.RWMutex
+	lock  sync.RWMutex
 
 	ids []discover.NodeID
 
@@ -39,7 +40,6 @@ type Bucket struct {
 // Init bucket.
 var Buckets = &Bucket{
 	role:  common.RoleNil,
-	lock:  new(sync.RWMutex),
 	ids:   make([]discover.NodeID, 0),
 	quit:  make(chan struct{}),
 	rings: ring.New(4),
@@ -137,7 +137,7 @@ func (b *Bucket) Start() {
 			case b.rings.Next().Value.(int64):
 				b.disconnectMiner()
 			case b.rings.Prev().Value.(int64):
-				miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupValidator)
+				miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupValidator)
 				b.outer(MaxLink, miners)
 			}
 		case <-b.quit:
@@ -172,7 +172,7 @@ func (b *Bucket) nodesCount() (count int) {
 
 // DisconnectMiner older disconnect miner.
 func (b *Bucket) disconnectMiner() {
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
 	for _, miner := range miners {
 		ServerP2p.RemovePeer(discover.NewNode(miner, nil, 0, 0))
 	}
@@ -221,7 +221,7 @@ func (b *Bucket) maintainInner() {
 // MaintainOuter maintain bucket outer.
 func (b *Bucket) maintainOuter() {
 	count := 0
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
 	b.log.Info("maintainOuter", "peer info", miners)
 	for _, peer := range ServerP2p.Peers() {
 		for _, miner := range miners {

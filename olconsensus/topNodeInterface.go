@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package olconsensus
 
 import (
@@ -10,6 +10,8 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/msgsend"
+	"github.com/matrix/go-matrix/p2p"
+	"github.com/matrix/go-matrix/log"
 )
 
 type OnlineState uint8
@@ -32,7 +34,8 @@ func (o OnlineState) String() string {
 
 type NodeOnLineInfo struct {
 	Address     common.Address
-	OnlineState [30]uint8
+	Role        common.RoleType
+	OnlineState []uint8
 }
 
 type TopNodeStateInterface interface {
@@ -67,7 +70,20 @@ func NewTopNodeInstance(sh *signhelper.SignHelper, hd *msgsend.HD) *TopNodeInsta
 }
 
 func (self *TopNodeInstance) GetTopNodeOnlineState() []NodeOnLineInfo {
-	return nil
+	onlineStat := make([]NodeOnLineInfo, 0)
+	//调用p2p的接口获取节点在线状态
+	result := p2p.GetTopNodeAliveInfo(common.RoleValidator | common.RoleBackupValidator)
+	for _, value := range result {
+		state := NodeOnLineInfo{
+			Address:     value.Account,
+			Role:        value.Type,
+			OnlineState: value.Heartbeats,
+		}
+		onlineStat = append(onlineStat, state)
+		log.Info("获取在线状态", "node", value.Account, "心跳", value.Heartbeats)
+	}
+
+	return onlineStat
 }
 
 func (self *TopNodeInstance) SignWithValidate(hash []byte, validate bool) (sig common.Signature, err error) {

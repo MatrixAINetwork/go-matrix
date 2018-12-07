@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package mc
 
 import (
@@ -17,6 +17,15 @@ const (
 	Privatekey  = "SeedPrivateKey" // 私钥交易
 	CallTheRoll = "CallTheRoll"    //点名交易  （广播节点随机连接1000个点）
 )
+
+func ReturnBroadCastType() (bType map[string]bool) {
+	bType = make(map[string]bool)
+	bType[Heartbeat] = true
+	bType[Publickey] = true
+	bType[Privatekey] = true
+	bType[CallTheRoll] = true
+	return bType
+}
 
 type BlockToBucket struct {
 	Ms     []discover.NodeID

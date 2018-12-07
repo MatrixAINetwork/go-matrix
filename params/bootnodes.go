@@ -1,19 +1,14 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package params
 
-import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/p2p/discover"
-)
-
 // MainnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the main Matrix network.
 var MainnetBootnodes = []string{
-	"enode://b624a3fb585a48b4c96e4e6327752b1ba82a90a948f258be380ba17ead7c01f6d4ad43d665bb11c50475c058d3aad1ba9a35c0e0c4aa118503bf3ce79609bef6@10.42.100.185:50505",
+	//"enode://b624a3fb585a48b4c96e4e6327752b1ba82a90a948f258be380ba17ead7c01f6d4ad43d665bb11c50475c058d3aad1ba9a35c0e0c4aa118503bf3ce79609bef6@10.42.100.185:50505",
 	/*"enode://dbf8dcc4c82eb2ea2e1350b0ea94c7e29f5be609736b91f0faf334851d18f8de1a518def870c774649db443fbce5f72246e1c6bc4a901ef33429fdc3244a93b3@10.42.100.8:40404",
 	"enode://a9f94b62067e993f3f02ada1a448c70ae90bdbe4c6b281f8ff16c6f4832e0e9aba1827531c260b380c776938b9975ac7170a7e822f567660333622ea3e529313@10.42.100.198:40404",
 	"enode://80606b6c1eecb8ce91ca8a49a5a183aa42f335eb0d8628824e715571c1f9d1d757911b80ebc3afab06647da228f36ecf1c39cb561ef7684467c882212ce55cdb@10.42.100.164:40404",
@@ -28,12 +23,7 @@ var MainnetBootnodes = []string{
 	"enode://4b2f638f46c7ae5b1564ca7015d716621848a0d9be66f1d1e91d566d2a70eedc2f11e92b743acb8d97dec3fb412c1b2f66afd7fbb9399d4fb2423619eaa514c7@10.42.100.236:40404",*/
 }
 
-type BroadCastNode struct {
-	NodeID  discover.NodeID
-	Address common.Address
-}
 
-var BroadCastNodes = []BroadCastNode{}
 
 // TestnetBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Ropsten test network.

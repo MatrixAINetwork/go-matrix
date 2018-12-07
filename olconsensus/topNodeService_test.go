@@ -1,9 +1,10 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package olconsensus
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -17,22 +18,29 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/pborman/uuid"
+	"math/rand"
+	"github.com/matrix/go-matrix/consensus"
 )
 
 var (
 	testServs  []testNodeService
-	fullstate  = [30]uint8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-	offState   = [30]uint8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}
+	fullstate  = []uint8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	offState   = []uint8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}
 	dposStocks = make(map[common.Address]uint16)
 	nodeInfo   = make([]NodeOnLineInfo, 11)
 )
 
 type testDPOSEngine struct {
 	dops *mtxdpos.MtxDPOS
+	reader consensus.ValidatorReader
 }
 
 func (tsdpos *testDPOSEngine) VerifyBlock(header *types.Header) error {
-	return tsdpos.dops.VerifyBlock(header)
+	return tsdpos.dops.VerifyBlock(, header)
+}
+
+func (tsdpos *testDPOSEngine) VerifyBlocks(headers []*types.Header) error {
+	return nil
 }
 
 //verify hash in current block
@@ -84,27 +92,38 @@ func (cen *Center) PublishEvent(aim mc.EventCode, data interface{}) error {
 }
 
 type testNodeState struct {
-	self keystore.Key
+	self         keystore.Key
+	electNode    map[common.Address]OnlineState //
+	onlineNode   []common.Address               //
+	offlineNode  []common.Address               //
+	consensusOn  []common.Address
+	consensusOff []common.Address
 }
 
-func newTestNodeState() *testNodeState {
+func newTestNodeState(id int) *testNodeState {
 	key, _ := crypto.GenerateKey()
-	id := uuid.NewRandom()
+	//id := uuid.NewRandom()
 	keystore := keystore.Key{
-		Id:         id,
+		//Id:         id,
 		Address:    crypto.PubkeyToAddress(key.PublicKey),
 		PrivateKey: key,
 	}
-	return &testNodeState{keystore}
+	fmt.Println("id", id, "address", keystore.Address.String())
+	electNode := make(map[common.Address]OnlineState, 0)
+	online := make([]common.Address, 0)
+	offline := make([]common.Address, 0)
+	consensusOn := make([]common.Address, 0)
+	consensusOff := make([]common.Address, 0)
+	return &testNodeState{keystore, electNode, online, offline, consensusOn, consensusOff}
 }
 func (ts *testNodeState) GetTopNodeOnlineState() []NodeOnLineInfo {
 
 	return nodeInfo
 }
-func (ts *testNodeState) SendNodeMsg(msg interface{}, dstRole int, address []common.Address) {
+func (ts *testNodeState) SendNodeMsg(subCode mc.EventCode, msg interface{}, Roles common.RoleType, address []common.Address) {
 	switch msg.(type) {
-	case *mc.OnlineConsensusReqs:
-		data := msg.(*mc.OnlineConsensusReqs)
+	case *mc.HD_OnlineConsensusReqs:
+		data := msg.(*mc.HD_OnlineConsensusReqs)
 		for i := 0; i < len(data.ReqList); i++ {
 			data.ReqList[i].Leader = ts.self.Address
 		}
@@ -115,8 +134,8 @@ func (ts *testNodeState) SendNodeMsg(msg interface{}, dstRole int, address []com
 		//		serv.TN.msgCenter.PublishEvent(mc.HD_TopNodeConsensusReq,data.(*mc.OnlineConsensusReqs))
 	case *mc.HD_OnlineConsensusVotes:
 		data := msg.(*mc.HD_OnlineConsensusVotes)
-		for i := 0; i < len(data.Vote); i++ {
-			data.Vote[i].FromAccount = ts.self.Address
+		for i := 0; i < len(data.Votes); i++ {
+			data.Votes[i].From = ts.self.Address
 		}
 		for _, serv := range testServs {
 			serv.msgChan <- msg
@@ -124,6 +143,15 @@ func (ts *testNodeState) SendNodeMsg(msg interface{}, dstRole int, address []com
 
 		//		testServs[1].msgChan <-msg
 		//		serv.TN.msgCenter.PublishEvent(mc.HD_TopNodeConsensusVote,data.(*mc.HD_OnlineConsensusVotes))
+	case *mc.HD_OnlineConsensusVoteResultMsg:
+		data := msg.(*mc.HD_OnlineConsensusVoteResultMsg)
+		for i := 0; i < len(data.SignList); i++ {
+			data.From = ts.self.Address
+		}
+		for _, serv := range testServs {
+			serv.msgChan <- msg
+		}
+
 	default:
 		for _, serv := range testServs {
 			serv.msgChan <- msg
@@ -135,9 +163,14 @@ func (ts *testNodeState) SendNodeMsg(msg interface{}, dstRole int, address []com
 	//	}
 }
 
-func (ts *testNodeState) SignWithValidate(hash []byte, validate bool) (sig []byte, err error) {
-	return crypto.SignWithValidate(hash, validate, ts.self.PrivateKey)
+func (ts *testNodeState) SignWithValidate(hash []byte, validate bool) (common.Signature, error) {
+	sigByte, err := crypto.SignWithValidate(hash, validate, ts.self.PrivateKey)
+	if err != nil {
+		return common.Signature{}, err
+	}
+	return common.BytesToSignature(sigByte), nil
 }
+
 func (ts *testNodeState) IsSelfAddress(addr common.Address) bool {
 	return ts.self.Address == addr
 }
@@ -150,28 +183,37 @@ type testNodeService struct {
 
 func (serv *testNodeService) getMessageLoop() {
 	for {
+		rand.Seed(time.Now().UnixNano())
+		randNumber := rand.Intn(1000)
 		select {
 		case data := <-serv.msgChan:
+			fmt.Printf("Sleep %d Millisecond\n", randNumber)
+			time.Sleep(time.Duration(randNumber) * time.Millisecond)
+
 			switch data.(type) {
+			case *mc.RoleUpdatedMsg:
+				serv.TN.msgCenter.PublishEvent(mc.CA_RoleUpdated, data.(*mc.RoleUpdatedMsg))
 			case *mc.LeaderChangeNotify:
 				serv.TN.msgCenter.PublishEvent(mc.Leader_LeaderChangeNotify, data.(*mc.LeaderChangeNotify))
-			case *mc.OnlineConsensusReqs:
-				serv.TN.msgCenter.PublishEvent(mc.HD_TopNodeConsensusReq, data.(*mc.OnlineConsensusReqs))
+			case *mc.HD_OnlineConsensusReqs:
+				serv.TN.msgCenter.PublishEvent(mc.HD_TopNodeConsensusReq, data.(*mc.HD_OnlineConsensusReqs))
 			case *mc.HD_OnlineConsensusVotes:
 				serv.TN.msgCenter.PublishEvent(mc.HD_TopNodeConsensusVote, data.(*mc.HD_OnlineConsensusVotes))
+			case *mc.HD_OnlineConsensusVoteResultMsg:
+				serv.TN.msgCenter.PublishEvent(mc.HD_TopNodeConsensusVoteResult, data.(*mc.HD_OnlineConsensusVoteResultMsg))
 			default:
 				log.Error("Type Error", "type", reflect.TypeOf(data))
 			}
 		}
 	}
 }
-func newTestNodeService(testInfo *testNodeState) *TopNodeService {
-	testServ := NewTopNodeService()
+func newTestNodeService(testInfo *testNodeState, id int) *TopNodeService {
+	testDpos := testDPOSEngine{dops: mtxdpos.NewMtxDPOS(nil)}
+	testServ := NewTopNodeService(&testDpos, id)
 	testServ.topNodeState = testInfo
 	testServ.validatorSign = testInfo
 	testServ.msgSender = testInfo
 	testServ.msgCenter = newCenter()
-	testServ.cd = &testDPOSEngine{mtxdpos.NewMtxDPOS(nil)}
 
 	testServ.Start()
 
@@ -184,14 +226,14 @@ func newTestServer() {
 	nodes := make([]common.Address, 11)
 	for i := 0; i < 11; i++ {
 		testServs[i].msgChan = make(chan interface{}, 10)
-		testServs[i].testInfo = newTestNodeState()
-		testServs[i].TN = newTestNodeService(testServs[i].testInfo)
+		testServs[i].testInfo = newTestNodeState(i)
+		testServs[i].TN = newTestNodeService(testServs[i].testInfo, i)
 		nodes[i] = testServs[i].testInfo.self.Address
 		dposStocks[nodes[i]] = 1
 		go testServs[i].getMessageLoop()
 	}
 	for i := 0; i < 11; i++ {
-		testServs[i].TN.stateMap.setElectNodes(nodes)
+		testServs[i].TN.stateMap.setElectNodes(nodes, 10)
 	}
 	for i := 0; i < 11; i++ {
 		nodeInfo[i].Address = testServs[i].testInfo.self.Address
@@ -211,7 +253,14 @@ func setLeader(index int, number uint64, turn uint8) {
 		Number:         number,
 		ReelectTurn:    turn,
 	}
-	serv.TN.msgSender.SendNodeMsg(&leader, 10, nil)
+	roleChange := mc.RoleUpdatedMsg{
+		Leader:   serv.testInfo.self.Address,
+		BlockNum: number,
+		Role:     common.RoleValidator,
+	}
+	serv.TN.msgSender.SendNodeMsg(mc.CA_RoleUpdated, &roleChange, common.RoleValidator, nil)
+
+	serv.TN.msgSender.SendNodeMsg(mc.Leader_LeaderChangeNotify, &leader, common.RoleValidator, nil)
 }
 func TestNewTopNodeService(t *testing.T) {
 	log.InitLog(1)
@@ -223,19 +272,41 @@ func TestNewTopNodeService(t *testing.T) {
 	}
 
 }
+
+func setCurrentOnlineState(id int) {
+	online := make([]common.Address, 0)
+	elect := make([]common.Address, 0)
+	for i := 0; i < 11; i++ {
+		if i != id {
+			online = append(online, nodeInfo[i].Address)
+		}
+		elect = append(elect, nodeInfo[i].Address)
+		fmt.Println("len(online)", len(testServs[i].testInfo.onlineNode))
+		testServs[i].TN.SetCurrentOnlineState(online, elect)
+	}
+}
+
 func TestNewTopNodeServiceRound(t *testing.T) {
 	log.InitLog(1)
 	newTestServer()
 	go func() {
 		setLeader(0, 1, 0)
-		time.Sleep(time.Second)
-		nodeInfo[7].OnlineState = offState
+		time.Sleep(20 * time.Second)
+		//nodeInfo[7].OnlineState = offState
+		//nodeInfo[9].OnlineState = fullstate
+
 		setLeader(1, 2, 0)
+		//setCurrentOnlineState(9)
+		//nodeInfo[9].OnlineState = fullstate
+		time.Sleep(20 * time.Second)
+		//setLeader(2, 3, 0)
+		//time.Sleep(2 * time.Second)
+
 	}()
-	time.Sleep(time.Second * 5)
-	for i := 0; i < 11; i++ {
-		t.Log(testServs[i].TN.stateMap.finishedProposal.DPosVoteS[0].Proposal)
-		t.Log(testServs[i].TN.stateMap.finishedProposal.DPosVoteS[1].Proposal)
-	}
+	time.Sleep(time.Second * 40)
+	//for i := 0; i < 11; i++ {
+	//	t.Log(testServs[i].TN.stateMap.finishedProposal.DPosVoteS[0].Proposal)
+	//	t.Log(testServs[i].TN.stateMap.finishedProposal.DPosVoteS[1].Proposal)
+	//}
 
 }

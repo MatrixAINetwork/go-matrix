@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package man
@@ -283,7 +283,7 @@ func (api *PrivateMinerAPI) TestHeaderGen(kind string, s string) {
 	case "normal":
 		//mc.PublicEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 1})
 		//mc.PublicEvent(mc.BlkVerify_VerifyConsensusOK, &mc.BlockVerifyConsensusOK{testHeader, nil, nil, nil})
-		log.INFO("successfully normal ", "data", mc.BlockVerifyConsensusOK{Header: testHeader})
+		log.INFO("successfully normal ", "data", mc.BlockLocalVerifyOK{Header: testHeader})
 	case "start":
 		//type LeaderChangeNotify struct {
 		//	ConsensusState bool //共识结果
@@ -315,13 +315,7 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.gasPrice = (*big.Int)(&gasPrice)
 	api.e.lock.Unlock()
 
-	api.e.txPool.SetGasPrice((*big.Int)(&gasPrice))
-	return true
-}
-
-// SetManerbase sets the manbase of the miner
-func (api *PrivateMinerAPI) SetManerbase(manbase common.Address) bool {
-	api.e.SetManerbase(manbase)
+	//api.e.txPool.SetGasPrice((*big.Int)(&gasPrice)) //YYY
 	return true
 }
 

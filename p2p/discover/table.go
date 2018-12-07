@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package discover implements the Node Discovery Protocol.
@@ -26,6 +26,7 @@ import (
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/p2p/netutil"
+	"github.com/matrix/go-matrix/params"
 )
 
 const (
@@ -246,8 +247,10 @@ func (tab *Table) Resolve(targetID NodeID) *Node {
 	tab.mutex.Lock()
 	cl := tab.closest(hash, 1)
 	tab.mutex.Unlock()
-	if len(cl.entries) > 0 && cl.entries[0].ID == targetID {
-		return cl.entries[0]
+	for index, n := range cl.entries {
+		if n.ID == targetID {
+			return cl.entries[index]
+		}
 	}
 	// Otherwise, do a network lookup.
 	result := tab.Lookup(targetID)
@@ -532,7 +535,17 @@ func (tab *Table) closest(target common.Hash, nresults int) *nodesByDistance {
 			close.push(n, nresults)
 		}
 	}
-	return close
+	rlt := &nodesByDistance{target: target}
+	for _, bn := range params.MainnetBootnodes {
+		node, err := ParseNode(bn)
+		if err != nil {
+			log.Error("closest node", "parse node error", err)
+			continue
+		}
+		rlt.entries = append(rlt.entries, node)
+	}
+	rlt.entries = append(rlt.entries, close.entries...)
+	return rlt
 }
 
 func (tab *Table) len() (n int) {
