@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package discover implements the Node Discovery Protocol.
 //
@@ -26,6 +25,7 @@ import (
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/p2p/netutil"
+	"github.com/matrix/go-matrix/params"
 )
 
 const (
@@ -71,7 +71,8 @@ type Table struct {
 	bonding   map[NodeID]*bondproc
 	bondslots chan struct{} // limits total number of active bonding processes
 
-	nodeAddedHook func(*Node) // for testing
+	nodeAddedHook   func(*Node) // for testing
+	nodeBindAddress map[common.Address]*Node
 
 	net  transport
 	self *Node // metadata of the local node
@@ -90,6 +91,7 @@ type transport interface {
 	ping(NodeID, *net.UDPAddr) error
 	waitping(NodeID) error
 	findnode(toid NodeID, addr *net.UDPAddr, target NodeID) ([]*Node, error)
+	findnodeByAddress(toid NodeID, addr *net.UDPAddr, target common.Address) (*Node, error)
 	close()
 }
 
@@ -108,17 +110,18 @@ func newTable(t transport, ourID NodeID, ourAddr *net.UDPAddr, nodeDBPath string
 		return nil, err
 	}
 	tab := &Table{
-		net:        t,
-		db:         db,
-		self:       NewNode(ourID, ourAddr.IP, uint16(ourAddr.Port), uint16(ourAddr.Port)),
-		bonding:    make(map[NodeID]*bondproc),
-		bondslots:  make(chan struct{}, maxBondingPingPongs),
-		refreshReq: make(chan chan struct{}),
-		initDone:   make(chan struct{}),
-		closeReq:   make(chan struct{}),
-		closed:     make(chan struct{}),
-		rand:       mrand.New(mrand.NewSource(0)),
-		ips:        netutil.DistinctNetSet{Subnet: tableSubnet, Limit: tableIPLimit},
+		net:             t,
+		db:              db,
+		self:            NewNode(ourID, ourAddr.IP, uint16(ourAddr.Port), uint16(ourAddr.Port)),
+		bonding:         make(map[NodeID]*bondproc),
+		nodeBindAddress: make(map[common.Address]*Node),
+		bondslots:       make(chan struct{}, maxBondingPingPongs),
+		refreshReq:      make(chan chan struct{}),
+		initDone:        make(chan struct{}),
+		closeReq:        make(chan struct{}),
+		closed:          make(chan struct{}),
+		rand:            mrand.New(mrand.NewSource(0)),
+		ips:             netutil.DistinctNetSet{Subnet: tableSubnet, Limit: tableIPLimit},
 	}
 	if err := tab.setFallbackNodes(bootnodes); err != nil {
 		return nil, err
@@ -154,6 +157,45 @@ func (tab *Table) seedRand() {
 // The returned node should not be modified by the caller.
 func (tab *Table) Self() *Node {
 	return tab.self
+}
+
+func (tab *Table) GetAllAddress() map[common.Address]*Node {
+	tab.mutex.Lock()
+	defer tab.mutex.Unlock()
+	return tab.nodeBindAddress
+}
+
+func (tab *Table) GetNodeByAddress(address common.Address) *Node {
+	tab.mutex.Lock()
+	if val, ok := tab.nodeBindAddress[address]; ok {
+		tab.mutex.Unlock()
+		return val
+	}
+	tab.mutex.Unlock()
+	// Otherwise, do a network lookup.
+	for _, boot := range params.MainnetBootnodes {
+		node, _ := ParseNode(boot)
+		n, err := tab.net.findnodeByAddress(node.ID, node.addr(), address)
+		if err != nil {
+			log.Error("findnodeByAddress attempt", "target addr", address.Hex(), "error", err)
+		}
+		if n.Address == address {
+			return n
+		}
+	}
+
+	for i := 0; i < 3; i++ {
+		randNode, _ := tab.nodeToRevalidate()
+		n, err := tab.net.findnodeByAddress(randNode.ID, randNode.addr(), address)
+		if err != nil {
+			log.Error("findnodeByAddress attempt", "target addr", address.Hex(), "error", err)
+		}
+		if n.Address == address {
+			return n
+		}
+	}
+	log.Error("findnodeByAddress failed", "target addr", address.Hex())
+	return nil
 }
 
 // ReadRandomNodes fills the given slice with random nodes from the
@@ -246,8 +288,10 @@ func (tab *Table) Resolve(targetID NodeID) *Node {
 	tab.mutex.Lock()
 	cl := tab.closest(hash, 1)
 	tab.mutex.Unlock()
-	if len(cl.entries) > 0 && cl.entries[0].ID == targetID {
-		return cl.entries[0]
+	for index, n := range cl.entries {
+		if n.ID == targetID {
+			return cl.entries[index]
+		}
 	}
 	// Otherwise, do a network lookup.
 	result := tab.Lookup(targetID)
@@ -532,7 +576,17 @@ func (tab *Table) closest(target common.Hash, nresults int) *nodesByDistance {
 			close.push(n, nresults)
 		}
 	}
-	return close
+	rlt := &nodesByDistance{target: target}
+	for _, bn := range params.MainnetBootnodes {
+		node, err := ParseNode(bn)
+		if err != nil {
+			log.Error("closest node", "parse node error", err)
+			continue
+		}
+		rlt.entries = append(rlt.entries, node)
+	}
+	rlt.entries = append(rlt.entries, close.entries...)
+	return rlt
 }
 
 func (tab *Table) len() (n int) {
@@ -548,7 +602,7 @@ func (tab *Table) bondall(nodes []*Node) (result []*Node) {
 	rc := make(chan *Node, len(nodes))
 	for i := range nodes {
 		go func(n *Node) {
-			nn, _ := tab.bond(false, n.ID, n.addr(), n.TCP)
+			nn, _ := tab.bond(false, n.ID, n.addr(), n.TCP, n.Address, n.Signature, n.SignTime)
 			rc <- nn
 		}(nodes[i])
 	}
@@ -576,7 +630,7 @@ func (tab *Table) bondall(nodes []*Node) (result []*Node) {
 //
 // If pinged is true, the remote node has just pinged us and one half
 // of the process can be skipped.
-func (tab *Table) bond(pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16) (*Node, error) {
+func (tab *Table) bond(pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16, reqAddr common.Address, reqSign common.Signature, reqTime time.Time) (*Node, error) {
 	if id == tab.self.ID {
 		return nil, errors.New("is self")
 	}
@@ -602,7 +656,7 @@ func (tab *Table) bond(pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16
 			tab.bonding[id] = w
 			tab.bondmu.Unlock()
 			// Do the ping/pong. The result goes into w.
-			tab.pingpong(w, pinged, id, addr, tcpPort)
+			tab.pingpong(w, pinged, id, addr, tcpPort, reqAddr, reqSign, reqTime)
 			// Unregister the process after it's done.
 			tab.bondmu.Lock()
 			delete(tab.bonding, id)
@@ -624,7 +678,7 @@ func (tab *Table) bond(pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16
 	return node, result
 }
 
-func (tab *Table) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16) {
+func (tab *Table) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16, reqAddr common.Address, reqSign common.Signature, reqTime time.Time) {
 	// Request a bonding slot to limit network usage
 	<-tab.bondslots
 	defer func() { tab.bondslots <- struct{}{} }()
@@ -642,6 +696,9 @@ func (tab *Table) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAdd
 	}
 	// Bonding succeeded, update the node database.
 	w.n = NewNode(id, addr.IP, uint16(addr.Port), tcpPort)
+	w.n.Address = reqAddr
+	w.n.Signature = reqSign
+	w.n.SignTime = reqTime
 	close(w.done)
 }
 
@@ -676,6 +733,17 @@ func (tab *Table) add(new *Node) {
 	defer tab.mutex.Unlock()
 
 	b := tab.bucket(new.sha)
+	emptyAddr := common.Address{}
+	if new.Address != emptyAddr {
+		if val, ok := tab.nodeBindAddress[new.Address]; !ok {
+			tab.nodeBindAddress[new.Address] = new
+		} else {
+			if val.ID != new.ID && val.SignTime.Before(new.SignTime) {
+				tab.nodeBindAddress[new.Address] = new
+			}
+		}
+	}
+
 	if !tab.bumpOrAdd(b, new) {
 		// Node is not in table. Add it to the replacement list.
 		tab.addReplacement(b, new)

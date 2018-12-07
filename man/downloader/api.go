@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package downloader
 
@@ -110,7 +109,7 @@ func (api *PublicDownloaderAPI) Syncing(ctx context.Context) (*rpc.Subscription,
 
 // SyncingResult provides information about the current synchronisation status for this node.
 type SyncingResult struct {
-	Syncing bool                  `json:"syncing"`
+	Syncing bool                `json:"syncing"`
 	Status  matrix.SyncProgress `json:"status"`
 }
 

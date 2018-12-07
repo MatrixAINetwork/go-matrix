@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package pod
 
@@ -27,6 +26,7 @@ import (
 const (
 	datadirPrivateKey      = "nodekey"            // Path within the datadir to the node's private key
 	datadirDefaultKeyStore = "keystore"           // Path within the datadir to the keystore
+	datadirManSignature    = "signature"          // Path within the datadir to the signature
 	datadirStaticNodes     = "static-nodes.json"  // Path within the datadir to the static node list
 	datadirTrustedNodes    = "trusted-nodes.json" // Path within the datadir to the trusted node list
 	datadirNodeDatabase    = "nodes"              // Path within the datadir to store the node infos
@@ -247,6 +247,7 @@ var isOldGmanResource = map[string]bool{
 	"chaindata":          true,
 	"nodes":              true,
 	"nodekey":            true,
+	"signature":          true,
 	"static-nodes.json":  true,
 	"trusted-nodes.json": true,
 }

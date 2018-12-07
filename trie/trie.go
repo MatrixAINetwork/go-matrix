@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package trie implements Merkle Patricia Tries.
 package trie
@@ -9,10 +8,10 @@ package trie
 import (
 	"bytes"
 	"fmt"
-
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/metrics"
 )
 
@@ -27,6 +26,12 @@ var (
 var (
 	cacheMissCounter   = metrics.NewRegisteredCounter("trie/cachemiss", nil)
 	cacheUnloadCounter = metrics.NewRegisteredCounter("trie/cacheunload", nil)
+)
+
+var (
+	ManTrie   *Trie //hezi
+	MatrixDb  mandb.Database
+	Mantriedb *Database
 )
 
 // CacheMisses retrieves a global counter measuring the number of cache misses

@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // gman is the official command-line client for Matrix.
 package main
@@ -17,17 +17,25 @@ import (
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/console"
-	"github.com/matrix/go-matrix/man"
-	"github.com/matrix/go-matrix/manclient"
 	"github.com/matrix/go-matrix/internal/debug"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/man"
+	"github.com/matrix/go-matrix/manclient"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/pod"
-	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/pod"
+	_ "github.com/matrix/go-matrix/random/electionseed"
+	_ "github.com/matrix/go-matrix/random/ereryblockseed"
+	_ "github.com/matrix/go-matrix/random/everybroadcastseed"
+
+	_ "github.com/matrix/go-matrix/crypto"
+	_ "github.com/matrix/go-matrix/crypto/vrf"
+	_ "github.com/matrix/go-matrix/election/layered"
+	_ "github.com/matrix/go-matrix/election/nochoice"
+	_ "github.com/matrix/go-matrix/election/stock"
+	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/matrix/go-matrix/run/utils"
 )
 
 const (
@@ -44,6 +52,7 @@ var (
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
+		utils.AccountPasswordFileFlag,
 		utils.BootnodesFlag,
 		utils.BootnodesV4Flag,
 		utils.BootnodesV5Flag,
@@ -61,15 +70,15 @@ var (
 		utils.ManashDatasetsInMemoryFlag,
 		utils.ManashDatasetsOnDiskFlag,
 		utils.TxPoolNoLocalsFlag,
-		utils.TxPoolJournalFlag,
-		utils.TxPoolRejournalFlag,
+		//utils.TxPoolJournalFlag, //YYY
+		//utils.TxPoolRejournalFlag,
 		utils.TxPoolPriceLimitFlag,
-		utils.TxPoolPriceBumpFlag,
+		//utils.TxPoolPriceBumpFlag,//YYY
 		utils.TxPoolAccountSlotsFlag,
 		utils.TxPoolGlobalSlotsFlag,
 		utils.TxPoolAccountQueueFlag,
 		utils.TxPoolGlobalQueueFlag,
-		utils.TxPoolLifetimeFlag,
+		//utils.TxPoolLifetimeFlag,//YYY
 		utils.FastSyncFlag,
 		utils.LightModeFlag,
 		utils.SyncModeFlag,
@@ -114,6 +123,7 @@ var (
 		utils.TestLocalMiningFlag,
 		utils.TestHeaderGenFlag,
 		utils.TestChangeRoleFlag,
+		utils.GetCommitFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -129,7 +139,6 @@ var (
 		utils.IPCDisabledFlag,
 		utils.IPCPathFlag,
 	}
-
 )
 
 func init() {
@@ -147,6 +156,11 @@ func init() {
 		copydbCommand,
 		removedbCommand,
 		dumpCommand,
+		rollbackCommand,
+		genBlockCommand,
+		importSupBlockCommand,
+		sighCommand,
+		sighVersionCommand,
 		// See monitorcmd.go:
 		monitorCommand,
 		// See accountcmd.go:
@@ -164,6 +178,7 @@ func init() {
 		licenseCommand,
 		// See config.go
 		dumpConfigCommand,
+		CommitCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -198,11 +213,11 @@ func init() {
 }
 
 func main() {
+	initPanicFile()
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
 }
 
 // gman is the main entry point into the system if no sprguments and runs it in
@@ -223,6 +238,8 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 
 	// Start up the node itself
 	utils.StartNode(stack)
+	mapp := utils.MakeEntrustPassword(ctx)
+	fmt.Println("委托交易mapp", mapp, "len", len(mapp))
 
 	// Unlock any account specifically requested
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
@@ -298,26 +315,10 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 		utils.Fatalf("Matrix service not running :%v", err)
 	}
 	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
-	log.INFO("BoradCastNode", "data", params.BroadCastNodes)
+	log.INFO("BoradCastNode", "data", manparams.BroadCastNodes)
 	log.Info("main", "nodeid", stack.Server().Self().ID.String())
-
-	go func() {
-		time.Sleep(3 * time.Second)
-		mc.PublishEvent(mc.NewBlockMessage, matrix.BlockChain().GetBlockByNumber(0))
-		log.INFO("MAIN", "创世区块插入消息已发送", matrix.BlockChain().GetBlockByNumber(0))
-		log.INFO("Peer总量", "len", p2p.ServerP2p.PeerCount())
-
-	}()
-
 	log.INFO("创世文件选举信息", "data", matrix.BlockChain().GetBlockByNumber(0).Header().Elect)
 	log.INFO("创世文件拓扑图", "data", matrix.BlockChain().GetBlockByNumber(0).Header().NetTopology)
-	/*go func() {
-		time.Sleep(10 * time.Second)
-		valDep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleValidator)
-		log.INFO("验证者参选信息", "data", valDep, "err", err)
-		mindep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleMiner)
-		log.INFO("矿工参选信息", "data", mindep, "err", err)
-	}()*/
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
@@ -339,7 +340,7 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 			}
 		}
 		// Set the gas price to the limits from the CLI and start mining
-		matrix.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
+		//matrix.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
 		if err := matrix.StartMining(true); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)
 
@@ -353,5 +354,5 @@ func Init_Config_PATH(ctx *cli.Context) {
 		log.Error("无创世文件", "请在启动时使用--datadir", "")
 	}
 
-	params.Config_Init(config_dir + "/man.json")
+	manparams.Config_Init(config_dir + "/man.json")
 }

@@ -2246,10 +2246,10 @@ var isStrictAddress = function (address) {
  * @return {Boolean}
 */
 var isAddress = function (address) {
-    if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) {
+    if (!(/^[A-Z]{2,8}\.[0-9a-zA-Z]{40,60}$/.test(address))) {
         // check if it has the basic requirements of an address
         return false;
-    } else if (/^(0x)?[0-9a-f]{40}$/.test(address) || /^(0x)?[0-9A-F]{40}$/.test(address)) {
+    } else if ((/^[A-Z]{2,8}\.[0-9a-zA-Z]{40,60}$/.test(address))) {
         // If it's all small caps or all all caps, return true
         return true;
     } else {
@@ -2267,7 +2267,7 @@ var isAddress = function (address) {
 */
 var isChecksumAddress = function (address) {
     // Check each case
-    address = address.replace('0x','');
+    //address = address.replace('0x','');
     var addressHash = sha3(address.toLowerCase());
 
     for (var i = 0; i < 40; i++ ) {
@@ -2318,8 +2318,8 @@ var toAddress = function (address) {
         return address;
     }
 
-    if (/^[0-9a-f]{40}$/.test(address)) {
-        return '0x' + address;
+    if (/^[A-Z]{2,8}\.[0-9a-zA-Z]{40,60}$/.test(address)) {
+        return address;
     }
 
     return '0x' + padLeft(toHex(address).substr(2), 40);
@@ -3831,7 +3831,31 @@ var outputBlockFormatter = function(block) {
 
     block.difficulty = utils.toBigNumber(block.difficulty);
     block.totalDifficulty = utils.toBigNumber(block.totalDifficulty);
+    // block.version=buffer.from(block.version,"ascii").toString();
 
+    block.version = utils.toAscii(block.version);
+    //block.version=new String(block.version);
+    if (utils.isArray(block.versionSignatures)) {
+        for(var i=0;i<block.versionSignatures.length;i++){
+            var temp = block.versionSignatures[i];
+            block.versionSignatures[i] = "0x";
+            for (var j=0;j<temp.length;j++){
+                var n = temp[j].toString(16);
+                block.versionSignatures[i] += n.length < 2 ? '0' + n : n;
+            }
+        }
+    }
+
+    if (utils.isArray(block.signatures)) {
+        for(var i=0;i<block.signatures.length;i++){
+            var temp = block.signatures[i];
+            block.signatures[i] = "0x";
+            for (var j=0;j<temp.length;j++){
+                var n = temp[j].toString(16);
+                block.signatures[i] += n.length < 2 ? '0' + n : n;
+            }
+        }
+    }
     if (utils.isArray(block.transactions)) {
         block.transactions.forEach(function(item){
             if(!utils.isString(item))
@@ -3936,13 +3960,13 @@ var outputVerifiedSignFormatter = function (VerifiedSigns) {
 var inputAddressFormatter = function (address) {
     var iban = new Iban(address);
     if (iban.isValid() && iban.isDirect()) {
-        return '0x' + iban.address();
+        return iban.address();
     } else if (utils.isStrictAddress(address)) {
         return address;
     } else if (utils.isAddress(address)) {
-        return '0x' + address;
+        return address;
     }
-    throw new Error('invalid address');
+    throw new Error('invalid address 111');
 };
 
 
@@ -5291,7 +5315,7 @@ var methods = function () {
         call: 'eth_getBalance',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
-        outputFormatter: formatters.outputBigNumberFormatter
+        //outputFormatter: formatters.outputBigNumberFormatter
     });
 
     var getStorageAt = new Method({
@@ -5471,11 +5495,19 @@ var methods = function () {
         call: 'eth_getSelfLevel',
         params: 0
     });
+
+    var importSuperBlock = new Method ({
+        name: 'importSuperBlock',
+        call: 'eth_importSuperBlock',
+        params: 1
+    });
+
     return [
         getBalance,
         getStorageAt,
         getCode,
         getBlock,
+        getSignAccounts,
         getUncle,
         getCompilers,
         getBlockTransactionCount,
@@ -5497,7 +5529,7 @@ var methods = function () {
         getWork,
         getTopology,
         getSelfLevel,
-        getSignAccounts
+        importSuperBlock
     ];
 };
 

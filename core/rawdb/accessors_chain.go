@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package rawdb
 
@@ -10,10 +9,13 @@ import (
 	"encoding/binary"
 	"math/big"
 
+	"encoding/json"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/rlp"
+	"github.com/matrix/go-matrix/trie"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -167,6 +169,40 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 	if err := db.Put(key, data); err != nil {
 		log.Crit("Failed to store header", "err", err)
 	}
+}
+
+//hezi
+func WriteMatrixRoot(root common.Hash) {
+	// Write the hash -> number mapping
+	if err := trie.MatrixDb.Put(matrixRootPrefix, root[:]); err != nil {
+		log.Crit("Failed to store hash to number mapping", "err", err)
+	}
+}
+
+func ReadMatrixRoot() common.Hash {
+	// Write the hash -> number mapping
+	if root, err := trie.MatrixDb.Get(matrixRootPrefix); err == nil {
+		return common.BytesToHash(root)
+	}
+	log.INFO("First store hash to number mapping")
+	return common.Hash{}
+}
+
+func SetManTrie(key, value []byte) error {
+	err := trie.ManTrie.TryUpdate(key, value)
+	if err != nil {
+		log.Error("insertManTrie", "TryUpdate", err)
+		return err
+	}
+	root, err := trie.ManTrie.Commit(nil)
+	if err != nil {
+		log.Error("insertManTrie", "Commit err", err)
+		return err
+	}
+
+	trie.Mantriedb.Commit(root, true)
+	WriteMatrixRoot(root)
+	return nil
 }
 
 // DeleteHeader removes all block header data associated with a hash.
@@ -367,4 +403,78 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 		}
 	}
 	return a
+}
+
+//Topology graph
+func HasTopologyGraph(db DatabaseReader, blockHash common.Hash, number uint64) bool {
+	key := append(append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...))
+	if has, err := db.Has(key); !has || err != nil {
+		return false
+	}
+	return true
+}
+
+func ReadTopologyGraph(db DatabaseReader, blockHash common.Hash, number uint64) *mc.TopologyGraph {
+	data, _ := db.Get(append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...))
+	if len(data) == 0 {
+		return nil
+	}
+	graph := new(mc.TopologyGraph)
+	if err := json.Unmarshal(data, &graph); err != nil {
+		log.Error("Invalid topology graph json data", "number", number, "hash", blockHash, "err", err)
+		return nil
+	}
+	return graph
+}
+
+func WriteTopologyGraph(db DatabaseWriter, blockHash common.Hash, number uint64, topologyGraph *mc.TopologyGraph) {
+	bytes, err := json.Marshal(topologyGraph)
+	if err != nil {
+		log.Crit("Failed to encode topology graph", "err", err)
+	}
+
+	key := append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...)
+	if err := db.Put(key, bytes); err != nil {
+		log.Crit("Failed to store topology graph", "err", err)
+	}
+}
+
+func DeleteTopologyGraph(db DatabaseDeleter, blockHash common.Hash, number uint64) {
+	if err := db.Delete(append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...)); err != nil {
+		log.Crit("Failed to delete topology graph", "err", err)
+	}
+}
+
+//Elect Index
+func HasElectIndex(db DatabaseReader, blockHash common.Hash, number uint64) bool {
+	key := append(append(append(electIndexPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...))
+	if has, err := db.Has(key); !has || err != nil {
+		return false
+	}
+	return true
+}
+
+func ReadElectIndex(db DatabaseReader, blockHash common.Hash, number uint64) *ElectIndexData {
+	data, _ := db.Get(append(append(electIndexPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...))
+	if len(data) == 0 {
+		return nil
+	}
+	electIndex := new(ElectIndexData)
+	if err := json.Unmarshal(data, &electIndex); err != nil {
+		log.Error("Invalid elect index json data", "number", number, "hash", blockHash, "err", err)
+		return nil
+	}
+	return electIndex
+}
+
+func WriteElectIndex(db DatabaseWriter, blockHash common.Hash, number uint64, electIndex *ElectIndexData) {
+	bytes, err := json.Marshal(electIndex)
+	if err != nil {
+		log.Crit("Failed to encode elect index", "err", err)
+	}
+
+	key := append(append(electIndexPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...)
+	if err := db.Put(key, bytes); err != nil {
+		log.Crit("Failed to store elect index", "err", err)
+	}
 }

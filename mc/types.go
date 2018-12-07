@@ -1,13 +1,12 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package mc
 
 import (
 	"math/big"
 
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/p2p/discover"
 )
 
 //by hezi //YY 2018-08-18由tx_pool.go转移到此
@@ -18,8 +17,17 @@ const (
 	CallTheRoll = "CallTheRoll"    //点名交易  （广播节点随机连接1000个点）
 )
 
+func ReturnBroadCastType() (bType map[string]bool) {
+	bType = make(map[string]bool)
+	bType[Heartbeat] = true
+	bType[Publickey] = true
+	bType[Privatekey] = true
+	bType[CallTheRoll] = true
+	return bType
+}
+
 type BlockToBucket struct {
-	Ms     []discover.NodeID
+	Ms     []common.Address
 	Height *big.Int
 	Role   common.RoleType
 }

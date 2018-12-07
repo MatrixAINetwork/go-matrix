@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package core
 
@@ -36,7 +35,7 @@ type BlockGen struct {
 	statedb     *state.StateDB
 
 	gasPool  *GasPool
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	receipts []*types.Receipt
 	uncles   []*types.Header
 
@@ -244,6 +243,10 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
+func NewCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *BlockChain, error) {
+	return newCanonical(engine, n, full)
+}
+
 func newCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *BlockChain, error) {
 	var (
 		db      = mandb.NewMemDatabase()

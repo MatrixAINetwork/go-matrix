@@ -1,21 +1,24 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package reelection
 
 import (
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/election"
-	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
-	"github.com/syndtr/goleveldb/leveldb"
 	"sync"
 	"time"
+
+	"errors"
+
+	"github.com/matrix/go-matrix/accounts"
+	"github.com/matrix/go-matrix/baseinterface"
+	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/core"
+	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mandb"
+	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var (
@@ -28,10 +31,10 @@ var (
 	*/
 
 	BroadCastInterval        = common.GetBroadcastInterval()
-	MinerTopGenTiming        = common.GetReElectionInterval() - params.MinerTopologyGenerateUptime
-	MinerNetchangeTiming     = common.GetReElectionInterval() - params.MinerNetChangeUpTime
-	ValidatorTopGenTiming    = common.GetReElectionInterval() - params.VerifyTopologyGenerateUpTime
-	ValidatorNetChangeTiming = common.GetReElectionInterval() - params.VerifyNetChangeUpTime
+	MinerTopGenTiming        = common.GetReElectionInterval() - manparams.MinerTopologyGenerateUpTime
+	MinerNetchangeTiming     = common.GetReElectionInterval() - manparams.MinerNetChangeUpTime
+	ValidatorTopGenTiming    = common.GetReElectionInterval() - manparams.VerifyTopologyGenerateUpTime
+	ValidatorNetChangeTiming = common.GetReElectionInterval() - manparams.VerifyNetChangeUpTime
 	Time_Out_Limit           = 2 * time.Second
 	ChanSize                 = 10
 )
@@ -74,7 +77,7 @@ type ElectReturnInfo struct {
 	BackUpValidator []mc.TopologyNodeInfo
 }
 type ReElection struct {
-	bc  *core.BlockChain //man实例：生成种子时获取一周期区块的最小hash
+	bc  *core.BlockChain //eth实例：生成种子时获取一周期区块的最小hash
 	ldb *leveldb.DB      //本都db数据库
 
 	roleUpdateCh    chan *mc.RoleUpdatedMsg //身份变更信息通道
@@ -90,23 +93,25 @@ type ReElection struct {
 
 	currentID common.RoleType //当前身份
 
-	elect *election.Elector
-	lock  sync.Mutex
+	elect  baseinterface.ElectionInterface
+	random *baseinterface.Random
+	lock   sync.Mutex
 }
 
-func New(bc *core.BlockChain, dbDir string) (*ReElection, error) {
+func New(bc *core.BlockChain, dbDir string, random *baseinterface.Random) (*ReElection, error) {
 	reelection := &ReElection{
 		bc:             bc,
 		roleUpdateCh:   make(chan *mc.RoleUpdatedMsg, ChanSize),
 		minerGenCh:     make(chan *mc.MasterMinerReElectionRsp, ChanSize),
 		validatorGenCh: make(chan *mc.MasterValidatorReElectionRsq, ChanSize),
 		electionSeedCh: make(chan *mc.ElectionEvent, ChanSize),
+		random:         random,
 
 		currentID: common.RoleDefault,
 	}
-	reelection.elect = election.NewEle()
+	reelection.elect = baseinterface.NewElect()
 	var err error
-	dbDir = dbDir + "_reElection"
+	dbDir = dbDir + "/reElection"
 	reelection.ldb, err = leveldb.OpenFile(dbDir, nil)
 	if err != nil {
 		return nil, err
@@ -146,44 +151,66 @@ func (self *ReElection) update() {
 	}
 }
 
-func (self *ReElection) GetTopoChange(height uint64, offline []common.Address) ([]mc.Alternative, error) {
+func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address) ([]mc.Alternative, error) {
+
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		return []mc.Alternative{}, errors.New("根据hash获取高度失败")
+	}
+	height = height + 1
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	if common.IsReElectionNumber(height) {
+		log.INFO(Module, "是换届区块", "无差值")
+		return []mc.Alternative{}, nil
+	}
 
 	log.INFO(Module, "获取拓扑改变 start height", height, "offline", offline)
-	if height <= common.GetReElectionInterval() {
-		log.Error(Module, "小于第一个选举周期返回空的拓扑差值 height", height)
-		return []mc.Alternative{}, nil
-
+	lastHash, err := self.GetHeaderHashByNumber(hash, height-1)
+	if err != nil {
+		log.Error(Module, "根据hash获取高度失败 err", err)
+		return []mc.Alternative{}, err
 	}
-	antive, err := self.readNativeData(height - 1)
+	self.checkUpdateStatus(lastHash)
+	antive, err := self.readNativeData(lastHash)
 	if err != nil {
 		log.Error(Module, "获取上一个高度的初选列表失败 height-1", height-1)
 		return []mc.Alternative{}, err
 	}
 
 	//aim := 0x04 + 0x08
-	TopoGrap, err := GetCurrentTopology(height-1, common.RoleMiner|common.RoleValidator)
+	TopoGrap, err := GetCurrentTopology(lastHash, common.RoleBackupValidator|common.RoleValidator)
 	if err != nil {
 		log.Error(Module, "获取CA当前拓扑图失败 err", err)
 		return []mc.Alternative{}, err
 	}
 
-	Diff := self.TopoUpdate(antive.MasterMiner, antive.BackUpMiner, []mc.TopologyNodeInfo{}, *TopoGrap, offline)
-
-	DiffValidatot := self.TopoUpdate(antive.MasterValidator, antive.BackUpValidator, antive.CandidateValidator, *TopoGrap, offline)
-	log.INFO(Module, "获取拓扑改变 end ", append(Diff, DiffValidatot...))
-	return append(Diff, DiffValidatot...), nil
+	log.Info(Module, "获取拓扑变化 start 上一个高度缓存allNative-M", antive.MasterQ, "B", antive.BackUpQ, "Can", antive.CandidateQ)
+	DiffValidatot := self.TopoUpdate(offline, antive, TopoGrap)
+	log.INFO(Module, "获取拓扑改变 end ", DiffValidatot)
+	return DiffValidatot, nil
 
 }
 
-func (self *ReElection) GetElection(height uint64) (*ElectReturnInfo, error) {
-
-	log.INFO(Module, "GetElection start height", height)
-	if common.IsReElectionNumber(height + params.MinerNetChangeUpTime) {
+func (self *ReElection) GetElection(hash common.Hash) (*ElectReturnInfo, error) {
+	log.INFO(Module, "开始获取选举信息 hash", hash.String())
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		log.Error(Module, "GetElection", "获取hash的高度失败")
+		return nil, err
+	}
+	if common.IsReElectionNumber(height + 1 + manparams.MinerNetChangeUpTime) {
 		log.Error(Module, "是矿工网络生成切换时间点 height", height)
-		heightMiner := height
-		ans, _, err := self.readElectData(common.RoleMiner, heightMiner)
+		MinerHash, err := self.GetHeaderHashByNumber(hash, height+1+manparams.MinerNetChangeUpTime-manparams.MinerTopologyGenerateUpTime)
 		if err != nil {
-			log.ERROR(Module, "获取本地矿工选举信息失败", "miner", "heightminer", heightMiner)
+			return nil, err
+		}
+		if err := self.checkTopGenStatus(MinerHash); err != nil {
+			log.ERROR(Module, "检查top生成出错 err", err)
+		}
+		ans, _, err := self.readElectData(common.RoleMiner, MinerHash)
+		if err != nil {
+			log.ERROR(Module, "获取本地矿工选举信息失败", "miner", "heightminer", height+manparams.MinerNetChangeUpTime)
 			return nil, err
 		}
 		resultM := &ElectReturnInfo{
@@ -191,12 +218,18 @@ func (self *ReElection) GetElection(height uint64) (*ElectReturnInfo, error) {
 			BackUpMiner: ans.BackUpMiner,
 		}
 		return resultM, nil
-	} else if common.IsReElectionNumber(height + params.VerifyNetChangeUpTime) {
+	} else if common.IsReElectionNumber(height + 1 + manparams.VerifyNetChangeUpTime) {
 		log.Error(Module, "是验证者网络切换时间点 height", height)
-		heightValidator := height
-		_, ans, err := self.readElectData(common.RoleValidator, heightValidator)
+		ValidatorHash, err := self.GetHeaderHashByNumber(hash, height+1+manparams.VerifyNetChangeUpTime-manparams.VerifyTopologyGenerateUpTime)
 		if err != nil {
-			log.ERROR(Module, "获取本地验证者选举信息失败", "miner", "heightValidator", heightValidator)
+			return nil, err
+		}
+		if err := self.checkTopGenStatus(ValidatorHash); err != nil {
+			log.ERROR(Module, "检查top生成出错 err", err)
+		}
+		_, ans, err := self.readElectData(common.RoleValidator, ValidatorHash)
+		if err != nil {
+			log.ERROR(Module, "获取本地验证者选举信息失败", "miner", "heightValidator", height+manparams.VerifyNetChangeUpTime)
 			return nil, err
 		}
 		resultV := &ElectReturnInfo{
@@ -210,4 +243,54 @@ func (self *ReElection) GetElection(height uint64) (*ElectReturnInfo, error) {
 	temp := &ElectReturnInfo{}
 	return temp, nil
 
+}
+
+func (self *ReElection) GetNetTopologyAll(hash common.Hash) (*ElectReturnInfo, error) {
+
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		return nil, err
+	}
+	if common.IsReElectionNumber(height + 2) {
+		heightMiner := height + 2 - manparams.MinerTopologyGenerateUpTime
+		MinerHash, err := self.GetHeaderHashByNumber(hash, heightMiner)
+		if err != nil {
+			return nil, err
+		}
+		if err := self.checkTopGenStatus(MinerHash); err != nil {
+			log.ERROR(Module, "检查top生成出错 err", err)
+		}
+		ans, _, err := self.readElectData(common.RoleMiner, MinerHash)
+		if err != nil {
+			return nil, err
+		}
+
+		heightValidator := height + 2 - manparams.VerifyTopologyGenerateUpTime
+		ValidatorHash, err := self.GetHeaderHashByNumber(hash, heightValidator)
+		if err != nil {
+			return nil, err
+		}
+		if err := self.checkTopGenStatus(ValidatorHash); err != nil {
+			log.ERROR(Module, "检查top生成出错 err", err)
+		}
+		_, ans1, err := self.readElectData(common.RoleValidator, ValidatorHash)
+		if err != nil {
+			return nil, err
+		}
+		result := &ElectReturnInfo{
+			MasterMiner:     ans.MasterMiner,
+			BackUpMiner:     ans.BackUpMiner,
+			MasterValidator: ans1.MasterValidator,
+			BackUpValidator: ans1.BackUpValidator,
+		}
+		return result, nil
+
+	}
+	result := &ElectReturnInfo{
+		MasterMiner:     make([]mc.TopologyNodeInfo, 0),
+		BackUpMiner:     make([]mc.TopologyNodeInfo, 0),
+		MasterValidator: make([]mc.TopologyNodeInfo, 0),
+		BackUpValidator: make([]mc.TopologyNodeInfo, 0),
+	}
+	return result, nil
 }

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package keystore
 
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/matrix/go-matrix/accounts"
+	"github.com/matrix/go-matrix/base58"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"gopkg.in/fatih/set.v0"
@@ -247,14 +247,16 @@ func (ac *accountCache) scanAccounts() error {
 		// Parse the address.
 		key.Address = ""
 		err = json.NewDecoder(buf).Decode(&key)
-		addr := common.HexToAddress(key.Address)
+		//addr := common.HexToAddress(key.Address)//需修改
+		strAddr := key.Address
+		addr := base58.Base58DecodeToAddress(strAddr)
 		switch {
 		case err != nil:
 			log.Debug("Failed to decode keystore key", "path", path, "err", err)
 		case (addr == common.Address{}):
 			log.Debug("Failed to decode keystore key", "path", path, "err", "missing or zero address")
 		default:
-			return &accounts.Account{Address: addr, URL: accounts.URL{Scheme: KeyStoreScheme, Path: path}}
+			return &accounts.Account{Address: addr, ManAddress: strAddr, URL: accounts.URL{Scheme: KeyStoreScheme, Path: path}}
 		}
 		return nil
 	}

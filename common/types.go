@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package common
 
@@ -31,8 +30,25 @@ var (
 	addressT = reflect.TypeOf(Address{})
 )
 
+const (
+	MainAccount     = iota //主账户
+	FreezeAccount          //冻结账户
+	LockAccount            //锁仓账户
+	WithdrawAccount        //可撤销账户
+	EntrustAccount         //委托账户
+)
+
+var LastAccount uint32 = EntrustAccount //必须赋值最后一个账户
+
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte
+
+//hezi账户属性定义
+type BalanceSlice struct {
+	AccountType uint32
+	Balance     *big.Int
+}
+type BalanceType []BalanceSlice
 
 func BytesToHash(b []byte) Hash {
 	var h Hash
@@ -141,6 +157,11 @@ func BytesToAddress(b []byte) Address {
 	a.SetBytes(b)
 	return a
 }
+
+func HashToAddress(hash Hash) Address {
+	return BytesToAddress(hash[11:])
+}
+
 func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
 func HexToAddress(s string) Address   { return BytesToAddress(FromHex(s)) }
 
@@ -336,11 +357,37 @@ type VerifiedSign struct {
 	Stock    uint16    `json:"stock"`
 }
 
+type VerifiedSign1 struct {
+	Sign     Signature `json:"sign"`
+	Account  string    `json:"account"`
+	Validate bool      `json:"validate"`
+	Stock    uint16    `json:"stock"`
+}
+
 //
 type Elect struct {
 	Account Address
 	Stock   uint16
 	Type    ElectRoleType
+}
+
+//hezi
+type Elect1 struct {
+	Account string
+	Stock   uint16
+	Type    ElectRoleType
+}
+
+//hezi
+type NetTopology1 struct {
+	Type            uint8
+	NetTopologyData []NetTopologyData1
+}
+
+//hezi
+type NetTopologyData1 struct {
+	Account  string
+	Position uint16
 }
 
 const (
@@ -361,4 +408,86 @@ const (
 type NetTopology struct {
 	Type            uint8
 	NetTopologyData []NetTopologyData
+}
+type RewarTx struct {
+	CoinType string
+	Fromaddr Address
+	To_Amont map[Address]*big.Int
+}
+
+const (
+	StateDBRevocableBtree string = "RevcBTree"
+	StateDBTimeBtree      string = "TimeBtree"
+)
+
+var (
+	BlkMinerRewardAddress     Address = HexToAddress("0x8000000000000000000000000000000000000000") //区块奖励
+	BlkValidatorRewardAddress Address = HexToAddress("0x8000000000000000000000000000000000000001") //leader奖励
+	TxGasRewardAddress        Address = HexToAddress("0x8000000000000000000000000000000000000002") //交易费
+	LotteryRewardAddress      Address = HexToAddress("0x8000000000000000000000000000000000000003") //彩票
+)
+
+const (
+	//byte can not be 1,because 1 is occupied
+	ExtraNormalTxType  byte = 0   //普通交易
+	ExtraBroadTxType   byte = 1   //广播交易(内部交易，钱包无用)
+	ExtraUnGasTxType   byte = 2   //无gas的奖励交易(内部交易，钱包无用)
+	ExtraRevocable     byte = 3   //可撤销的交易
+	ExtraRevertTxType  byte = 4   //撤销交易
+	ExtraAuthTx        byte = 5   //授权委托
+	ExtraCancelEntrust byte = 6   //取消委托
+	ExtraTimeTxType    byte = 7   //定时交易
+	ExtraAItxType      byte = 8   //AI 交易
+	ExtraSuperBlockTx  byte = 120 //超级区块交易
+)
+
+type TxTypeInt uint8
+type RetCallTxN struct {
+	TXt   byte
+	ListN []uint32
+}
+type AddrAmont struct {
+	Addr  Address
+	Amont *big.Int
+}
+
+type RecorbleTx struct {
+	From Address
+	Adam []AddrAmont
+	Tim  uint32
+}
+
+type EntrustType struct {
+	//委托地址
+	EntrustAddres string //被委托人from
+	//委托权限
+	IsEntrustGas  bool //委托gas
+	IsEntrustSign bool //委托签名
+
+	//委托限制
+	StartHeight uint64 //委托起始时间
+	EndHeight   uint64 //委托结束时间
+}
+
+type EntrustType1 struct {
+	//委托地址
+	EntrustAddres Address //被委托人from
+	//委托权限
+	IsEntrustGas  bool //委托gas
+	IsEntrustSign bool //委托签名
+	//IsEntrustTx     bool	//委托交易（取消）
+	//委托限制
+	//PeerMaxAmount   *big.Int //单笔金额(取消)
+	//TotalAmount     *big.Int //总额(取消)
+	StartHeight uint64 //委托起始时间
+	EndHeight   uint64 //委托结束时间
+	//EntrustCount    uint32   //委托次数(取消)
+}
+
+type AuthType struct {
+	AuthAddres    Address //授权人from
+	IsEntrustGas  bool    //委托gas
+	IsEntrustSign bool    //委托签名
+	StartHeight   uint64  //委托起始时间
+	EndHeight     uint64  //委托结束时间
 }

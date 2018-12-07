@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package p2p
 
@@ -24,13 +23,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/snappy"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/crypto/ecies"
 	"github.com/matrix/go-matrix/crypto/secp256k1"
 	"github.com/matrix/go-matrix/crypto/sha3"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/rlp"
-	"github.com/golang/snappy"
 )
 
 const (

@@ -1,10 +1,9 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package msgsend
 
 import (
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
@@ -62,16 +61,10 @@ func (self *HD) SendNodeMsg(subCode mc.EventCode, msg interface{}, Roles common.
 	} else {
 		log.INFO("SendToSignal", "total address count", len(nodes), "SubCode", subCode)
 		for _, addr := range nodes {
-			sendNode, err := ca.ConvertAddressToNodeId(addr)
-			if err != nil {
-				log.ERROR("SendToSignal", "ConvertAddressToNodeId err", err, "address", addr.Hex())
-				continue
-			}
-			log.INFO("SendToSignal", "address", addr.Hex(), "node id", sendNode)
 			go func() {
-				err := p2p.SendToSingle(sendNode, common.AlgorithmMsg, sendData)
+				err := p2p.SendToSingle(addr, common.AlgorithmMsg, sendData)
 				if err != nil {
-					log.ERROR("SendToSignal", "address", addr.Hex(), "node id", sendNode, "err", err)
+					log.ERROR("SendToSignal", "address", addr.Hex(), "err", err)
 				}
 			}()
 		}

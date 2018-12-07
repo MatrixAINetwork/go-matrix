@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
@@ -16,17 +16,19 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
+	"time"
 )
 
 type State uint16
 
 const (
 	StateIdle State = iota
+	StateBlockBroadcast
 	StateHeaderGen
 	StateMinerResultVerify
-	StateBlockBroadcast
-	StateSleep
+	StateBlockInsert
 	StateEnd
 )
 
@@ -34,14 +36,14 @@ func (s State) String() string {
 	switch s {
 	case StateIdle:
 		return "未运行状态"
+	case StateBlockBroadcast:
+		return "区块广播阶段"
 	case StateHeaderGen:
 		return "验证请求生成阶段"
 	case StateMinerResultVerify:
 		return "矿工结果验证阶段"
-	case StateBlockBroadcast:
-		return "区块广播阶段"
-	case StateSleep:
-		return "休眠状态"
+	case StateBlockInsert:
+		return "区块插入阶段"
 	case StateEnd:
 		return "完成状态"
 	default:
@@ -50,35 +52,41 @@ func (s State) String() string {
 }
 
 type Process struct {
-	mu                sync.Mutex
-	curLeader         common.Address
-	nextLeader        common.Address
-	preBlockHash      common.Hash
-	number            uint64
-	role              common.RoleType
-	state             State
-	pm                *ProcessManage
-	powPool           *PowPool
-	broadcastRstCache []*mc.BlockData
-	consensusBlock    *mc.BlockVerifyConsensusOK
-	genBlockData      *mc.BlockVerifyConsensusOK
-	insertBlockHash   []common.Hash
+	mu                 sync.Mutex
+	curLeader          common.Address
+	nextLeader         common.Address
+	consensusTurn      uint32
+	preBlockHash       common.Hash
+	number             uint64
+	role               common.RoleType
+	state              State
+	pm                 *ProcessManage
+	powPool            *PowPool
+	broadcastRstCache  []*mc.BlockData
+	blockCache         *blockCache
+	insertBlockHash    []common.Hash
+	FullBlockReqCache  *common.ReuseMsgController
+	consensusReqSender *common.ResendMsgCtrl
+	minerPickTimer     *time.Timer
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
 	p := &Process{
-		curLeader:         common.Address{},
-		nextLeader:        common.Address{},
-		preBlockHash:      common.Hash{},
-		insertBlockHash:   make([]common.Hash, 0),
-		number:            number,
-		role:              common.RoleNil,
-		state:             StateIdle,
-		pm:                pm,
-		powPool:           NewPowPool("矿工结果池(高度)" + strconv.Itoa(int(number))),
-		broadcastRstCache: make([]*mc.BlockData, 0),
-		consensusBlock:    nil,
-		genBlockData:      nil,
+		curLeader:          common.Address{},
+		nextLeader:         common.Address{},
+		consensusTurn:      0,
+		preBlockHash:       common.Hash{},
+		insertBlockHash:    make([]common.Hash, 0),
+		number:             number,
+		role:               common.RoleNil,
+		state:              StateIdle,
+		pm:                 pm,
+		powPool:            NewPowPool("矿工结果池(高度)" + strconv.Itoa(int(number))),
+		broadcastRstCache:  make([]*mc.BlockData, 0),
+		blockCache:         newBlockCache(),
+		FullBlockReqCache:  common.NewReuseMsgController(3),
+		consensusReqSender: nil,
+		minerPickTimer:     nil,
 	}
 
 	return p
@@ -88,25 +96,20 @@ func (p *Process) StartRunning(role common.RoleType) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.role = role
-	p.changeState(StateHeaderGen)
-	p.startHeaderGen()
+	p.changeState(StateBlockBroadcast)
+	p.startBcBlock()
 }
 
 func (p *Process) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.state = StateIdle
-	p.consensusBlock = nil
-	p.genBlockData = nil
 	p.curLeader = common.Address{}
 	p.nextLeader = common.Address{}
+	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
-}
-
-func (p *Process) Sleep() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.state = StateSleep
+	p.closeConsensusReqSender()
+	p.stopMinerPikerTimer()
 }
 
 func (p *Process) ReInit() {
@@ -115,12 +118,13 @@ func (p *Process) ReInit() {
 	if p.checkState(StateIdle) {
 		return
 	}
-	p.state = StateHeaderGen
-	p.consensusBlock = nil
-	p.genBlockData = nil
+	p.state = StateBlockBroadcast
 	p.curLeader = common.Address{}
 	p.nextLeader = common.Address{}
+	p.consensusTurn = 0
 	p.preBlockHash = common.Hash{}
+	p.closeConsensusReqSender()
+	p.stopMinerPikerTimer()
 }
 
 func (p *Process) ReInitNextLeader() {
@@ -129,26 +133,27 @@ func (p *Process) ReInitNextLeader() {
 	p.nextLeader = common.Address{}
 }
 
-func (p *Process) SetCurLeader(leader common.Address) {
+func (p *Process) SetCurLeader(leader common.Address, consensusTurn uint32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.curLeader == leader {
+	if p.curLeader == leader && p.consensusTurn == consensusTurn {
 		return
 	}
 	p.curLeader = leader
+	p.consensusTurn = consensusTurn
+	p.closeConsensusReqSender()
+	p.stopMinerPikerTimer()
 	log.INFO(p.logExtraInfo(), "process设置当前leader成功", p.curLeader.Hex(), "高度", p.number)
 	if p.checkState(StateIdle) {
 		return
 	}
-	p.state = StateHeaderGen
-	p.consensusBlock = nil
-	p.genBlockData = nil
+	p.state = StateBlockBroadcast
 	p.nextLeader = common.Address{}
 	p.preBlockHash = common.Hash{}
-	p.startHeaderGen()
+	p.startBcBlock()
 }
 
-func (p *Process) SetNextLeader(leader common.Address) {
+func (p *Process) SetNextLeader(preLeader common.Address, leader common.Address) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.nextLeader == leader {
@@ -156,25 +161,19 @@ func (p *Process) SetNextLeader(leader common.Address) {
 	}
 	p.nextLeader = leader
 	log.INFO(p.logExtraInfo(), "process设置next leader成功", p.nextLeader.Hex(), "高度", p.number)
-	if p.state < StateBlockBroadcast {
+	if p.state < StateBlockInsert {
 		return
 	}
-	p.processSendBlock()
+	p.processBlockInsert(preLeader)
 }
 
-func (p *Process) AddPreBlockInfo(preBlock *mc.PreBlockBroadcastFinished) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.preBlockHash = preBlock.BlockHash
-	p.startHeaderGen()
-}
 func (p *Process) AddInsertBlockInfo(blockInsert *mc.HD_BlockInsertNotify) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	p.startBlockInsert(blockInsert)
 }
+
 func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 	blockHash := blkInsertMsg.Header.Hash()
 	log.INFO(p.logExtraInfo(), "区块插入", "启动", "block hash", blockHash.TerminalString())
@@ -197,18 +196,17 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 			return
 		}
 
-		if role, _ := ca.GetAccountOriginalRole(signAccount, p.number-1); common.RoleBroadcast != role {
+		if role, _ := ca.GetAccountOriginalRole(signAccount, p.preBlockHash); common.RoleBroadcast != role {
 			log.ERROR(p.logExtraInfo(), "广播区块插入消息非法，签名人别是广播身份, role", role.String())
 			return
 		}
 		log.Info(p.logExtraInfo(), "开始插入", "广播区块")
 	} else {
-		if err := p.dposEngine().VerifyBlock(header); err != nil {
+		if err := p.dposEngine().VerifyBlock(p.blockChain(), header); err != nil {
 			log.ERROR(p.logExtraInfo(), "区块插入消息DPOS共识失败", err)
 			return
 		}
 
-		//todo 不是原始难度的结果，需要修改POW seal验证过程
 		if err := p.engine().VerifySeal(p.blockChain(), header); err != nil {
 			log.ERROR(p.logExtraInfo(), "区块插入消息POW验证失败", err)
 			return
@@ -216,12 +214,48 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 		log.Info(p.logExtraInfo(), "开始插入", "普通区块")
 	}
 
-	if _, err := p.insertAndBcBlock(false, header); err != nil {
+	if _, err := p.insertAndBcBlock(false, header.Leader, header); err != nil {
 		log.INFO(p.logExtraInfo(), "区块插入失败, err", err, "fetch 高度", p.number, "fetch hash", blockHash.TerminalString())
 		p.backend().FetcherNotify(blockHash, p.number)
 	}
 
 	p.saveInsertedBlockHash(blockHash)
+}
+
+func (p *Process) startBcBlock() {
+	if p.checkState(StateBlockBroadcast) == false {
+		log.WARN(p.logExtraInfo(), "准备向验证者和广播节点广播区块，状态错误", p.state.String(), "区块高度", p.number-1)
+		return
+	}
+
+	if p.canBcBlock() == false {
+		return
+	}
+
+	header := p.blockChain().GetHeaderByNumber(p.number - 1)
+	if p.number != 1 { //todo 不好理解
+		log.INFO(p.logExtraInfo(), "开始广播区块, 高度", p.number-1, "block hash", header.Hash())
+		p.pm.hd.SendNodeMsg(mc.HD_NewBlockInsert, &mc.HD_BlockInsertNotify{Header: header}, common.RoleValidator|common.RoleBroadcast, nil)
+	}
+	p.preBlockHash = header.Hash()
+	p.state = StateHeaderGen
+	p.startHeaderGen()
+}
+
+func (p *Process) canBcBlock() bool {
+	switch p.role {
+	case common.RoleBroadcast:
+		return true
+	case common.RoleValidator:
+		if (p.curLeader == common.Address{}) {
+			log.WARN(p.logExtraInfo(), "广播区块阶段", "当前leader为空，等待leader消息", "高度", p.number)
+			return false
+		}
+	default:
+		log.ERROR(p.logExtraInfo(), "广播区块阶段, 错误的身份", p.role.String(), "高度", p.number)
+		return false
+	}
+	return true
 }
 
 func (p *Process) startHeaderGen() {
@@ -242,7 +276,7 @@ func (p *Process) startHeaderGen() {
 	}
 
 	p.state = StateMinerResultVerify
-	p.processMinerResultVerify()
+	p.processMinerResultVerify(p.curLeader, true)
 }
 
 func (p *Process) canGenHeader() bool {
@@ -251,14 +285,14 @@ func (p *Process) canGenHeader() bool {
 		if false == common.IsBroadcastNumber(p.number) {
 			log.INFO(p.logExtraInfo(), "广播身份，当前不是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify()
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 	case common.RoleValidator:
 		if common.IsBroadcastNumber(p.number) {
 			log.INFO(p.logExtraInfo(), "验证者身份，当前是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify()
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 
@@ -270,7 +304,7 @@ func (p *Process) canGenHeader() bool {
 		if p.curLeader != ca.GetAddress() {
 			log.INFO(p.logExtraInfo(), "自己不是当前leader，进入挖矿结果验证阶段, 高度", p.number, "self", ca.GetAddress().Hex(), "leader", p.curLeader.Hex())
 			p.state = StateMinerResultVerify
-			p.processMinerResultVerify()
+			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 
@@ -306,6 +340,23 @@ func (p *Process) saveInsertedBlockHash(blockHash common.Hash) {
 	p.insertBlockHash = append(p.insertBlockHash, blockHash)
 }
 
+func (p *Process) startMinerPikerTimer(outTime int64) {
+	if p.minerPickTimer != nil {
+		return
+	}
+	log.INFO(p.logExtraInfo(), "开启minerPickTimer,时间", outTime, "高度", p.number)
+	p.minerPickTimer = time.AfterFunc(time.Duration(outTime)*time.Second, func() {
+		p.minerPickTimeout()
+	})
+}
+
+func (p *Process) stopMinerPikerTimer() {
+	if nil != p.minerPickTimer {
+		p.minerPickTimer.Stop()
+		p.minerPickTimer = nil
+	}
+}
+
 func (p *Process) logExtraInfo() string {
 	return p.pm.logExtraInfo()
 }
@@ -316,12 +367,14 @@ func (p *Process) engine() consensus.Engine { return p.pm.engine }
 
 func (p *Process) dposEngine() consensus.DPOSEngine { return p.pm.dposEngine }
 
-func (p *Process) txPool() *core.TxPool { return p.pm.txPool }
+func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //YYY
 
 func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 
 func (p *Process) eventMux() *event.TypeMux { return p.pm.matrix.EventMux() }
 
 func (p *Process) reElection() *reelection.ReElection { return p.pm.reElection }
+
+func (p *Process) topNode() *olconsensus.TopNodeService { return p.pm.olConsensus }
 
 func (p *Process) backend() Backend { return p.pm.matrix }

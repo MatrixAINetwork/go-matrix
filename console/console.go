@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package console
 
@@ -126,7 +125,7 @@ func (c *Console) init(preload []string) error {
 	}
 	flatten := "var man = web3.man; var personal = web3.personal; "
 	for api := range apis {
-		if api == "web3"|| api == "man" {
+		if api == "web3" || api == "man" {
 			continue // manually mapped or ignore
 		}
 		if file, ok := web3ext.Modules[api]; ok {

@@ -1,13 +1,10 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package state
 
 import (
-	"math/big"
-
 	"github.com/matrix/go-matrix/common"
 )
 
@@ -82,15 +79,17 @@ type (
 		prev *stateObject
 	}
 	suicideChange struct {
-		account     *common.Address
-		prev        bool // whether account had already suicided
-		prevbalance *big.Int
+		account *common.Address
+		prev    bool // whether account had already suicided
+		//prevbalance *big.Int
+		prevbalance common.BalanceType
 	}
 
 	// Changes to individual accounts.
 	balanceChange struct {
 		account *common.Address
-		prev    *big.Int
+		//prev    *big.Int
+		prev common.BalanceType
 	}
 	nonceChange struct {
 		account *common.Address
@@ -99,6 +98,11 @@ type (
 	storageChange struct {
 		account       *common.Address
 		key, prevalue common.Hash
+	}
+	storageByteArrayChange struct {
+		account  *common.Address
+		key      common.Hash
+		prevalue []byte
 	}
 	codeChange struct {
 		account            *common.Address
@@ -114,6 +118,14 @@ type (
 	}
 	addPreimageChange struct {
 		hash common.Hash
+	}
+	addMatrixDataChange struct {
+		hash common.Hash
+	}
+	addBtreeChange struct {
+		typ string
+		key uint32
+		//hash common.Hash
 	}
 	touchChange struct {
 		account   *common.Address
@@ -143,7 +155,10 @@ func (ch suicideChange) revert(s *StateDB) {
 	obj := s.getStateObject(*ch.account)
 	if obj != nil {
 		obj.suicided = ch.prev
-		obj.setBalance(ch.prevbalance)
+		//obj.setBalance(ch.prevbalance)
+		for _, tAccount := range ch.prevbalance {
+			obj.setBalance(tAccount.AccountType, tAccount.Balance)
+		}
 	}
 }
 
@@ -161,7 +176,10 @@ func (ch touchChange) dirtied() *common.Address {
 }
 
 func (ch balanceChange) revert(s *StateDB) {
-	s.getStateObject(*ch.account).setBalance(ch.prev)
+	//s.getStateObject(*ch.account).setBalance(ch.prev)
+	for _, tAccount := range ch.prev {
+		s.getStateObject(*ch.account).setBalance(tAccount.AccountType, tAccount.Balance)
+	}
 }
 
 func (ch balanceChange) dirtied() *common.Address {
@@ -192,6 +210,14 @@ func (ch storageChange) dirtied() *common.Address {
 	return ch.account
 }
 
+func (ch storageByteArrayChange) dirtied() *common.Address {
+	return ch.account
+}
+
+func (ch storageByteArrayChange) revert(s *StateDB) {
+	s.getStateObject(*ch.account).setStateByteArray(ch.key, ch.prevalue)
+}
+
 func (ch refundChange) revert(s *StateDB) {
 	s.refund = ch.prev
 }
@@ -219,5 +245,28 @@ func (ch addPreimageChange) revert(s *StateDB) {
 }
 
 func (ch addPreimageChange) dirtied() *common.Address {
+	return nil
+}
+
+func (ch addMatrixDataChange) revert(s *StateDB) {
+	delete(s.matrixData, ch.hash)
+}
+
+func (ch addMatrixDataChange) dirtied() *common.Address {
+	return nil
+}
+
+func (ch addBtreeChange) revert(s *StateDB) {
+	tm := make([]BtreeDietyStruct, 0)
+	for _, bt := range s.btreeMap {
+		if bt.Key == ch.key && bt.Typ == ch.typ {
+			continue
+		}
+		tm = append(tm, BtreeDietyStruct{bt.Key, bt.Data, bt.Typ})
+	}
+	s.btreeMap = tm
+}
+
+func (ch addBtreeChange) dirtied() *common.Address {
 	return nil
 }

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package p2p implements the Matrix p2p network protocols.
 package p2p
@@ -131,6 +130,15 @@ type Config struct {
 
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
+
+	// NetWorkId
+	NetWorkId uint64
+
+	// ManAddress
+	ManAddress  common.Address
+	ManPassword string
+	Signature   common.Signature
+	SignTime    time.Time
 }
 
 // Server manages all peer connections.
@@ -263,6 +271,24 @@ func (srv *Server) Peers() []*Peer {
 	return ps
 }
 
+func (srv *Server) ConvertAddressToId(addr common.Address) discover.NodeID {
+	bindAddress := srv.ntab.GetAllAddress()
+	if node, ok := bindAddress[addr]; ok {
+		return node.ID
+	}
+	return discover.NodeID{}
+}
+
+func (srv *Server) ConvertIdToAddress(id discover.NodeID) common.Address {
+	bindAddress := srv.ntab.GetAllAddress()
+	for _, node := range bindAddress {
+		if node.ID == id {
+			return node.Address
+		}
+	}
+	return common.Address{}
+}
+
 // PeerCount returns the number of connected peers.
 func (srv *Server) PeerCount() int {
 	var count int
@@ -284,8 +310,32 @@ func (srv *Server) AddPeer(node *discover.Node) {
 	}
 }
 
+func (srv *Server) AddPeerByAddress(addr common.Address) {
+	node := srv.ntab.GetNodeByAddress(addr)
+	if node == nil {
+		srv.log.Error("add peer by address failed, node info not found")
+		return
+	}
+	select {
+	case srv.addstatic <- node:
+	case <-srv.quit:
+	}
+}
+
 // RemovePeer disconnects from the given node
 func (srv *Server) RemovePeer(node *discover.Node) {
+	select {
+	case srv.removestatic <- node:
+	case <-srv.quit:
+	}
+}
+
+func (srv *Server) RemovePeerByAddress(addr common.Address) {
+	node := srv.ntab.GetNodeByAddress(addr)
+	if node == nil {
+		srv.log.Error("delete peer by address failed, node info not found")
+		return
+	}
 	select {
 	case srv.removestatic <- node:
 	case <-srv.quit:
@@ -407,13 +457,13 @@ func (srv *Server) Start() (err error) {
 	srv.peerOpDone = make(chan struct{})
 
 	var (
-		conn      *net.UDPConn
+		conn *net.UDPConn
 		//sconn     *sharedUDPConn
 		realaddr  *net.UDPAddr
 		unhandled chan discover.ReadPacket
 	)
 
-	if !srv.NoDiscovery /*|| srv.DiscoveryV5 */{
+	if !srv.NoDiscovery /*|| srv.DiscoveryV5 */ {
 		addr, err := net.ResolveUDPAddr("udp", srv.ListenAddr)
 		if err != nil {
 			return err
@@ -448,6 +498,10 @@ func (srv *Server) Start() (err error) {
 			NetRestrict:  srv.NetRestrict,
 			Bootnodes:    srv.BootstrapNodes,
 			Unhandled:    unhandled,
+			NetWorkId:    srv.NetWorkId,
+			Address:      srv.ManAddress,
+			Signature:    srv.Signature,
+			SignTime:     srv.SignTime,
 		}
 		ntab, err := discover.ListenUDP(conn, cfg)
 		if err != nil {

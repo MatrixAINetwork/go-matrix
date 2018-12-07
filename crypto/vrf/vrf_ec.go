@@ -1,34 +1,6 @@
-/*
- * Copyright (C) 2018 The ontology Authors
- * This file is part of The ontology library.
- *
- * The ontology is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * The ontology is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
- */
-
-// Copyright 2016 Google Inc. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package vrf
 
@@ -119,13 +91,13 @@ func Evaluate(pri *ecdsa.PrivateKey, h hash.Hash, m []byte) (index [32]byte, pro
 	Hx, Hy := hashToCurve(curve, h, buf.Bytes())
 
 	// VRF_pri(m) = [pri]H
-	sHx, sHy := params.ScalarMult(Hx, Hy, pri.D.Bytes())
+	sHx, sHy := curve.ScalarMult(Hx, Hy, pri.D.Bytes())
 	vrf := elliptic.Marshal(curve, sHx, sHy) // 2*byteLen+1 bytes.
 
 	// G is the base point
 	// s = hashToInt(G, H, [pri]G, VRF, [r]G, [r]H)
-	rGx, rGy := params.ScalarBaseMult(r)
-	rHx, rHy := params.ScalarMult(Hx, Hy, r)
+	rGx, rGy := curve.ScalarBaseMult(r)
+	rHx, rHy := curve.ScalarMult(Hx, Hy, r)
 	var b bytes.Buffer
 	b.Write(elliptic.Marshal(curve, params.Gx, params.Gy))
 	b.Write(elliptic.Marshal(curve, Hx, Hy))
@@ -180,9 +152,9 @@ func ProofToHash(pk *ecdsa.PublicKey, h hash.Hash, m, proof []byte) (index [32]b
 	}
 
 	// [t]G + [s]([pri]G) = [t+pri*s]G
-	tGx, tGy := params.ScalarBaseMult(t)
-	ksGx, ksGy := params.ScalarMult(pk.X, pk.Y, s)
-	tksGx, tksGy := params.Add(tGx, tGy, ksGx, ksGy)
+	tGx, tGy := curve.ScalarBaseMult(t)
+	ksGx, ksGy := curve.ScalarMult(pk.X, pk.Y, s)
+	tksGx, tksGy := curve.Add(tGx, tGy, ksGx, ksGy)
 
 	// H = hashToCurve(pk || m)
 	// [t]H + [s]VRF = [t+pri*s]H
@@ -190,9 +162,9 @@ func ProofToHash(pk *ecdsa.PublicKey, h hash.Hash, m, proof []byte) (index [32]b
 	buf.Write(elliptic.Marshal(curve, pk.X, pk.Y))
 	buf.Write(m)
 	Hx, Hy := hashToCurve(pk, h, buf.Bytes())
-	tHx, tHy := params.ScalarMult(Hx, Hy, t)
-	sHx, sHy := params.ScalarMult(uHx, uHy, s)
-	tksHx, tksHy := params.Add(tHx, tHy, sHx, sHy)
+	tHx, tHy := curve.ScalarMult(Hx, Hy, t)
+	sHx, sHy := curve.ScalarMult(uHx, uHy, s)
+	tksHx, tksHy := curve.Add(tHx, tHy, sHx, sHy)
 
 	//   hashToInt(G, H, [pri]G, VRF, [t]G + [s]([pri]G), [t]H + [s]VRF)
 	// = hashToInt(G, H, [pri]G, VRF, [t+pri*s]G, [t+pri*s]H)

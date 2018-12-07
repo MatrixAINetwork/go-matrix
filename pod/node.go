@@ -1,29 +1,33 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package pod
 
 import (
 	"errors"
 	"fmt"
+	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/p2p/discover"
+	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/matrix/go-matrix/mc"
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/ca"
-	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/internal/debug"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/rpc"
@@ -139,6 +143,66 @@ func (n *Node) Register(constructor ServiceConstructor) error {
 	return nil
 }
 
+func (n *Node) Signature() (signature common.Signature) {
+	emptyAddress := common.Address{}
+	if n.config.P2P.ManPassword == "" && n.config.P2P.ManAddress == emptyAddress {
+		n.log.Info("man address and password is empty. defalut role has no signature.")
+		return
+	}
+	if n.config.P2P.ManPassword == "" || n.config.P2P.ManAddress == emptyAddress {
+		n.log.Error("man address or password is empty. please ensure command and args.")
+		return
+	}
+
+	if common.FileExist(datadirManSignature) {
+		buf := make([]byte, 65)
+		fd, err := os.Open(datadirManSignature)
+		if err != nil {
+			n.log.Error("signature open file", "error", err)
+			return common.Signature{}
+		}
+		defer fd.Close()
+		if _, err = io.ReadFull(fd, buf); err != nil {
+			n.log.Error("signature read file", "error", err)
+			return common.Signature{}
+		}
+		signature = common.BytesToSignature(buf[:])
+
+		info, _ := os.Stat(datadirManSignature)
+		n.config.P2P.SignTime = info.ModTime()
+		return
+	}
+
+	wallet, err := n.accman.Find(accounts.Account{Address: n.config.P2P.ManAddress})
+	if err != nil {
+		n.log.Error("find signature account", "error", err)
+		return
+	}
+
+	accounts := wallet.Accounts()
+	for _, account := range accounts {
+		if account.Address != n.config.P2P.ManAddress {
+			continue
+		}
+		sig, err := wallet.SignHashValidateWithPass(account, n.config.P2P.ManPassword, discover.PubkeyID(&n.config.P2P.PrivateKey.PublicKey).Bytes(), true)
+		if err != nil {
+			n.log.Error("signature with account", "error", err)
+			return
+		}
+
+		err = ioutil.WriteFile(datadirManSignature, sig, 0600)
+		if err != nil {
+			n.log.Error("signature write fail", "error", err)
+			return
+		}
+		signature = common.BytesToSignature(sig[:])
+		n.config.P2P.SignTime = time.Now()
+		return
+	}
+	n.log.Info("signature account not found")
+	return
+}
+
 // Start create a live P2P node and starts running it.
 func (n *Node) Start() error {
 	n.lock.Lock()
@@ -170,6 +234,7 @@ func (n *Node) Start() error {
 	p2p.ServerP2p.Config = n.serverConfig
 	running := p2p.ServerP2p
 	n.log.Info("Starting peer-to-peer node", "instance", n.serverConfig.Name)
+	running.Signature = n.Signature()
 
 	// Otherwise copy and specialize the P2P configuration
 	services := make(map[reflect.Type]Service)
@@ -232,7 +297,7 @@ func (n *Node) Start() error {
 	//boot := boot.New(bc, n.Server().NodeInfo().ID)
 	//boot.Run()
 	// start ca
-	go ca.Start(running.Self().ID, n.config.DataDir)
+	go ca.Start(running.Self().ID, n.config.DataDir, n.config.P2P.ManAddress)
 
 	// Finish initializing the startup
 	n.services = services

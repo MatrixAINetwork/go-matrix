@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package blkverify
 
 import (
@@ -9,7 +9,6 @@ import (
 
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/blkverify/votepool"
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/types"
@@ -17,7 +16,6 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
 )
 
@@ -59,27 +57,42 @@ const (
 )
 
 type Process struct {
-	mu            sync.Mutex
-	leader        common.Address
-	number        uint64
-	role          common.RoleType
-	state         State
-	curProcessReq *reqData
-	reqCache      *reqCache
-	pm            *ProcessManage
-	txsAcquireSeq int
+	mu               sync.Mutex
+	leaderCache      mc.LeaderChangeNotify
+	number           uint64
+	role             common.RoleType
+	state            State
+	curProcessReq    *reqData
+	reqCache         *reqCache
+	pm               *ProcessManage
+	txsAcquireSeq    int
+	voteMsgSender    *common.ResendMsgCtrl
+	mineReqMsgSender *common.ResendMsgCtrl
+	posedReqSender   *common.ResendMsgCtrl
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
 	p := &Process{
-		leader:        common.Address{},
-		number:        number,
-		role:          common.RoleNil,
-		state:         StateIdle,
-		curProcessReq: nil,
-		reqCache:      newReqCache(),
-		pm:            pm,
-		txsAcquireSeq: 0,
+		leaderCache: mc.LeaderChangeNotify{
+			ConsensusState: false,
+			Leader:         common.Address{},
+			NextLeader:     common.Address{},
+			Number:         number,
+			ConsensusTurn:  0,
+			ReelectTurn:    0,
+			TurnBeginTime:  0,
+			TurnEndTime:    0,
+		},
+		number:           number,
+		role:             common.RoleNil,
+		state:            StateIdle,
+		curProcessReq:    nil,
+		reqCache:         newReqCache(),
+		pm:               pm,
+		txsAcquireSeq:    0,
+		voteMsgSender:    nil,
+		mineReqMsgSender: nil,
+		posedReqSender:   nil,
 	}
 
 	return p
@@ -103,42 +116,59 @@ func (p *Process) Close() {
 	defer p.mu.Unlock()
 	p.state = StateIdle
 	p.curProcessReq = nil
+	p.stopSender()
 }
 
-func (p *Process) ReInit() {
+func (p *Process) SetLeaderInfo(info *mc.LeaderChangeNotify) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.checkState(StateIdle) {
+	p.leaderCache.ConsensusState = info.ConsensusState
+	if p.leaderCache.ConsensusState == false {
+		p.stopProcess()
 		return
 	}
 
-	if p.role == common.RoleValidator {
+	if p.leaderCache.Leader == info.Leader && p.leaderCache.ConsensusTurn == info.ConsensusTurn {
+		//已处理过的leader消息，不处理
+		return
+	}
+
+	//leader或轮次变化了，更新缓存
+	p.leaderCache.Leader.Set(info.Leader)
+	p.leaderCache.NextLeader.Set(info.NextLeader)
+	p.leaderCache.ConsensusTurn = info.ConsensusTurn
+	p.leaderCache.ReelectTurn = info.ReelectTurn
+	p.leaderCache.TurnBeginTime = info.TurnBeginTime
+	p.leaderCache.TurnEndTime = info.TurnEndTime
+	p.curProcessReq = nil
+
+	//维护req缓存
+	p.reqCache.SetCurTurn(p.leaderCache.ConsensusTurn)
+
+	//重启process
+	p.stopSender()
+	if p.state > StateIdle {
 		p.state = StateStart
-		p.leader = common.Address{}
-		p.curProcessReq = nil
+		if p.role == common.RoleValidator {
+			p.startReqVerifyCommon()
+		} else if p.role == common.RoleBroadcast {
+			log.WARN(p.logExtraInfo(), "广播身份下收到leader变更消息", "不处理")
+		}
 	}
 }
 
-func (p *Process) SetLeader(leader common.Address) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Process) stopProcess() {
+	p.closeMineReqMsgSender()
+	p.leaderCache.Leader.Set(common.Address{})
+	p.leaderCache.NextLeader.Set(common.Address{})
+	p.leaderCache.ConsensusTurn = 0
+	p.leaderCache.ReelectTurn = 0
+	p.leaderCache.TurnBeginTime = 0
+	p.leaderCache.TurnEndTime = 0
+	p.curProcessReq = nil
 
-	if p.leader == leader {
-		log.INFO(p.logExtraInfo(), "问题定位,1010", "step 1010")
-		return
-	}
-	p.leader.Set(leader)
-
-	if p.checkState(StateIdle) {
-		return
-	}
-
-	if p.role == common.RoleValidator {
+	if p.state > StateIdle {
 		p.state = StateStart
-		p.curProcessReq = nil
-		p.startReqVerifyCommon()
-	} else if p.role == common.RoleBroadcast {
-		log.WARN(p.logExtraInfo(), "广播身份下收到leader变更消息", "不处理")
 	}
 }
 
@@ -156,9 +186,7 @@ func (p *Process) AddReq(reqMsg *mc.HD_BlkConsensusReqMsg) {
 	if p.role == common.RoleBroadcast {
 		p.startReqVerifyBC()
 	} else if p.role == common.RoleValidator {
-		if p.leader == reqMsg.Header.Leader {
-			p.startReqVerifyCommon()
-		}
+		p.startReqVerifyCommon()
 	}
 }
 
@@ -177,9 +205,7 @@ func (p *Process) AddLocalReq(localReq *mc.LocalBlockVerifyConsensusReq) {
 	if p.role == common.RoleBroadcast {
 		p.startReqVerifyBC()
 	} else if p.role == common.RoleValidator {
-		if p.leader == leader {
-			p.startReqVerifyCommon()
-		}
+		p.startReqVerifyCommon()
 	}
 }
 
@@ -189,25 +215,50 @@ func (p *Process) ProcessDPOSOnce() {
 	p.processDPOSOnce()
 }
 
+func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	msgHeaderHash := msg.Header.HashNoSignsAndNonce()
+	reqData, err := p.reqCache.GetLeaderReqByHash(msgHeaderHash)
+	if err != nil {
+		log.ERROR(p.logExtraInfo(), "处理状态恢复消息", "本地请求获取失败", "err", err)
+		return
+	}
+	if reqData.hash != msgHeaderHash {
+		log.ERROR(p.logExtraInfo(), "处理状态恢复消息", "本地请求hash不匹配，忽略消息",
+			"本地hash", reqData.hash.TerminalString(), "消息hash", msgHeaderHash.TerminalString())
+		return
+	}
+
+	log.INFO(p.logExtraInfo(), "处理状态恢复消息", "开始重置POS投票")
+	p.votePool().DelVotes(reqData.hash)
+	//添加投票
+	for _, sign := range msg.Header.Signatures {
+		p.votePool().AddVote(reqData.hash, sign, common.Address{}, p.number, false)
+	}
+	p.processDPOSOnce()
+	log.INFO(p.logExtraInfo(), "处理状态恢复消息", "完成")
+}
+
 func (p *Process) startReqVerifyCommon() {
-	if p.checkState(StateStart) == false && p.checkState(StateEnd) == false {
+	if p.checkState(StateStart) == false {
 		log.WARN(p.logExtraInfo(), "准备开始请求验证阶段，状态错误", p.state.String(), "高度", p.number)
 		return
 	}
 
-	if (p.leader == common.Address{}) {
-		log.WARN(p.logExtraInfo(), "请求验证阶段", "当前leader为空，等待leader消息", "高度", p.number)
+	if p.leaderCache.ConsensusState == false {
+		log.WARN(p.logExtraInfo(), "请求验证阶段", "当前leader未共识完成，等待leader消息", "高度", p.number)
 		return
 	}
 
-	req, err := p.reqCache.GetLeaderReq(p.leader)
+	req, err := p.reqCache.GetLeaderReq(p.leaderCache.Leader, p.leaderCache.ConsensusTurn)
 	if err != nil {
-		log.WARN(p.logExtraInfo(), "请求验证阶段,寻找leader的请求错误,继续等待请求", err, "Leader", p.leader.Hex(), "高度", p.number)
+		log.WARN(p.logExtraInfo(), "请求验证阶段,寻找leader的请求错误,继续等待请求", err,
+			"Leader", p.leaderCache.Leader.Hex(), "轮次", p.leaderCache.ConsensusTurn, "高度", p.number)
 		return
 	}
 
 	p.curProcessReq = req
-	p.curProcessReq.hash = p.curProcessReq.req.Header.HashNoSignsAndNonce()
 	log.INFO(p.logExtraInfo(), "请求验证阶段", "开始", "高度", p.number, "HeaderHash", p.curProcessReq.hash.TerminalString(), "parent hash", p.curProcessReq.req.Header.ParentHash.TerminalString(), "之前状态", p.state.String())
 	p.state = StateReqVerify
 	p.processReqOnce()
@@ -218,14 +269,20 @@ func (p *Process) processReqOnce() {
 		return
 	}
 
-	// notify leader server, begin verify now
-	notify := mc.BlockVerifyStateNotify{Leader: p.leader, Number: p.number, State: true}
-	mc.PublishEvent(mc.BlkVerify_VerifyStateNotify, &notify)
-
 	// if is local req, skip local verify step
 	if p.curProcessReq.localReq {
 		log.INFO(p.logExtraInfo(), "请求为本地请求", "跳过验证阶段", "高度", p.number)
 		p.startDPOSVerify(localVerifyResultSuccess)
+		return
+	}
+
+	// verify timestamp
+	headerTime := p.curProcessReq.req.Header.Time.Int64()
+	if headerTime < p.leaderCache.TurnBeginTime || headerTime > p.leaderCache.TurnEndTime {
+		log.ERROR(p.logExtraInfo(), "验证请求头时间戳", "时间戳不合法", "头时间", headerTime,
+			"轮次开始时间", p.leaderCache.TurnBeginTime, "轮次结束时间", p.leaderCache.TurnEndTime,
+			"轮次", p.leaderCache.ConsensusTurn, "高度", p.number)
+		p.startDPOSVerify(localVerifyResultStateFailed)
 		return
 	}
 
@@ -244,13 +301,28 @@ func (p *Process) processReqOnce() {
 	}
 
 	// verify net topology info
-	if err := p.verifyNetTopology(p.curProcessReq.req.Header); err != nil {
+	if err := p.verifyNetTopology(p.curProcessReq.req.Header, p.curProcessReq.req.OnlineConsensusResults); err != nil {
 		log.ERROR(p.logExtraInfo(), "验证拓扑信息失败", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
 		return
 	}
 
 	//todo Version
+	//verify Version
+
+	if err := p.blockChain().DPOSEngine().VerifyVersion(p.blockChain(), p.curProcessReq.req.Header); err != nil {
+		log.ERROR(p.logExtraInfo(), "验证版本号失败", err, "高度", p.number)
+		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
+		return
+	}
+
+	//verify vrf
+	if err := p.verifyVrf(p.curProcessReq.req.Header); err != nil {
+		log.Error(p.logExtraInfo(), "验证vrf失败", err, "高度", p.number)
+		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
+		return
+	}
+	log.INFO(p.logExtraInfo(), "验证vrf成功 高度", p.number)
 
 	p.startTxsVerify()
 }
@@ -265,6 +337,7 @@ func (p *Process) startTxsVerify() {
 
 	p.txsAcquireSeq++
 	leader := p.curProcessReq.req.Header.Leader
+	//todo 交易数量为空时，跳过交易验证阶段
 	log.INFO(p.logExtraInfo(), "开始交易获取,seq", p.txsAcquireSeq, "数量", len(p.curProcessReq.req.TxsCode), "leader", leader.Hex(), "高度", p.number)
 	txAcquireCh := make(chan *core.RetChan, 1)
 	go p.txPool().ReturnAllTxsByN(p.curProcessReq.req.TxsCode, p.txsAcquireSeq, leader, txAcquireCh)
@@ -327,10 +400,12 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 		return
 	}
 
-	log.INFO(p.logExtraInfo(), "开始交易验证, 数量", len(result.Rxs), "高度", p.number)
-	p.curProcessReq.txs = result.Rxs
+	log.INFO(p.logExtraInfo(), "开始交易验证, 数量", len(result.AllTxs), "高度", p.number)
+	for _, listN := range result.AllTxs {
+		p.curProcessReq.txs = append(p.curProcessReq.txs, listN.Txser...)
+	}
 
-	//todo 跑交易交易验证， Root TxHash ReceiptHash Bloom GasLimit GasUsed
+	//跑交易交易验证， Root TxHash ReceiptHash Bloom GasLimit GasUsed
 	remoteHeader := p.curProcessReq.req.Header
 	localHeader := types.CopyHeader(remoteHeader)
 	localHeader.GasUsed = 0
@@ -341,37 +416,24 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
 		return
 	}
-	//todo add handleuptime
-	/*	if common.IsBroadcastNumber(p.number-1) && p.number > common.GetBroadcastInterval() {
-		upTimeAccounts, err := work.GetUpTimeAccounts(p.number)
-		if err != nil {
-			log.ERROR(p.logExtraInfo(), "获取所有抵押账户错误!", err, "高度", p.number)
-			return
-		}
-		calltherollMap, heatBeatUnmarshallMMap, err := work.GetUpTimeData(p.number)
-		if err != nil {
-			log.WARN(p.logExtraInfo(), "获取心跳交易错误!", err, "高度", p.number)
-		}
-		err = work.HandleUpTime(work.State, upTimeAccounts, calltherollMap, heatBeatUnmarshallMMap, p.number, p.pm.bc)
-		if nil != err {
-			log.ERROR(p.logExtraInfo(), "处理uptime错误", err)
-			return
-		}
-	}*/
+	p.processUpTime(work, localHeader.ParentHash)
 	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.txs, p.pm.bc)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "交易验证，共识执行交易出错!", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultStateFailed)
 		return
 	}
-	_, err = p.blockChain().Engine().Finalize(p.blockChain(), localHeader, work.State,
-		p.curProcessReq.txs, nil, work.Receipts)
+	txs := work.GetTxs()
+	localBlock, err := p.blockChain().Engine().Finalize(p.blockChain(), localHeader, work.State,
+		txs, nil, work.Receipts)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "交易验证,错误", "Failed to finalize block for sealing", "err", err)
 		p.startDPOSVerify(localVerifyResultStateFailed)
 		return
 	}
+	log.Info(p.logExtraInfo(), "共识后的交易本地hash", localBlock.TxHash(), "共识后的交易远程hash", remoteHeader.TxHash)
 	//localBlock check
+	localHeader = localBlock.Header()
 	localHash := localHeader.HashNoSignsAndNonce()
 
 	if localHash != p.curProcessReq.hash {
@@ -389,7 +451,7 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 
 	p.curProcessReq.receipts = work.Receipts
 	p.curProcessReq.stateDB = work.State
-
+	p.curProcessReq.txs = txs
 	// 开始DPOS共识验证
 	p.startDPOSVerify(localVerifyResultSuccess)
 }
@@ -402,17 +464,15 @@ func (p *Process) sendVote(validate bool) {
 		return
 	}
 
-	voteMsg := mc.HD_ConsensusVote{SignHash: signHash, Sign: sign, Round: p.number}
-	log.INFO(p.logExtraInfo(), "发出成功投票 signHash", voteMsg.SignHash.TerminalString(), "高度", p.number)
-	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusVote, &voteMsg, common.RoleValidator, nil)
+	p.startVoteMsgSender(&mc.HD_ConsensusVote{SignHash: signHash, Sign: sign, Number: p.number})
 
 	//将自己的投票加入票池
-	if err := p.votePool().AddVote(signHash, sign, ca.GetAddress(), p.number); err != nil {
+	if err := p.votePool().AddVote(signHash, sign, common.Address{}, p.number, false); err != nil {
 		log.ERROR(p.logExtraInfo(), "自己的投票加入票池失败", err, "高度", p.number)
 	}
 
 	// notify block genor server the result
-	result := mc.BlockVerifyConsensusOK{
+	result := mc.BlockLocalVerifyOK{
 		Header:    p.curProcessReq.req.Header,
 		BlockHash: p.curProcessReq.hash,
 		Txs:       p.curProcessReq.txs,
@@ -445,6 +505,29 @@ func (p *Process) startDPOSVerify(lvResult uint8) {
 	p.processDPOSOnce()
 }
 
+func (p *Process) processUpTime(work *matrixwork.Work, hash common.Hash) error {
+
+	if common.IsBroadcastNumber(p.number-1) && p.number > common.GetBroadcastInterval() {
+		log.INFO("core", "区块插入验证", "完成创建work, 开始执行uptime")
+		upTimeAccounts, err := work.GetUpTimeAccounts(p.number)
+		if err != nil {
+			log.ERROR("core", "获取所有抵押账户错误!", err, "高度", p.number)
+			return err
+		}
+		calltherollMap, heatBeatUnmarshallMMap, err := work.GetUpTimeData(hash)
+		if err != nil {
+			log.WARN("core", "获取心跳交易错误!", err, "高度", p.number)
+		}
+
+		err = work.HandleUpTime(work.State, upTimeAccounts, calltherollMap, heatBeatUnmarshallMMap, p.number, p.blockChain())
+		if nil != err {
+			log.ERROR("core", "处理uptime错误", err)
+			return err
+		}
+	}
+
+	return nil
+}
 func (p *Process) processDPOSOnce() {
 	if p.checkState(StateDPOSVerify) == false {
 		return
@@ -456,7 +539,7 @@ func (p *Process) processDPOSOnce() {
 
 	signs := p.votePool().GetVotes(p.curProcessReq.hash)
 	log.INFO(p.logExtraInfo(), "执行DPOS, 投票数量", len(signs), "hash", p.curProcessReq.hash.TerminalString(), "高度", p.number)
-	rightSigns, err := p.blockChain().DPOSEngine().VerifyHashWithVerifiedSignsAndNumber(signs, p.number)
+	rightSigns, err := p.blockChain().DPOSEngine().VerifyHashWithVerifiedSignsAndBlock(p.blockChain(), signs, p.curProcessReq.req.Header.ParentHash)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "共识引擎验证失败", err, "高度", p.number)
 		return
@@ -481,18 +564,19 @@ func (p *Process) finishedProcess() {
 
 	if result == localVerifyResultSuccess {
 		// notify leader server the verify state
-		notify := mc.BlockVerifyStateNotify{Leader: p.leader, Number: p.number, State: false}
-		mc.PublishEvent(mc.BlkVerify_VerifyStateNotify, &notify)
+		notify := mc.BlockPOSFinishedNotify{
+			Number:        p.number,
+			Header:        p.curProcessReq.req.Header,
+			ConsensusTurn: p.curProcessReq.req.ConsensusTurn,
+			TxsCode:       p.curProcessReq.req.TxsCode,
+		}
+		mc.PublishEvent(mc.BlkVerify_POSFinishedNotify, &notify)
 	}
 
-	hash := p.curProcessReq.req.Header.HashNoSignsAndNonce()
 	//给矿工发送区块验证结果
-	log.INFO(p.logExtraInfo(), "发出挖矿请求, Header hash with signs", hash, "高度", p.number)
-	p.pm.hd.SendNodeMsg(mc.HD_MiningReq, &mc.HD_MiningReqMsg{Header: p.curProcessReq.req.Header}, common.RoleMiner, nil)
-
+	p.startSendMineReq(&mc.HD_MiningReqMsg{Header: p.curProcessReq.req.Header})
 	//给广播节点发送区块验证请求(带签名列表)
-	log.INFO(p.logExtraInfo(), "向广播节点发送 leader", p.curProcessReq.req.Header.Leader.Hex(), "高度", p.number)
-	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, p.curProcessReq.req, common.RoleBroadcast, nil)
+	p.startPosedReqSender(p.curProcessReq.req)
 
 	p.votePool().DelVotes(p.curProcessReq.hash)
 	p.state = StateEnd
@@ -517,12 +601,10 @@ func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 
 func (p *Process) blockChain() *core.BlockChain { return p.pm.bc }
 
-func (p *Process) txPool() *core.TxPool { return p.pm.txPool }
+func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //YYY
 
 func (p *Process) reElection() *reelection.ReElection { return p.pm.reElection }
 
 func (p *Process) logExtraInfo() string { return p.pm.logExtraInfo() }
 
 func (p *Process) eventMux() *event.TypeMux { return p.pm.event }
-
-func (p *Process) topNode() *olconsensus.TopNodeService { return p.pm.topNode }

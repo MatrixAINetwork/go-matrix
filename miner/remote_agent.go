@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package miner
 
@@ -29,7 +28,7 @@ type RemoteAgent struct {
 
 	quitCh   chan struct{}
 	workCh   chan *Work
-	returnCh chan<- *Result
+	returnCh chan<- *types.Header
 
 	chain       consensus.ChainReader
 	engine      consensus.Engine
@@ -62,7 +61,7 @@ func (a *RemoteAgent) Work() chan<- *Work {
 	return a.workCh
 }
 
-func (a *RemoteAgent) SetReturnCh(returnCh chan<- *Result) {
+func (a *RemoteAgent) SetReturnCh(returnCh chan<- *types.Header) {
 	a.returnCh = returnCh
 }
 

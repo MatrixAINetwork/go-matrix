@@ -1,30 +1,16 @@
-/*
- * Copyright (C) 2018 The ontology Authors
- * This file is part of The ontology library.
- *
- * The ontology is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * The ontology is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
- */
-
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package ec
 
 import (
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"errors"
 	"io"
 	"math/big"
+
+	"github.com/btcsuite/btcd/btcec"
 )
 
 const (
@@ -50,10 +36,11 @@ type PublicKey struct {
 	*ecdsa.PublicKey
 }
 
+/*
 func (this *PrivateKey) Public() crypto.PublicKey {
 	return &PublicKey{Algorithm: this.Algorithm, PublicKey: &this.PublicKey}
 }
-
+*/
 func GenerateECKeyPair(c elliptic.Curve, rand io.Reader, alg ECAlgorithm) (*PrivateKey, *PublicKey, error) {
 	d, x, y, err := elliptic.GenerateKey(c, rand)
 	if err != nil {
@@ -123,7 +110,16 @@ func DecodePublicKey(data []byte, curve elliptic.Curve) (*ecdsa.PublicKey, error
 		//	return nil, errors.New("Point is not on the curve")
 		//}
 	} else if data[0] == compress_even || data[0] == compress_odd {
-		return deCompress(int(data[0]&1), data[1:length+1], curve)
+		//		curve := crypto.S256()
+		pk, err := btcec.ParsePubKey(data, btcec.S256())
+		return (*ecdsa.PublicKey)(pk), err
+		/*
+			if err != nil {
+				return false
+			}
+			pubkey, err := ParsePubKey(pb, S256())
+			return deCompress(int(data[0]&1), data[1:length+1], curve)
+		*/
 	} else {
 		return nil, errors.New("unknown encoding mode")
 	}

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package vm
 
@@ -16,9 +15,9 @@ import (
 type StateDB interface {
 	CreateAccount(common.Address)
 
-	SubBalance(common.Address, *big.Int)
-	AddBalance(common.Address, *big.Int)
-	GetBalance(common.Address) *big.Int
+	SubBalance(uint32, common.Address, *big.Int)
+	AddBalance(uint32, common.Address, *big.Int)
+	GetBalance(common.Address) common.BalanceType
 
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
@@ -34,6 +33,14 @@ type StateDB interface {
 	GetState(common.Address, common.Hash) common.Hash
 	SetState(common.Address, common.Hash, common.Hash)
 
+	CommitSaveTx()
+	GetSaveTx(typ byte, key uint32, hash common.Hash, isdel bool)
+	SaveTx(typ byte, key uint32, data map[common.Hash][]byte)
+	NewBTrie(typ byte)
+
+	GetStateByteArray(common.Address, common.Hash) []byte
+	SetStateByteArray(common.Address, common.Hash, []byte)
+
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool
 
@@ -48,9 +55,19 @@ type StateDB interface {
 	Snapshot() int
 
 	AddLog(*types.Log)
+	GetLogs(hash common.Hash) []*types.Log
 	AddPreimage(common.Hash, []byte)
 
 	ForEachStorage(common.Address, func(common.Hash, common.Hash) bool)
+	SetMatrixData(hash common.Hash, val []byte)
+	GetMatrixData(hash common.Hash) (val []byte)
+	DeleteMxData(hash common.Hash, val []byte)
+
+	GetGasAuthFrom(entrustFrom common.Address, height uint64) common.Address
+	GetAuthFrom(entrustFrom common.Address, height uint64) common.Address
+	GetEntrustFrom(authFrom common.Address, height uint64) []common.Address
+	GetAllEntrustSignFrom(authFrom common.Address) []common.Address
+	GetAllEntrustGasFrom(authFrom common.Address) []common.Address
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM EVM

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package usbwallet
 
@@ -11,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/karalabe/hid"
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
-	"github.com/karalabe/hid"
 )
 
 // LedgerScheme is the protocol scheme prefixing account and wallet URLs.

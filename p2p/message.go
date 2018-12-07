@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package p2p
 
@@ -79,11 +78,17 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
+var (
+	ErrCanNotFindPeer = errors.New("p2p: can`t find peer")
+	ErrMsgWriterIsNil = errors.New("p2p: message writer is nil")
+	ErrCanNotConvert  = errors.New("p2p: can`t convert addr to id")
+)
+
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	if w == nil {
-		return errors.New("peer disconnect in send duration.")
+		return ErrMsgWriterIsNil
 	}
 	size, r, err := rlp.EncodeToReader(data)
 	if err != nil {
@@ -92,29 +97,34 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	return w.WriteMsg(Msg{Code: msgcode, Size: uint32(size), Payload: r})
 }
 
-var ErrCanNotFindPeer = errors.New("p2p: can`t find peer")
-
 // SendToSingle send message to single peer.
-func SendToSingle(to discover.NodeID, msgCode uint64, data interface{}) error {
-	peers := ServerP2p.Peers()
-	for _, peer := range peers {
-		if peer.ID() == to {
-			err := Send(peer.MsgReadWriter(), msgCode, data)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
+func SendToSingle(addr common.Address, msgCode uint64, data interface{}) error {
+	id := ServerP2p.ConvertAddressToId(addr)
+	if id == emptyNodeId {
+		log.Error("send to single peer failed", "peer addr", addr)
+		return ErrCanNotConvert
 	}
 
+	peers := ServerP2p.Peers()
+	for _, peer := range peers {
+		if id == peer.ID() {
+			return Send(peer.MsgReadWriter(), msgCode, data)
+		}
+	}
 	return ErrCanNotFindPeer
 }
 
 // SendToGroup send message to a group.
 func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{}) error {
-	ids := ca.GetRolesByGroupWithBackup(to)
+	address := ca.GetRolesByGroupWithNextElect(to)
 	peers := ServerP2p.Peers()
-	for _, id := range ids {
+	for _, addr := range address {
+		id := ServerP2p.ConvertAddressToId(addr)
+		if id == emptyNodeId {
+			log.Error("send to single peer failed", "peer addr", addr)
+			continue
+		}
+
 		for _, peer := range peers {
 			if id == peer.ID() {
 				err := Send(peer.MsgReadWriter(), msgCode, data)
@@ -131,36 +141,33 @@ func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{})
 
 // SendToGroup send message to a group.
 func SendToGroup(to common.RoleType, msgCode uint64, data interface{}) error {
-	ids := ca.GetRolesByGroup(to)
-	//log.INFO("message.go", "GetRolesByGroup", ids)
+	address := ca.GetRolesByGroup(to)
 	peers := ServerP2p.Peers()
-	log.INFO("message.go", "查看所有的 ServerP2P peers Count", len(peers), "目标IDS数量", len(ids), "role", to.String())
-	for _, id := range ids {
+	log.Info("message.go", "查看所有的 ServerP2P peers Count", len(peers), "目标IDS数量", len(address), "role", to.String())
+	for _, addr := range address {
 		bSend := false
+
+		id := ServerP2p.ConvertAddressToId(addr)
+		if id == emptyNodeId {
+			log.Error("send to single peer failed", "peer addr", addr)
+			continue
+		}
 		for _, peer := range peers {
 			if id == peer.ID() {
 				err := Send(peer.MsgReadWriter(), msgCode, data)
 				if err != nil {
-					log.ERROR("message.go", "发送消息失败, id", id, "err", err)
+					log.Error("message.go", "发送消息失败, id", id, "err", err)
 				} else {
-					log.INFO("message.go", "发送消息成功, id", id, "IP", peer.Info().Network.RemoteAddress)
+					log.Info("message.go", "发送消息成功, id", id, "IP", peer.Info().Network.RemoteAddress)
 					bSend = true
 				}
 				break
 			}
 		}
-
-		if bSend == false {
-			selfNodeId, err := ca.ConvertAddressToNodeId(ca.GetAddress())
-			if err != nil {
-				log.ERROR("message.go", "SendToGroup", "转换本地账户到nodeId失败", "地址", ca.GetAddress(), "nodeId", selfNodeId, "err", err)
-			}
-			if selfNodeId != id {
-				log.ERROR("message.go", "该节点未发送成功 nodeId", id)
-			}
+		if !bSend {
+			log.ERROR("message.go", "该节点未发送成功 nodeId", id)
 		}
 	}
-
 	return nil
 }
 

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package manash implements the manash proof-of-work consensus engine.
 package manash
@@ -22,11 +21,11 @@ import (
 	"unsafe"
 
 	mmap "github.com/edsrzf/mmap-go"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/metrics"
 	"github.com/matrix/go-matrix/rpc"
-	"github.com/hashicorp/golang-lru/simplelru"
 )
 
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")

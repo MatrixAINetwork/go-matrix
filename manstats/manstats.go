@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package manstats implements the network stats reporting service.
 package manstats
@@ -24,9 +23,9 @@ import (
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/rpc"
 	"golang.org/x/net/websocket"
@@ -47,7 +46,7 @@ const (
 type txPool interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription
 }
 
 type blockChain interface {
@@ -57,9 +56,9 @@ type blockChain interface {
 // Service implements an Matrix netstats reporting daemon that pushes local
 // chain statistics up to a monitoring server.
 type Service struct {
-	server *p2p.Server        // Peer-to-peer server to retrieve networking infos
+	server *p2p.Server      // Peer-to-peer server to retrieve networking infos
 	man    *man.Matrix      // Full Matrix service if monitoring a full node
-	engine consensus.Engine   // Consensus engine to retrieve variadic block fields
+	engine consensus.Engine // Consensus engine to retrieve variadic block fields
 
 	node string // Name of the node to display on the monitoring page
 	pass string // Password to authorize access to the monitoring page
@@ -460,11 +459,13 @@ type blockStats struct {
 	Root       common.Hash    `json:"stateRoot"`
 	Uncles     uncleStats     `json:"uncles"`
 
-	Leader      common.Address     `json:"leader"            `
-	Elect       []common.Elect     `json:"elect"        `
-	NetTopology common.NetTopology `json:"nettopology"       `
-	Signatures  []common.Signature `json:"signatures "        `
-	Version     []byte             `json:" version "             `
+	Leader            common.Address     `json:"leader"            `
+	Elect             []common.Elect     `json:"elect"        `
+	NetTopology       common.NetTopology `json:"nettopology"       `
+	Signatures        []common.Signature `json:"signatures"        `
+	Version           []byte             `json:"version"             `
+	VersionSignatures []common.Signature `json:"versionSignatures"             `
+	VrfValue          []byte             `json:"vrfvalue"`
 }
 
 // txStats is the information to report about individual transactions.
@@ -529,24 +530,26 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	author, _ := s.engine.Author(header)
 
 	return &blockStats{
-		Number:      header.Number,
-		Hash:        header.Hash(),
-		ParentHash:  header.ParentHash,
-		Timestamp:   header.Time,
-		Miner:       author,
-		GasUsed:     header.GasUsed,
-		GasLimit:    header.GasLimit,
-		Diff:        header.Difficulty.String(),
-		TotalDiff:   td.String(),
-		Txs:         txs,
-		TxHash:      header.TxHash,
-		Root:        header.Root,
-		Uncles:      uncles,
-		Leader:      header.Leader,
-		Elect:       header.Elect,
-		NetTopology: header.NetTopology,
-		Signatures:  header.Signatures,
-		Version:     header.Version,
+		Number:            header.Number,
+		Hash:              header.Hash(),
+		ParentHash:        header.ParentHash,
+		Timestamp:         header.Time,
+		Miner:             author,
+		GasUsed:           header.GasUsed,
+		GasLimit:          header.GasLimit,
+		Diff:              header.Difficulty.String(),
+		TotalDiff:         td.String(),
+		Txs:               txs,
+		TxHash:            header.TxHash,
+		Root:              header.Root,
+		Uncles:            uncles,
+		Leader:            header.Leader,
+		Elect:             header.Elect,
+		NetTopology:       header.NetTopology,
+		Signatures:        header.Signatures,
+		Version:           header.Version,
+		VersionSignatures: header.VersionSignatures,
+		VrfValue:          header.VrfValue,
 	}
 }
 

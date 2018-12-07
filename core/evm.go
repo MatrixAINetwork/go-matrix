@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package core
 
@@ -24,8 +23,31 @@ type ChainContext interface {
 	GetHeader(common.Hash, uint64) *types.Header
 }
 
+//YYY =========================begin============================
 // NewEVMContext creates a new context for use in the EVM.
-func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
+//func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
+//	// If we don't have an explicit author (i.e. not mining), extract from the header
+//	var beneficiary common.Address
+//	if author == nil {
+//		beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
+//	} else {
+//		beneficiary = *author
+//	}
+//	return vm.Context{
+//		CanTransfer: CanTransfer,
+//		Transfer:    Transfer,
+//		GetHash:     GetHashFn(header, chain),
+//		Origin:      msg.From(),
+//		Coinbase:    beneficiary,
+//		BlockNumber: new(big.Int).Set(header.Number),
+//		Time:        new(big.Int).Set(header.Time),
+//		Difficulty:  new(big.Int).Set(header.Difficulty),
+//		GasLimit:    header.GasLimit,
+//		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+//	}
+//}
+
+func NewEVMContext(sender common.Address, gasprice *big.Int, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	var beneficiary common.Address
 	if author == nil {
@@ -37,16 +59,17 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
 		GetHash:     GetHashFn(header, chain),
-		Origin:      msg.From(),
+		Origin:      sender,
 		Coinbase:    beneficiary,
 		BlockNumber: new(big.Int).Set(header.Number),
 		Time:        new(big.Int).Set(header.Time),
 		Difficulty:  new(big.Int).Set(header.Difficulty),
 		GasLimit:    header.GasLimit,
-		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+		GasPrice:    new(big.Int).Set(gasprice),
 	}
 }
 
+//YYY ====================================end================================
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
 func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
 	var cache map[uint64]common.Hash
@@ -76,11 +99,16 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 // CanTransfer checks wether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
 func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
-	return db.GetBalance(addr).Cmp(amount) >= 0
+	for _, tAccount := range db.GetBalance(addr) {
+		if tAccount.AccountType == common.MainAccount {
+			return tAccount.Balance.Cmp(amount) >= 0
+		}
+	}
+	return false
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
-	db.SubBalance(sender, amount)
-	db.AddBalance(recipient, amount)
+	db.SubBalance(common.MainAccount, sender, amount)
+	db.AddBalance(common.MainAccount, recipient, amount)
 }

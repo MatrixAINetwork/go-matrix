@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package votepool
 
 import (
@@ -10,9 +10,9 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
 	"github.com/pkg/errors"
 
+	"github.com/matrix/go-matrix/params/manparams"
 	"sync"
 )
 
@@ -39,20 +39,20 @@ func NewVotePool(legalRole common.RoleType, logInfo string) *VotePool {
 	return &VotePool{
 		voteMap:               make(map[common.Address]map[common.Hash]*voteInfo),
 		timeIndex:             list.New(),
-		timeoutInterval:       params.VotePoolTimeout,
-		AccountVoteCountLimit: params.VotePoolCountLimit,
+		timeoutInterval:       manparams.VotePoolTimeout,
+		AccountVoteCountLimit: manparams.VotePoolCountLimit,
 		legalRole:             legalRole,
 		logInfo:               logInfo,
 	}
 }
 
-func (vp *VotePool) AddVote(signHash common.Hash, sign common.Signature, fromAccount common.Address, height uint64) error {
+func (vp *VotePool) AddVote(signHash common.Hash, sign common.Signature, fromAccount common.Address, height uint64, verifyFrom bool) error {
 	signAccount, validate, err := crypto.VerifySignWithValidate(signHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return err
 	}
 
-	if signAccount.Equal(fromAccount) == false {
+	if verifyFrom && signAccount.Equal(fromAccount) == false {
 		return errors.Errorf("vote sign account[%s] != from account[%s]", signAccount.Hex(), fromAccount.Hex())
 	}
 

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package types contains data types related to Matrix consensus.
 package types
@@ -24,7 +23,7 @@ import (
 )
 
 var (
-	EmptyRootHash  = DeriveSha(Transactions{})
+	EmptyRootHash  = DeriveSha(SelfTransactions{})
 	EmptyUncleHash = CalcUncleHash(nil)
 )
 
@@ -74,12 +73,14 @@ type Header struct {
 	Time        *big.Int           `json:"timestamp"        gencodec:"required"`
 	Elect       []common.Elect     `json:"elect"        gencodec:"required"`
 	NetTopology common.NetTopology `json:"nettopology"        gencodec:"required"`
-	Signatures  []common.Signature `json:"signatures "        gencodec:"required"`
+	Signatures  []common.Signature `json:"signatures"        gencodec:"required"`
 
-	Extra     []byte      `json:"extraData"        gencodec:"required"`
-	MixDigest common.Hash `json:"mixHash"          gencodec:"required"`
-	Nonce     BlockNonce  `json:"nonce"            gencodec:"required"`
-	Version   []byte      `json:"version"              gencodec:"required"`
+	Extra             []byte             `json:"extraData"        gencodec:"required"`
+	MixDigest         common.Hash        `json:"mixHash"          gencodec:"required"`
+	Nonce             BlockNonce         `json:"nonce"            gencodec:"required"`
+	Version           []byte             `json:"version"              gencodec:"required"`
+	VersionSignatures []common.Signature `json:"versionSignatures"              gencodec:"required"`
+	VrfValue          []byte             `json:"vrfvalue"        gencodec:"required"`
 }
 
 // field type overrides for gencodec
@@ -119,9 +120,33 @@ func (h *Header) HashNoNonce() common.Hash {
 		h.Signatures,
 		h.Extra,
 		h.Version,
+		h.VersionSignatures,
 	})
 }
-
+func (h *Header) HashNoSigns() common.Hash {
+	return rlpHash([]interface{}{
+		h.ParentHash,
+		h.UncleHash,
+		h.Leader,
+		h.Coinbase,
+		h.Root,
+		h.TxHash,
+		h.ReceiptHash,
+		h.Bloom,
+		h.Difficulty,
+		h.Number,
+		h.GasLimit,
+		h.GasUsed,
+		h.Time,
+		h.Elect,
+		h.NetTopology,
+		h.Extra,
+		h.MixDigest,
+		h.Nonce,
+		h.Version,
+		h.VersionSignatures,
+	})
+}
 func (h *Header) HashNoSignsAndNonce() common.Hash {
 	return rlpHash([]interface{}{
 		h.ParentHash,
@@ -140,6 +165,7 @@ func (h *Header) HashNoSignsAndNonce() common.Hash {
 		h.NetTopology,
 		h.Extra,
 		h.Version,
+		h.VersionSignatures,
 	})
 }
 
@@ -182,6 +208,10 @@ func (h *Header) IsReElectionHeader() bool {
 	return common.IsReElectionNumber(h.Number.Uint64())
 }
 
+func (h *Header) IsSuperHeader() bool {
+	return h.Leader == common.HexToAddress("0x8111111111111111111111111111111111111111")
+}
+
 func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)
@@ -199,7 +229,7 @@ func RlpHash(x interface{}) (h common.Hash) {
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
 type Body struct {
-	Transactions []*Transaction
+	Transactions []SelfTransaction
 	Uncles       []*Header
 }
 
@@ -207,7 +237,7 @@ type Body struct {
 type Block struct {
 	header       *Header
 	uncles       []*Header
-	transactions Transactions
+	transactions []SelfTransaction
 
 	// caches
 	hash atomic.Value
@@ -239,7 +269,7 @@ type StorageBlock Block
 // "external" block encoding. used for man protocol, etc.
 type extblock struct {
 	Header *Header
-	Txs    []*Transaction
+	Txs    []SelfTransaction
 	Uncles []*Header
 }
 
@@ -247,7 +277,7 @@ type extblock struct {
 // "storage" block encoding. used for database.
 type storageblock struct {
 	Header *Header
-	Txs    []*Transaction
+	Txs    []SelfTransaction
 	Uncles []*Header
 	TD     *big.Int
 }
@@ -259,15 +289,14 @@ type storageblock struct {
 // The values of TxHash, UncleHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs, uncles
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt) *Block {
+func NewBlock(header *Header, txs []SelfTransaction, uncles []*Header, receipts []*Receipt) *Block {
 	b := &Block{header: CopyHeader(header), td: new(big.Int)}
-
 	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
 	} else {
-		b.header.TxHash = DeriveSha(Transactions(txs))
-		b.transactions = make(Transactions, len(txs))
+		b.header.TxHash = DeriveSha(SelfTransactions(txs))
+		b.transactions = make(SelfTransactions, len(txs))
 		copy(b.transactions, txs)
 	}
 
@@ -301,13 +330,13 @@ func NewBlockWithHeader(header *Header) *Block {
 // NewBlockWithHeader creates a block with the given header data. The
 // header data is copied, changes to header and to the field values
 // will not affect the block.
-func NewBlockWithTxs(header *Header, txs []*Transaction) *Block {
+func NewBlockWithTxs(header *Header, txs []SelfTransaction) *Block {
 	b := &Block{header: CopyHeader(header)}
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
 	} else {
-		b.header.TxHash = DeriveSha(Transactions(txs))
-		b.transactions = make(Transactions, len(txs))
+		b.header.TxHash = DeriveSha(SelfTransactions(txs))
+		b.transactions = make(SelfTransactions, len(txs))
 		copy(b.transactions, txs)
 	}
 
@@ -348,6 +377,14 @@ func CopyHeader(h *Header) *Header {
 	if len(h.Version) > 0 {
 		cpy.Version = make([]byte, len(h.Version))
 		copy(cpy.Version, h.Version)
+	}
+	if len(h.VersionSignatures) > 0 {
+		cpy.VersionSignatures = make([]common.Signature, len(h.VersionSignatures))
+		copy(cpy.VersionSignatures, h.VersionSignatures)
+	}
+	if len(h.VrfValue) > 0 {
+		cpy.VrfValue = make([]byte, len(h.VrfValue))
+		copy(cpy.VrfValue, h.VrfValue)
 	}
 	return &cpy
 }
@@ -395,12 +432,16 @@ func (b *Block) IsReElectionBlock() bool {
 	return b.header.IsReElectionHeader()
 }
 
+func (b *Block) IsSuperBlock() bool {
+	return b.header.IsSuperHeader()
+}
+
 // TODO: copies
 
-func (b *Block) Uncles() []*Header          { return b.uncles }
-func (b *Block) Transactions() Transactions { return b.transactions }
+func (b *Block) Uncles() []*Header               { return b.uncles }
+func (b *Block) Transactions() []SelfTransaction { return b.transactions }
 
-func (b *Block) Transaction(hash common.Hash) *Transaction {
+func (b *Block) Transaction(hash common.Hash) SelfTransaction {
 	for _, transaction := range b.transactions {
 		if transaction.Hash() == hash {
 			return transaction
@@ -434,6 +475,10 @@ func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
 
 func (b *Block) HashNoNonce() common.Hash {
 	return b.header.HashNoNonce()
+}
+
+func (b *Block) HashNoSigns() common.Hash {
+	return b.header.HashNoSigns()
 }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
@@ -472,10 +517,10 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction and uncle contents.
-func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
+func (b *Block) WithBody(transactions []SelfTransaction, uncles []*Header) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
-		transactions: make([]*Transaction, len(transactions)),
+		transactions: make([]SelfTransaction, len(transactions)),
 		uncles:       make([]*Header, len(uncles)),
 	}
 	copy(block.transactions, transactions)

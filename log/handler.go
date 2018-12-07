@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package log
 
 import (
@@ -81,8 +81,8 @@ func FileHandler(path string, fmtr Format) (Handler, error) {
 
 // countingWriter wraps a WriteCloser object in order to count the written bytes.
 type countingWriter struct {
-	w     io.WriteCloser // the wrapped object
-	count uint           // number of bytes written
+	w       io.WriteCloser // the wrapped object
+	count   uint           // number of bytes written
 	lock    *sync.Mutex
 	gapTime time.Time
 }
@@ -141,6 +141,7 @@ func prepFile(path string) (*countingWriter, error) {
 // at the given path. When a file's size reaches the limit, the handler creates
 // a new file named after the timestamp of the first log record it will contain.
 var elapseTime = 1 * time.Hour
+
 func RotatingFileHandler(path string, limit uint, formatter Format) (Handler, error) {
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return nil, err
@@ -192,10 +193,10 @@ func RotatingFileHandler(path string, limit uint, formatter Format) (Handler, er
 					fmt.Println("log will write in the new file")
 				}
 				/*
-			if counter.w != nil {
-				counter.w.Close()
-			}
-					counter.w = nil*/
+					if counter.w != nil {
+						counter.w.Close()
+					}
+							counter.w = nil*/
 			}
 			counter.lock.Unlock()
 		}

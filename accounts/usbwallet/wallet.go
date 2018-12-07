@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 // Package usbwallet implements support for USB hardware wallets.
 package usbwallet
@@ -14,12 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/karalabe/hid"
 	matrix "github.com/matrix/go-matrix"
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
-	"github.com/karalabe/hid"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.
@@ -54,7 +53,7 @@ type driver interface {
 
 	// SignTx sends the transaction to the USB device and waits for the user to confirm
 	// or deny the transaction.
-	SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error)
+	SignTx(path accounts.DerivationPath, tx types.SelfTransaction, chainID *big.Int) (common.Address, types.SelfTransaction, error)
 }
 
 // wallet represents the common functionality shared by all USB hardware
@@ -71,11 +70,11 @@ type wallet struct {
 	accounts []accounts.Account                         // List of derive accounts pinned on the hardware wallet
 	paths    map[common.Address]accounts.DerivationPath // Known derivation paths for signing operations
 
-	deriveNextPath accounts.DerivationPath   // Next derivation path for account auto-discovery
-	deriveNextAddr common.Address            // Next derived account address for auto-discovery
+	deriveNextPath accounts.DerivationPath // Next derivation path for account auto-discovery
+	deriveNextAddr common.Address          // Next derived account address for auto-discovery
 	deriveChain    matrix.ChainStateReader // Blockchain state reader to discover used account with
-	deriveReq      chan chan struct{}        // Channel to request a self-derivation on
-	deriveQuit     chan chan error           // Channel to terminate the self-deriver with
+	deriveReq      chan chan struct{}      // Channel to request a self-derivation on
+	deriveQuit     chan chan error         // Channel to terminate the self-deriver with
 
 	healthQuit chan chan error
 
@@ -497,7 +496,7 @@ func (w *wallet) SignHash(account accounts.Account, hash []byte) ([]byte, error)
 // Note, if the version of the Matrix application running on the Ledger wallet is
 // too old to sign EIP-155 transactions, but such is requested nonetheless, an error
 // will be returned opposed to silently signing in Homestead mode.
-func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (w *wallet) SignTx(account accounts.Account, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
 	w.stateLock.RLock() // Comms have own mutex, this is for the state fields
 	defer w.stateLock.RUnlock()
 
@@ -546,7 +545,7 @@ func (w *wallet) SignHashWithPassphrase(account accounts.Account, passphrase str
 // SignTxWithPassphrase implements accounts.Wallet, attempting to sign the given
 // transaction with the given account using passphrase as extra authentication.
 // Since USB wallets don't rely on passphrases, these are silently ignored.
-func (w *wallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (w *wallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
 	return w.SignTx(account, tx, chainID)
 }
 
@@ -556,4 +555,8 @@ func (w *wallet) SignHashValidate(account accounts.Account, hash []byte, validat
 
 func (w *wallet) SignHashValidateWithPass(account accounts.Account, passphrase string, hash []byte, validate bool) ([]byte, error) {
 	return nil, accounts.ErrNotSupported
+}
+
+func (w *wallet) SignVrfWithPass(account accounts.Account, passphrase string, msg []byte) ([]byte, []byte, []byte, error) {
+	return nil, nil, nil, accounts.ErrNotSupported
 }

@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package broadcastTx
 
 import (
@@ -16,6 +16,7 @@ import (
 	"github.com/matrix/go-matrix/internal/manapi"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"time"
 )
 
 const (
@@ -86,17 +87,21 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 	msData, _ := json.Marshal(tmpData)
 	var txtype byte
 	txtype = byte(1)
-	tx := types.NewHeartTransaction(txtype, msData)
+	tx := types.NewBroadCastTransaction(txtype, msData)
 	var chainID *big.Int
 	if config := bc.manBackend.ChainConfig(); config.IsEIP155(currBlockHeight) {
 		chainID = config.ChainId
 	}
+	t1 := time.Now()
 	signed, err := bc.manBackend.SignTx(tx, chainID)
 	if err != nil {
 		log.Info("=========YY=========", "sendBroadCastTransaction:SignTx=", err)
 		return err
 	}
+	t2 := time.Since(t1)
 	err1 := bc.manBackend.SendBroadTx(context.Background(), signed, bType)
+	t3 := time.Since(t1)
+	log.Info("File BroadCast", "func sendBroadCastTransaction:t2", t2, "t3", t3)
 	log.Info("=========YY=========", "sendBroadCastTransaction:Return=", err1)
 	return nil
 }

@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 package p2p
 
 import (
@@ -21,12 +22,12 @@ import (
 // hash bucket
 type Bucket struct {
 	role   common.RoleType
-	bucket map[int64][]discover.NodeID
+	bucket map[int64][]common.Address
 
 	rings *ring.Ring
-	lock  *sync.RWMutex
+	lock  sync.RWMutex
 
-	ids []discover.NodeID
+	ids []common.Address
 
 	sub event.Subscription
 
@@ -39,8 +40,7 @@ type Bucket struct {
 // Init bucket.
 var Buckets = &Bucket{
 	role:  common.RoleNil,
-	lock:  new(sync.RWMutex),
-	ids:   make([]discover.NodeID, 0),
+	ids:   make([]common.Address, 0),
 	quit:  make(chan struct{}),
 	rings: ring.New(4),
 }
@@ -117,7 +117,6 @@ func (b *Bucket) Start() {
 			if temp.Mod(h.Height, big.NewInt(300)) == big.NewInt(50) {
 				b.rings = b.rings.Prev()
 			}
-
 			if len(b.ids) <= 64 {
 				b.maintainOuter()
 				break
@@ -137,7 +136,7 @@ func (b *Bucket) Start() {
 			case b.rings.Next().Value.(int64):
 				b.disconnectMiner()
 			case b.rings.Prev().Value.(int64):
-				miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupValidator)
+				miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupValidator)
 				b.outer(MaxLink, miners)
 			}
 		case <-b.quit:
@@ -154,9 +153,9 @@ func (b *Bucket) Stop() {
 }
 
 // maintainNodes maintain nodes in buckets.
-func (b *Bucket) maintainNodes(elected []discover.NodeID) {
+func (b *Bucket) maintainNodes(elected []common.Address) {
 	// remake every time instead of delete
-	b.bucket = make(map[int64][]discover.NodeID)
+	b.bucket = make(map[int64][]common.Address)
 	for _, v := range elected {
 		b.bucketAdd(v)
 	}
@@ -172,16 +171,16 @@ func (b *Bucket) nodesCount() (count int) {
 
 // DisconnectMiner older disconnect miner.
 func (b *Bucket) disconnectMiner() {
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
 	for _, miner := range miners {
-		ServerP2p.RemovePeer(discover.NewNode(miner, nil, 0, 0))
+		ServerP2p.RemovePeerByAddress(miner)
 	}
 }
 
 // disconnectPeers disconnect all peers
-func (b *Bucket) disconnectPeers(drops []discover.NodeID) {
+func (b *Bucket) disconnectPeers(drops []common.Address) {
 	for _, peer := range drops {
-		ServerP2p.RemovePeer(discover.NewNode(peer, nil, 0, 0))
+		ServerP2p.RemovePeerByAddress(peer)
 	}
 	for _, peer := range ServerP2p.Peers() {
 		ServerP2p.RemovePeer(discover.NewNode(peer.ID(), nil, 0, 0))
@@ -200,7 +199,11 @@ func (b *Bucket) disconnectOnePeer() {
 func (b *Bucket) maintainInner() {
 	count := 0
 	for _, peer := range ServerP2p.Peers() {
-		pid, err := b.peerBucket(peer.ID())
+		signAddr := ServerP2p.ConvertIdToAddress(peer.ID())
+		if signAddr == emptyAddress {
+			continue
+		}
+		pid, err := b.peerBucket(signAddr)
 		if err != nil {
 			b.log.Error("bucket number wrong", "error", err)
 			continue
@@ -221,11 +224,12 @@ func (b *Bucket) maintainInner() {
 // MaintainOuter maintain bucket outer.
 func (b *Bucket) maintainOuter() {
 	count := 0
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
 	b.log.Info("maintainOuter", "peer info", miners)
 	for _, peer := range ServerP2p.Peers() {
 		for _, miner := range miners {
-			if peer.ID() == miner {
+			id := ServerP2p.ConvertAddressToId(miner)
+			if id != emptyNodeId && peer.ID() == id {
 				count++
 				break
 			}
@@ -243,15 +247,10 @@ func (b *Bucket) maintainOuter() {
 
 // SelfBucket return self bucket number.
 func (b *Bucket) selfBucket() (int64, error) {
-	return b.peerBucket(ServerP2p.Self().ID)
+	return b.peerBucket(ServerP2p.ManAddress)
 }
 
-func (b *Bucket) peerBucket(node discover.NodeID) (int64, error) {
-	addr, err := ca.ConvertNodeIdToAddress(node)
-	if err != nil {
-		b.log.Error("bucket add", "error:", err)
-		return 0, err
-	}
+func (b *Bucket) peerBucket(addr common.Address) (int64, error) {
 	m := big.Int{}
 	return m.Mod(addr.Hash().Big(), big.NewInt(4)).Int64(), nil
 }
@@ -268,7 +267,12 @@ func (b *Bucket) linkBucketPeer() {
 	}
 	count := 0
 	for _, peer := range ServerP2p.Peers() {
-		pid, err := b.peerBucket(peer.ID())
+		signAddr := ServerP2p.ConvertIdToAddress(peer.ID())
+		if signAddr == emptyAddress {
+			b.log.Error("not found sign address", "id", peer.ID())
+			continue
+		}
+		pid, err := b.peerBucket(signAddr)
 		if err != nil {
 			b.log.Error("bucket number wrong", "error", err)
 			continue
@@ -288,24 +292,19 @@ func (b *Bucket) linkBucketPeer() {
 }
 
 // BucketAdd add to bucket.
-func (b *Bucket) bucketAdd(nodeId discover.NodeID) {
+func (b *Bucket) bucketAdd(addr common.Address) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	addr, err := ca.ConvertNodeIdToAddress(nodeId)
-	if err != nil {
-		b.log.Error("bucket add", "error:", err)
-		return
-	}
 	m := big.Int{}
 	mod := m.Mod(addr.Hash().Big(), big.NewInt(4)).Int64()
 
 	for _, n := range b.bucket[mod] {
-		if n == nodeId {
+		if n == addr {
 			return
 		}
 	}
-	b.bucket[mod] = append(b.bucket[mod], nodeId)
+	b.bucket[mod] = append(b.bucket[mod], addr)
 }
 
 // inner adjust inner network.
@@ -317,13 +316,12 @@ func (b *Bucket) inner(num int, bucket int64) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, defaultPort, defaultPort)
-		ServerP2p.AddPeer(node)
+		ServerP2p.AddPeerByAddress(value)
 	}
 }
 
 // outer adjust outer network.
-func (b *Bucket) outer(num int, ids []discover.NodeID) {
+func (b *Bucket) outer(num int, ids []common.Address) {
 	if num <= 0 {
 		return
 	}
@@ -331,13 +329,12 @@ func (b *Bucket) outer(num int, ids []discover.NodeID) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, defaultPort, defaultPort)
-		ServerP2p.AddPeer(node)
+		ServerP2p.AddPeerByAddress(value)
 	}
 }
 
 // RandomPeers random peers from next buckets.
-func (b *Bucket) randomInnerPeersByBucketNumber(num int, bucket int64) (nodes []discover.NodeID) {
+func (b *Bucket) randomInnerPeersByBucketNumber(num int, bucket int64) (nodes []common.Address) {
 	length := len(b.bucket[b.rings.Next().Value.(int64)])
 
 	if length <= MaxLink {
@@ -357,7 +354,7 @@ func (b *Bucket) randomInnerPeersByBucketNumber(num int, bucket int64) (nodes []
 }
 
 // RandomOuterPeers random peers from overstory.
-func (b *Bucket) randomOuterPeers(num int, ids []discover.NodeID) (nodes []discover.NodeID) {
+func (b *Bucket) randomOuterPeers(num int, ids []common.Address) (nodes []common.Address) {
 	if len(ids) <= MaxLink {
 		return ids
 	}

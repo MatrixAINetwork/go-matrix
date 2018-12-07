@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package discover
 
@@ -11,6 +10,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/matrix/go-matrix/common"
 	"net"
 	"time"
 
@@ -33,6 +33,8 @@ var (
 	errTimeout          = errors.New("RPC timeout")
 	errClockWarp        = errors.New("reply deadline too far in the future")
 	errClosed           = errors.New("socket closed")
+	errWrongNetWorkId   = errors.New("wrong network id")
+	errSignature        = errors.New("wrong signature with node")
 )
 
 // Timeouts
@@ -47,18 +49,23 @@ const (
 
 // RPC packet types
 const (
-	pingPacket = iota + 1 // zero is 'reserved'
+	pingPacket = iota + 31 // zero is 'reserved'
 	pongPacket
 	findnodePacket
 	neighborsPacket
+	findnodeByAddrPacket
+	addrNeighborsPacket
 )
 
 // RPC request structures
 type (
 	ping struct {
-		Version    uint
-		From, To   rpcEndpoint
-		Expiration uint64
+		Version               uint
+		From, To              rpcEndpoint
+		Expiration, NetWorkId uint64
+		Address               common.Address
+		Signature             common.Signature
+		SignTime              time.Time
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
 	}
@@ -92,11 +99,26 @@ type (
 		Rest []rlp.RawValue `rlp:"tail"`
 	}
 
+	findnodeByAddress struct {
+		Target     common.Address
+		Expiration uint64
+		Rest       []rlp.RawValue `rlp:"tail"`
+	}
+
+	addrNeighbors struct {
+		Node       rpcNode
+		Expiration uint64
+		Rest       []rlp.RawValue `rlp:"tail"`
+	}
+
 	rpcNode struct {
-		IP  net.IP // len 4 for IPv4 or 16 for IPv6
-		UDP uint16 // for discovery protocol
-		TCP uint16 // for RLPx protocol
-		ID  NodeID
+		IP   net.IP // len 4 for IPv4 or 16 for IPv6
+		UDP  uint16 // for discovery protocol
+		TCP  uint16 // for RLPx protocol
+		ID   NodeID
+		Addr common.Address
+		Sign common.Signature
+		Time time.Time
 	}
 
 	rpcEndpoint struct {
@@ -125,12 +147,15 @@ func (t *udp) nodeFromRPC(sender *net.UDPAddr, rn rpcNode) (*Node, error) {
 		return nil, errors.New("not contained in netrestrict whitelist")
 	}
 	n := NewNode(rn.ID, rn.IP, rn.UDP, rn.TCP)
+	n.Address = rn.Addr
+	n.Signature = rn.Sign
+	n.SignTime = rn.Time
 	err := n.validateComplete()
 	return n, err
 }
 
 func nodeToRPC(n *Node) rpcNode {
-	return rpcNode{ID: n.ID, IP: n.IP, UDP: n.UDP, TCP: n.TCP}
+	return rpcNode{ID: n.ID, IP: n.IP, UDP: n.UDP, TCP: n.TCP, Addr: n.Address, Sign: n.Signature, Time: n.SignTime}
 }
 
 type packet interface {
@@ -157,6 +182,12 @@ type udp struct {
 
 	closing chan struct{}
 	nat     nat.Interface
+
+	netWorkId uint64
+
+	address   common.Address
+	signature common.Signature
+	signTime  time.Time
 
 	*Table
 }
@@ -215,6 +246,10 @@ type Config struct {
 	NetRestrict  *netutil.Netlist  // network whitelist
 	Bootnodes    []*Node           // list of bootstrap nodes
 	Unhandled    chan<- ReadPacket // unhandled packets are sent on this channel
+	NetWorkId    uint64
+	Address      common.Address
+	Signature    common.Signature
+	SignTime     time.Time
 }
 
 // ListenUDP returns a new table that listens for UDP packets on laddr.
@@ -235,6 +270,10 @@ func newUDP(c conn, cfg Config) (*Table, *udp, error) {
 		closing:     make(chan struct{}),
 		gotreply:    make(chan reply),
 		addpending:  make(chan *pending),
+		netWorkId:   cfg.NetWorkId,
+		address:     cfg.Address,
+		signature:   cfg.Signature,
+		signTime:    cfg.SignTime,
 	}
 	realaddr := c.LocalAddr().(*net.UDPAddr)
 	if cfg.AnnounceAddr != nil {
@@ -264,6 +303,10 @@ func (t *udp) ping(toid NodeID, toaddr *net.UDPAddr) error {
 	req := &ping{
 		Version:    Version,
 		From:       t.ourEndpoint,
+		NetWorkId:  t.netWorkId,
+		Address:    t.address,
+		Signature:  t.signature,
+		SignTime:   t.signTime,
 		To:         makeEndpoint(toaddr, 0), // TODO: maybe use known TCP port from DB
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	}
@@ -306,6 +349,26 @@ func (t *udp) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]*Node
 	})
 	err := <-errc
 	return nodes, err
+}
+
+func (t *udp) findnodeByAddress(toid NodeID, toaddr *net.UDPAddr, target common.Address) (*Node, error) {
+	node := new(Node)
+
+	errc := t.pending(toid, addrNeighborsPacket, func(r interface{}) bool {
+		reply := r.(*addrNeighbors)
+		n, err := t.nodeFromRPC(toaddr, reply.Node)
+		if err != nil {
+			log.Trace("Invalid neighbor node received", "ip", reply.Node.IP, "addr", toaddr, "err", err)
+		}
+		node = n
+		return node == nil
+	})
+	t.send(toaddr, findnodeByAddrPacket, &findnodeByAddress{
+		Target:     target,
+		Expiration: uint64(time.Now().Add(expiration).Unix()),
+	})
+	err := <-errc
+	return node, err
 }
 
 // pending adds a reply callback to the pending reply queue.
@@ -451,7 +514,8 @@ func init() {
 			// If this ever happens, it will be caught by the unit tests.
 			panic("cannot encode: " + err.Error())
 		}
-		if headSize+size+1 >= 1280 {
+		// todo: modify by Ryan, don't know if there have problems.
+		if headSize+size+1 >= 1280*2 {
 			maxNeighbors = n
 			break
 		}
@@ -559,6 +623,10 @@ func decodePacket(buf []byte) (packet, NodeID, []byte, error) {
 		req = new(findnode)
 	case neighborsPacket:
 		req = new(neighbors)
+	case findnodeByAddrPacket:
+		req = new(findnodeByAddress)
+	case addrNeighborsPacket:
+		req = new(addrNeighbors)
 	default:
 		return nil, fromID, hash, fmt.Errorf("unknown type: %d", ptype)
 	}
@@ -571,6 +639,17 @@ func (req *ping) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) er
 	if expired(req.Expiration) {
 		return errExpired
 	}
+	if req.NetWorkId != t.netWorkId {
+		return errWrongNetWorkId
+	}
+	emptyAddr := common.Address{}
+	emptySign := common.Signature{}
+	if req.Address != emptyAddr || req.Signature != emptySign {
+		addr, _, _ := crypto.VerifySignWithValidate(fromID.Bytes(), req.Signature[:])
+		if addr != req.Address {
+			return errSignature
+		}
+	}
 	t.send(from, pongPacket, &pong{
 		To:         makeEndpoint(from, req.From.TCP),
 		ReplyTok:   mac,
@@ -578,7 +657,7 @@ func (req *ping) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) er
 	})
 	if !t.handleReply(fromID, pingPacket, req) {
 		// Note: we're ignoring the provided IP address right now
-		go t.bond(true, fromID, from, req.From.TCP)
+		go t.bond(true, fromID, from, req.From.TCP, req.Address, req.Signature, req.SignTime)
 	}
 	return nil
 }
@@ -654,6 +733,45 @@ func (req *neighbors) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byt
 }
 
 func (req *neighbors) name() string { return "NEIGHBORS/v4" }
+
+func (req *findnodeByAddress) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) error {
+	if expired(req.Expiration) {
+		return errExpired
+	}
+	if !t.db.hasBond(fromID) {
+		// No bond exists, we don't process the packet. This prevents
+		// an attack vector where the discovery protocol could be used
+		// to amplify traffic in a DDOS attack. A malicious actor
+		// would send a findnode request with the IP address and UDP
+		// port of the target as the source address. The recipient of
+		// the findnode packet would then send a neighbors packet
+		// (which is a much bigger packet than findnode) to the victim.
+		return errUnknownNode
+	}
+
+	p := addrNeighbors{Expiration: uint64(time.Now().Add(expiration).Unix())}
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if val, ok := t.nodeBindAddress[req.Target]; ok {
+		p.Node = nodeToRPC(val)
+		t.send(from, addrNeighborsPacket, &p)
+	}
+	return nil
+}
+
+func (req *findnodeByAddress) name() string { return "FINDNODEBYADDR/v4" }
+
+func (req *addrNeighbors) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) error {
+	if expired(req.Expiration) {
+		return errExpired
+	}
+	if !t.handleReply(fromID, addrNeighborsPacket, req) {
+		return errUnsolicitedReply
+	}
+	return nil
+}
+
+func (req *addrNeighbors) name() string { return "ADDRNEIGHBORS/v4" }
 
 func expired(ts uint64) bool {
 	return time.Unix(int64(ts), 0).Before(time.Now())
