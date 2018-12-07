@@ -1,14 +1,10 @@
+//1544155642.6719725
 // Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
 
 import (
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/reward/blkreward"
-	"github.com/matrix/go-matrix/reward/txsreward"
-	"github.com/matrix/go-matrix/reward/util"
-	"math/big"
 	"sync"
 	"time"
 
@@ -21,7 +17,6 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
 )
 
@@ -307,22 +302,28 @@ func (p *Process) processReqOnce() {
 	}
 
 	// verify net topology info
-	if err := p.verifyNetTopology(p.curProcessReq.req.Header); err != nil {
+	if err := p.verifyNetTopology(p.curProcessReq.req.Header, p.curProcessReq.req.OnlineConsensusResults); err != nil {
 		log.ERROR(p.logExtraInfo(), "验证拓扑信息失败", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
 		return
 	}
 
 	//todo Version
+	//verify Version
 
-
-	//verify vrf
-	if err:=p.verifyVrf(p.curProcessReq.req.Header);err!=nil{
-		log.Error(p.logExtraInfo(),"验证vrf失败",err,"高度",p.number)
+	if err := p.blockChain().DPOSEngine().VerifyVersion(p.blockChain(), p.curProcessReq.req.Header); err != nil {
+		log.ERROR(p.logExtraInfo(), "验证版本号失败", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
 		return
 	}
-	log.INFO(p.logExtraInfo(),"验证vrf成功 高度",p.number)
+
+	//verify vrf
+	if err := p.verifyVrf(p.curProcessReq.req.Header); err != nil {
+		log.Error(p.logExtraInfo(), "验证vrf失败", err, "高度", p.number)
+		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
+		return
+	}
+	log.INFO(p.logExtraInfo(), "验证vrf成功 高度", p.number)
 
 	p.startTxsVerify()
 }
@@ -417,8 +418,9 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 		return
 	}
 	p.processUpTime(work, localHeader.ParentHash)
-	blkRward, txsReward := p.calcRewardAndSlash(work.State, localHeader)
-	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.txs, p.pm.bc, blkRward, txsReward)
+	rewardList := work.CalcRewardAndSlash(p.blockChain())
+
+	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.txs, p.pm.bc, rewardList)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "交易验证，共识执行交易出错!", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultStateFailed)
@@ -456,25 +458,6 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 	// 开始DPOS共识验证
 	p.startDPOSVerify(localVerifyResultSuccess)
 }
-func (p *Process) calcRewardAndSlash(State *state.StateDB, header *types.Header) (map[common.Address]*big.Int, map[common.Address]*big.Int) {
-	blkreward := blkreward.New(p.blockChain())
-	blkRewardMap := blkreward.CalcBlockRewards(util.ByzantiumBlockReward, header.Leader, header)
-	//for account, value := range blkRewardMap {
-	//	//depoistInfo.AddReward(State, account, value)
-	//}
-	txsReward := txsreward.New(p.blockChain())
-	txsRewardMap := txsReward.CalcBlockRewards(util.ByzantiumTxsRewardDen, header.Leader, header)
-	//for account, value := range txsRewardMap {
-	//	//depoistInfo.AddReward(State, account, value)
-	//}
-	//todo 惩罚
-	//slash := slash.New(p.blockChain())
-	//slash.CalcSlash(State, header.Number.Uint64())
-	//for account, value := range SlashMap {
-	//	//depoistInfo.SetSlash(State, account, value)
-	//}
-	return blkRewardMap, txsRewardMap
-}
 
 func (p *Process) sendVote(validate bool) {
 	signHash := p.curProcessReq.hash
@@ -484,7 +467,7 @@ func (p *Process) sendVote(validate bool) {
 		return
 	}
 
-	p.startVoteMsgSender(&mc.HD_ConsensusVote{SignHash: signHash, Sign: sign, Round: p.number})
+	p.startVoteMsgSender(&mc.HD_ConsensusVote{SignHash: signHash, Sign: sign, Number: p.number})
 
 	//将自己的投票加入票池
 	if err := p.votePool().AddVote(signHash, sign, common.Address{}, p.number, false); err != nil {
@@ -628,5 +611,3 @@ func (p *Process) reElection() *reelection.ReElection { return p.pm.reElection }
 func (p *Process) logExtraInfo() string { return p.pm.logExtraInfo() }
 
 func (p *Process) eventMux() *event.TypeMux { return p.pm.event }
-
-func (p *Process) topNode() *olconsensus.TopNodeService { return p.pm.topNode }
