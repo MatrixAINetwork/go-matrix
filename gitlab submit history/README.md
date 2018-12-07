@@ -1144,3 +1144,14 @@
     12.6：zhangwen pushed to branch longest_link at repository go-matrix
     ea3c3829: 矿工在线插入超级区块增加reset机制
 
+
+    12.6：zhangwen pushed to branch longest_link at repository go-matrix
+    52b1f972: pm增加clear的处理
+
+    12.6：huyuankai pushed to branch longest_link at repository go-matrix
+    2ea55c08: Merge branch 'longest_link' of http://192.168.4.81/matrix/go-matrix into longest_link
+    3e6e08a9: leader服务增加超级区块重置状态功能
+
+
+    12.6：huyuankai pushed to branch longest_link at repository go-matrix
+    52787a3d: 矿工对超级区块重置状态的支持
