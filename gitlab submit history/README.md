@@ -1155,3 +1155,11 @@
 
     12.6：huyuankai pushed to branch longest_link at repository go-matrix
     52787a3d: 矿工对超级区块重置状态的支持
+
+
+    12.7：huyuankai pushed to branch restart_temp at repository go-ethereum
+    101cb999: 区块生成及区块验证服务日志调整
+
+
+    12.7：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    d75cfb6f: 二次秘钥 代码提交 正常转起来 -待完善测试case
