@@ -15,6 +15,6 @@ RUN  ln -s  /go-matrix/build/bin/gman /usr/local/bin/gman
 
 #EXPOSE 8545 8546 30303 30303/udp 30304/udp
 
-EXPOSE	40404 50505 8341
+EXPOSE	40404 50505 8341 60606
 
 ENTRYPOINT ["gman"]
