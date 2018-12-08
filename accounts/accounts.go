@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -19,6 +19,7 @@ import (
 // by the optional URL field.
 type Account struct {
 	Address common.Address `json:"address"` // Matrix account address derived from the key
+	ManAddress string `json:"manAddress"` // hezi
 	URL     URL            `json:"url"`     // Optional resource locator within a backend
 }
 
@@ -119,7 +120,6 @@ type Wallet interface {
 	SignHashValidate(account Account, hash []byte, validate bool) ([]byte, error)
 
 	SignHashValidateWithPass(account Account, passphrase string, hash []byte, validate bool) ([]byte, error)
-	SignVrfWithPass(account Account,passphrase string ,msg []byte)([]byte,[]byte,[]byte,error)
 }
 
 // Backend is a "wallet provider" that may contain a batch of accounts they can
