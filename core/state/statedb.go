@@ -1,6 +1,7 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 
 // Package state provides a caching layer atop the Matrix state trie.
 package state
@@ -18,6 +19,7 @@ import (
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/trie"
+	"encoding/json"
 )
 
 type revision struct {
@@ -46,6 +48,14 @@ type StateDB struct {
 	stateObjects      map[common.Address]*stateObject
 	stateObjectsDirty map[common.Address]struct{}
 
+	revocablebtrie trie.BTree //???
+	timebtrie trie.BTree    //??
+
+	btreeMap       	[]BtreeDietyStruct
+	btreeMapDirty   []BtreeDietyStruct
+	matrixData      map[common.Hash][]byte
+	matrixDataDirty map[common.Hash][]byte
+
 	// DB error.
 	// State objects are used by the consensus core and VM which are
 	// unable to deal with database-level errors. Any error that occurs
@@ -71,22 +81,43 @@ type StateDB struct {
 
 	lock sync.Mutex
 }
-
+type BtreeDietyStruct struct {
+	Key uint32
+	Data map[common.Hash][]byte
+	Typ string
+}
 // Create a new state from a given trie.
 func New(root common.Hash, db Database) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
 	}
-	return &StateDB{
+	st := &StateDB{
 		db:                db,
 		trie:              tr,
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
+		matrixData:        make(map[common.Hash][]byte),
+		matrixDataDirty:   make(map[common.Hash][]byte),
+		btreeMap   :     make([]BtreeDietyStruct,0),
+		btreeMapDirty  : make([]BtreeDietyStruct,0),
 		logs:              make(map[common.Hash][]*types.Log),
 		preimages:         make(map[common.Hash][]byte),
 		journal:           newJournal(),
-	}, nil
+	}
+	b,err1 := tr.TryGet([]byte(common.StateDBRevocableBtree))
+	if err1 == nil{
+		hash1 := common.BytesToHash(b)
+		st.NewBTrie(common.ExtraRevocable)
+		trie.RestoreBtree(&st.revocablebtrie,nil,hash1,db.TrieDB(),common.ExtraRevocable)
+	}
+	b2,err2:=tr.TryGet([]byte(common.StateDBTimeBtree))
+	if err2 == nil{
+		hash2 := common.BytesToHash(b2)
+		st.NewBTrie(common.ExtraTimeTxType)
+		trie.RestoreBtree(&st.timebtrie,nil,hash2,db.TrieDB(),common.ExtraTimeTxType)
+	}
+	return st, nil
 }
 
 // setError remembers the first non-nil error it is called with.
@@ -110,6 +141,10 @@ func (self *StateDB) Reset(root common.Hash) error {
 	self.trie = tr
 	self.stateObjects = make(map[common.Address]*stateObject)
 	self.stateObjectsDirty = make(map[common.Address]struct{})
+	self.btreeMap        =make([]BtreeDietyStruct,0)
+	self.btreeMapDirty  =make([]BtreeDietyStruct,0)
+	self.matrixData = make(map[common.Hash][]byte)
+	self.matrixDataDirty = make(map[common.Hash][]byte)
 	self.thash = common.Hash{}
 	self.bhash = common.Hash{}
 	self.txIndex = 0
@@ -177,12 +212,12 @@ func (self *StateDB) Empty(addr common.Address) bool {
 }
 
 // Retrieve the balance from the given address or 0 if object not found
-func (self *StateDB) GetBalance(addr common.Address) *big.Int {
+func (self *StateDB) GetBalance(addr common.Address) common.BalanceType {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.Balance()
 	}
-	return common.Big0
+	return nil
 }
 
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
@@ -233,9 +268,154 @@ func (self *StateDB) GetState(addr common.Address, bhash common.Hash) common.Has
 	return common.Hash{}
 }
 
+
+func (self *StateDB) GetStateByteArray(a common.Address, b common.Hash) []byte {
+	stateObject := self.getStateObject(a)
+	if stateObject != nil {
+		return stateObject.GetStateByteArray(self.db, b)
+	}
+	return nil
+}
+
 // Database retrieves the low level database supporting the lower level trie ops.
 func (self *StateDB) Database() Database {
 	return self.db
+}
+
+//isdel:true ?????map???hash,false ???????
+func (self *StateDB)GetSaveTx(typ byte,key uint32,hash common.Hash,isdel bool){
+	var item trie.Item
+	var str string
+	data := make(map[common.Hash][]byte)
+	switch typ {
+	case common.ExtraRevocable:
+		item = self.revocablebtrie.Get(trie.SpcialTxData{key,nil})
+		std,ok := item.(trie.SpcialTxData)
+		if !ok{
+			return
+		}
+		if isdel{
+			delete(std.Value_Tx,hash)
+			data = std.Value_Tx
+		}
+		str = common.StateDBRevocableBtree
+	case common.ExtraTimeTxType:
+		//todo ????
+		item = self.timebtrie.Get(trie.SpcialTxData{key,nil})
+		std,ok := item.(trie.SpcialTxData)
+		if !ok{
+			return
+		}
+		if isdel{
+			delete(std.Value_Tx,hash)
+			data = std.Value_Tx
+		}
+		str = common.StateDBTimeBtree
+	default:
+
+	}
+	tmpB := new(BtreeDietyStruct)
+	tmpB.Typ = str
+	tmpB.Key = key
+	tmpB.Data = data
+	self.btreeMap = append(self.btreeMap,*tmpB)
+	tmpBD := new(BtreeDietyStruct)
+	tmpBD.Typ = str
+	tmpBD.Key = key
+	tmpBD.Data = data
+	self.btreeMapDirty = append(self.btreeMapDirty,*tmpBD)
+	self.journal.append(addBtreeChange{typ:str,key:key})
+	return
+}
+func (self *StateDB)SaveTx(typ byte,key uint32,data map[common.Hash][]byte){
+	var str string
+	switch typ {
+	case common.ExtraRevocable:
+		str = common.StateDBRevocableBtree
+	case common.ExtraTimeTxType:
+		str = common.StateDBTimeBtree
+	default:
+
+	}
+	key = key
+	tmpB := new(BtreeDietyStruct)
+	tmpB.Typ = str
+	tmpB.Key = key
+	tmpB.Data = data
+	self.btreeMap = append(self.btreeMap,*tmpB)
+	tmpBD := new(BtreeDietyStruct)
+	tmpBD.Typ = str
+	tmpBD.Key = key
+	tmpBD.Data = data
+	self.btreeMapDirty = append(self.btreeMapDirty,*tmpBD)
+	self.journal.append(addBtreeChange{typ:str,key:key})
+}
+func (self *StateDB)CommitSaveTx(){
+	var typ byte
+	log.Info("file statedb","func CommitSaveTx:len(self.btreeMap)",self.btreeMap)
+	for _,btree := range self.btreeMap{
+		var hash common.Hash
+		var str string
+		log.Info("file statedb","func CommitSaveTx:Key",btree.Key,"mapData",btree.Data)
+		self.revocablebtrie.ReplaceOrInsert(trie.SpcialTxData{btree.Key,btree.Data})
+		tmproot := self.revocablebtrie.Root()
+		switch btree.Typ {
+		case common.StateDBRevocableBtree:
+			typ = common.ExtraRevocable
+		case common.StateDBTimeBtree:
+			typ = common.ExtraTimeTxType
+		default:
+
+		}
+		hash = trie.BtreeSaveHash(tmproot,self.db.TrieDB(),typ)
+		str = common.StateDBRevocableBtree
+		b := []byte(str)
+		err:=self.trie.TryUpdate(b,hash.Bytes())
+		if err != nil {
+			log.Error("file statedb", "func CommitSaveTx:err",err)
+		}
+		log.Info("file statedb","func CommitSaveTx","ooooooooooooooooooooooooooo")
+	}
+	self.btreeMap = make([]BtreeDietyStruct,0)
+	self.btreeMapDirty = make([]BtreeDietyStruct,0)
+}
+func (self *StateDB)UpdateTxForBtree(key uint32){
+	out := make([]trie.Item,0)
+	self.revocablebtrie.DescendLessOrEqual(trie.SpcialTxData{Key_Time:key},func(a trie.Item) bool {
+		out = append(out, a)
+		return true
+	})
+	log.Info("file statedb","func UpdateTxForBtree:len(out)",len(out),"time",key)
+	for _,it := range out{
+		item,ok := it.(trie.SpcialTxData)
+		if !ok{
+			continue
+		}
+		log.Info("file statedb","func UpdateTxForBtree:item.key",item.Key_Time,"item.Value",item.Value_Tx)
+		for _,tm :=range item.Value_Tx{
+			//self.GetMatrixData(hash)
+			var rt common.RecorbleTx
+			errRT := json.Unmarshal(tm,&rt)
+			if errRT != nil{
+				log.Error("file statedb","func UpdateTxForBtree,Unmarshal err",errRT)
+				continue
+			}
+			for _,vv := range rt.Adam{ //?????
+				log.Info("file statedb","func UpdateTxForBtree:vv.Addr",vv.Addr,"vv.Amont",vv.Amont)
+				log.Info("file statedb","func UpdateTxForBtree:from",rt.From,"vv.Amont",vv.Amont)
+				self.AddBalance(common.MainAccount,vv.Addr,vv.Amont)
+				self.SubBalance(common.WithdrawAccount,rt.From,vv.Amont)
+			}
+		}
+	}
+}
+func (self *StateDB)NewBTrie(typ byte){
+	switch typ {
+	case common.ExtraRevocable:
+		self.revocablebtrie = *trie.NewBtree(2,self.db.TrieDB())
+	case common.ExtraTimeTxType:
+		self.timebtrie = *trie.NewBtree(2,self.db.TrieDB())
+	}
 }
 
 // StorageTrie returns the storage trie of an account.
@@ -262,25 +442,25 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
  */
 
 // AddBalance adds amount to the account associated with addr.
-func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {
+func (self *StateDB) AddBalance(accountType uint32,addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.AddBalance(amount)
+		stateObject.AddBalance(accountType,amount)
 	}
 }
 
 // SubBalance subtracts amount from the account associated with addr.
-func (self *StateDB) SubBalance(addr common.Address, amount *big.Int) {
+func (self *StateDB) SubBalance(accountType uint32,addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SubBalance(amount)
+		stateObject.SubBalance(accountType,amount)
 	}
 }
 
-func (self *StateDB) SetBalance(addr common.Address, amount *big.Int) {
+func (self *StateDB) SetBalance(accountType uint32,addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetBalance(amount)
+		stateObject.SetBalance(accountType,amount)
 	}
 }
 
@@ -305,6 +485,13 @@ func (self *StateDB) SetState(addr common.Address, key, value common.Hash) {
 	}
 }
 
+func (self *StateDB) SetStateByteArray(addr common.Address, key common.Hash, value []byte) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetStateByteArray(self.db, key, value)
+	}
+}
+
 // Suicide marks the given account as suicided.
 // This clears the account balance.
 //
@@ -318,10 +505,12 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 	self.journal.append(suicideChange{
 		account:     &addr,
 		prev:        stateObject.suicided,
-		prevbalance: new(big.Int).Set(stateObject.Balance()),
+		//prevbalance: new(big.Int).Set(stateObject.Balance()),
+		prevbalance: stateObject.Balance(),
 	})
 	stateObject.markSuicided()
-	stateObject.data.Balance = new(big.Int)
+	//stateObject.data.Balance = new(big.Int)
+	stateObject.data.Balance = make(common.BalanceType,0)
 
 	return true
 }
@@ -377,6 +566,38 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 func (self *StateDB) setStateObject(object *stateObject) {
 	self.stateObjects[object.Address()] = object
 }
+func (self *StateDB) DeleteMxData(hash common.Hash,val []byte){
+	self.deleteMatrixData(hash,val)
+}
+/************************11************************************************/
+func (self *StateDB) updateMatrixData(hash common.Hash,val []byte) {
+	self.setError(self.trie.TryUpdate(hash[:], val))
+}
+
+func (self *StateDB) deleteMatrixData(hash common.Hash,val []byte) {
+	self.setError(self.trie.TryDelete(hash[:]))
+}
+
+func (self *StateDB) GetMatrixData(hash common.Hash) (val []byte) {
+	//if val = self.matrixData[hash]; val != nil{
+	//	return val
+	//}
+
+	// Load the data from the database.
+	val, err := self.trie.TryGet(hash[:])
+	if len(val) == 0 {
+		self.setError(err)
+		return nil
+	}
+	return
+}
+
+func (self *StateDB) SetMatrixData(hash common.Hash,val []byte) {
+	self.journal.append(addMatrixDataChange{hash: hash})
+	self.matrixData[hash] = val
+	self.matrixDataDirty[hash] = val
+}
+/**************************22***********************************************/
 
 // Retrieve a state object or create a new state object if nil.
 func (self *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
@@ -411,11 +632,14 @@ func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObjec
 //   1. sends funds to sha(account ++ (nonce + 1))
 //   2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
-// Carrying over the balance ensures that Ether doesn't disappear.
+// Carrying over the balance ensures that Maner doesn't disappear.
 func (self *StateDB) CreateAccount(addr common.Address) {
 	new, prev := self.createObject(addr)
 	if prev != nil {
-		new.setBalance(prev.data.Balance)
+		//new.setBalance(prev.data.Balance)
+		for _,tAccount := range prev.data.Balance{
+			new.setBalance(tAccount.AccountType,tAccount.Balance)
+		}
 	}
 }
 
@@ -452,6 +676,10 @@ func (self *StateDB) Copy() *StateDB {
 		trie:              self.db.CopyTrie(self.trie),
 		stateObjects:      make(map[common.Address]*stateObject, len(self.journal.dirties)),
 		stateObjectsDirty: make(map[common.Address]struct{}, len(self.journal.dirties)),
+		btreeMap        :make([]BtreeDietyStruct,0),
+		btreeMapDirty  :make([]BtreeDietyStruct,0),
+		matrixData:        make(map[common.Hash][]byte),
+		matrixDataDirty:   make(map[common.Hash][]byte),
 		refund:            self.refund,
 		logs:              make(map[common.Hash][]*types.Log, len(self.logs)),
 		logSize:           self.logSize,
@@ -486,6 +714,21 @@ func (self *StateDB) Copy() *StateDB {
 	for hash, preimage := range self.preimages {
 		state.preimages[hash] = preimage
 	}
+
+	//for hash := range self.matrixDataDirty {
+	//	if _, exist := state.matrixData[hash]; !exist {
+	//		state.stateObjects[addr] = self.matrixData[hash].deepCopy(state)
+	//		state.stateObjectsDirty[addr] = struct{}{}
+	//	}
+	//}
+	for hash, mandata := range self.matrixData {
+		state.matrixData[hash] = mandata
+		state.matrixDataDirty[hash] = mandata
+	}
+
+	state.btreeMap = self.btreeMap
+	state.btreeMapDirty = self.btreeMapDirty
+
 	return state
 }
 
@@ -541,6 +784,15 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
+
+	for hash,val := range s.matrixData{
+		_, isDirty := s.matrixDataDirty[hash]
+		if isDirty{
+			s.updateMatrixData(hash,val)
+		}
+		delete(s.matrixDataDirty,hash)
+	}
+	s.CommitSaveTx()
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
@@ -597,6 +849,15 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 		}
 		delete(s.stateObjectsDirty, addr)
 	}
+
+	for hash,val := range s.matrixData{
+		_, isDirty := s.matrixDataDirty[hash]
+		if isDirty{
+			s.updateMatrixData(hash,val)
+		}
+		delete(s.matrixDataDirty,hash)
+	}
+	s.CommitSaveTx()
 	// Write trie changes.
 	root, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {
 		var account Account
