@@ -1335,3 +1335,42 @@
 
     12.08：sunchunfeng pushed to branch mater_state at repository go-matrix
     6fdc7750: 删除选举模块 无用部分
+
+    12.08：zhangwen pushed to branch mater_state at repository go-matrix
+    6e488e95: Merge branch 'mater_state' of gitlab.matrix.com:matrix/go-matrix into mater_state
+    dd64f00c: Merge branch 'master_1115' into mater_state
+    470677e6: 重构奖励代码
+    2f732695: 同步geth restart temp版本，增加异常参数检查
+
+    12.08：zhangwen pushed to branch mater_state at repository go-matrix
+    921d8d94: compile error
+
+    12.08：huyuankai pushed to branch mater_state at repository go-matrix
+    d2b86d84: 修改matrix state 编解码的问题
+
+    12.08：huyuankai pushed to branch mater_state at repository go-matrix
+    080d3ee2: 调整编解码函数
+
+    12.08：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    0eb10141: 增加A0 A1切换接口
+
+    12.08：zhangwen pushed to branch mater_state at repository go-matrix
+    a79fe8f9: Merge branch 'mater_state' of gitlab.matrix.com:matrix/go-matrix into mater_state
+    9bb3a322: 增加balance为空的判断
+
+    12.08：sunchunfeng pushed to branch mater_state at repository go-matrix
+    1cbc7b2b: 定义 configdef.go
+
+    12.08：zhangwen pushed to branch mater_state at repository go-matrix
+    b2b8b508: 奖励
+    f0012892: add reward key
+
+    12.08：zhenghe pushed to branch restart_temp at repository go-ethereum
+    7f8590be: 出块时间调整改为3秒
+
+    12.08：zhangwen pushed to branch mater_state at repository go-matrix
+    3a9fd786: add reward en&decode
+
+    12.08：huyuankai pushed to branch restart_temp at repository go-ethereum
+    c8f3127c: Merge branch 'restart_temp' of http://192.168.4.81/merge/go-ethereum into restart_temp
+    22693e02: 修改online共识请求时，对缓存的请求不投票的bug
