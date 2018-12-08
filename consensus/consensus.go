@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -72,7 +72,7 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []types.SelfTransaction,
 		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new block for the given input block with the local miner's
@@ -101,6 +101,8 @@ type ValidatorReader interface {
 }
 
 type DPOSEngine interface {
+	VerifyVersion(reader ValidatorReader, header *types.Header) error
+
 	VerifyBlock(reader ValidatorReader, header *types.Header) error
 
 	VerifyBlocks(reader ValidatorReader, headers []*types.Header) error
@@ -108,10 +110,8 @@ type DPOSEngine interface {
 	//verify hash in current block
 	VerifyHash(reader ValidatorReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
 
-	//verify hash in given number block
+	//verify hash in given block
 	VerifyHashWithBlock(reader ValidatorReader, signHash common.Hash, signs []common.Signature, blockHash common.Hash) ([]common.Signature, error)
-
-	//VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error)
 
 	VerifyHashWithVerifiedSigns(reader ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error)
 
