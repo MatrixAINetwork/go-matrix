@@ -1203,3 +1203,49 @@
     12.7：huyuankai pushed to branch state_tree at repository go-matrix
     b9156533: Merge branch 'state_tree' of http://192.168.3.81/matrix/go-matrix into state_tree
     d4b0ec3c: 生成修改 30%
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    cbb57b8c: 修改bug
+
+    12.7：zhangwen pushed to branch longest_link at repository go-matrix
+    947b128d: 使用对端超级区块和共同祖先的高度最小值下载
+
+    12.7：zhangwen pushed to branch longest_link at repository go-matrix
+    11a8bc6e: 合并master1115版本
+    3c4303c7: 顶点服务改进版本：
+
+    12.7：zhangwen pushed to branch master_1115 at repository go-matrix
+    11a8bc6e: 合并master1115版本
+    947b128d: 使用对端超级区块和共同祖先的高度最小值下载
+    77033ee5: 在线插入超级区块，部分节点无法同步问题修改
+    52787a3d: 矿工对超级区块重置状态的支持
+    2ea55c08: Merge branch 'longest_link' of http://192.168.4.81/matrix/go-matrix into longest_link
+    3e6e08a9: leader服务增加超级区块重置状态功能
+    52b1f972: pm增加clear的处理
+    ea3c3829: 矿工在线插入超级区块增加reset机制
+    70be2b68: 解决fast模式下载含有超级区块的数据坏块的问题
+    0e4e22fc: 区块生成和区块验证超级区块插入删除缓存的数据
+
+
+    12.7：sunchunfeng pushed to branch state_tree at repository go-matrix
+    2c096570: 修改换届
+
+    12.7：zhangwen pushed to branch reward_dev at repository go-matrix
+    2f732695: 同步geth restart temp版本，增加异常参数检查
+    11a8bc6e: 合并master1115版本
+    947b128d: 使用对端超级区块和共同祖先的高度最小值下载
+    77033ee5: 在线插入超级区块，部分节点无法同步问题修改
+    52787a3d: 矿工对超级区块重置状态的支持
+    2ea55c08: Merge branch 'longest_link' of http://192.168.4.81/matrix/go-matrix into longest_link
+    3e6e08a9: leader服务增加超级区块重置状态功能
+    52b1f972: pm增加clear的处理
+    ea3c3829: 矿工在线插入超级区块增加reset机制
+    70be2b68: 解决fast模式下载含有超级区块的数据坏块的问题
+    ...
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    e24633b0: 修改拓扑验证 拓扑生成 和创世区块对 state的支持
+
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    bca0846d: 修改创世区块panic问题
