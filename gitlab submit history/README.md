@@ -1249,3 +1249,70 @@
 
     12.7：huyuankai pushed to branch state_tree at repository go-matrix
     bca0846d: 修改创世区块panic问题
+
+
+    12.7：zhenghe pushed to branch gman_Account at repository go-matrix
+    889e49dd: 修改委托功能，给rpc提供接口，委托和取消委托功能正确
+
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    c0a5ae78: 修改panic bug
+
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    ce172e6f: 修改panic错误
+
+
+    12.7：sunchunfeng pushed to branch state_tree at repository go-matrix
+    9b7f07a3: 修改onlineStates计算
+
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    133b89af: 增加日志
+
+
+    12.7：sunchunfeng pushed to branch state_tree at repository go-matrix
+    5c5e64dd: Merge branch 'state_tree' of http://192.168.3.81/matrix/go-matrix into state_tree
+    cb403214: 解决编译问题
+
+
+    12.7：huyuankai pushed to branch state_tree at repository go-matrix
+    45aaa7eb: 删除日志
+
+
+    12.7：huyuankai pushed to branch mater_state at repository go-matrix
+    11a8bc6e: 合并master1115版本
+    947b128d: 使用对端超级区块和共同祖先的高度最小值下载
+    77033ee5: 在线插入超级区块，部分节点无法同步问题修改
+    52787a3d: 矿工对超级区块重置状态的支持
+    2ea55c08: Merge branch 'longest_link' of http://192.168.4.81/matrix/go-matrix into longest_link
+    3e6e08a9: leader服务增加超级区块重置状态功能
+    52b1f972: pm增加clear的处理
+    ea3c3829: 矿工在线插入超级区块增加reset机制
+    70be2b68: 解决fast模式下载含有超级区块的数据坏块的问题
+    0e4e22fc: 区块生成和区块验证超级区块插入删除缓存的数据
+    ...
+
+
+    12.7：huyuankai pushed to branch mater_state at repository go-matrix
+    bc20fda2: state tree 代码部分合并
+
+    12.7：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    90e61e6b: add log 增加检测
+
+
+    12.7：huyuankai pushed to branch mater_state at repository go-matrix
+    5c49e698: elect部分修改
+
+    12.7：sunchunfeng pushed to branch mater_state at repository go-matrix
+    028d818f: 修改election
+
+    12.7：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    6ff683da: 优化log
+
+    12.7：zhangwen pushed to branch reward_dev at repository go-matrix
+    470677e6: 重构奖励代码
+
+
+    12.7：huyuankai pushed to branch mater_state at repository go-matrix
+    f3cf3f52: 状态树代码合并完毕
