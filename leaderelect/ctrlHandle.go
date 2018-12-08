@@ -38,8 +38,8 @@ func (self *controller) handleMsg(data interface{}) {
 		msg, _ := data.(*mc.HD_ReelectLeaderReqMsg)
 		self.handleRLReq(msg)
 
-	case *mc.HD_ReelectLeaderVoteMsg:
-		msg, _ := data.(*mc.HD_ReelectLeaderVoteMsg)
+	case *mc.HD_ConsensusVote:
+		msg, _ := data.(*mc.HD_ConsensusVote)
 		self.handleRLVote(msg)
 
 	case *mc.HD_ReelectResultBroadcastMsg:
@@ -69,8 +69,7 @@ func (self *controller) handleStartMsg(msg *startControllerMsg) {
 		return
 	}
 
-	preIsSupper := self.isSupperBlock(msg.parentHeader)
-
+	preIsSupper := msg.parentHeader.IsSuperHeader()
 	if err := self.dc.SetValidators(msg.parentHeader.Hash(), preIsSupper, msg.parentHeader.Leader, msg.validators); err != nil {
 		log.ERROR(self.logInfo, "处理开始消息", "验证者列表设置错误", "err", err)
 		return
