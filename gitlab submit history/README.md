@@ -1316,3 +1316,22 @@
 
     12.7：huyuankai pushed to branch mater_state at repository go-matrix
     f3cf3f52: 状态树代码合并完毕
+
+    12.08：huyuankai pushed to branch mater_state at repository go-matrix
+    2d44efac: 解决panic错误
+
+
+    12.08：zhangwen pushed to branch master_1115 at repository go-matrix
+    470677e6: 重构奖励代码
+    2f732695: 同步geth restart temp版本，增加异常参数检查
+
+
+    12.08：huyuankai pushed to branch mater_state at repository go-matrix
+    e026b6d5: 选举信息，上树函数注册
+
+    12.08：sunchunfeng pushed to branch mater_state at repository go-matrix
+    058b17bd: Merge branch 'mater_state' of http://192.168.3.81/matrix/go-matrix into mater_state
+    958ff3a2: 换届部分：删除无用部分
+
+    12.08：sunchunfeng pushed to branch mater_state at repository go-matrix
+    6fdc7750: 删除选举模块 无用部分
