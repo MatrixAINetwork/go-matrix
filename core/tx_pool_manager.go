@@ -4,7 +4,6 @@ import (
 	"errors"
 	"sync"
 
-	"fmt"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
@@ -183,7 +182,7 @@ func (pm *TxPoolManager) Pending() (map[common.Address]types.SelfTransactions, e
 func (pm *TxPoolManager) AddRemotes(txs []types.SelfTransaction) []error {
 	for _, tx := range txs {
 		//TODO 根据交易类型判断调用哪个池的实例
-		fmt.Println(tx)
+		pm.txPools[tx.TxType()].AddTxPool(tx)
 	}
 	return nil
 }

@@ -26,7 +26,7 @@ const (
 type TxPool interface {
 	Type() types.TxTypeInt
 	Stop()
-	AddTxPool(txs []types.SelfTransaction) []error
+	AddTxPool(tx types.SelfTransaction) []error
 	Pending() (map[common.Address][]*types.Transaction, error)
 	SubscribeNewTxsEvent(chan<- NewTxsEvent) event.Subscription
 }
