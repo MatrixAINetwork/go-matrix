@@ -1374,3 +1374,11 @@
     12.08：huyuankai pushed to branch restart_temp at repository go-ethereum
     c8f3127c: Merge branch 'restart_temp' of http://192.168.4.81/merge/go-ethereum into restart_temp
     22693e02: 修改online共识请求时，对缓存的请求不投票的bug
+
+    12.08：zhenghe pushed to branch gman_Account at repository go-matrix
+    cef80b17: 按时间委托测试通过
+
+
+    12.08：sunchunfeng pushed to branch mater_state at repository go-matrix
+    2930281e: Merge branch 'mater_state' of http://192.168.3.81/matrix/go-matrix into mater_state
+    05f6c813: 增加通用配置
