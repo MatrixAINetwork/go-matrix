@@ -51,7 +51,7 @@ func GetNetTopology(height uint64) (common.NetTopology, []common.Elect) {
 type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
+	TxPool() *core.TxPoolManager //YYY
 	ChainDb() mandb.Database
 	EventMux() *event.TypeMux
 	SignHelper() *signhelper.SignHelper

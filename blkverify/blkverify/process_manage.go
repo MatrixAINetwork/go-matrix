@@ -26,7 +26,7 @@ type ProcessManage struct {
 	hd         *msgsend.HD
 	signHelper *signhelper.SignHelper
 	bc         *core.BlockChain
-	txPool     *core.TxPool
+	txPool     *core.TxPoolManager //YYY
 	reElection *reelection.ReElection
 	topNode    *olconsensus.TopNodeService
 	event      *event.TypeMux

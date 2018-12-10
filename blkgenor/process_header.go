@@ -82,7 +82,7 @@ func (p *Process) processHeaderGen() error {
 		}
 		mapTxs := p.pm.matrix.TxPool().GetAllSpecialTxs()
 
-		Txs := make([]*types.Transaction, 0)
+		Txs := make([]types.SelfTransaction, 0)
 		for _, txs := range mapTxs {
 			for _, tx := range txs {
 				log.INFO(p.logExtraInfo(), "交易数据 t", tx)

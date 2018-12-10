@@ -316,7 +316,7 @@ func (p *Process) engine() consensus.Engine { return p.pm.engine }
 
 func (p *Process) dposEngine() consensus.DPOSEngine { return p.pm.dposEngine }
 
-func (p *Process) txPool() *core.TxPool { return p.pm.txPool }
+func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //YYY
 
 func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 

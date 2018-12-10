@@ -23,7 +23,7 @@ type ProcessManage struct {
 	hd         *msgsend.HD
 	signHelper *signhelper.SignHelper
 	bc         *core.BlockChain
-	txPool     *core.TxPool
+	txPool     *core.TxPoolManager //YYY
 	reElection *reelection.ReElection
 	engine     consensus.Engine
 	dposEngine consensus.DPOSEngine
