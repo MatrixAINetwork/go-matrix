@@ -141,7 +141,7 @@ func (w *trezorDriver) Derive(path accounts.DerivationPath) (common.Address, err
 
 // SignTx implements usbwallet.driver, sending the transaction to the Trezor and
 // waiting for the user to confirm or deny the transaction.
-func (w *trezorDriver) SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *trezorDriver) SignTx(path accounts.DerivationPath, tx types.SelfTransaction, chainID *big.Int) (common.Address, types.SelfTransaction, error) {
 	if w.device == nil {
 		return common.Address{}, nil, accounts.ErrWalletClosed
 	}
@@ -160,7 +160,7 @@ func (w *trezorDriver) trezorDerive(derivationPath []uint32) (common.Address, er
 
 // trezorSign sends the transaction to the Trezor wallet, and waits for the user
 // to confirm or deny the transaction.
-func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *trezorDriver) trezorSign(derivationPath []uint32, tx types.SelfTransaction, chainID *big.Int) (common.Address, types.SelfTransaction, error) {
 	// Create the transaction initiation message
 	data := tx.Data()
 	length := uint32(len(data))
@@ -207,7 +207,8 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction
 	// Create the correct signer and signature transform based on the chain ID
 	var signer types.Signer
 	if chainID == nil {
-		signer = new(types.HomesteadSigner)
+		//signer = new(types.HomesteadSigner)
+		signer = types.NewEIP155Signer(chainID)//YYY
 	} else {
 		signer = types.NewEIP155Signer(chainID)
 		signature[64] = signature[64] - byte(chainID.Uint64()*2+35)

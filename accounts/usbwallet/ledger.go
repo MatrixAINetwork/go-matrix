@@ -144,7 +144,7 @@ func (w *ledgerDriver) Derive(path accounts.DerivationPath) (common.Address, err
 // Note, if the version of the Matrix application running on the Ledger wallet is
 // too old to sign EIP-155 transactions, but such is requested nonetheless, an error
 // will be returned opposed to silently signing in Homestead mode.
-func (w *ledgerDriver) SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *ledgerDriver) SignTx(path accounts.DerivationPath, tx types.SelfTransaction, chainID *big.Int) (common.Address, types.SelfTransaction, error) {
 	// If the Matrix app doesn't run, abort
 	if w.offline() {
 		return common.Address{}, nil, accounts.ErrWalletClosed
@@ -284,7 +284,7 @@ func (w *ledgerDriver) ledgerDerive(derivationPath []uint32) (common.Address, er
 //   signature V | 1 byte
 //   signature R | 32 bytes
 //   signature S | 32 bytes
-func (w *ledgerDriver) ledgerSign(derivationPath []uint32, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
+func (w *ledgerDriver) ledgerSign(derivationPath []uint32, tx types.SelfTransaction, chainID *big.Int) (common.Address, types.SelfTransaction, error) {
 	// Flatten the derivation path into the Ledger request
 	path := make([]byte, 1+4*len(derivationPath))
 	path[0] = byte(len(derivationPath))
@@ -336,7 +336,8 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, tx *types.Transaction
 	// Create the correct signer and signature transform based on the chain ID
 	var signer types.Signer
 	if chainID == nil {
-		signer = new(types.HomesteadSigner)
+		//signer = new(types.HomesteadSigner)
+		signer = types.NewEIP155Signer(chainID) //YYY
 	} else {
 		signer = types.NewEIP155Signer(chainID)
 		signature[64] = signature[64] - byte(chainID.Uint64()*2+35)
