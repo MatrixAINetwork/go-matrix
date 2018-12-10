@@ -163,6 +163,7 @@ type TxPoolConfig struct {
 	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts
 	AccountQueue uint64 // Maximum number of non-executable transaction slots permitted per account
 	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
+	txTimeout    time.Duration
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -173,6 +174,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	GlobalSlots:  4096 * 5 * 5 * 10, //YY 2018-08-30 改为乘以5
 	AccountQueue: 64 * 1000,
 	GlobalQueue:  1024 * 60,
+	txTimeout:  500 * time.Second,
 }
 
 type NormalTxPool struct {
@@ -209,7 +211,8 @@ type NormalTxPool struct {
 	mapCaclErrtxs map[common.Hash][]common.Address //YY  用来统计错误的交易
 	mapDelErrtxs  map[common.Hash]*big.Int         //YY  用来删除mapErrorTxs
 	mapErrorTxs   map[*big.Int]*types.Transaction  //YY  存放所有的错误交易（20个区块自动删除）
-	mapTxsTiming  map[common.Hash]uint64           //YY  需要做定时删除的交易
+	mapTxsTiming  map[common.Hash]time.Time           //YY  需要做定时删除的交易
+	mapHighttx map[uint64][]uint32
 
 	homestead bool
 }
@@ -244,7 +247,8 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		mapCaclErrtxs: make(map[common.Hash][]common.Address), //YY  用来统计错误的交易
 		mapDelErrtxs:  make(map[common.Hash]*big.Int),         //YY  用来删除mapErrorTxs
 		mapErrorTxs:   make(map[*big.Int]*types.Transaction),  //YY  存放所有的错误交易（20个区块自动删除）
-		mapTxsTiming:  make(map[common.Hash]uint64),           //YY  需要做定时删除的交易
+		mapTxsTiming:  make(map[common.Hash]time.Time),           //YY  需要做定时删除的交易
+		mapHighttx:  make(map[uint64][]uint32,0),
 	}
 	//nPool.pool.priced = newTxPricedList(nPool.pool.all)
 	nPool.reset(nil, chain.CurrentBlock().Header())
@@ -280,6 +284,8 @@ func (nPool *NormalTxPool) Type() types.TxTypeInt {
 func (nPool *NormalTxPool) loop() {
 	defer nPool.wg.Done()
 
+	delteTime := time.NewTicker(10 * time.Second)
+	defer delteTime.Stop()
 	// Track the previous head headers for transaction reorgs
 	head := nPool.chain.CurrentBlock()
 
@@ -295,13 +301,25 @@ func (nPool *NormalTxPool) loop() {
 				}
 				nPool.reset(head.Header(), ev.Block.Header())
 				head = ev.Block
-				nPool.blockTiming() //YY
+				h := head.Number().Uint64()-1
+				if txlist,ok:=nPool.mapHighttx[h];ok{
+					for _,n := range txlist{
+						nPool.deletnTx(n)
+					}
+				}
+				delete(nPool.mapHighttx,h)
 				nPool.mu.Unlock()
 				nPool.getPendingTx() //YY
 			}
 			// Be unsubscribed due to system stopped
 		case <-nPool.chainHeadSub.Err():
 			return
+		case <- delteTime.C:
+			nPool.mu.Lock()
+			nPool.blockTiming() //YY
+			nPool.mu.Unlock()
+			nPool.getPendingTx()
+
 		}
 	}
 }
@@ -641,7 +659,14 @@ func (nPool *NormalTxPool) Pending() (map[common.Address][]*types.Transaction, e
 	defer nPool.mu.Unlock()
 	pending := make(map[common.Address][]*types.Transaction)
 	for addr, list := range nPool.pending {
-		pending[addr] = list.Flatten()
+		txlist := list.Flatten()
+		for _,tx:= range txlist{
+			if len(tx.N) <= 0 {
+				continue
+			}
+			nPool.NContainer[tx.N[0]] = tx
+		}
+		pending[addr] = txlist//.Flatten()
 	}
 	return pending, nil
 }
@@ -649,9 +674,12 @@ func (nPool *NormalTxPool) Pending() (map[common.Address][]*types.Transaction, e
 //YY 获取pending中剩余的交易（广播区块头后触发）
 //区块产生后将Pending中剩余的交易放入区块定时中，如果二十个区块还没有被打包则删除，如果已经被打包了则也删除
 func (nPool *NormalTxPool) getPendingTx() {
-	tmpPending, _ := nPool.Pending()
 	nPool.mu.Lock()
-	for _, txs := range tmpPending {
+	pending := make(map[common.Address][]*types.Transaction)
+	for addr, list := range nPool.pending {
+		pending[addr] = list.Flatten()
+	}
+	for _, txs := range pending {
 		for _, tx := range txs {
 			nPool.addBlockTiming(tx.Hash())
 		}
@@ -835,6 +863,7 @@ func (nPool *NormalTxPool) RecvConsensusFloodTx(mapNtx map[uint32]types.SelfTran
 	errorTxs := make([]*big.Int, 0)
 	txs := make([]*types.Transaction, 0)
 	tmpNtx := make(map[uint32]*types.Transaction)
+	nlist := make([]uint32,0)
 	for n, txer := range mapNtx {
 		ss := txer.GetTxS()
 		nPool.mapNs.Store(n, ss)
@@ -880,18 +909,24 @@ func (nPool *NormalTxPool) RecvConsensusFloodTx(mapNtx map[uint32]types.SelfTran
 			}
 			nPool.setTxNum(tx, n, false)
 			nPool.setnTx(n, tx, false)
+			nlist = append(nlist , n)
+		}else{
+			log.Info("msg_RecvConsensusFloodTx","msg_RecvConsensusFloodTx,tx`s N is same","continue")
 		}
-		_, err := nPool.add(tx, false)
-		if err != nil && err != ErrKnownTransaction {
-			log.Info("msg_RecvConsensusFloodTx", "Error=", err)
-			if _, ok := nPool.mapErrorTxs[s]; !ok {
-				errorTxs = append(errorTxs, s)
-				nPool.mapErrorTxs[s] = tx
-				nPool.mapDelErrtxs[tx.Hash()] = s
-			}
-			//对于添加失败的交易要调用删除map方法
-			nPool.deleteMap(tx)
-		}
+		//_, err := nPool.add(tx, false)
+		//if err != nil && err != ErrKnownTransaction {
+		//	log.Info("msg_RecvConsensusFloodTx", "Error=", err)
+		//	if _, ok := nPool.mapErrorTxs[s]; !ok {
+		//		errorTxs = append(errorTxs, s)
+		//		nPool.mapErrorTxs[s] = tx
+		//		nPool.mapDelErrtxs[tx.Hash()] = s
+		//	}
+		//	//对于添加失败的交易要调用删除map方法
+		//	nPool.deleteMap(tx)
+		//}
+	}
+	if len(nlist) > 0{
+		nPool.mapHighttx[nPool.chain.CurrentBlock().Number().Uint64()] = nlist
 	}
 	nPool.mu.Unlock()
 	//nPool.selfmlk.Unlock()
@@ -1044,16 +1079,16 @@ func (nPool *NormalTxPool) addBlockTiming(hash common.Hash) {
 	if _, ok := nPool.mapTxsTiming[hash]; ok {
 		return
 	}
-	nPool.mapTxsTiming[hash] = nPool.chain.CurrentBlock().Number().Uint64()
+	nPool.mapTxsTiming[hash] =time.Now()
 }
 
 //YY 20个区块定时删除(每次收到新区快头广播时触发)
 func (nPool *NormalTxPool) blockTiming() {
 	//外侧已经有锁在此不用再加锁
-	blockNum := nPool.chain.CurrentBlock().Number()
+	//blockNum := nPool.chain.CurrentBlock().Number()
 	listHash := make([]common.Hash, 0)
-	for hash, num := range nPool.mapTxsTiming {
-		if n := new(big.Int).Sub(blockNum, new(big.Int).SetUint64(num)); n.Uint64() >= params.SubBlockNum {
+	for hash, t := range nPool.mapTxsTiming {
+		if time.Since(t) > nPool.config.txTimeout{
 			listHash = append(listHash, hash)
 		}
 	}
@@ -1256,13 +1291,11 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 // AddLocal enqueues a single transaction into the pool if it is valid, marking
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
-func (nPool *NormalTxPool) AddTxPool(txser []types.SelfTransaction) []error {
+func (nPool *NormalTxPool) AddTxPool(txer types.SelfTransaction) []error {
 	//TODO 将交易dncode
 	txs := make([]*types.Transaction,0)
-	for _,txer := range txser{
-		tx:=txer.(*types.Transaction)
-		txs = append(txs,tx)
-	}
+	tx:=txer.(*types.Transaction)
+	txs = append(txs,tx)
 	return nPool.addTxs(txs, false)
 }
 

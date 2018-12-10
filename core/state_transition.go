@@ -11,10 +11,12 @@ import (
 	"math/big"
 
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/core/txinterface"
+	"github.com/matrix/go-matrix/core/types"
+	"sync"
 )
 
 var (
@@ -38,9 +40,10 @@ The state transitioning model does all all the necessary work to work out a vali
 5) Run Script section
 6) Derive new state root
 */
+
 type StateTransition struct {
 	gp         *GasPool
-	msg        Message
+	msg        txinterface.Message
 	gas        uint64
 	gasPrice   *big.Int
 	initialGas uint64
@@ -50,22 +53,22 @@ type StateTransition struct {
 	evm        *vm.EVM
 }
 
-// Message represents a message sent to a contract.
-type Message interface {
-	From() common.Address
-	//FromFrontier() (common.Address, error)
-	To() *common.Address
-
-	GasPrice() *big.Int
-	Gas() uint64
-	Value() *big.Int
-
-	Nonce() uint64
-	CheckNonce() bool
-	Data() []byte
-	//Extra() types.Matrix_Extra //YY
-	GetMatrix_EX() []types.Matrix_Extra //YYY  注释 Extra() 方法 改用此方法
-}
+//// Message represents a message sent to a contract.
+//type Message interface {
+//	From() common.Address
+//	//FromFrontier() (common.Address, error)
+//	To() *common.Address
+//
+//	GasPrice() *big.Int
+//	Gas() uint64
+//	Value() *big.Int
+//
+//	Nonce() uint64
+//	CheckNonce() bool
+//	Data() []byte
+//	//Extra() types.Matrix_Extra //YY
+//	GetMatrix_EX() []types.Matrix_Extra //YYY  注释 Extra() 方法 改用此方法
+//}
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
 func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error) {
@@ -100,8 +103,20 @@ func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error)
 	return gas, nil
 }
 
+//可能这个放在msg->createStateTransition()里面了
+func (st *StateTransition)InitStateTransition(evm *vm.EVM, msg txinterface.Message, gp uint64){
+	var tmpGp GasPool
+	tmpGp = GasPool(gp)
+	st.gp = &tmpGp
+	st.msg = msg
+	st.evm = evm
+	st.gasPrice = msg.GasPrice()
+	st.value = msg.Value()
+	st.data = msg.Data()
+	st.state = evm.StateDB
+}
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
+func NewStateTransition(evm *vm.EVM, msg txinterface.Message, gp *GasPool) *StateTransition {
 	return &StateTransition{
 		gp:       gp,
 		evm:      evm,
@@ -120,19 +135,54 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, error) {
-	return NewStateTransition(evm, msg, gp).TransitionDb()
+//type CreaterStateTransition interface{
+//	createTransition(evm *vm.EVM, msg txinterface.Message, gp *GasPool)txinterface.StateTransitioner
+//}
+var StmObj = stMangager{}
+type stMangager struct{
+	stmMap map[types.TxTypeInt] txinterface.StateTransitioner
+	mu sync.RWMutex
 }
 
+func (stm *stMangager)AddTransitionMangager(typeInt types.TxTypeInt,transitioner txinterface.StateTransitioner)  {
+	stm.mu.Lock()
+	stm.stmMap[typeInt] = transitioner
+	stm.mu.Unlock()
+}
+func (stm* stMangager)GetStateTransition(evm *vm.EVM, msg txinterface.Message, gp *GasPool) txinterface.StateTransitioner{
+	stm.mu.Lock()
+	defer stm.mu.Unlock()
+	if creater,exist := stm.stmMap[msg.TxType()]; exist{
+		return creater
+	}
+	return nil
+}
+
+func ApplyMessage(evm *vm.EVM, msg txinterface.Message, gp *GasPool) ([]byte, uint64, bool, error) {
+	stsi:=StmObj.GetStateTransition(evm, msg, gp)
+	if stsi == nil{
+		switch msg.TxType() {
+		default:
+			stsi = NewStateTransition(evm,msg,gp)
+		}
+		StmObj.AddTransitionMangager(msg.TxType(),stsi)
+	}
+	return stsi.TransitionDb()
+}
+//func (st *StateTransition)CreateTransition(evm *vm.EVM, msg txinterface.Message, gp uint64)txinterface.StateTransitioner{
+//	var tmpGp GasPool
+//	tmpGp = GasPool(gp)
+//	return NewStateTransition(evm,msg,&tmpGp)
+//}
 // to returns the recipient of the message.
-func (st *StateTransition) to() common.Address {
+func (st *StateTransition) To() common.Address {
 	if st.msg == nil || st.msg.To() == nil /* contract creation */ {
 		return common.Address{}
 	}
 	return *st.msg.To()
 }
 
-func (st *StateTransition) useGas(amount uint64) error {
+func (st *StateTransition) UseGas(amount uint64) error {
 	if st.gas < amount {
 		return vm.ErrOutOfGas
 	}
@@ -141,7 +191,7 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
-func (st *StateTransition) buyGas() error {
+func (st *StateTransition) BuyGas() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
@@ -156,7 +206,7 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition) PreCheck() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
 		nonce := st.state.GetNonce(st.msg.From())
@@ -166,14 +216,14 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
-	return st.buyGas()
+	return st.BuyGas()
 }
 
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the the used gas. It returns an error if it
 // failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
-	if err = st.preCheck(); err != nil {
+	if err = st.PreCheck(); err != nil {
 		return
 	}
 	msg := st.msg //因为st.msg的接口全部在transaction中实现,所以此处的局部变量msg实际是transaction类型
@@ -202,7 +252,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			gas += tmpgas
 		}
 	}
-	if err = st.useGas(gas); err != nil {
+	if err = st.UseGas(gas); err != nil {
 		return nil, 0, false, err
 	}
 
@@ -219,7 +269,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		ret, st.gas, vmerr = evm.Call(sender, st.To(), st.data, st.gas, st.value)
 	}
 	//YY=========begin===============
 	if vmerr == nil && (&tmpExtra) != nil && len(tmpExtra) > 0 {
@@ -248,17 +298,17 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		}
 	}
 
-	st.refundGas()
+	st.RefundGas()
 
 	//hezi;2018.9.6;此处不给矿工奖励
 	//st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
-	return ret, st.gasUsed(), vmerr != nil, err
+	return ret, st.GasUsed(), vmerr != nil, err
 }
 
-func (st *StateTransition) refundGas() {
+func (st *StateTransition) RefundGas() {
 	// Apply refund counter, capped to half of the used gas.
-	refund := st.gasUsed() / 2
+	refund := st.GasUsed() / 2
 	if refund > st.state.GetRefund() {
 		refund = st.state.GetRefund()
 	}
@@ -274,6 +324,6 @@ func (st *StateTransition) refundGas() {
 }
 
 // gasUsed returns the amount of gas used up by the state transition.
-func (st *StateTransition) gasUsed() uint64 {
+func (st *StateTransition) GasUsed() uint64 {
 	return st.initialGas - st.gas
 }
