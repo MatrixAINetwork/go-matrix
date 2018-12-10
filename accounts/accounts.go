@@ -100,7 +100,7 @@ type Wallet interface {
 	// about which fields or actions are needed. The user may retry by providing
 	// the needed details via SignTxWithPassphrase, or by other means (e.g. unlock
 	// the account in a keystore).
-	SignTx(account Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignTx(account Account, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error)
 
 	// SignHashWithPassphrase requests the wallet to sign the given hash with the
 	// given passphrase as extra authentication information.
@@ -114,7 +114,7 @@ type Wallet interface {
 	//
 	// It looks up the account specified either solely via its address contained within,
 	// or optionally with the aid of any location metadata from the embedded URL field.
-	SignTxWithPassphrase(account Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignTxWithPassphrase(account Account, passphrase string, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error)
 
 	SignHashValidate(account Account, hash []byte, validate bool) ([]byte, error)
 
