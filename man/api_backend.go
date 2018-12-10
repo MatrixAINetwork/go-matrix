@@ -29,6 +29,7 @@ import (
 	"github.com/matrix/go-matrix/rpc"
 	"errors"
 	"fmt"
+	"github.com/matrix/go-matrix/core/txinterface"
 )
 
 // ManAPIBackend implements manapi.Backend for full nodes
@@ -122,7 +123,7 @@ func (b *ManAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.man.blockchain.GetTdByHash(blockHash)
 }
 
-func (b *ManAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
+func (b *ManAPIBackend) GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
