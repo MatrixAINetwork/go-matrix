@@ -120,7 +120,7 @@ func (sh *SignHelper) SignHashWithValidate(hash []byte, validate bool) (common.S
 	return common.BytesToSignature(sign), nil
 }
 
-func (sh *SignHelper) SignTx(tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
 	sh.mu.RLock()
 	defer sh.mu.RUnlock()
 
