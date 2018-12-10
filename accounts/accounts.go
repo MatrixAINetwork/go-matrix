@@ -19,6 +19,7 @@ import (
 // by the optional URL field.
 type Account struct {
 	Address common.Address `json:"address"` // Matrix account address derived from the key
+	ManAddress string `json:"address"` // hezi
 	URL     URL            `json:"url"`     // Optional resource locator within a backend
 }
 
