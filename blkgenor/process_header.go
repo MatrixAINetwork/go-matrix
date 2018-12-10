@@ -15,6 +15,7 @@ import (
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/pkg/errors"
+	"github.com/matrix/go-matrix/txpoolCache"
 )
 
 func (p *Process) processHeaderGen() error {
@@ -170,7 +171,9 @@ func (p *Process) processHeaderGen() error {
 		p2pBlock := &mc.HD_BlkConsensusReqMsg{Header: header, TxsCode: txsCode, From: ca.GetAddress()}
 		//send to local block verify module
 		localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, Txs: Txs, Receipts: work.Receipts, State: work.State}
-
+		if len(Txs) > 0{
+			txpoolCache.MakeStruck(Txs,header.HashNoSignsAndNonce(),p.number)
+		}
 		log.INFO(p.logExtraInfo(), "!!!!本地发送区块验证请求, root", p2pBlock.Header.Root.TerminalString(), "高度", p.number)
 		mc.PublishEvent(mc.BlockGenor_HeaderVerifyReq, localBlock)
 		log.INFO(p.logExtraInfo(), "!!!!网络发送区块验证请求, hash", p2pBlock.Header.HashNoSignsAndNonce(), "tx数量", len(p2pBlock.TxsCode))
