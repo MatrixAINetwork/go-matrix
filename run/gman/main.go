@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
@@ -7,7 +7,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/matrix/go-matrix/params/man"
 	"os"
 	"runtime"
 	"sort"
@@ -18,24 +17,22 @@ import (
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/cmd/utils"
+	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/console"
 	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/manclient"
 	"github.com/matrix/go-matrix/internal/debug"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
+	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
 )
 
 const (
 	clientIdentifier = "gman" // Client identifier to advertise over the network
 )
-
-const panicFile = "/tmp/panic.log"
-
-var globalFile *os.File
 
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
@@ -117,8 +114,6 @@ var (
 		utils.TestLocalMiningFlag,
 		utils.TestHeaderGenFlag,
 		utils.TestChangeRoleFlag,
-		utils.GetCommitFlag,
-
 	}
 
 	rpcFlags = []cli.Flag{
@@ -135,18 +130,13 @@ var (
 		utils.IPCPathFlag,
 	}
 
-	whisperFlags = []cli.Flag{
-		utils.WhisperEnabledFlag,
-		utils.WhisperMaxMessageSizeFlag,
-		utils.WhisperMinPOWFlag,
-	}
 )
 
 func init() {
 	// Initialize the CLI app and start Gman
 	app.Action = gman
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright (c) 2018 The MATRIX Authors"
+	app.Copyright = "Copyright 2013-2018 The go-matrix Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
@@ -174,8 +164,6 @@ func init() {
 		licenseCommand,
 		// See config.go
 		dumpConfigCommand,
-		CommitCommand,
-
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -183,7 +171,6 @@ func init() {
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
-	app.Flags = append(app.Flags, whisperFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -211,7 +198,6 @@ func init() {
 }
 
 func main() {
-	initPanicFile()
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -232,9 +218,7 @@ func gman(ctx *cli.Context) error {
 // startNode boots up the system node and all registered protocols, after which
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
-func startNode(ctx *cli.Context, stack *node.Node) {
-	log.INFO("~~~~~version info~~~~~", "current version", "restart 18110301")
-
+func startNode(ctx *cli.Context, stack *pod.Node) {
 	debug.Memsize.Add("node", stack)
 
 	// Start up the node itself
@@ -314,11 +298,26 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		utils.Fatalf("Matrix service not running :%v", err)
 	}
 	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
-	log.INFO("BoradCastNode", "data", man.BroadCastNodes)
+	log.INFO("BoradCastNode", "data", params.BroadCastNodes)
 	log.Info("main", "nodeid", stack.Server().Self().ID.String())
+
+	go func() {
+		time.Sleep(3 * time.Second)
+		mc.PublishEvent(mc.NewBlockMessage, matrix.BlockChain().GetBlockByNumber(0))
+		log.INFO("MAIN", "创世区块插入消息已发送", matrix.BlockChain().GetBlockByNumber(0))
+		log.INFO("Peer总量", "len", p2p.ServerP2p.PeerCount())
+
+	}()
 
 	log.INFO("创世文件选举信息", "data", matrix.BlockChain().GetBlockByNumber(0).Header().Elect)
 	log.INFO("创世文件拓扑图", "data", matrix.BlockChain().GetBlockByNumber(0).Header().NetTopology)
+	/*go func() {
+		time.Sleep(10 * time.Second)
+		valDep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleValidator)
+		log.INFO("验证者参选信息", "data", valDep, "err", err)
+		mindep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleMiner)
+		log.INFO("矿工参选信息", "data", mindep, "err", err)
+	}()*/
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
@@ -354,5 +353,5 @@ func Init_Config_PATH(ctx *cli.Context) {
 		log.Error("无创世文件", "请在启动时使用--datadir", "")
 	}
 
-	man.Config_Init(config_dir + "/man.json")
+	params.Config_Init(config_dir + "/man.json")
 }

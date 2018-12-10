@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package types
 
@@ -13,6 +14,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/params"
+	"sync"
 )
 
 var (
@@ -75,7 +77,26 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	tx.from.Store(sigCache{signer: signer, from: addr})
 	return addr, nil
 }
+//YY
+func Sender_self(signer Signer, tx *Transaction,waitg *sync.WaitGroup) (common.Address, error) {
+	defer waitg.Done()
+	if sc := tx.from.Load(); sc != nil {
+		sigCache := sc.(sigCache)
+		// If the signer used to derive from in a previous
+		// call is not the same as used current, invalidate
+		// the cache.
+		if sigCache.signer.Equal(signer) {
+			return sigCache.from, nil
+		}
+	}
 
+	addr, err := signer.Sender(tx)
+	if err != nil {
+		return common.Address{}, err
+	}
+	tx.from.Store(sigCache{signer: signer, from: addr})
+	return addr, nil
+}
 // Signer encapsulates transaction signature handling. Note that this interface is not a
 // stable API and may change at any time to accommodate new protocol rules.
 type Signer interface {
@@ -254,7 +275,7 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	return addr, nil
 }
 
-//YY changed the original deriveChainId method to deriveChainId1, and restruct the deriveChainId method
+//YY 将原来的deriveChainId方法改为deriveChainId1，然后重写deriveChainId方法
 func deriveChainId(v *big.Int) *big.Int {
 	v1 := new(big.Int).Set(v)
 	tmp := big.NewInt(128)

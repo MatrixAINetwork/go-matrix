@@ -1,10 +1,12 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-package topnode
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+package olconsensus
 
 import (
 	"errors"
+	"reflect"
+
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
@@ -12,7 +14,6 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"reflect"
 )
 
 var (
@@ -25,20 +26,19 @@ type TopNodeService struct {
 	msgCheck messageCheck
 	dposRing *DPosVoteRing
 
-	validatorReader consensus.ValidatorReader
-	topNodeState    TopNodeStateInterface
-	validatorSign   ValidatorAccountInterface
-	msgSender       MessageSendInterface
-	msgCenter       MessageCenterInterface
-	cd              consensus.DPOSEngine
+	topNodeState  TopNodeStateInterface
+	validatorSign ValidatorAccountInterface
+	msgSender     MessageSendInterface
+	msgCenter     MessageCenterInterface
+	cd            consensus.DPOSEngine
 
 	leaderChangeCh     chan *mc.LeaderChangeNotify
 	leaderChangeSub    event.Subscription
-	consensusReqCh     chan *mc.HD_OnlineConsensusReqs //topnode consensus request message
+	consensusReqCh     chan *mc.HD_OnlineConsensusReqs //顶层节点共识请求消息
 	consensusReqSub    event.Subscription
-	consensusVoteCh    chan *mc.HD_OnlineConsensusVotes //topnode consensus vote message
+	consensusVoteCh    chan *mc.HD_OnlineConsensusVotes //顶层节点共识投票消息
 	consensusVoteSub   event.Subscription
-	consensusResultCh  chan *mc.HD_OnlineConsensusVoteResultMsg //topnode consensus result message
+	consensusResultCh  chan *mc.HD_OnlineConsensusVoteResultMsg //顶层节点共识结果消息
 	consensusResultSub event.Subscription
 	quitCh             chan struct{}
 	extraInfo          string
@@ -60,10 +60,6 @@ func NewTopNodeService(cd consensus.DPOSEngine) *TopNodeService {
 	//	go t.update()
 
 	return t
-}
-
-func (self *TopNodeService) SetValidatorReader(reader consensus.ValidatorReader) {
-	self.validatorReader = reader
 }
 
 func (self *TopNodeService) SetTopNodeStateInterface(inter TopNodeStateInterface) {
@@ -95,64 +91,64 @@ func (self *TopNodeService) Start() error {
 func (self *TopNodeService) subMsg() error {
 	var err error
 
-	//subscribe for leader change message
+	//订阅leader变化消息
 	if self.leaderChangeSub, err = self.msgCenter.SubscribeEvent(mc.Leader_LeaderChangeNotify, self.leaderChangeCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent LeaderChangeNotify failed.", err)
 		return err
 	}
-	//subscribe for topnode status consensus request message
+	//订阅顶层节点状态共识请求消息
 	if self.consensusReqSub, err = self.msgCenter.SubscribeEvent(mc.HD_TopNodeConsensusReq, self.consensusReqCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent HD_TopNodeConsensusReq failed.", err)
 		return err
 	}
-	//subscribe for consensus vote message
+	//订共识投票消息
 	if self.consensusVoteSub, err = self.msgCenter.SubscribeEvent(mc.HD_TopNodeConsensusVote, self.consensusVoteCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent HD_TopNodeConsensusVote failed.", err)
 		return err
 	}
-	//subscribe for consensus result message
+	//订阅共识结果消息
 	if self.consensusResultSub, err = self.msgCenter.SubscribeEvent(mc.HD_TopNodeConsensusVoteResult, self.consensusResultCh); err != nil {
 		log.Error(self.extraInfo, "SubscribeEvent HD_TopNodeConsensusVoteResult failed.", err)
 		return err
 	}
 
-	log.Info(self.extraInfo, "service subscription done", "")
+	log.Info(self.extraInfo, "服务订阅完成", "")
 	return nil
 }
 
 func (self *TopNodeService) unSubMsg() {
-	log.Info(self.extraInfo, "cancelling the service subscription", "")
-	//leader change message subscription cancelled
+	log.Info(self.extraInfo, "开始取消服务订阅", "")
+	//取消订阅leader变化消息
 
 	self.leaderChangeSub.Unsubscribe()
 
-	//Unsubscribe for Top Node State Consensus Request Message
+	//取消订阅顶层节点状态共识请求消息
 
 	self.consensusReqSub.Unsubscribe()
-	//Unsubscribe for Consensus Vote Message
+	//取消订共识投票消息
 
 	self.consensusVoteSub.Unsubscribe()
-	//Unsubscribe for Consensus Result Message
+	//取消订阅共识结果消息
 
 	self.consensusResultSub.Unsubscribe()
-	log.Info(self.extraInfo, "Unsubcription Success", "")
+	log.Info(self.extraInfo, "取消服务订阅完成", "")
 
 }
 
 func (serv *TopNodeService) update() {
-	log.Info(serv.extraInfo, "Start topnode service, and wait for the messages", "")
+	log.Info(serv.extraInfo, "启动顶层节点服务，等待接收消息", "")
 	defer serv.unSubMsg()
 	for {
 		select {
 
 		case data := <-serv.leaderChangeCh:
 			if serv.msgCheck.checkLeaderChangeNotify(data) {
-				log.Info(serv.extraInfo, "Received leader change notification", "")
+				log.Info(serv.extraInfo, "收到leader变更通知消息", "")
 				go serv.LeaderChangeNotifyHandler(data)
 			}
 
 		case data := <-serv.consensusReqCh:
-			log.Info(serv.extraInfo, "Received consensus request message", "")
+			log.Info(serv.extraInfo, "收到共识请求消息", "")
 			go serv.consensusReqMsgHandler(data.ReqList)
 
 		case data := <-serv.consensusVoteCh:
@@ -272,7 +268,7 @@ func (serv *TopNodeService) consensusVotes(proposal interface{}, votes []voteInf
 	for _, value := range votes {
 		signList = append(signList, value.data.Sign)
 	}
-	tempSigns, err := serv.cd.VerifyHashWithNumber(serv.validatorReader, votes[0].data.SignHash, signList, 10)
+	tempSigns, err := serv.cd.VerifyHashWithNumber(votes[0].data.SignHash, signList, 10)
 	if err != nil {
 		log.Info(serv.extraInfo, "DPOS共识失败", err)
 		return

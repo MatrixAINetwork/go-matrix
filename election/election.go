@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
-
 package election
 
 import (
@@ -75,9 +74,9 @@ func NewEle() *Elector {
 
 	ele.MaxSample = 1000
 	ele.J = 0
-	ele.M = ValidatorNum
-	ele.P = BackupValidatorNum
-	ele.N = MinerNum
+	ele.M = 11
+	ele.P = 5
+	ele.N = 21
 	ele.EleServer()
 	ele.EleMMRs = make(chan *mc.MasterMinerReElectionRsp, 10)
 	ele.EleMVRs = make(chan *mc.MasterValidatorReElectionRsq, 10)
@@ -581,7 +580,7 @@ func (Ele *Elector) Listen() {
 
 			value := CalcAllValueFunction(mmrerm.MinerList)
 
-			a, b := Ele.MinerNodesSelected(value, mmrerm.RandSeed.Int64(), MinerNum) //Ele.Engine(value, mmrerm.RandSeed.Int64()) //0x12217)
+			a, b := Ele.MinerNodesSelected(value, mmrerm.RandSeed.Int64(), 21) //Ele.Engine(value, mmrerm.RandSeed.Int64()) //0x12217)
 			for index, item := range a {
 				fmt.Println(index, item)
 			}
@@ -641,11 +640,11 @@ func (Ele *Elector) Listen() {
 			var value []Stf
 			if len(mvrerm.FoundationValidatoeList) == 0 {
 				value = CalcAllValueFunction(mvrerm.ValidatorList)
-				a, b, c = Ele.Engine(value, mvrerm.RandSeed.Int64(), ValidatorNum, BackupValidatorNum, 0) //mvrerm.RandSeed.Int64(), 11, 5, 0) //0x12217)
+				a, b, c = Ele.Engine(value, mvrerm.RandSeed.Int64(), 11, 5, 0) //mvrerm.RandSeed.Int64(), 11, 5, 0) //0x12217)
 			} else {
 				value = CalcAllValueFunction(mvrerm.ValidatorList)
 				valuefound := CalcAllValueFunction(mvrerm.FoundationValidatoeList)
-				a, b, c = Ele.Engine(value, mvrerm.RandSeed.Int64(), ValidatorNum, BackupValidatorNum, len(mvrerm.FoundationValidatoeList)) //0x12217)
+				a, b, c = Ele.Engine(value, mvrerm.RandSeed.Int64(), 11, 5, len(mvrerm.FoundationValidatoeList)) //0x12217)
 				a = Ele.CommbineFundNodesAndPricipal(value, valuefound, a, 0.25, 4.0)
 			}
 

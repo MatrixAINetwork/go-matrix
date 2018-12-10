@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package params
 
@@ -16,7 +17,7 @@ const (
 	Shannon  = 1e9
 	Szabo    = 1e12
 	Finney   = 1e15
-	Ether    = 1e18
+	Maner    = 1e18
 	Einstein = 1e21
 	Douglas  = 1e42
 )

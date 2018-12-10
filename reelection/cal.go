@@ -1,32 +1,27 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package reelection
 
 import (
 	"errors"
 
+	"github.com/matrix/go-matrix/params"
+
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/log"
 )
 
 //todo
 func (self *ReElection) GetNetTopologyAll(height uint64) (*ElectReturnInfo, error) {
 	if common.IsReElectionNumber(height + 1) {
-		heightMiner := height + 1
-		if err:=self.checkTopGenStatus(heightMiner);err!=nil{
-			log.ERROR(Module,"error checking top generation err",err)
-		}
+		heightMiner := height + 1 - params.MinerNetChangeUpTime
 		ans, _, err := self.readElectData(common.RoleMiner, heightMiner)
 		if err != nil {
 			return nil, err
 		}
 
-		heightValidator := height + 1
-		if err:=self.checkTopGenStatus(heightValidator);err!=nil{
-			log.ERROR(Module,"error checking top generation",err)
-		}
+		heightValidator := height + 1 - params.VerifyNetChangeUpTime
 		_, ans1, err := self.readElectData(common.RoleValidator, heightValidator)
 		if err != nil {
 			return nil, err

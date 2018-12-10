@@ -1,15 +1,15 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-package topnode
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+package olconsensus
 
 import (
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/hd"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/msgsend"
 )
 
 type OnlineState uint8
@@ -56,10 +56,10 @@ type MessageCenterInterface interface {
 ////////////////////////////////////////////////////////////////////
 type TopNodeInstance struct {
 	signHelper *signhelper.SignHelper
-	hd         *hd.HD
+	hd         *msgsend.HD
 }
 
-func NewTopNodeInstance(sh *signhelper.SignHelper, hd *hd.HD) *TopNodeInstance {
+func NewTopNodeInstance(sh *signhelper.SignHelper, hd *msgsend.HD) *TopNodeInstance {
 	return &TopNodeInstance{
 		signHelper: sh,
 		hd:         hd,

@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package main
 
@@ -15,12 +15,11 @@ import (
 
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/matrix/go-matrix/cmd/utils"
+	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/dashboard"
 	"github.com/matrix/go-matrix/man"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/params"
-	whisper "github.com/matrix/go-matrix/whisper/whisperv6"
 	"github.com/naoina/toml"
 )
 
@@ -30,7 +29,7 @@ var (
 		Name:        "dumpconfig",
 		Usage:       "Show configuration values",
 		ArgsUsage:   "",
-		Flags:       append(append(nodeFlags, rpcFlags...), whisperFlags...),
+		Flags:       append(nodeFlags, rpcFlags...),
 		Category:    "MISCELLANEOUS COMMANDS",
 		Description: `The dumpconfig command shows configuration values.`,
 	}
@@ -63,10 +62,9 @@ type manstatsConfig struct {
 }
 
 type gmanConfig struct {
-	Eth       man.Config
-	Shh       whisper.Config
-	Node      node.Config
-	Ethstats  manstatsConfig
+	Man       man.Config
+	Node      pod.Config
+	Manstats  manstatsConfig
 	Dashboard dashboard.Config
 }
 
@@ -85,21 +83,20 @@ func loadConfig(file string, cfg *gmanConfig) error {
 	return err
 }
 
-func defaultNodeConfig() node.Config {
-	cfg := node.DefaultConfig
+func defaultNodeConfig() pod.Config {
+	cfg := pod.DefaultConfig
 	cfg.Name = clientIdentifier
 	cfg.Version = params.VersionWithCommit(gitCommit)
-	cfg.HTTPModules = append(cfg.HTTPModules, "man", "shh")
-	cfg.WSModules = append(cfg.WSModules, "man", "shh")
+	cfg.HTTPModules = append(cfg.HTTPModules, "man","eth", "shh")
+	cfg.WSModules = append(cfg.WSModules, "man","eth", "shh")
 	cfg.IPCPath = "gman.ipc"
 	return cfg
 }
 
-func makeConfigNode(ctx *cli.Context) (*node.Node, gmanConfig) {
+func makeConfigNode(ctx *cli.Context) (*pod.Node, gmanConfig) {
 	// Load defaults.
 	cfg := gmanConfig{
-		Eth:       man.DefaultConfig,
-		Shh:       whisper.DefaultConfig,
+		Man:       man.DefaultConfig,
 		Node:      defaultNodeConfig(),
 		Dashboard: dashboard.DefaultConfig,
 	}
@@ -113,55 +110,32 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gmanConfig) {
 
 	// Apply flags.
 	utils.SetNodeConfig(ctx, &cfg.Node)
-	stack, err := node.New(&cfg.Node)
+	stack, err := pod.New(&cfg.Node)
 	if err != nil {
 		utils.Fatalf("Failed to create the protocol stack: %v", err)
 	}
-	utils.SetEthConfig(ctx, stack, &cfg.Eth)
-	if ctx.GlobalIsSet(utils.EthStatsURLFlag.Name) {
-		cfg.Ethstats.URL = ctx.GlobalString(utils.EthStatsURLFlag.Name)
+	utils.SetManConfig(ctx, stack, &cfg.Man)
+	if ctx.GlobalIsSet(utils.ManStatsURLFlag.Name) {
+		cfg.Manstats.URL = ctx.GlobalString(utils.ManStatsURLFlag.Name)
 	}
 
-	utils.SetShhConfig(ctx, stack, &cfg.Shh)
 	utils.SetDashboardConfig(ctx, &cfg.Dashboard)
 
 	return stack, cfg
 }
 
-// enableWhisper returns true in case one of the whisper flags is set.
-func enableWhisper(ctx *cli.Context) bool {
-	for _, flag := range whisperFlags {
-		if ctx.GlobalIsSet(flag.GetName()) {
-			return true
-		}
-	}
-	return false
-}
-
-func makeFullNode(ctx *cli.Context) *node.Node {
+func makeFullNode(ctx *cli.Context) *pod.Node {
+	Init_Config_PATH(ctx)
 	stack, cfg := makeConfigNode(ctx)
 
-	utils.RegisterEthService(stack, &cfg.Eth)
+	utils.RegisterManService(stack, &cfg.Man)
 
 	if ctx.GlobalBool(utils.DashboardEnabledFlag.Name) {
 		utils.RegisterDashboardService(stack, &cfg.Dashboard, gitCommit)
 	}
-	// Whisper must be explicitly enabled by specifying at least 1 whisper flag or in dev mode
-	shhEnabled := enableWhisper(ctx)
-	shhAutoEnabled := !ctx.GlobalIsSet(utils.WhisperEnabledFlag.Name) && ctx.GlobalIsSet(utils.DeveloperFlag.Name)
-	if shhEnabled || shhAutoEnabled {
-		if ctx.GlobalIsSet(utils.WhisperMaxMessageSizeFlag.Name) {
-			cfg.Shh.MaxMessageSize = uint32(ctx.Int(utils.WhisperMaxMessageSizeFlag.Name))
-		}
-		if ctx.GlobalIsSet(utils.WhisperMinPOWFlag.Name) {
-			cfg.Shh.MinimumAcceptedPOW = ctx.Float64(utils.WhisperMinPOWFlag.Name)
-		}
-		utils.RegisterShhService(stack, &cfg.Shh)
-	}
-
 	// Add the Matrix Stats daemon if requested.
-	if cfg.Ethstats.URL != "" {
-		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
+	if cfg.Manstats.URL != "" {
+		utils.RegisterManStatsService(stack, cfg.Manstats.URL)
 	}
 	return stack
 }
@@ -171,8 +145,8 @@ func dumpConfig(ctx *cli.Context) error {
 	_, cfg := makeConfigNode(ctx)
 	comment := ""
 
-	if cfg.Eth.Genesis != nil {
-		cfg.Eth.Genesis = nil
+	if cfg.Man.Genesis != nil {
+		cfg.Man.Genesis = nil
 		comment += "# Note: this config doesn't contain the genesis block.\n\n"
 	}
 

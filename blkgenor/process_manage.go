@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
@@ -11,39 +11,36 @@ import (
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
 	"github.com/pkg/errors"
 )
 
 type ProcessManage struct {
-	mu          sync.Mutex
-	curNumber   uint64
-	processMap  map[uint64]*Process
-	matrix      Backend
-	hd          *msgsend.HD
-	signHelper  *signhelper.SignHelper
-	bc          *core.BlockChain
-	txPool      *core.TxPoolManager //YYY
-	reElection  *reelection.ReElection
-	engine      consensus.Engine
-	dposEngine  consensus.DPOSEngine
-	olConsensus *olconsensus.TopNodeService
+	mu         sync.Mutex
+	curNumber  uint64
+	processMap map[uint64]*Process
+	matrix     Backend
+	hd         *msgsend.HD
+	signHelper *signhelper.SignHelper
+	bc         *core.BlockChain
+	txPool     *core.TxPool
+	reElection *reelection.ReElection
+	engine     consensus.Engine
+	dposEngine consensus.DPOSEngine
 }
 
 func NewProcessManage(matrix Backend) *ProcessManage {
 	return &ProcessManage{
-		curNumber:   0,
-		processMap:  make(map[uint64]*Process),
-		matrix:      matrix,
-		hd:          matrix.HD(),
-		signHelper:  matrix.SignHelper(),
-		bc:          matrix.BlockChain(),
-		txPool:      matrix.TxPool(),
-		reElection:  matrix.ReElection(),
-		engine:      matrix.BlockChain().Engine(),
-		dposEngine:  matrix.BlockChain().DPOSEngine(),
-		olConsensus: matrix.OLConsensus(),
+		curNumber:  0,
+		processMap: make(map[uint64]*Process),
+		matrix:     matrix,
+		hd:         matrix.HD(),
+		signHelper: matrix.SignHelper(),
+		bc:         matrix.BlockChain(),
+		txPool:     matrix.TxPool(),
+		reElection: matrix.ReElection(),
+		engine:     matrix.BlockChain().Engine(),
+		dposEngine: matrix.BlockChain().DPOSEngine(),
 	}
 }
 
@@ -108,6 +105,8 @@ func (pm *ProcessManage) fixProcessMap() {
 		if key < pm.curNumber-1 {
 			process.Close()
 			delKeys = append(delKeys, key)
+		} else if key == pm.curNumber-1 {
+			process.Sleep() //注：需要缓存 -1 高度的process，用于换leader后的区块广播
 		}
 	}
 
@@ -119,14 +118,7 @@ func (pm *ProcessManage) fixProcessMap() {
 }
 
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
-	var minNumber uint64
-	if pm.curNumber < 1 {
-		minNumber = 0
-	} else {
-		minNumber = pm.curNumber - 1
-	}
-
-	if number < minNumber {
+	if number < pm.curNumber-1 {
 		return errors.Errorf("number(%d) is less than current number(%d)", number, pm.curNumber)
 	}
 

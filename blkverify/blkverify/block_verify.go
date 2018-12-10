@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package blkverify
 
 import (
@@ -11,16 +11,18 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/msgsend"
+	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
 )
 
 type Matrix interface {
 	HD() *msgsend.HD
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPoolManager //YYY
+	TxPool() *core.TxPool
 	SignHelper() *signhelper.SignHelper
 	ReElection() *reelection.ReElection
 	EventMux() *event.TypeMux
+	TopNode() *olconsensus.TopNodeService
 }
 
 type BlockVerify struct {
@@ -31,13 +33,11 @@ type BlockVerify struct {
 	requestCh            chan *mc.HD_BlkConsensusReqMsg
 	localVerifyReqCh     chan *mc.LocalBlockVerifyConsensusReq
 	voteMsgCh            chan *mc.HD_ConsensusVote
-	recoveryCh           chan *mc.RecoveryStateMsg
 	roleUpdatedMsgSub    event.Subscription
 	leaderChangeSub      event.Subscription
 	requestSub           event.Subscription
 	localVerifyReqSub    event.Subscription
 	voteMsgSub           event.Subscription
-	recoverySub          event.Subscription
 }
 
 func NewBlockVerify(matrix Matrix) (*BlockVerify, error) {
@@ -48,7 +48,6 @@ func NewBlockVerify(matrix Matrix) (*BlockVerify, error) {
 		requestCh:            make(chan *mc.HD_BlkConsensusReqMsg, 1),
 		localVerifyReqCh:     make(chan *mc.LocalBlockVerifyConsensusReq, 1),
 		voteMsgCh:            make(chan *mc.HD_ConsensusVote, 1),
-		recoveryCh:           make(chan *mc.RecoveryStateMsg, 1),
 		roleUpdatedMsgSub:    nil,
 		leaderChangeSub:      nil,
 		requestSub:           nil,
@@ -72,9 +71,6 @@ func NewBlockVerify(matrix Matrix) (*BlockVerify, error) {
 		return nil, err
 	}
 	if server.voteMsgSub, err = mc.SubscribeEvent(mc.HD_BlkConsensusVote, server.voteMsgCh); err != nil {
-		return nil, err
-	}
-	if server.recoverySub, err = mc.SubscribeEvent(mc.Leader_RecoveryState, server.recoveryCh); err != nil {
 		return nil, err
 	}
 
@@ -112,9 +108,6 @@ func (self *BlockVerify) update() {
 		case voteMsg := <-self.voteMsgCh:
 			go self.handleVoteMsg(voteMsg)
 
-		case recoveryMsg := <-self.recoveryCh:
-			go self.handleRecoveryMsg(recoveryMsg)
-
 		case <-self.quitCh:
 			return
 		}
@@ -136,13 +129,9 @@ func (self *BlockVerify) handleRoleUpdatedMsg(roleMsg *mc.RoleUpdatedMsg) error 
 }
 
 func (self *BlockVerify) handleLeaderChangeNotify(leaderMsg *mc.LeaderChangeNotify) {
-	if nil == leaderMsg {
-		log.ERROR(self.logExtraInfo(), "leader变更消息异常", "消息为nil")
-		return
-	}
-	log.INFO(self.logExtraInfo(), "Leader变更消息处理", "开始", "高度", leaderMsg.Number, "共识轮次",
-		leaderMsg.ConsensusTurn, "有效", leaderMsg.ConsensusState, "leader", leaderMsg.Leader.Hex(), "next leader", leaderMsg.NextLeader.Hex())
-	defer log.INFO(self.logExtraInfo(), "Leader变更消息处理", "结束", "高度", leaderMsg.Number, "共识轮次", leaderMsg.ConsensusTurn, "有效", leaderMsg.ConsensusState)
+	log.INFO(self.logExtraInfo(), "Leader变更消息处理", "开始", "高度", leaderMsg.Number, "轮次",
+		leaderMsg.ReelectTurn, "有效", leaderMsg.ConsensusState, "leader", leaderMsg.Leader.Hex(), "next leader", leaderMsg.NextLeader.Hex())
+	defer log.INFO(self.logExtraInfo(), "Leader变更消息处理", "结束", "高度", leaderMsg.Number, "轮次", leaderMsg.ReelectTurn, "有效", leaderMsg.ConsensusState)
 
 	msgNumber := leaderMsg.Number
 	process, err := self.processManage.GetProcess(msgNumber)
@@ -151,16 +140,25 @@ func (self *BlockVerify) handleLeaderChangeNotify(leaderMsg *mc.LeaderChangeNoti
 		return
 	}
 
-	process.SetLeaderInfo(leaderMsg)
+	if leaderMsg.ConsensusState {
+		process.SetLeader(leaderMsg.Leader)
+		//提前设置next leader
+		nextProcess, err := self.processManage.GetProcess(msgNumber + 1)
+		if err == nil {
+			nextProcess.SetLeader(leaderMsg.NextLeader)
+		}
+	} else {
+		process.ReInit()
+	}
 }
 
 func (self *BlockVerify) handleRequestMsg(reqMsg *mc.HD_BlkConsensusReqMsg) {
-	if nil == reqMsg || nil == reqMsg.Header {
+	if nil == reqMsg {
 		log.WARN(self.logExtraInfo(), "请求消息", "msg is nil")
 		return
 	}
-	log.INFO(self.logExtraInfo(), "请求消息处理", "开始", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn, "Leader", reqMsg.Header.Leader.Hex())
-	defer log.INFO(self.logExtraInfo(), "请求消息处理", "结束", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn, "Leader", reqMsg.Header.Leader.Hex())
+	log.INFO(self.logExtraInfo(), "请求消息处理", "开始", "高度", reqMsg.Header.Number, "Leader", reqMsg.Header.Leader.Hex())
+	defer log.INFO(self.logExtraInfo(), "请求消息处理", "结束", "高度", reqMsg.Header.Number, "Leader", reqMsg.Header.Leader.Hex())
 	if (reqMsg.Header.Leader == common.Address{}) {
 		log.WARN(self.logExtraInfo(), "请求消息", "leader is nil")
 		return
@@ -197,13 +195,9 @@ func (self *BlockVerify) handleLocalRequestMsg(localReq *mc.LocalBlockVerifyCons
 }
 
 func (self *BlockVerify) handleVoteMsg(voteMsg *mc.HD_ConsensusVote) {
-	if nil == voteMsg {
-		log.ERROR(self.logExtraInfo(), "投票消息处理", "消息为nil")
-		return
-	}
 	log.INFO(self.logExtraInfo(), "投票消息处理", "开始", "from", voteMsg.From.Hex(), "signHash", voteMsg.SignHash.TerminalString())
 	defer log.INFO(self.logExtraInfo(), "投票消息处理", "结束", "from", voteMsg.From.Hex(), "signHash", voteMsg.SignHash.TerminalString())
-	if err := self.processManage.AddVoteToPool(voteMsg.SignHash, voteMsg.Sign, voteMsg.From, voteMsg.Number); err != nil {
+	if err := self.processManage.AddVoteToPool(voteMsg.SignHash, voteMsg.Sign, voteMsg.From, voteMsg.Round); err != nil {
 		log.ERROR(self.logExtraInfo(), "投票消息，加入票池失败", err)
 		return
 	}
@@ -211,24 +205,6 @@ func (self *BlockVerify) handleVoteMsg(voteMsg *mc.HD_ConsensusVote) {
 	curProcess := self.processManage.GetCurrentProcess()
 	if curProcess != nil {
 		curProcess.ProcessDPOSOnce()
-	}
-}
-
-func (self *BlockVerify) handleRecoveryMsg(msg *mc.RecoveryStateMsg) {
-	if nil == msg || nil == msg.Header {
-		log.ERROR(self.logExtraInfo(), "状态恢复消息", "消息为nil")
-		return
-	}
-	number := msg.Header.Number.Uint64()
-	log.INFO(self.logExtraInfo(), "状态恢复消息", "开始", "类型", msg.Type, "高度", number, "leader", msg.Header.Leader.Hex())
-	defer log.INFO(self.logExtraInfo(), "状态恢复消息", "结束", "类型", msg.Type, "高度", number, "leader", msg.Header.Leader.Hex())
-	curProcess := self.processManage.GetCurrentProcess()
-	if curProcess != nil {
-		if curProcess.number != number {
-			log.INFO(self.logExtraInfo(), "状态恢复消息", "高度不是当前处理高度，忽略消息", "高度", number, "当前高度", curProcess.number)
-			return
-		}
-		curProcess.ProcessRecoveryMsg(msg)
 	}
 }
 

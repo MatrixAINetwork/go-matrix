@@ -76,7 +76,7 @@ One of the quickest ways to get MATRIX up and running on your machine is by usin
 
     docker build –t image_name
 
-    docker run -d  -p 8545:8545 –p 30303:30303 –p 40404:40404 imagename --fast --cache=512
+    docker run -d  -p 8341:8341 –p 50505:50505 –p 50505:50505 imagename --fast --cache=512
 
 This will start gman in fast-sync mode with a DB memory allowance of 1GB just as the above command does.  It will also create a persistent volume in your home directory for saving your blockchain as well as map the default ports. There is also an `alpine` tag available for a slim version of the image.
 
@@ -304,7 +304,7 @@ configs:
    
     {
 	"BootNode":[
-	"enode://b624a3fb585a48b4c96e4e6327752b1ba82a90a948f258be380ba17ead7c01f6d4ad43d665bb11c50475c058d3aad1ba9a35c0e0c4aa118503bf3ce79609bef6@192.168.3.162:30303"
+	"enode://b624a3fb585a48b4c96e4e6327752b1ba82a90a948f258be380ba17ead7c01f6d4ad43d665bb11c50475c058d3aad1ba9a35c0e0c4aa118503bf3ce79609bef6@192.168.3.162:50505"
 	],
 	"BroadNode":[
 	{"NodeID":"4b2f638f46c7ae5b1564ca7015d716621848a0d9be66f1d1e91d566d2a70eedc2f11e92b743acb8d97dec3fb412c1b2f66afd7fbb9399d4fb2423619eaa514c7","Address":"0x992fcd5f39a298e58776a87441f5ee3319a101a0"}
@@ -351,9 +351,9 @@ Note:  password.txt contains your password of the wallet, which can also be plac
 
 
 #### License
-Copyright 2018 The MATRIX Authors as well as Copyright 2014-2017 The go-ethereum Authors
+Copyright 2018 The MATRIX Authors
 
-The go-matrix-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under MIT.
+The go-matrix library is licensed under MIT.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

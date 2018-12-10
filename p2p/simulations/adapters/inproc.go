@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package adapters
 
@@ -13,7 +14,7 @@ import (
 
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/rpc"
@@ -148,7 +149,7 @@ func (sn *SimNode) Addr() []byte {
 
 // Node returns a discover.Node representing the SimNode
 func (sn *SimNode) Node() *discover.Node {
-	return discover.NewNode(sn.ID, net.IP{127, 0, 0, 1}, 30303, 30303)
+	return discover.NewNode(sn.ID, net.IP{127, 0, 0, 1}, 50505, 50505)
 }
 
 // Client returns an rpc.Client which can be used to communicate with the

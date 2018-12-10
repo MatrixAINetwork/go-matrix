@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
@@ -12,7 +12,7 @@ import (
 
 	"strings"
 
-	"github.com/matrix/go-matrix/cmd/utils"
+	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/internal/debug"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -21,7 +21,7 @@ import (
 var AppHelpTemplate = `NAME:
    {{.App.Name}} - {{.App.Usage}}
 
-   Copyright (c) 2018 The MATRIX Authors
+   Copyright 2013-2018 The go-matrix Authors
 
 USAGE:
    {{.App.HelpName}} [options]{{if .App.Commands}} command [command options]{{end}} {{if .App.ArgsUsage}}{{.App.ArgsUsage}}{{else}}[arguments...]{{end}}
@@ -200,13 +200,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.MetricsEnabledFlag,
 			utils.FakePoWFlag,
 			utils.NoCompactionFlag,
-			utils.GetCommitFlag,
-
 		}, debug.Flags...),
-	},
-	{
-		Name:  "WHISPER (EXPERIMENTAL)",
-		Flags: whisperFlags,
 	},
 	{
 		Name: "DEPRECATED",

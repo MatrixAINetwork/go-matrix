@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package random
 
 import (
@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	ModuleSeed = "random seed generation"
-	ModuleVote = "random number vote"
+	ModuleSeed = "随机种子生成"
+	ModuleVote = "随机数投票"
 )
 
 type Random struct {

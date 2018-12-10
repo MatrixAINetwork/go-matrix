@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package manstats implements the network stats reporting service.
@@ -47,7 +47,7 @@ const (
 type txPool interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
 }
 
 type blockChain interface {
@@ -463,9 +463,8 @@ type blockStats struct {
 	Leader      common.Address     `json:"leader"            `
 	Elect       []common.Elect     `json:"elect"        `
 	NetTopology common.NetTopology `json:"nettopology"       `
-	Signatures  []common.Signature `json:"signatures"        `
-	Version     []byte             `json:"version"             `
-	VrfValue    []byte             `json:"vrfvalue"`
+	Signatures  []common.Signature `json:"signatures "        `
+	Version     []byte             `json:" version "             `
 }
 
 // txStats is the information to report about individual transactions.
@@ -548,7 +547,6 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		NetTopology: header.NetTopology,
 		Signatures:  header.Signatures,
 		Version:     header.Version,
-		VrfValue:header.VrfValue,
 	}
 }
 

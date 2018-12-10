@@ -1,15 +1,16 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-package blockgenor
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+package blkgenor
 
 import (
+	"math/big"
+
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/man"
+	"github.com/matrix/go-matrix/params"
 	"github.com/pkg/errors"
-	"math/big"
 
 	"sync"
 )
@@ -89,7 +90,7 @@ func NewPowPool(logInfo string) *PowPool {
 	return &PowPool{
 		powMap:     make(map[common.Hash]*blockPowCache),
 		countMap:   make(map[common.Address]int),
-		countLimit: man.VotePoolCountLimit,
+		countLimit: params.VotePoolCountLimit,
 		logInfo:    logInfo,
 	}
 }

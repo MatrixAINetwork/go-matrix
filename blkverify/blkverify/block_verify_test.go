@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package blkverify
 
 import (
@@ -14,7 +14,7 @@ import (
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/reelection"
 	"io/ioutil"
@@ -127,7 +127,7 @@ func TestLeaderChangeMsg_02(t *testing.T) {
 }
 
 func TestRightRequestMsg_01(t *testing.T) {
-	man := newman(t, nil, false)
+	man := newMan(t, nil, false)
 
 	reElection, err := reelection.New(man.BlockChain(), nil)
 	if err != nil {
@@ -178,7 +178,7 @@ func TestVoteMsg_01(t *testing.T) {
 	}
 	defer sub.Unsubscribe()
 
-	man := newman(t, nil, false)
+	man := newMan(t, nil, false)
 
 	blkVerify, err := NewBlockVerify(man)
 	if err != nil {
@@ -246,14 +246,14 @@ func TestVoteMsg_01(t *testing.T) {
 	}
 }
 
-func newman(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) *man.matrix {
+func newMan(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) *man.Matrix {
 	// Create a temporary storage for the node keys and initialize it
 	workspace, err := ioutil.TempDir("", "console-tester-")
 	if err != nil {
 		t.Fatalf("failed to create temporary keystore: %v", err)
 	}
 
-	// Create a networkless protocol stack and start an matrix service within
+	// Create a networkless protocol stack and start an Matrix service within
 	stack, err := node.New(&node.Config{DataDir: workspace, UseLightweightKDF: true, Name: "block_verify"})
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
@@ -261,8 +261,8 @@ func newman(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) 
 
 	manConf := &man.Config{
 		Genesis:   core.DeveloperGenesisBlock(15, common.Address{}),
-		manerbase: common.HexToAddress(testAddress),
-		manash: manash.Config{
+		Manerbase: common.HexToAddress(testAddress),
+		Manash: manash.Config{
 			PowMode: manash.ModeTest,
 		},
 	}
@@ -270,7 +270,7 @@ func newman(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) 
 		confOverride(manConf)
 	}
 	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return man.New(ctx, manConf) }); err != nil {
-		t.Fatalf("failed to register matrix protocol: %v", err)
+		t.Fatalf("failed to register Matrix protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
 	if err = stack.Start(); err != nil {
@@ -278,7 +278,7 @@ func newman(t *testing.T, confOverride func(*man.Config), isBroadcastNode bool) 
 	}
 	stack.Attach()
 
-	var matrix *man.matrix
+	var matrix *man.Matrix
 	stack.Service(&matrix)
 
 	//创建账户

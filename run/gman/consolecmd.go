@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package main
 
@@ -12,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/matrix/go-matrix/cmd/utils"
+	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/console"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/rpc"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -26,10 +26,10 @@ var (
 		Action:   utils.MigrateFlags(localConsole),
 		Name:     "console",
 		Usage:    "Start an interactive JavaScript environment",
-		Flags:    append(append(append(nodeFlags, rpcFlags...), consoleFlags...), whisperFlags...),
+		Flags:    append(append(nodeFlags, rpcFlags...), consoleFlags...),
 		Category: "CONSOLE COMMANDS",
 		Description: `
-The Geth console is an interactive shell for the JavaScript runtime environment
+The Gman console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
 See https://github.com/matrix/go-matrix/wiki/JavaScript-Console.`,
 	}
@@ -42,7 +42,7 @@ See https://github.com/matrix/go-matrix/wiki/JavaScript-Console.`,
 		Flags:     append(consoleFlags, utils.DataDirFlag),
 		Category:  "CONSOLE COMMANDS",
 		Description: `
-The Geth console is an interactive shell for the JavaScript runtime environment
+The Gman console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
 See https://github.com/matrix/go-matrix/wiki/JavaScript-Console.
 This command allows to open a console on a running gman node.`,
@@ -106,7 +106,7 @@ func remoteConsole(ctx *cli.Context) error {
 	// Attach to a remotely running gman instance and start the JavaScript console
 	endpoint := ctx.Args().First()
 	if endpoint == "" {
-		path := node.DefaultDataDir()
+		path := pod.DefaultDataDir()
 		if ctx.GlobalIsSet(utils.DataDirFlag.Name) {
 			path = ctx.GlobalString(utils.DataDirFlag.Name)
 		}
@@ -153,7 +153,7 @@ func remoteConsole(ctx *cli.Context) error {
 // for "gman attach" and "gman monitor" with no argument.
 func dialRPC(endpoint string) (*rpc.Client, error) {
 	if endpoint == "" {
-		endpoint = node.DefaultIPCEndpoint(clientIdentifier)
+		endpoint = pod.DefaultIPCEndpoint(clientIdentifier)
 	} else if strings.HasPrefix(endpoint, "rpc:") || strings.HasPrefix(endpoint, "ipc:") {
 		// Backwards compatibility with gman < 1.5 which required
 		// these prefixes.

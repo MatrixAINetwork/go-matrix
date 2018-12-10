@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 // Package manclient provides a client for the Matrix RPC API.
 package manclient
@@ -292,7 +293,7 @@ func (ec *Client) SyncProgress(ctx context.Context) (*matrix.SyncProgress, error
 // SubscribeNewHead subscribes to notifications about the current blockchain head
 // on the given channel.
 func (ec *Client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (matrix.Subscription, error) {
-	return ec.c.EthSubscribe(ctx, ch, "newHeads")
+	return ec.c.ManSubscribe(ctx, ch, "newHeads")
 }
 
 // State Access
@@ -353,7 +354,7 @@ func (ec *Client) FilterLogs(ctx context.Context, q matrix.FilterQuery) ([]types
 
 // SubscribeFilterLogs subscribes to the results of a streaming filter query.
 func (ec *Client) SubscribeFilterLogs(ctx context.Context, q matrix.FilterQuery, ch chan<- types.Log) (matrix.Subscription, error) {
-	return ec.c.EthSubscribe(ctx, ch, "logs", toFilterArg(q))
+	return ec.c.ManSubscribe(ctx, ch, "logs", toFilterArg(q))
 }
 
 func toFilterArg(q matrix.FilterQuery) interface{} {

@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package p2p
 
 import (
@@ -137,7 +137,7 @@ func (b *Bucket) Start() {
 			case b.rings.Next().Value.(int64):
 				b.disconnectMiner()
 			case b.rings.Prev().Value.(int64):
-				miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupValidator)
+				miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupValidator)
 				b.outer(MaxLink, miners)
 			}
 		case <-b.quit:
@@ -172,7 +172,7 @@ func (b *Bucket) nodesCount() (count int) {
 
 // DisconnectMiner older disconnect miner.
 func (b *Bucket) disconnectMiner() {
-	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
 	for _, miner := range miners {
 		ServerP2p.RemovePeer(discover.NewNode(miner, nil, 0, 0))
 	}
@@ -221,7 +221,7 @@ func (b *Bucket) maintainInner() {
 // MaintainOuter maintain bucket outer.
 func (b *Bucket) maintainOuter() {
 	count := 0
-	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
 	b.log.Info("maintainOuter", "peer info", miners)
 	for _, peer := range ServerP2p.Peers() {
 		for _, miner := range miners {
@@ -317,7 +317,7 @@ func (b *Bucket) inner(num int, bucket int64) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, 30303, 30303)
+		node := discover.NewNode(value, nil, defaultPort, defaultPort)
 		ServerP2p.AddPeer(node)
 	}
 }
@@ -331,7 +331,7 @@ func (b *Bucket) outer(num int, ids []discover.NodeID) {
 
 	for _, value := range peers {
 		b.log.Info("peer", "p2p", value)
-		node := discover.NewNode(value, nil, 30303, 30303)
+		node := discover.NewNode(value, nil, defaultPort, defaultPort)
 		ServerP2p.AddPeer(node)
 	}
 }

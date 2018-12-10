@@ -1,8 +1,7 @@
-//1542444882.49729
-//1542444055.563487
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 // Package types contains data types related to Matrix consensus.
 package types
@@ -192,10 +191,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 
 func RlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
-	if err := rlp.Encode(hw, x); err != nil {
-		log.ERROR("RLPHash", "err", err)
-		return common.Hash{}
-	}
+	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
 }

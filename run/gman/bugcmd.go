@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package main
 
@@ -14,10 +14,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/matrix/go-matrix/cmd/internal/browser"
+	"github.com/matrix/go-matrix/run/internal/browser"
 	"github.com/matrix/go-matrix/params"
 
-	"github.com/matrix/go-matrix/cmd/utils"
+	"github.com/matrix/go-matrix/run/utils"
 	cli "gopkg.in/urfave/cli.v1"
 )
 

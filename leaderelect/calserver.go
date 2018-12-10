@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
 
 import (
@@ -60,6 +60,41 @@ func newLeaderCal(matrix Matrix, extra string) *leaderCalculator {
 	}
 }
 
+func (self *leaderCalculator) GetCurNumber() uint64 {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	return self.curNumber
+}
+
+func (self *leaderCalculator) UpdateCacheByHeader(height uint64, headerLeader common.Address, validators *mc.TopologyGraph) error {
+	if headerLeader.Equal(common.Address{}) {
+		return errors.New("header leader不合法")
+	}
+
+	if nil == validators {
+		return errors.New("验证者列表不合法")
+	}
+
+	var preLeader common.Address
+	if common.IsBroadcastNumber(height) && height != 0 {
+		preLeader = self.chain.GetBlockByNumber(height - 1).Header().Leader
+	} else {
+		preLeader = headerLeader
+	}
+
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	if height+1 != self.curNumber { //高度变化了，重选轮次清空
+		self.turns = 0
+	}
+	self.curNumber = height + 1
+	self.preLeader.Set(preLeader)
+	self.validators = validators
+	self.leaders.consensusState = true
+	return nil
+}
 
 func (self *leaderCalculator) GetValidatorCount(height uint64) int {
 	self.mu.Lock()
@@ -76,10 +111,10 @@ func (self *leaderCalculator) UpdateCacheByConsensus(height uint64, turns uint8,
 	defer self.mu.Unlock()
 
 	if height != self.curNumber {
-		return nil, errors.Errorf("The height doesn't match, param height[%d] != cache height[%d]", height, self.curNumber)
+		return nil, errors.Errorf("高度不匹配, param height[%d] != cache height[%d]", height, self.curNumber)
 	}
 
-	log.INFO(self.extra, "Turn modification success, original turn", self.turns, "current turn", turns, "consensus result", consensusState, "height", height)
+	log.INFO(self.extra, "修改轮次成功, 原轮次", self.turns, "现轮次", turns, "共识结果", consensusState, "高度", height)
 	self.turns = turns
 
 	if err := self.updateLeaders(); err != nil {
@@ -122,7 +157,7 @@ func (self *leaderCalculator) updateLeaders() error {
 
 	leader, err := self.calLeaderByHeader()
 	if err != nil {
-		return errors.Errorf("Leader caculation error, %s", err)
+		return errors.Errorf("Leader计算错误, %s", err)
 	}
 
 	self.leaders.number = self.curNumber
@@ -135,7 +170,7 @@ func (self *leaderCalculator) updateLeaders() error {
 
 func (self *leaderCalculator) calLeaderByHeader() (leaders [2]common.Address, err error) {
 	if self.validators == nil || len(self.validators.NodeList) == 0 {
-		return leaders, errors.New("validator list is blank")
+		return leaders, errors.New("验证者列表为空")
 	}
 
 	if common.IsReElectionNumber(self.curNumber - 1) {

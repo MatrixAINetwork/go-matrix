@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package core
@@ -39,7 +39,6 @@ type Genesis struct {
 	Timestamp   uint64              `json:"timestamp"`
 	ExtraData   []byte              `json:"extraData"`
 	Version     []byte              `json:"version"`
-	VrfValue    []byte              `json:"vrfvalue"`
 	Leader      common.Address      `json:"leader"`
 	Elect       []common.Elect      `json:"elect"    gencodec:"required"`
 	NetTopology common.NetTopology  `json:"nettopology"       gencodec:"required"`
@@ -222,13 +221,7 @@ func (g *Genesis) ToBlock(db mandb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	for addr, account := range g.Alloc {
-		statedb.AddBalance(common.MainAccount,addr, account.Balance)
-		///*******************************************************/
-		////hezi 应该是通过发特殊交易添加账户
-		//statedb.AddBalance(common.LockAccount,addr, account.Balance)
-		//statedb.AddBalance(common.EntrustAccount,addr, account.Balance)
-		//statedb.AddBalance(common.FreezeAccount,addr, account.Balance)
-		///*******************************************************/
+		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce)
 		for key, value := range account.Storage {
@@ -243,7 +236,6 @@ func (g *Genesis) ToBlock(db mandb.Database) *types.Block {
 		ParentHash:  g.ParentHash,
 		Extra:       g.ExtraData,
 		Version:     g.Version,
-		VrfValue:    g.VrfValue,
 		Elect:       g.Elect,
 		NetTopology: g.NetTopology,
 		Signatures:  g.Signatures,

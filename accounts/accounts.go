@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 // Package accounts implements high level Matrix account management.
@@ -19,7 +19,6 @@ import (
 // by the optional URL field.
 type Account struct {
 	Address common.Address `json:"address"` // Matrix account address derived from the key
-	ManAddress string `json:"manAddress"` // hezi
 	URL     URL            `json:"url"`     // Optional resource locator within a backend
 }
 
@@ -101,7 +100,7 @@ type Wallet interface {
 	// about which fields or actions are needed. The user may retry by providing
 	// the needed details via SignTxWithPassphrase, or by other means (e.g. unlock
 	// the account in a keystore).
-	SignTx(account Account, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error)
+	SignTx(account Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
 	// SignHashWithPassphrase requests the wallet to sign the given hash with the
 	// given passphrase as extra authentication information.
@@ -115,7 +114,7 @@ type Wallet interface {
 	//
 	// It looks up the account specified either solely via its address contained within,
 	// or optionally with the aid of any location metadata from the embedded URL field.
-	SignTxWithPassphrase(account Account, passphrase string, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error)
+	SignTxWithPassphrase(account Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
 	SignHashValidate(account Account, hash []byte, validate bool) ([]byte, error)
 

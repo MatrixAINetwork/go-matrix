@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+
 
 package p2p
 
@@ -111,7 +112,7 @@ func SendToSingle(to discover.NodeID, msgCode uint64, data interface{}) error {
 
 // SendToGroup send message to a group.
 func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{}) error {
-	ids := ca.GetRolesByGroupWithNextElect(to)
+	ids := ca.GetRolesByGroupWithBackup(to)
 	peers := ServerP2p.Peers()
 	for _, id := range ids {
 		for _, peer := range peers {

@@ -4,19 +4,19 @@
 package common
 
 var (
-	BroadcastInterval  = uint64(100)
-	ReelectionInterval = uint64(300)
+	broadcastInterval  = uint64(10000)
+	reelectionInterval = uint64(30000)
 )
 
 func IsBroadcastNumber(number uint64) bool {
-	if number%BroadcastInterval == 0 {
+	if number%broadcastInterval == 0 {
 		return true
 	}
 	return false
 }
 
 func IsReElectionNumber(number uint64) bool {
-	if number%ReelectionInterval == 0 {
+	if number%reelectionInterval == 0 {
 		return true
 	}
 	return false
@@ -26,7 +26,7 @@ func GetLastBroadcastNumber(number uint64) uint64 {
 	if IsBroadcastNumber(number) {
 		return number
 	}
-	ans := (number / BroadcastInterval) * BroadcastInterval
+	ans := (number / broadcastInterval) * broadcastInterval
 	return ans
 }
 
@@ -34,7 +34,7 @@ func GetLastReElectionNumber(number uint64) uint64 {
 	if IsReElectionNumber(number) {
 		return number
 	}
-	ans := (number / ReelectionInterval) * ReelectionInterval
+	ans := (number / reelectionInterval) * reelectionInterval
 	return ans
 }
 
@@ -42,7 +42,7 @@ func GetNextBroadcastNumber(number uint64) uint64 {
 	if IsBroadcastNumber(number) {
 		return number
 	}
-	ans := (number/BroadcastInterval + 1) * BroadcastInterval
+	ans := (number/broadcastInterval + 1) * broadcastInterval
 	return ans
 }
 
@@ -50,13 +50,13 @@ func GetNextReElectionNumber(number uint64) uint64 {
 	if IsReElectionNumber(number) {
 		return number
 	}
-	ans := (number/ReelectionInterval + 1) * ReelectionInterval
+	ans := (number/reelectionInterval + 1) * reelectionInterval
 	return ans
 }
 
 func GetBroadcastInterval() uint64 {
-	return BroadcastInterval
+	return broadcastInterval
 }
 func GetReElectionInterval() uint64 {
-	return ReelectionInterval
+	return reelectionInterval
 }

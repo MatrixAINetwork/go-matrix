@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 package keystore
@@ -11,7 +11,6 @@ import (
 	matrix "github.com/matrix/go-matrix"
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/baseinterface"
 )
 
 // keystoreWallet implements the accounts.Wallet interface for the original
@@ -88,7 +87,7 @@ func (w *keystoreWallet) SignHash(account accounts.Account, hash []byte) ([]byte
 // with the given account. If the wallet does not wrap this particular account,
 // an error is returned to avoid account leakage (even though in theory we may
 // be able to sign via our shared keystore backend).
-func (w *keystoreWallet) SignTx(account accounts.Account, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
+func (w *keystoreWallet) SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	// Make sure the requested account is contained within
 	if account.Address != w.account.Address {
 		return nil, accounts.ErrUnknownAccount
@@ -116,7 +115,7 @@ func (w *keystoreWallet) SignHashWithPassphrase(account accounts.Account, passph
 
 // SignTxWithPassphrase implements accounts.Wallet, attempting to sign the given
 // transaction with the given account using passphrase as extra authentication.
-func (w *keystoreWallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
+func (w *keystoreWallet) SignTxWithPassphrase(account accounts.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	// Make sure the requested account is contained within
 	if account.Address != w.account.Address {
 		return nil, accounts.ErrUnknownAccount
@@ -150,16 +149,4 @@ func (w *keystoreWallet) SignHashValidateWithPass(account accounts.Account, pass
 	}
 	// Account seems valid, request the keystore to sign
 	return w.keystore.SignHashValidateWithPass(account, passphrase, hash, validate)
-}
-func (w *keystoreWallet)SignVrfWithPass(account accounts.Account,passphrase string ,msg []byte)([]byte,[]byte,[]byte,error){
-	_, key, err := w.keystore.getDecryptedKey(account, passphrase)
-	if err != nil {
-		return []byte{},[]byte{},[]byte{}, err
-	}
-	defer zeroKey(key.PrivateKey)
-	vrfValue,vrfProof,err:=baseinterface.NewVrf().ComputeVrf(key.PrivateKey,msg)
-	if err!=nil{
-		return []byte{},[]byte{},[]byte{}, err
-	}
-	return ECDSAPKCompression(&key.PrivateKey.PublicKey),vrfValue,vrfProof,nil
 }

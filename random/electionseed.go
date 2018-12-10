@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package random
 
 import (
@@ -80,7 +80,7 @@ func compareMap(private map[common.Address][]byte, public map[common.Address][]b
 		return rangePrivate(private, public)
 	}
 	ans := rangePublic(private, public)
-	log.INFO(ModuleSeed, "public and private keys mapped with randomNUM map data", ans)
+	log.INFO(ModuleSeed, "隨機數map匹配的公私鑰 data", ans)
 	return ans
 }
 

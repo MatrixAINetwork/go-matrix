@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 
 // +build !nacl,!js,!nocgo
@@ -87,22 +87,12 @@ func SignWithValidate(hash []byte, validate bool, prv *ecdsa.PrivateKey) (sig []
 	if !validate {
 		msg := new(big.Int).SetBytes(hash)
 		msg.Add(msg, big.NewInt(1))
-		hash = common.BigToHash(msg).Bytes()
+		hash = msg.Bytes()[:32]
 	}
 	sig, err = secp256k1.Sign(hash, seckey)
 	if err == nil && !validate {
 		sig[64] += 2
 	}
-	return sig, err
-}
-
-func SignWithVersion(hash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
-	if len(hash) != 32 {
-		return nil, fmt.Errorf("hash is required to be exactly 32 bytes (%d)", len(hash))
-	}
-	seckey := math.PaddedBigBytes(prv.D, prv.Params().BitSize/8)
-	defer zeroBytes(seckey)
-	sig, err = secp256k1.Sign(hash, seckey)
 	return sig, err
 }
 
@@ -115,7 +105,7 @@ func VerifySignWithValidate(sighash []byte, sig []byte) (common.Address, bool, e
 		sig[64] -= 2
 		msg := new(big.Int).SetBytes(sighash)
 		msg.Add(msg, big.NewInt(1))
-		sighash = common.BigToHash(msg).Bytes()
+		sighash = msg.Bytes()[:32]
 	}
 	pub, err := Ecrecover(sighash, sig)
 	if err != nil {
@@ -127,20 +117,4 @@ func VerifySignWithValidate(sighash []byte, sig []byte) (common.Address, bool, e
 	var addr common.Address
 	copy(addr[:], Keccak256(pub[1:])[12:])
 	return addr, validate, nil
-}
-
-func VerifySignWithVersion(sighash []byte, sig []byte) (common.Address, error) {
-	if len(sighash) != 32 {
-		return common.Address{}, fmt.Errorf("hash is required to be exactly 32 bytes (%d)", len(sighash))
-	}
-	pub, err := Ecrecover(sighash, sig)
-	if err != nil {
-		return common.Address{}, err
-	}
-	if len(pub) == 0 || pub[0] != 4 {
-		return common.Address{}, errors.New("invalid public key")
-	}
-	var addr common.Address
-	copy(addr[:], Keccak256(pub[1:])[12:])
-	return addr, nil
 }

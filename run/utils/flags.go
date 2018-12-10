@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
@@ -33,17 +33,14 @@ import (
 	"github.com/matrix/go-matrix/man/gasprice"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/manstats"
-	"github.com/matrix/go-matrix/les"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/p2p/discv5"
 	"github.com/matrix/go-matrix/p2p/nat"
 	"github.com/matrix/go-matrix/p2p/netutil"
 	"github.com/matrix/go-matrix/params"
-	whisper "github.com/matrix/go-matrix/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -104,7 +101,7 @@ var (
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
 		Usage: "Data directory for the databases and keystore",
-		Value: DirectoryString{node.DefaultDataDir()},
+		Value: DirectoryString{pod.DefaultDataDir()},
 	}
 	KeyStoreDirFlag = DirectoryFlag{
 		Name:  "keystore",
@@ -314,7 +311,7 @@ var (
 		Value: params.GenesisGasLimit,
 	}
 	ManerbaseFlag = cli.StringFlag{
-		Name:  "manerbase",
+		Name:  "manbase",
 		Usage: "Public address for block mining rewards (default = first account created)",
 		Value: "0",
 	}
@@ -339,11 +336,6 @@ var (
 		Name:  "testchangerole",
 		Usage: "change role",
 	}
-	GetCommitFlag=cli.StringFlag{
-		Name:"testgetcommit",
-		Usage:"get commit",
-	}
-
 	// Account settings
 	UnlockedAccountFlag = cli.StringFlag{
 		Name:  "unlock",
@@ -385,12 +377,12 @@ var (
 	RPCListenAddrFlag = cli.StringFlag{
 		Name:  "rpcaddr",
 		Usage: "HTTP-RPC server listening interface",
-		Value: node.DefaultHTTPHost,
+		Value: pod.DefaultHTTPHost,
 	}
 	RPCPortFlag = cli.IntFlag{
 		Name:  "rpcport",
 		Usage: "HTTP-RPC server listening port",
-		Value: node.DefaultHTTPPort,
+		Value: pod.DefaultHTTPPort,
 	}
 	RPCCORSDomainFlag = cli.StringFlag{
 		Name:  "rpccorsdomain",
@@ -400,7 +392,7 @@ var (
 	RPCVirtualHostsFlag = cli.StringFlag{
 		Name:  "rpcvhosts",
 		Usage: "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard.",
-		Value: strings.Join(node.DefaultConfig.HTTPVirtualHosts, ","),
+		Value: strings.Join(pod.DefaultConfig.HTTPVirtualHosts, ","),
 	}
 	RPCApiFlag = cli.StringFlag{
 		Name:  "rpcapi",
@@ -422,12 +414,12 @@ var (
 	WSListenAddrFlag = cli.StringFlag{
 		Name:  "wsaddr",
 		Usage: "WS-RPC server listening interface",
-		Value: node.DefaultWSHost,
+		Value: pod.DefaultWSHost,
 	}
 	WSPortFlag = cli.IntFlag{
 		Name:  "wsport",
 		Usage: "WS-RPC server listening port",
-		Value: node.DefaultWSPort,
+		Value: pod.DefaultWSPort,
 	}
 	WSApiFlag = cli.StringFlag{
 		Name:  "wsapi",
@@ -462,7 +454,7 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
 		Usage: "Network listening port",
-		Value: 30303,
+		Value: 50505,
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -523,20 +515,6 @@ var (
 		Usage: "Suggested gas price is the given percentile of a set of recent transaction gas prices",
 		Value: man.DefaultConfig.GPO.Percentile,
 	}
-	WhisperEnabledFlag = cli.BoolFlag{
-		Name:  "shh",
-		Usage: "Enable Whisper",
-	}
-	WhisperMaxMessageSizeFlag = cli.IntFlag{
-		Name:  "shh.maxmessagesize",
-		Usage: "Max message size accepted",
-		Value: int(whisper.DefaultMaxMessageSize),
-	}
-	WhisperMinPOWFlag = cli.Float64Flag{
-		Name:  "shh.pow",
-		Usage: "Minimum POW accepted",
-		Value: whisper.DefaultMinimumPoW,
-	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -583,7 +561,7 @@ func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
 }
 
 // setNodeUserIdent creates the user identifier from CLI flags.
-func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
+func setNodeUserIdent(ctx *cli.Context, cfg *pod.Config) {
 	if identity := ctx.GlobalString(IdentityFlag.Name); len(identity) > 0 {
 		cfg.UserIdent = identity
 	}
@@ -621,31 +599,31 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 
 // setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
 // flags, reverting to pre-configured ones if none have been specified.
-func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
-	urls := params.DiscoveryV5Bootnodes
-	switch {
-	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV5Flag.Name):
-		if ctx.GlobalIsSet(BootnodesV5Flag.Name) {
-			urls = strings.Split(ctx.GlobalString(BootnodesV5Flag.Name), ",")
-		} else {
-			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
-		}
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case cfg.BootstrapNodesV5 != nil:
-		return // already set, don't apply defaults.
-	}
-
-	cfg.BootstrapNodesV5 = make([]*discv5.Node, 0, len(urls))
-	for _, url := range urls {
-		node, err := discv5.ParseNode(url)
-		if err != nil {
-			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
-			continue
-		}
-		cfg.BootstrapNodesV5 = append(cfg.BootstrapNodesV5, node)
-	}
-}
+//func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
+//	urls := params.DiscoveryV5Bootnodes
+//	switch {
+//	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV5Flag.Name):
+//		if ctx.GlobalIsSet(BootnodesV5Flag.Name) {
+//			urls = strings.Split(ctx.GlobalString(BootnodesV5Flag.Name), ",")
+//		} else {
+//			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
+//		}
+//	case ctx.GlobalBool(RinkebyFlag.Name):
+//		urls = params.RinkebyBootnodes
+//	//case cfg.BootstrapNodesV5 != nil:
+//	//	return // already set, don't apply defaults.
+//	}
+//
+//	cfg.BootstrapNodesV5 = make([]*discv5.Node, 0, len(urls))
+//	for _, url := range urls {
+//		node, err := discv5.ParseNode(url)
+//		if err != nil {
+//			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
+//			continue
+//		}
+//		cfg.BootstrapNodesV5 = append(cfg.BootstrapNodesV5, node)
+//	}
+//}
 
 // setListenAddress creates a TCP listening address string from set command
 // line flags.
@@ -678,7 +656,7 @@ func splitAndTrim(input string) []string {
 
 // setHTTP creates the HTTP RPC listener interface string from the set
 // command line flags, returning empty if the HTTP endpoint is disabled.
-func setHTTP(ctx *cli.Context, cfg *node.Config) {
+func setHTTP(ctx *cli.Context, cfg *pod.Config) {
 	if ctx.GlobalBool(RPCEnabledFlag.Name) && cfg.HTTPHost == "" {
 		cfg.HTTPHost = "127.0.0.1"
 		if ctx.GlobalIsSet(RPCListenAddrFlag.Name) {
@@ -702,7 +680,7 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 
 // setWS creates the WebSocket RPC listener interface string from the set
 // command line flags, returning empty if the HTTP endpoint is disabled.
-func setWS(ctx *cli.Context, cfg *node.Config) {
+func setWS(ctx *cli.Context, cfg *pod.Config) {
 	if ctx.GlobalBool(WSEnabledFlag.Name) && cfg.WSHost == "" {
 		cfg.WSHost = "127.0.0.1"
 		if ctx.GlobalIsSet(WSListenAddrFlag.Name) {
@@ -723,7 +701,7 @@ func setWS(ctx *cli.Context, cfg *node.Config) {
 
 // setIPC creates an IPC path configuration from the set command line flags,
 // returning an empty string if IPC was explicitly disabled, or the set path.
-func setIPC(ctx *cli.Context, cfg *node.Config) {
+func setIPC(ctx *cli.Context, cfg *pod.Config) {
 	checkExclusive(ctx, IPCDisabledFlag, IPCPathFlag)
 	switch {
 	case ctx.GlobalBool(IPCDisabledFlag.Name):
@@ -776,7 +754,7 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 	return accs[index], nil
 }
 
-// setManerbase retrieves the manerbase either from the directly specified
+// setManerbase retrieves the manbase either from the directly specified
 // command line flags or from the keystore if CLI indexed.
 func setManerbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *man.Config) {
 	if ctx.GlobalIsSet(ManerbaseFlag.Name) {
@@ -811,7 +789,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
-	setBootstrapNodesV5(ctx, cfg)
+	//setBootstrapNodesV5(ctx, cfg)
 
 	lightClient := ctx.GlobalBool(LightModeFlag.Name) || ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
@@ -849,12 +827,12 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	// if we're running a light client or server, force enable the v5 peer discovery
 	// unless it is explicitly disabled with --nodiscover note that explicitly specifying
 	// --v5disc overrides --nodiscover, in which case the later only disables v4 discovery
-	forceV5Discovery := (lightClient || lightServer) && !ctx.GlobalBool(NoDiscoverFlag.Name)
-	if ctx.GlobalIsSet(DiscoveryV5Flag.Name) {
-		cfg.DiscoveryV5 = ctx.GlobalBool(DiscoveryV5Flag.Name)
-	} else if forceV5Discovery {
-		cfg.DiscoveryV5 = true
-	}
+	//forceV5Discovery := (lightClient || lightServer) && !ctx.GlobalBool(NoDiscoverFlag.Name)
+	//if ctx.GlobalIsSet(DiscoveryV5Flag.Name) {
+	//	cfg.DiscoveryV5 = ctx.GlobalBool(DiscoveryV5Flag.Name)
+	//} else if forceV5Discovery {
+	//	cfg.DiscoveryV5 = true
+	//}
 
 	if netrestrict := ctx.GlobalString(NetrestrictFlag.Name); netrestrict != "" {
 		list, err := netutil.ParseNetlist(netrestrict)
@@ -869,12 +847,12 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.MaxPeers = 0
 		cfg.ListenAddr = ":0"
 		cfg.NoDiscovery = true
-		cfg.DiscoveryV5 = false
+		//cfg.DiscoveryV5 = false
 	}
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
-func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
+func SetNodeConfig(ctx *cli.Context, cfg *pod.Config) {
 	SetP2PConfig(ctx, &cfg.P2P)
 	setIPC(ctx, cfg)
 	setHTTP(ctx, cfg)
@@ -887,9 +865,9 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		cfg.DataDir = "" // unless explicitly requested, use memory databases
 	case ctx.GlobalBool(TestnetFlag.Name):
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "testnet")
+		cfg.DataDir = filepath.Join(pod.DefaultDataDir(), "testnet")
 	case ctx.GlobalBool(RinkebyFlag.Name):
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "rinkeby")
+		cfg.DataDir = filepath.Join(pod.DefaultDataDir(), "rinkeby")
 	}
 
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
@@ -1004,18 +982,8 @@ func checkExclusive(ctx *cli.Context, args ...interface{}) {
 	}
 }
 
-// SetShhConfig applies shh-related command line flags to the config.
-func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
-	if ctx.GlobalIsSet(WhisperMaxMessageSizeFlag.Name) {
-		cfg.MaxMessageSize = uint32(ctx.GlobalUint(WhisperMaxMessageSizeFlag.Name))
-	}
-	if ctx.GlobalIsSet(WhisperMinPOWFlag.Name) {
-		cfg.MinimumAcceptedPOW = ctx.GlobalFloat64(WhisperMinPOWFlag.Name)
-	}
-}
-
 // SetManConfig applies man-related command line flags to the config.
-func SetManConfig(ctx *cli.Context, stack *node.Node, cfg *man.Config) {
+func SetManConfig(ctx *cli.Context, stack *pod.Node, cfg *man.Config) {
 	// Avoid conflicting network flags
 	checkExclusive(ctx, DeveloperFlag, TestnetFlag, RinkebyFlag)
 	checkExclusive(ctx, FastSyncFlag, LightModeFlag, SyncModeFlag)
@@ -1126,55 +1094,34 @@ func SetDashboardConfig(ctx *cli.Context, cfg *dashboard.Config) {
 }
 
 // RegisterManService adds an Matrix client to the stack.
-func RegisterManService(stack *node.Node, cfg *man.Config) {
+func RegisterManService(stack *pod.Node, cfg *man.Config) {
 	var err error
-	if cfg.SyncMode == downloader.LightSync {
-		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			return les.New(ctx, cfg)
-		})
-	} else {
-		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			fullNode, err := man.New(ctx, cfg)
-			if fullNode != nil && cfg.LightServ > 0 {
-				ls, _ := les.NewLesServer(fullNode, cfg)
-				fullNode.AddLesServer(ls)
-			}
-			return fullNode, err
-		})
-	}
+	err = stack.Register(func(ctx *pod.ServiceContext) (pod.Service, error) {
+		fullNode, err := man.New(ctx, cfg)
+		return fullNode, err
+	})
 	if err != nil {
 		Fatalf("Failed to register the Matrix service: %v", err)
 	}
 }
 
 // RegisterDashboardService adds a dashboard to the stack.
-func RegisterDashboardService(stack *node.Node, cfg *dashboard.Config, commit string) {
-	stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+func RegisterDashboardService(stack *pod.Node, cfg *dashboard.Config, commit string) {
+	stack.Register(func(ctx *pod.ServiceContext) (pod.Service, error) {
 		return dashboard.New(cfg, commit)
 	})
 }
 
-// RegisterShhService configures Whisper and adds it to the given node.
-func RegisterShhService(stack *node.Node, cfg *whisper.Config) {
-	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
-		return whisper.New(cfg), nil
-	}); err != nil {
-		Fatalf("Failed to register the Whisper service: %v", err)
-	}
-}
-
 // RegisterManStatsService configures the Matrix Stats daemon and adds it to
 // th egiven node.
-func RegisterManStatsService(stack *node.Node, url string) {
-	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+func RegisterManStatsService(stack *pod.Node, url string) {
+	if err := stack.Register(func(ctx *pod.ServiceContext) (pod.Service, error) {
 		// Retrieve both man and les services
 		var manServ *man.Matrix
 		ctx.Service(&manServ)
 
-		var lesServ *les.LightMatrix
-		ctx.Service(&lesServ)
 
-		return manstats.New(url, manServ, lesServ)
+		return manstats.New(url, manServ)
 	}); err != nil {
 		Fatalf("Failed to register the Matrix Stats service: %v", err)
 	}
@@ -1187,7 +1134,7 @@ func SetupNetwork(ctx *cli.Context) {
 }
 
 // MakeChainDatabase open an LevelDB using the flags passed to the client and will hard crash if it fails.
-func MakeChainDatabase(ctx *cli.Context, stack *node.Node) mandb.Database {
+func MakeChainDatabase(ctx *cli.Context, stack *pod.Node) mandb.Database {
 	var (
 		cache   = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
 		handles = makeDatabaseHandles()
@@ -1217,7 +1164,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 }
 
 // MakeChain creates a chain manager from set command line flags.
-func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chainDb mandb.Database) {
+func MakeChain(ctx *cli.Context, stack *pod.Node) (chain *core.BlockChain, chainDb mandb.Database) {
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 

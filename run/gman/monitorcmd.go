@@ -1,6 +1,6 @@
 // Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
 package main
 
@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/matrix/go-matrix/cmd/utils"
-	"github.com/matrix/go-matrix/node"
+	"github.com/matrix/go-matrix/run/utils"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/rpc"
 	"github.com/gizak/termui"
 	"gopkg.in/urfave/cli.v1"
@@ -23,7 +23,7 @@ import (
 var (
 	monitorCommandAttachFlag = cli.StringFlag{
 		Name:  "attach",
-		Value: node.DefaultIPCEndpoint(clientIdentifier),
+		Value: pod.DefaultIPCEndpoint(clientIdentifier),
 		Usage: "API endpoint to attach to",
 	}
 	monitorCommandRowsFlag = cli.IntFlag{
@@ -43,7 +43,7 @@ var (
 		ArgsUsage: " ",
 		Category:  "MONITOR COMMANDS",
 		Description: `
-The Geth monitor is a tool to collect and visualize various internal metrics
+The Gman monitor is a tool to collect and visualize various internal metrics
 gathered by the node, supporting different chart types as well as the capacity
 to display multiple metrics simultaneously.
 `,

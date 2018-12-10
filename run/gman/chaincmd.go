@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or or http://www.opensource.org/licenses/mit-license.php
 
@@ -13,9 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/matrix/go-matrix/cmd/utils"
+	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/consensus/mtxdpos"
 	"github.com/matrix/go-matrix/console"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/state"
@@ -158,18 +157,6 @@ Remove blockchain and state databases`,
 The arguments are interpreted as block numbers or hashes.
 Use "matrix dump 0" to dump the genesis block.`,
 	}
-	CommitCommand=cli.Command{
-		Action:utils.MigrateFlags(getCommit),
-		Name :"commit",
-		Usage:"Commit history ,include version submitter and commit",
-		ArgsUsage:"",
-		Flags:[]cli.Flag{
-
-		},
-		Category:"commit commands",
-		Description:"get commit history",
-	}
-
 )
 
 // initGenesis will initialise the given JSON format genesis file and writes it as
@@ -381,12 +368,10 @@ func copyDb(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	dposEngine := mtxdpos.NewMtxDPOS()
-	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), dposEngine, func() bool { return false })
+	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), func() bool { return false })
 	if err != nil {
 		return err
 	}
-
 	peer := downloader.NewFakePeer("local", db, hc, dl)
 	if err = dl.RegisterPeer("local", 63, peer); err != nil {
 		return err
@@ -473,10 +458,4 @@ func dump(ctx *cli.Context) error {
 func hashish(x string) bool {
 	_, err := strconv.Atoi(x)
 	return err != nil
-}
-func getCommit(ctx *cli.Context) error {
-	for _,v:=range common.PutCommit{
-		fmt.Println(v)
-	}
-	return nil
 }
