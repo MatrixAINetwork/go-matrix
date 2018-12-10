@@ -56,7 +56,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
 	}
-	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
+	if hash := types.DeriveSha(types.SelfTransactions(block.Transactions())); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 	return nil

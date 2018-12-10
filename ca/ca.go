@@ -218,6 +218,7 @@ func Start(id discover.NodeID, path string) {
 			// send identity to linker
 			mc.PublishEvent(mc.BlockToLinkers, mc.BlockToLinker{Height: header.Number, Role: ide.currentRole})
 			mc.PublishEvent(mc.SendSyncRole, mc.SyncIdEvent{Role: ide.currentRole})//lb
+			mc.PublishEvent(mc.TxPoolManager, ide.currentRole)
 		case <-ide.quit:
 			return
 		}

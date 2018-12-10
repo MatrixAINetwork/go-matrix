@@ -122,7 +122,7 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	if err != nil {
 		return nil, err
 	}
-	context := core.NewEVMContext(msg, block.Header(), nil, &t.json.Env.Coinbase)
+	context := core.NewEVMContext(msg.From(), msg.GasPrice(), block.Header(), nil, &t.json.Env.Coinbase)
 	context.GetHash = vmTestBlockHash
 	evm := vm.NewEVM(context, statedb, config, vmconfig)
 

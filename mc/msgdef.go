@@ -22,7 +22,7 @@ type HdRev struct {
 
 type BlockData struct {
 	Header *types.Header
-	Txs    types.Transactions
+	Txs    types.SelfTransactions
 }
 
 //Miner Module
@@ -133,7 +133,7 @@ type HD_BlkConsensusReqMsg struct {
 
 type LocalBlockVerifyConsensusReq struct {
 	BlkVerifyConsensusReq *HD_BlkConsensusReqMsg
-	Txs                   types.Transactions // 交易列表
+	Txs                   types.SelfTransactions // 交易列表
 	Receipts              []*types.Receipt   // 收据
 	State                 *state.StateDB     // apply state changes here 状态数据库
 }
@@ -147,7 +147,7 @@ type BlockVerifyStateNotify struct {
 type BlockVerifyConsensusOK struct {
 	Header    *types.Header // 包含签名列表的header
 	BlockHash common.Hash
-	Txs       types.Transactions // 交易列表
+	Txs       types.SelfTransactions // 交易列表
 	Receipts  []*types.Receipt   // 收据
 	State     *state.StateDB     // apply state changes here 状态数据库
 }

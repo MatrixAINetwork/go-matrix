@@ -315,7 +315,7 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.gasPrice = (*big.Int)(&gasPrice)
 	api.e.lock.Unlock()
 
-	api.e.txPool.SetGasPrice((*big.Int)(&gasPrice))
+	//api.e.txPool.SetGasPrice((*big.Int)(&gasPrice)) //YYY
 	return true
 }
 

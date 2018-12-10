@@ -18,6 +18,14 @@ const (
 	CallTheRoll = "CallTheRoll"    //点名交易  （广播节点随机连接1000个点）
 )
 
+func ReturnBroadCastType() (bType map[string]bool) {
+	bType[Heartbeat] = true
+	bType[Publickey] = true
+	bType[Privatekey] = true
+	bType[CallTheRoll] = true
+	return bType
+}
+
 type BlockToBucket struct {
 	Ms     []discover.NodeID
 	Height *big.Int

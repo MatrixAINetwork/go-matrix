@@ -112,7 +112,7 @@ func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, r
 // corresponding to the specified block hashes.
 func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
 	var (
-		txs    [][]*types.Transaction
+		txs    [][]types.SelfTransaction
 		uncles [][]*types.Header
 	)
 	for _, hash := range hashes {

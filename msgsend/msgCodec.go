@@ -169,7 +169,7 @@ func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (inte
 		From: from,
 		BlockMainData: &mc.BlockData{
 			Header: msg.Header,
-			Txs:    make(types.Transactions, 0),
+			Txs:    make(types.SelfTransactions, 0),
 		},
 	}
 	size := len(msg.Txs)

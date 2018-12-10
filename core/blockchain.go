@@ -1423,7 +1423,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		newChain    types.Blocks
 		oldChain    types.Blocks
 		commonBlock *types.Block
-		deletedTxs  types.Transactions
+		deletedTxs  types.SelfTransactions
 		deletedLogs []*types.Log
 		// collectLogs collects the logs that were generated during the
 		// processing of the block that corresponds with the given hash.
@@ -1498,7 +1498,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		log.Error("Impossible reorg, please file an issue", "oldnum", oldBlock.Number(), "oldhash", oldBlock.Hash(), "newnum", newBlock.Number(), "newhash", newBlock.Hash())
 	}
 	// Insert the new chain, taking care of the proper incremental order
-	var addedTxs types.Transactions
+	var addedTxs types.SelfTransactions
 	for i := len(newChain) - 1; i >= 0; i-- {
 		// insert the block in the canonical way, re-writing history
 		bc.insert(newChain[i])

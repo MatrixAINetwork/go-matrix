@@ -54,7 +54,7 @@ type Work struct {
 	Block *types.Block // the new block
 
 	header   *types.Header
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	receipts []*types.Receipt
 
 	createdAt time.Time

@@ -76,7 +76,8 @@ type Matrix struct {
 	shutdownChan chan bool // Channel for shutting down the Matrix
 
 	// Handlers
-	txPool          *core.TxPool
+	//txPool          *core.TxPool
+	txPool          *core.TxPoolManager
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
@@ -186,10 +187,10 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	}
 	man.bloomIndexer.Start(man.blockchain)
 
-	if config.TxPool.Journal != "" {
-		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
-	}
-	man.txPool = core.NewTxPool(config.TxPool, man.chainConfig, man.blockchain, ctx.GetConfig().DataDir)
+	//if config.TxPool.Journal != "" {
+	//	config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
+	//}
+	man.txPool = core.NewTxPoolManager(config.TxPool, man.chainConfig, man.blockchain, ctx.GetConfig().DataDir)
 
 	if man.protocolManager, err = NewProtocolManager(man.chainConfig, config.SyncMode, config.NetworkId, man.eventMux, man.txPool, man.engine, man.blockchain, chainDb, ctx.MsgCenter); err != nil {
 		return nil, err
@@ -453,7 +454,7 @@ func (s *Matrix) Miner() *miner.Miner { return s.miner }
 
 func (s *Matrix) AccountManager() *accounts.Manager    { return s.accountManager }
 func (s *Matrix) BlockChain() *core.BlockChain         { return s.blockchain }
-func (s *Matrix) TxPool() *core.TxPool                 { return s.txPool }
+func (s *Matrix) TxPool() *core.TxPoolManager        { return s.txPool } //YYY
 func (s *Matrix) EventMux() *event.TypeMux             { return s.eventMux }
 func (s *Matrix) Engine() consensus.Engine             { return s.engine }
 func (s *Matrix) DPOSEngine() consensus.DPOSEngine     { return s.blockchain.DPOSEngine() }
@@ -505,10 +506,15 @@ func (s *Matrix) Start(srvr *p2p.Server) error {
 }
 func (s *Matrix) FetcherNotify(hash common.Hash, number uint64) {
 	ids := ca.GetRolesByGroup(common.RoleValidator | common.RoleBroadcast)
+	selfId := p2p.ServerP2p.Self().ID.String()
 	for _, id := range ids {
+		if id.String() == selfId {
+			log.Info("func FetcherNotify  NodeID is same ", "selfID", selfId, "ca`s nodeID", id.String())
+			continue
+		}
 		peer := s.protocolManager.Peers.Peer(id.String()[:16])
 		if peer == nil {
-			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String(), "Peers:", s.protocolManager.Peers.peers)
+			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String()[:16], "Peers:", s.protocolManager.Peers.peers)
 			continue
 		}
 		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)

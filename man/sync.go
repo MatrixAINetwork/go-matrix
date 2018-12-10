@@ -30,12 +30,12 @@ const (
 
 type txsync struct {
 	p   *peer
-	txs []*types.Transaction
+	txs []types.SelfTransaction
 }
 
 // syncTransactions starts sending all currently pending transactions to the given peer.
 func (pm *ProtocolManager) syncTransactions(p *peer) {
-	var txs types.Transactions
+	var txs types.SelfTransactions
 	pending, _ := pm.txpool.Pending()
 	for _, batch := range pending {
 		txs = append(txs, batch...)

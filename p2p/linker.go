@@ -260,3 +260,19 @@ func (l *Linker) encodeData() ([]byte, error) {
 	}
 	return json.Marshal(r)
 }
+
+// GetRollBook
+func GetRollBook() (map[common.Address]struct{}, error) {
+	Link.mu.Lock()
+	defer Link.mu.Unlock()
+
+	r := make(map[common.Address]struct{})
+	for key := range Link.linkMap {
+		addr, err := ca.ConvertNodeIdToAddress(key)
+		if err != nil {
+			return nil, err
+		}
+		r[addr] = struct{}{}
+	}
+	return r, nil
+}

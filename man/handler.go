@@ -358,9 +358,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 // peer. The remote connection is torn down upon returning any error.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
-	//	msg, err := p.rw.ReadMsg()
 	msg, err := p.rw.ReadMsg()
-	//fmt.Print("收到数据！！！！！！！！！！！", "msgcode", msg.Code)
 	if err != nil {
 		return err
 	}
@@ -541,7 +539,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver them all to the downloader for queuing
-		transactions := make([][]*types.Transaction, len(request))
+		transactions := make([][]types.SelfTransaction, len(request))
 		uncles := make([][]*types.Header, len(request))
 
 		for i, body := range request {
@@ -706,7 +704,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
 
-		var txs []*types.Transaction
+		var txs []types.SelfTransaction
 		if err := msg.Decode(&txs); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -823,8 +821,8 @@ func (pm *ProtocolManager) BroadcastBlockHeader(block *types.Block, propagate bo
 
 // BroadcastTxs will propagate a batch of transactions to all peers which are not known to
 // already have the given transaction.
-func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
-	var txset = make(map[*peer]types.Transactions)
+func (pm *ProtocolManager) BroadcastTxs(txs types.SelfTransactions) {
+	var txset = make(map[*peer]types.SelfTransactions)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	for _, tx := range txs {

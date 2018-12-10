@@ -27,6 +27,8 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
+	"errors"
+	"fmt"
 )
 
 // ManAPIBackend implements manapi.Backend for full nodes
@@ -124,7 +126,7 @@ func (b *ManAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
-	context := core.NewEVMContext(msg, header, b.man.BlockChain(), nil)
+	context := core.NewEVMContext(msg.From(), msg.GasPrice(), header, b.man.BlockChain(), nil)
 	return vm.NewEVM(context, state, b.man.chainConfig, vmCfg), vmError, nil
 }
 
@@ -148,39 +150,104 @@ func (b *ManAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 	return b.man.BlockChain().SubscribeLogsEvent(ch)
 }
 
-func (b *ManAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	return b.man.txPool.AddLocal(signedTx)
+//TODO 调用该方法的时候应该返回错误的切片
+func (b *ManAPIBackend) SendTx(ctx context.Context, signedTx types.SelfTransaction) (err error) {
+	txs := make(types.SelfTransactions, 0)
+	txs = append(txs, signedTx)
+	errs := b.man.txPool.AddRemotes(txs)
+	if errs != nil {
+		err = errs[0]
+	}
+
+	return err
 }
 
-func (b *ManAPIBackend) GetPoolTransactions() (types.Transactions, error) {
+func (b *ManAPIBackend) GetPoolTransactions() (types.SelfTransactions, error) {
 	pending, err := b.man.txPool.Pending()
 	if err != nil {
 		return nil, err
 	}
-	var txs types.Transactions
+	var txs types.SelfTransactions
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
 	return txs, nil
 }
 
-func (b *ManAPIBackend) GetPoolTransaction(hash common.Hash) *types.Transaction {
-	return b.man.txPool.Get(hash)
+func (b *ManAPIBackend) GetPoolTransaction(hash common.Hash) types.SelfTransaction {
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			return npool.Get(hash)
+		} else {
+			return nil
+		}
+	}
+	return nil
 }
 
 func (b *ManAPIBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
-	return b.man.txPool.State().GetNonce(addr), nil
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			return npool.State().GetNonce(addr), nil
+		} else {
+			return 0, errors.New("GetPoolNonce() unknown txpool")
+		}
+	}
+	return 0, nerr
 }
 
 func (b *ManAPIBackend) Stats() (pending int, queued int) {
-	return b.man.txPool.Stats()
+	bpooler, err := b.man.TxPool().GetTxPoolByType(types.BroadCastTxIndex)
+	if err == nil {
+		_, ok := bpooler.(*core.BroadCastTxPool)
+		if ok {
+			//_,btxs = bpool.Content()
+		} else {
+			queued = 0
+		}
+	}
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			pending, _ = npool.Stats()
+		} else {
+			pending = 0
+		}
+	}
+	return pending, queued
 }
 
-func (b *ManAPIBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
-	return b.man.TxPool().Content()
+//TODO 应该将返回值加入切片中否则以后多一种交易就要添加一个返回值
+func (b *ManAPIBackend) TxPoolContent() (ntxs map[common.Address]types.SelfTransactions, btxs map[common.Address]types.SelfTransactions) {
+	bpooler, err := b.man.TxPool().GetTxPoolByType(types.BroadCastTxIndex)
+	if err == nil {
+		_, ok := bpooler.(*core.BroadCastTxPool)
+		if ok {
+			//_,btxs = bpool.Content()
+		} else {
+			btxs = nil
+		}
+	}
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			//ntxs, _ = npool.Content()
+			ntxs= nil //YYY TODO npool.Content()
+			fmt.Println(npool) //TODO 删除
+		} else {
+			ntxs = nil
+		}
+	}
+	return ntxs, btxs
 }
 
-func (b *ManAPIBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+func (b *ManAPIBackend) SubscribeNewTxsEvent(ch chan core.NewTxsEvent) event.Subscription {
 	return b.man.TxPool().SubscribeNewTxsEvent(ch)
 }
 
@@ -220,17 +287,31 @@ func (b *ManAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 }
 
 //YY
-func (b *ManAPIBackend) SignTx(signedTx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (b *ManAPIBackend) SignTx(signedTx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
 	return b.man.signHelper.SignTx(signedTx, chainID)
 }
 
 //YY
-func (b *ManAPIBackend) SendBroadTx(ctx context.Context, signedTx *types.Transaction, bType bool) error {
-	return b.man.txPool.AddBroadTx(signedTx, bType)
+func (b *ManAPIBackend) SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error {
+	bpooler, err := b.man.txPool.GetTxPoolByType(types.BroadCastTxIndex)
+	if err == nil {
+		bpool, ok := bpooler.(*core.BroadCastTxPool)
+		if ok {
+			return bpool.AddBroadTx(signedTx, bType)
+		} else {
+			return errors.New("SendBroadTx() unknown txpool")
+		}
+	}
+	return err
 }
 
 //YY
 func (b *ManAPIBackend) FetcherNotify(hash common.Hash, number uint64) {
+
+	/*
+		2018-09-29 因为改到其他地方实现，所以此方法没有被调用。废弃
+	*/
+	return
 	ids := ca.GetRolesByGroup(common.RoleValidator)
 	log.Info("==========YY===========", "FetcherNotify()��Validator`s count", len(ids))
 	for _, id := range ids {

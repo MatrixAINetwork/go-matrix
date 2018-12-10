@@ -63,7 +63,8 @@ type Message interface {
 	Nonce() uint64
 	CheckNonce() bool
 	Data() []byte
-	Extra() types.Matrix_Extra //YY
+	//Extra() types.Matrix_Extra //YY
+	GetMatrix_EX() []types.Matrix_Extra //YYY  注释 Extra() 方法 改用此方法
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -175,7 +176,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if err = st.preCheck(); err != nil {
 		return
 	}
-	msg := st.msg
+	msg := st.msg //因为st.msg的接口全部在transaction中实现,所以此处的局部变量msg实际是transaction类型
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
@@ -186,12 +187,12 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		return nil, 0, false, err
 	}
 	//YY
-	tmpExtra := msg.Extra()
-	if (&tmpExtra) != nil {
-		if uint64(len(tmpExtra.ExtraTo)) > params.TxCount-1 { //减1是为了和txpool中的验证统一，因为还要算上外层的那笔交易
+	tmpExtra := msg.GetMatrix_EX() //Extra()
+	if (&tmpExtra) != nil && len(tmpExtra) > 0 {
+		if uint64(len(tmpExtra[0].ExtraTo)) > params.TxCount-1 { //减1是为了和txpool中的验证统一，因为还要算上外层的那笔交易
 			return nil, 0, false, ErrTXCountOverflow
 		}
-		for _, ex := range tmpExtra.ExtraTo {
+		for _, ex := range tmpExtra[0].ExtraTo {
 			contractCreation = ex.Recipient == nil
 			tmpgas, tmperr := IntrinsicGas(ex.Payload, contractCreation, homestead)
 			if tmperr != nil {
@@ -221,8 +222,8 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	//YY=========begin===============
-	if vmerr == nil && (&tmpExtra) != nil {
-		for _, ex := range tmpExtra.ExtraTo {
+	if vmerr == nil && (&tmpExtra) != nil && len(tmpExtra) > 0 {
+		for _, ex := range tmpExtra[0].ExtraTo {
 			contractCreation = ex.Recipient == nil
 			if contractCreation {
 				//ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)

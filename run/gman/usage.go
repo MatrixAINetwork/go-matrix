@@ -102,15 +102,15 @@ var AppHelpFlagGroups = []flagGroup{
 		Name: "TRANSACTION POOL",
 		Flags: []cli.Flag{
 			utils.TxPoolNoLocalsFlag,
-			utils.TxPoolJournalFlag,
-			utils.TxPoolRejournalFlag,
+			//utils.TxPoolJournalFlag,//YYY
+			//utils.TxPoolRejournalFlag,
 			utils.TxPoolPriceLimitFlag,
-			utils.TxPoolPriceBumpFlag,
+			//utils.TxPoolPriceBumpFlag,//YYY
 			utils.TxPoolAccountSlotsFlag,
 			utils.TxPoolGlobalSlotsFlag,
 			utils.TxPoolAccountQueueFlag,
 			utils.TxPoolGlobalQueueFlag,
-			utils.TxPoolLifetimeFlag,
+			//YYY utils.TxPoolLifetimeFlag,
 		},
 	},
 	{

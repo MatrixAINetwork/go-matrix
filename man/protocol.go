@@ -86,15 +86,15 @@ var errorToString = map[int]string{
 
 type txPool interface {
 	// AddRemotes should add the given transactions to the pool.
-	AddRemotes([]*types.Transaction) []error
+	AddRemotes([]types.SelfTransaction) []error
 
 	// Pending should return pending transactions.
 	// The slice should be modifiable by the caller.
-	Pending() (map[common.Address]types.Transactions, error)
+	Pending() (map[common.Address]types.SelfTransactions, error)
 
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription
 
 	//hezi
 	ProcessMsg(m core.NetworkMsgData)
@@ -167,7 +167,7 @@ type newBlockData struct {
 
 // blockBody represents the data content of a single block.
 type blockBody struct {
-	Transactions []*types.Transaction // Transactions contained within a block
+	Transactions []types.SelfTransaction // Transactions contained within a block
 	Uncles       []*types.Header      // Uncles contained within a block
 }
 

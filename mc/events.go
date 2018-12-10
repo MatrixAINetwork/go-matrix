@@ -73,5 +73,6 @@ const (
 	BlockToLinkers
 	SendUdpTx
 	SendSyncRole      //lb
+	TxPoolManager
 	LastEventCode
 )

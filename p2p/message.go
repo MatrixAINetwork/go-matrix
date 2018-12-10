@@ -79,11 +79,16 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
+var (
+	ErrCanNotFindPeer = errors.New("p2p: can`t find peer")
+	ErrMsgWriterIsNil = errors.New("p2p: message writer is nil")
+)
+
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	if w == nil {
-		return errors.New("peer disconnect in send duration.")
+		return ErrMsgWriterIsNil
 	}
 	size, r, err := rlp.EncodeToReader(data)
 	if err != nil {
@@ -91,8 +96,6 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	}
 	return w.WriteMsg(Msg{Code: msgcode, Size: uint32(size), Payload: r})
 }
-
-var ErrCanNotFindPeer = errors.New("p2p: can`t find peer")
 
 // SendToSingle send message to single peer.
 func SendToSingle(to discover.NodeID, msgCode uint64, data interface{}) error {

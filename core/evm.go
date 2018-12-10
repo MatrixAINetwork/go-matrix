@@ -24,8 +24,31 @@ type ChainContext interface {
 	GetHeader(common.Hash, uint64) *types.Header
 }
 
+//YYY =========================begin============================
 // NewEVMContext creates a new context for use in the EVM.
-func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
+//func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
+//	// If we don't have an explicit author (i.e. not mining), extract from the header
+//	var beneficiary common.Address
+//	if author == nil {
+//		beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
+//	} else {
+//		beneficiary = *author
+//	}
+//	return vm.Context{
+//		CanTransfer: CanTransfer,
+//		Transfer:    Transfer,
+//		GetHash:     GetHashFn(header, chain),
+//		Origin:      msg.From(),
+//		Coinbase:    beneficiary,
+//		BlockNumber: new(big.Int).Set(header.Number),
+//		Time:        new(big.Int).Set(header.Time),
+//		Difficulty:  new(big.Int).Set(header.Difficulty),
+//		GasLimit:    header.GasLimit,
+//		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+//	}
+//}
+
+func NewEVMContext(sender common.Address, gasprice *big.Int, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	var beneficiary common.Address
 	if author == nil {
@@ -37,16 +60,17 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
 		GetHash:     GetHashFn(header, chain),
-		Origin:      msg.From(),
+		Origin:      sender,
 		Coinbase:    beneficiary,
 		BlockNumber: new(big.Int).Set(header.Number),
 		Time:        new(big.Int).Set(header.Time),
 		Difficulty:  new(big.Int).Set(header.Difficulty),
 		GasLimit:    header.GasLimit,
-		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+		GasPrice:    new(big.Int).Set(gasprice),
 	}
 }
 
+//YYY ====================================end================================
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
 func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
 	var cache map[uint64]common.Hash

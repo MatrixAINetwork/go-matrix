@@ -81,7 +81,7 @@ type headerFilterTask struct {
 // needing fetcher filtering.
 type bodyFilterTask struct {
 	peer         string                 // The source peer of block bodies
-	transactions [][]*types.Transaction // Collection of transactions per block bodies
+	transactions [][]types.SelfTransaction // Collection of transactions per block bodies
 	uncles       [][]*types.Header      // Collection of uncles per block bodies
 	time         time.Time              // Arrival time of the blocks' contents
 }
@@ -237,7 +237,7 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, uncles [][]*types.Header, time time.Time) ([][]*types.Transaction, [][]*types.Header) {
+func (f *Fetcher) FilterBodies(peer string, transactions [][]types.SelfTransaction, uncles [][]*types.Header, time time.Time) ([][]types.SelfTransaction, [][]*types.Header) {
 	log.Trace("Filtering bodies", "peer", peer, "txs", len(transactions), "uncles", len(uncles))
 
 	// Send the filter channel to the fetcher
@@ -449,7 +449,7 @@ func (f *Fetcher) loop() {
 						announce.time = task.time
 
 						// If the block is empty (header only), short circuit into the final import queue
-						if header.TxHash == types.DeriveSha(types.Transactions{}) && header.UncleHash == types.CalcUncleHash([]*types.Header{}) {
+						if header.TxHash == types.DeriveSha(types.SelfTransactions{}) && header.UncleHash == types.CalcUncleHash([]*types.Header{}) {
 							log.Trace("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash())
 
 							block := types.NewBlockWithHeader(header)
@@ -511,7 +511,7 @@ func (f *Fetcher) loop() {
 
 				for hash, announce := range f.completing {
 					if f.queued[hash] == nil {
-						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]))
+						txnHash := types.DeriveSha(types.SelfTransactions(task.transactions[i]))
 						uncleHash := types.CalcUncleHash(task.uncles[i])
 
 						if txnHash == announce.header.TxHash && uncleHash == announce.header.UncleHash && announce.origin == task.peer {

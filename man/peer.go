@@ -80,7 +80,7 @@ type peer struct {
 
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
 	knownBlocks *set.Set                  // Set of block hashes known to be known by this peer
-	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
+	queuedTxs   chan []types.SelfTransaction // Queue of transactions to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
 	term        chan struct{}             // Termination channel to stop the broadcaster
@@ -96,7 +96,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
 		knownTxs:    set.New(),
 		knownBlocks: set.New(),
-		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
+		queuedTxs:   make(chan []types.SelfTransaction, maxQueuedTxs),
 		queuedProps: make(chan *propEvent, maxQueuedProps),
 		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
 		term:        make(chan struct{}),
@@ -190,49 +190,63 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 
 // SendTransactions sends transactions to the peer and includes the hashes
 // in its transaction hash set for future reference.
-func (p *peer) SendTransactions(txs types.Transactions) error {
-	tmptxs := make(types.Transactions, 0)
-	for _, tx := range txs {
-		p.knownTxs.Add(tx.Hash())
-		//YY ====begin======
-		tmpts := *tx
-		if nc := tmpts.Nonce(); nc >= params.NonceAddOne {
-			nc = nc & params.NonceSubOne
-			tmpts.SetNonce(nc)
+func (p *peer) SendTransactions(txser []types.SelfTransaction) error {
+	tmptxs := make([]types.SelfTransaction, 0)
+	for _, txer := range txser {
+		p.knownTxs.Add(txer.Hash())
+		switch txer.TxType(){
+		case types.NormalTxIndex:
+			tmptx,ok := txer.(*types.Transaction)
+			if !ok{
+				break
+			}
+			tx := *tmptx
+			if nc := tx.Nonce(); nc >= params.NonceAddOne {
+				nc = nc & params.NonceSubOne
+				tx.SetNonce(nc)
+			}
+			tmptxs = append(tmptxs, &tx)
+		default:
+			log.Trace("man/peer.go","SendTransactions()","tx type unknown")
+			break
 		}
-		tmptxs = append(tmptxs, &tmpts)
-		//=========end======
-		//log.Info("========YY=============1","SendTransactions():sendTx_nonce",tmpts.Nonce())
-		//log.Info("========YY=============2","SendTransactions():sendTx_nonce",tx.Nonce())
 	}
-	log.Info("====hezi==SendTransactions")
+	if len(tmptxs) <= 0 {
+		log.Trace("man/peer.go","SendTransactions()","tmptxs length is 0")
+	}
 	return p2p.Send(p.rw, TxMsg, tmptxs)
 }
 
 // SendUdpTransactions
-func SendUdpTransactions(txs types.Transactions) error {
-	tmptxs := make(types.Transactions, 0)
+func SendUdpTransactions(txser []types.SelfTransaction) error {
 	udptmptxs := make([]*types.Transaction_Mx, 0)
-	for _, tx := range txs {
-		tmpts := *tx
-		if nc := tmpts.Nonce(); nc >= params.NonceAddOne {
-			nc = nc & params.NonceSubOne
-			tmpts.SetNonce(nc)
+	for _, txer := range txser {
+		switch txer.TxType(){
+		case types.NormalTxIndex:
+			tmptx,ok := txer.(*types.Transaction)
+			if !ok{
+				break
+			}
+			tx := *tmptx
+			if nc := tx.Nonce(); nc >= params.NonceAddOne {
+				nc = nc & params.NonceSubOne
+				tx.SetNonce(nc)
+			}
+			// udp send
+			udptx := types.ConvTxtoMxtx(&tx)
+			udptmptxs = append(udptmptxs, udptx)
+		default:
+			log.Trace("man/peer.go","SendUdpTransactions()","tx type unknown")
+			break
 		}
-		tmptxs = append(tmptxs, &tmpts)
-
-		// udp send
-		udptx := types.ConvTxtoMxtx(&tmpts)
-		udptmptxs = append(udptmptxs, udptx)
 	}
-
 	p2p.UdpSend(udptmptxs)
 	return nil
 }
 
 // AsyncSendTransactions queues list of transactions propagation to a remote
 // peer. If the peer's broadcast queue is full, the event is silently dropped.
-func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
+func (p *peer) AsyncSendTransactions(txs []types.SelfTransaction) {
 	select {
 	case p.queuedTxs <- txs:
 		for _, tx := range txs {

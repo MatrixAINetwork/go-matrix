@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	EmptyRootHash  = DeriveSha(Transactions{})
+	EmptyRootHash  = DeriveSha(SelfTransactions{})
 	EmptyUncleHash = CalcUncleHash(nil)
 )
 
@@ -199,7 +199,7 @@ func RlpHash(x interface{}) (h common.Hash) {
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
 type Body struct {
-	Transactions []*Transaction
+	Transactions []SelfTransaction
 	Uncles       []*Header
 }
 
@@ -207,7 +207,7 @@ type Body struct {
 type Block struct {
 	header       *Header
 	uncles       []*Header
-	transactions Transactions
+	transactions []SelfTransaction
 
 	// caches
 	hash atomic.Value
@@ -239,7 +239,7 @@ type StorageBlock Block
 // "external" block encoding. used for man protocol, etc.
 type extblock struct {
 	Header *Header
-	Txs    []*Transaction
+	Txs    []SelfTransaction
 	Uncles []*Header
 }
 
@@ -247,7 +247,7 @@ type extblock struct {
 // "storage" block encoding. used for database.
 type storageblock struct {
 	Header *Header
-	Txs    []*Transaction
+	Txs    []SelfTransaction
 	Uncles []*Header
 	TD     *big.Int
 }
@@ -259,15 +259,15 @@ type storageblock struct {
 // The values of TxHash, UncleHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs, uncles
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt) *Block {
+func NewBlock(header *Header, txs []SelfTransaction, uncles []*Header, receipts []*Receipt) *Block {
 	b := &Block{header: CopyHeader(header), td: new(big.Int)}
 
 	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
 	} else {
-		b.header.TxHash = DeriveSha(Transactions(txs))
-		b.transactions = make(Transactions, len(txs))
+		b.header.TxHash = DeriveSha(SelfTransactions(txs))
+		b.transactions = make(SelfTransactions, len(txs))
 		copy(b.transactions, txs)
 	}
 
@@ -301,13 +301,13 @@ func NewBlockWithHeader(header *Header) *Block {
 // NewBlockWithHeader creates a block with the given header data. The
 // header data is copied, changes to header and to the field values
 // will not affect the block.
-func NewBlockWithTxs(header *Header, txs []*Transaction) *Block {
+func NewBlockWithTxs(header *Header, txs []SelfTransaction) *Block {
 	b := &Block{header: CopyHeader(header)}
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
 	} else {
-		b.header.TxHash = DeriveSha(Transactions(txs))
-		b.transactions = make(Transactions, len(txs))
+		b.header.TxHash = DeriveSha(SelfTransactions(txs))
+		b.transactions = make(SelfTransactions, len(txs))
 		copy(b.transactions, txs)
 	}
 
@@ -398,9 +398,9 @@ func (b *Block) IsReElectionBlock() bool {
 // TODO: copies
 
 func (b *Block) Uncles() []*Header          { return b.uncles }
-func (b *Block) Transactions() Transactions { return b.transactions }
+func (b *Block) Transactions() []SelfTransaction { return b.transactions }
 
-func (b *Block) Transaction(hash common.Hash) *Transaction {
+func (b *Block) Transaction(hash common.Hash) SelfTransaction {
 	for _, transaction := range b.transactions {
 		if transaction.Hash() == hash {
 			return transaction
@@ -472,10 +472,10 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction and uncle contents.
-func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
+func (b *Block) WithBody(transactions []SelfTransaction, uncles []*Header) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
-		transactions: make([]*Transaction, len(transactions)),
+		transactions: make([]SelfTransaction, len(transactions)),
 		uncles:       make([]*Header, len(uncles)),
 	}
 	copy(block.transactions, transactions)

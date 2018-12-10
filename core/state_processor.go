@@ -74,13 +74,19 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
-	if err != nil {
-		return nil, 0, err
-	}
+func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx types.SelfTransaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+	//YYY =======begin==================
+	//msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
+	//if err != nil {
+	//	return nil, 0, err
+	//}
 	// Create a new context to be used in the EVM environment
-	context := NewEVMContext(msg, header, bc, author)
+	from, err := tx.GetTxFrom()
+	if err != nil {
+		from, err = types.Sender(types.NewEIP155Signer(config.ChainId), tx)
+	}
+	context := NewEVMContext(from, tx.GasPrice(), header, bc, author)
+	//YYY ==========end===================
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
@@ -88,11 +94,12 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	//===============hezi====================
 	var gas uint64
 	var failed bool
-	if msg.Extra().TxType == 1 {
+	if extx := tx.GetMatrix_EX(); (extx != nil) && len(extx) > 0 && extx[0].TxType == 1 {
 		gas = uint64(0)
 		failed = true
 	} else {
-		_, gas, failed, err = ApplyMessage(vmenv, msg, gp)
+		//_, gas, failed, err = ApplyMessage(vmenv, msg, gp) //YYY
+		_, gas, failed, err = ApplyMessage(vmenv, tx, gp)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -115,7 +122,7 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = gas
 	// if the transaction created a contract, store the creation address in the receipt.
-	if msg.To() == nil {
+	if tx.To() == nil {
 		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
 	}
 	// Set the receipt logs and create a bloom for filtering

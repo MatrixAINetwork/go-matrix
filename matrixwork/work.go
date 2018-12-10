@@ -41,7 +41,7 @@ type Work struct {
 	Block *types.Block // the new block
 
 	header   *types.Header
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	Receipts []*types.Receipt
 
 	createdAt time.Time
@@ -65,7 +65,7 @@ func NewWork(config *params.ChainConfig, bc *core.BlockChain, gasPool *core.GasP
 	return Work, nil
 }
 
-func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, coinbase common.Address) (listN []uint32, retTxs []*types.Transaction) {
+func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, coinbase common.Address) (listN []uint32, retTxs []types.SelfTransaction) {
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
@@ -84,7 +84,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 			break
 		}
 
-		if tx.N == nil{
+		if tx.GetTxNLen() == 0{
 			log.Info("===========tx.N is nil")
 			txs.Pop()
 			continue
@@ -97,6 +97,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
+		//YYY TODO 是否需要当前这个if
 		if tx.Protected() && !env.config.IsEIP155(env.header.Number) {
 			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", env.config.EIP155Block)
 
@@ -125,8 +126,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		case nil:
 			// Everything ok, collect the logs and shift in the next transaction from the same account
 			//==========hezi===================
-			if tx.N != nil {
-				listN = append(listN, tx.N[0])
+			if tx.GetTxNLen() != 0 {
+				listN = append(listN, tx.GetTxN(0))
 				retTxs = append(retTxs, tx)
 				//log.INFO("=======", "commitTransactions:len(listN)", len(listN))
 			}
@@ -164,7 +165,7 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 	return listN, retTxs
 }
 
-func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
+func (env *Work) commitTransaction(tx types.SelfTransaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
 	snap := env.State.Snapshot()
 
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.State, env.header, tx, &env.header.GasUsed, vm.Config{})
@@ -187,7 +188,7 @@ type retStruct struct {
 	txs []*types.Transaction
 }
 
-func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPool, bc *core.BlockChain) ([]uint32, []*types.Transaction) {
+func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPoolManager, bc *core.BlockChain) ([]uint32, []types.SelfTransaction) {
 
 	//ret := make(chan *retStruct, 1)
 	//tm := time.NewTimer(time.Second * 5)
@@ -242,7 +243,7 @@ func (self *Work) ProcessTransactions(mux *event.TypeMux, tp *core.TxPool, bc *c
 }*/
 
 //Broadcast
-func (self *Work) ProcessBroadcastTransactions(mux *event.TypeMux, txs []*types.Transaction, bc *core.BlockChain) {
+func (self *Work) ProcessBroadcastTransactions(mux *event.TypeMux, txs []types.SelfTransaction, bc *core.BlockChain) {
 
 	for _, tx := range txs {
 		//log.INFO("========","ProcessBroadcastTransactions:tx",tx)
@@ -253,7 +254,7 @@ func (self *Work) ProcessBroadcastTransactions(mux *event.TypeMux, txs []*types.
 	return
 }
 
-func (env *Work) ConsensusTransactions(mux *event.TypeMux, txs []*types.Transaction, bc *core.BlockChain) error {
+func (env *Work) ConsensusTransactions(mux *event.TypeMux, txs []types.SelfTransaction, bc *core.BlockChain) error {
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}

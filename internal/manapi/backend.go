@@ -48,16 +48,16 @@ type Backend interface {
 	SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription
 
 	// TxPool API
-	SendTx(ctx context.Context, signedTx *types.Transaction) error
-	GetPoolTransactions() (types.Transactions, error)
-	GetPoolTransaction(txHash common.Hash) *types.Transaction
+	SendTx(ctx context.Context, signedTx types.SelfTransaction) error
+	GetPoolTransactions() (types.SelfTransactions, error)
+	GetPoolTransaction(txHash common.Hash) types.SelfTransaction
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
 	Stats() (pending int, queued int)
-	TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions)
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	TxPoolContent() (map[common.Address]types.SelfTransactions, map[common.Address]types.SelfTransactions)
+	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription //YYY
 
-	SignTx(signedTx *types.Transaction, chainID *big.Int) (*types.Transaction, error) //YY
-	SendBroadTx(ctx context.Context, signedTx *types.Transaction, bType bool) error   //YY
+	SignTx(signedTx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) //YY
+	SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error   //YY
 	FetcherNotify(hash common.Hash, number uint64)                                    //YY
 
 	ChainConfig() *params.ChainConfig

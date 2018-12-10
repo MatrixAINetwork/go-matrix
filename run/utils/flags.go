@@ -229,26 +229,26 @@ var (
 		Name:  "txpool.nolocals",
 		Usage: "Disables price exemptions for locally submitted transactions",
 	}
-	TxPoolJournalFlag = cli.StringFlag{
-		Name:  "txpool.journal",
-		Usage: "Disk journal for local transaction to survive node restarts",
-		Value: core.DefaultTxPoolConfig.Journal,
-	}
-	TxPoolRejournalFlag = cli.DurationFlag{
-		Name:  "txpool.rejournal",
-		Usage: "Time interval to regenerate the local transaction journal",
-		Value: core.DefaultTxPoolConfig.Rejournal,
-	}
+	//TxPoolJournalFlag = cli.StringFlag{ //YYY
+	//	Name:  "txpool.journal",
+	//	Usage: "Disk journal for local transaction to survive node restarts",
+	//	Value: core.DefaultTxPoolConfig.Journal,
+	//}
+	//TxPoolRejournalFlag = cli.DurationFlag{
+	//	Name:  "txpool.rejournal",
+	//	Usage: "Time interval to regenerate the local transaction journal",
+	//	Value: core.DefaultTxPoolConfig.Rejournal,
+	//}
 	TxPoolPriceLimitFlag = cli.Uint64Flag{
 		Name:  "txpool.pricelimit",
 		Usage: "Minimum gas price limit to enforce for acceptance into the pool",
 		Value: man.DefaultConfig.TxPool.PriceLimit,
 	}
-	TxPoolPriceBumpFlag = cli.Uint64Flag{
-		Name:  "txpool.pricebump",
-		Usage: "Price bump percentage to replace an already existing transaction",
-		Value: man.DefaultConfig.TxPool.PriceBump,
-	}
+	//TxPoolPriceBumpFlag = cli.Uint64Flag{ //YYY
+	//	Name:  "txpool.pricebump",
+	//	Usage: "Price bump percentage to replace an already existing transaction",
+	//	Value: eth.DefaultConfig.TxPool.PriceBump,
+	//}
 	TxPoolAccountSlotsFlag = cli.Uint64Flag{
 		Name:  "txpool.accountslots",
 		Usage: "Minimum number of executable transaction slots guaranteed per account",
@@ -269,11 +269,11 @@ var (
 		Usage: "Maximum number of non-executable transaction slots for all accounts",
 		Value: man.DefaultConfig.TxPool.GlobalQueue,
 	}
-	TxPoolLifetimeFlag = cli.DurationFlag{
-		Name:  "txpool.lifetime",
-		Usage: "Maximum amount of time non-executable transaction are queued",
-		Value: man.DefaultConfig.TxPool.Lifetime,
-	}
+	//TxPoolLifetimeFlag = cli.DurationFlag{ //YYY
+	//	Name:  "txpool.lifetime",
+	//	Usage: "Maximum amount of time non-executable transaction are queued",
+	//	Value: eth.DefaultConfig.TxPool.Lifetime,
+	//}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
@@ -891,21 +891,21 @@ func setGPO(ctx *cli.Context, cfg *gasprice.Config) {
 }
 
 func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
-	if ctx.GlobalIsSet(TxPoolNoLocalsFlag.Name) {
-		cfg.NoLocals = ctx.GlobalBool(TxPoolNoLocalsFlag.Name)
-	}
-	if ctx.GlobalIsSet(TxPoolJournalFlag.Name) {
-		cfg.Journal = ctx.GlobalString(TxPoolJournalFlag.Name)
-	}
-	if ctx.GlobalIsSet(TxPoolRejournalFlag.Name) {
-		cfg.Rejournal = ctx.GlobalDuration(TxPoolRejournalFlag.Name)
-	}
+	//if ctx.GlobalIsSet(TxPoolNoLocalsFlag.Name) { //YYY
+	//	cfg.NoLocals = ctx.GlobalBool(TxPoolNoLocalsFlag.Name)
+	//}
+	//if ctx.GlobalIsSet(TxPoolJournalFlag.Name) {
+	//	cfg.Journal = ctx.GlobalString(TxPoolJournalFlag.Name)
+	//}
+	//if ctx.GlobalIsSet(TxPoolRejournalFlag.Name) {
+	//	cfg.Rejournal = ctx.GlobalDuration(TxPoolRejournalFlag.Name)
+	//}
 	if ctx.GlobalIsSet(TxPoolPriceLimitFlag.Name) {
 		cfg.PriceLimit = ctx.GlobalUint64(TxPoolPriceLimitFlag.Name)
 	}
-	if ctx.GlobalIsSet(TxPoolPriceBumpFlag.Name) {
-		cfg.PriceBump = ctx.GlobalUint64(TxPoolPriceBumpFlag.Name)
-	}
+	//if ctx.GlobalIsSet(TxPoolPriceBumpFlag.Name) {//YYY
+	//	cfg.PriceBump = ctx.GlobalUint64(TxPoolPriceBumpFlag.Name)
+	//}
 	if ctx.GlobalIsSet(TxPoolAccountSlotsFlag.Name) {
 		cfg.AccountSlots = ctx.GlobalUint64(TxPoolAccountSlotsFlag.Name)
 	}
@@ -918,9 +918,9 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	if ctx.GlobalIsSet(TxPoolGlobalQueueFlag.Name) {
 		cfg.GlobalQueue = ctx.GlobalUint64(TxPoolGlobalQueueFlag.Name)
 	}
-	if ctx.GlobalIsSet(TxPoolLifetimeFlag.Name) {
-		cfg.Lifetime = ctx.GlobalDuration(TxPoolLifetimeFlag.Name)
-	}
+	//if ctx.GlobalIsSet(TxPoolLifetimeFlag.Name) {//YYY
+	//	cfg.Lifetime = ctx.GlobalDuration(TxPoolLifetimeFlag.Name)
+	//}
 }
 
 func setManash(ctx *cli.Context, cfg *man.Config) {

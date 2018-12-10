@@ -86,7 +86,7 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 	msData, _ := json.Marshal(tmpData)
 	var txtype byte
 	txtype = byte(1)
-	tx := types.NewHeartTransaction(txtype, msData)
+	tx := types.NewBroadCastTransaction(txtype, msData)
 	var chainID *big.Int
 	if config := bc.manBackend.ChainConfig(); config.IsEIP155(currBlockHeight) {
 		chainID = config.ChainId

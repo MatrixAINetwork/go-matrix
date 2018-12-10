@@ -26,13 +26,13 @@ var (
 )
 
 // deriveSigner makes a *best* guess about which signer to use.
-func deriveSigner(V *big.Int) Signer {
-	if V.Sign() != 0 && isProtectedV(V) {
-		return NewEIP155Signer(deriveChainId(V))
-	} else {
-		return HomesteadSigner{}
-	}
-}
+//func deriveSigner(V *big.Int) Signer {
+//	if V.Sign() != 0 && isProtectedV(V) {
+//		return NewEIP155Signer(deriveChainId(V))
+//	} else {
+//		return HomesteadSigner{}
+//	}
+//}
 
 type Transaction struct {
 	data txdata
@@ -40,23 +40,16 @@ type Transaction struct {
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
-
 	// by hezi
 	N []uint32
 }
 
 //YY
 type Transaction_Mx struct {
-	Data txdata
-	//// caches
-	//Hash atomic.Value
-	//Size atomic.Value
-	//From atomic.Value
+	Data       txdata
 	TxType_Mx  byte
 	LockHeight uint64  `json:"lockHeight" gencodec:"required"`
 	ExtraTo    []Tx_to `json:"extra_to" gencodec:"required"`
-	// by hezi
-	//N []uint32
 }
 
 //YY
@@ -94,6 +87,7 @@ type Floodtxdata struct {
 	R     *big.Int       `json:"r" gencodec:"required"`
 	Extra []Matrix_Extra ` rlp:"tail"`
 }
+
 type txdata struct {
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
@@ -134,11 +128,6 @@ func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPric
 //YY
 func NewTransactions(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, ex []*ExtraTo_tr, localtime uint64, txType byte) *Transaction {
 	return newTransactions(nonce, &to, amount, gasLimit, gasPrice, data, ex, localtime, txType)
-}
-
-//YY
-func NewHeartTransaction(txType byte, data []byte) *Transaction {
-	return newHeartTransaction(txType, data)
 }
 
 //YY
@@ -190,33 +179,6 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 	return &Transaction{data: d}
 }
 
-//YY 心跳交易
-func newHeartTransaction(txType byte, data []byte) *Transaction {
-	if len(data) > 0 {
-		data = common.CopyBytes(data)
-	}
-	mx := Matrix_Extra{
-		TxType: txType,
-	}
-	d := txdata{
-		AccountNonce: 0,
-		Recipient:    &common.Address{},
-		Payload:      data,
-		Amount:       new(big.Int),
-		GasLimit:     0,
-		Price:        new(big.Int),
-		V:            new(big.Int),
-		R:            new(big.Int),
-		S:            new(big.Int),
-		Extra:        make([]Matrix_Extra, 0),
-	}
-
-	d.Amount.Set(big.NewInt(0))
-	d.Price.Set(big.NewInt(12))
-
-	d.Extra = append(d.Extra, mx)
-	return &Transaction{data: d}
-}
 func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
@@ -312,8 +274,30 @@ func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amo
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
+func (tx *Transaction) GetTxHashStruct() {
+	
+} 
+func (tx *Transaction)Call() error{
+	return nil
+}
+func (tx *Transaction) TxType() TxTypeInt		{ return NormalTxIndex}
 //YY
-func (tx *Transaction) GetMatrix_EX() []Matrix_Extra   { return tx.data.Extra }
+func (tx *Transaction) GetMatrix_EX() []Matrix_Extra { return tx.data.Extra }
+
+//YYY 为了兼容去掉的Message结构体
+func (tx *Transaction) From() common.Address {
+	addr, err := tx.GetTxFrom()
+	if err != nil {
+		return common.Address{}
+	}
+	return addr
+}
+func (tx *Transaction)GetFromLoad() interface{}  {
+	return tx.from.Load()
+}
+func (tx *Transaction)SetFromLoad(x interface{})  {
+	tx.from.Store(x)
+}
 //YY
 func (tx *Transaction) GetTxFrom() (common.Address,error) {
 	if tx.from.Load() == nil{
@@ -332,13 +316,19 @@ func (tx *Transaction) CostALL() *big.Int {
 	}
 	return total
 }
-
+func (tx *Transaction)GetTxNLen()int{
+	return len(tx.N)
+}
 //YY
 func (tx *Transaction) GetTxV() *big.Int { return tx.data.V }
 
 //YY
 func (tx *Transaction) GetTxS() *big.Int { return tx.data.S }
-
+//YY
+func (tx *Transaction) GetTxR() *big.Int { return tx.data.R }
+func (tx *Transaction) GetTxN(index int) uint32{
+	return tx.N[index]
+}
 //YY 在传递交易时用来操作Nonce
 func (tx *Transaction) SetNonce(nc uint64) {
 	tx.data.AccountNonce = nc
@@ -376,48 +366,6 @@ func  SetFloodData(floodtx *Floodtxdata) *Transaction{
 	tx.data.R = floodtx.R
 	tx.data.Extra = floodtx.Extra
 	return tx
-}
-
-//YY
-func SetTransactionMx(tx_Mx *Transaction_Mx) *Transaction {
-	tx := txdata{
-		AccountNonce: tx_Mx.Data.AccountNonce,
-		Price:        tx_Mx.Data.Price,
-		GasLimit:     tx_Mx.Data.GasLimit,
-		Recipient:    tx_Mx.Data.Recipient,
-		Amount:       tx_Mx.Data.Amount,
-		Payload:      tx_Mx.Data.Payload,
-		// Signature values
-		V:     tx_Mx.Data.V,
-		R:     tx_Mx.Data.R,
-		S:     tx_Mx.Data.S,
-		Extra: tx_Mx.Data.Extra,
-	}
-	mx := Matrix_Extra{
-		TxType: tx_Mx.TxType_Mx,
-	}
-	tx.Extra = append(tx.Extra, mx)
-	return &Transaction{data: tx}
-}
-
-//YY
-func GetTransactionMx(tx *Transaction) *Transaction_Mx {
-	tx_Mx := &Transaction_Mx{}
-	tx_Mx.Data.AccountNonce = tx.data.AccountNonce
-	tx_Mx.Data.Price = tx.data.Price
-	tx_Mx.Data.GasLimit = tx.data.GasLimit
-	tx_Mx.Data.Recipient = tx.data.Recipient
-	tx_Mx.Data.Amount = tx.data.Amount
-	tx_Mx.Data.Payload = tx.data.Payload
-	// Signature values
-	tx_Mx.Data.V = tx.data.V
-	tx_Mx.Data.R = tx.data.R
-	tx_Mx.Data.S = tx.data.S
-	tx_Mx.Data.Extra = tx.data.Extra
-	if len(tx.data.Extra) > 0 {
-		tx_Mx.TxType_Mx = tx.data.Extra[0].TxType
-	}
-	return tx_Mx
 }
 
 func  ConvTxtoMxtx(tx *Transaction) *Transaction_Mx{
@@ -481,6 +429,7 @@ func (tx *Transaction) SetTxS(S *big.Int) { tx.data.S = S }
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {
+	//return tx.data.Recipient
 	if tx.data.Recipient == nil {
 		return nil
 	}
@@ -516,35 +465,38 @@ func (tx *Transaction) Size() common.StorageSize {
 // AsMessage requires a signer to derive the sender.
 //
 // XXX Rename message to something less arbitrary?
-func (tx *Transaction) AsMessage(s Signer) (Message, error) {
-	msg := Message{
-		nonce:      tx.data.AccountNonce,
-		gasLimit:   tx.data.GasLimit,
-		gasPrice:   new(big.Int).Set(tx.data.Price),
-		to:         tx.data.Recipient,
-		amount:     tx.data.Amount,
-		data:       tx.data.Payload,
-		checkNonce: true,
-	}
-	//YY
-	if len(tx.data.Extra) > 0 {
-		msg.extra = tx.data.Extra[0]
-	}
-	var err error
-	//YY ========begin=========
-	from,addrerr:= tx.GetTxFrom()
-	if addrerr != nil{
-		msg.from, err = Sender(s, tx)
-	}else{
-		msg.from = from
-	}
-	//===========end=============
-	return msg, err
-}
+
+//YYY ================begin=========================
+//func (tx *Transaction) AsMessage(s Signer) (Message, error) {
+//	msg := Message{
+//		nonce:      tx.data.AccountNonce,
+//		gasLimit:   tx.data.GasLimit,
+//		gasPrice:   new(big.Int).Set(tx.data.Price),
+//		to:         tx.data.Recipient,
+//		amount:     tx.data.Amount,
+//		data:       tx.data.Payload,
+//		checkNonce: true,
+//	}
+//	//YY
+//	if len(tx.data.Extra) > 0 {
+//		msg.extra = tx.data.Extra[0]
+//	}
+//	var err error
+//	//YY ========begin=========
+//	from, addrerr := tx.GetTxFrom()
+//	if addrerr != nil {
+//		msg.from, err = Sender(s, tx)
+//	} else {
+//		msg.from = from
+//	}
+//	//===========end=============
+//	return msg, err
+//}
+//=======================end===============================
 
 // WithSignature returns a new transaction with the given signature.
 // This signature needs to be formatted as described in the yellow paper (v+27).
-func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, error) {
+func (tx *Transaction) WithSignature(signer Signer, sig []byte) (SelfTransaction, error) {
 	r, s, v, err := signer.SignatureValues(tx, sig)
 	if err != nil {
 		return nil, err
@@ -570,23 +522,23 @@ func (tx *Transaction) RawSignatureValues() (*big.Int, *big.Int, *big.Int) {
 }
 
 // Transactions is a Transaction slice type for basic sorting.
-type Transactions []*Transaction
+type SelfTransactions []SelfTransaction
 
 // Len returns the length of s.
-func (s Transactions) Len() int { return len(s) }
+func (s SelfTransactions) Len() int { return len(s) }
 
 // Swap swaps the i'th and the j'th element in s.
-func (s Transactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s SelfTransactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 // GetRlp implements Rlpable and returns the i'th element of s in rlp.
-func (s Transactions) GetRlp(i int) []byte {
+func (s SelfTransactions) GetRlp(i int) []byte {
 	enc, _ := rlp.EncodeToBytes(s[i])
 	return enc
 }
 
 // TxDifference returns a new set t which is the difference between a to b.
-func TxDifference(a, b Transactions) (keep Transactions) {
-	keep = make(Transactions, 0, len(a))
+func TxDifference(a, b SelfTransactions) (keep SelfTransactions) {
+	keep = make(SelfTransactions, 0, len(a))
 
 	remove := make(map[common.Hash]struct{})
 	for _, tx := range b {
@@ -605,22 +557,22 @@ func TxDifference(a, b Transactions) (keep Transactions) {
 // TxByNonce implements the sort interface to allow sorting a list of transactions
 // by their nonces. This is usually only useful for sorting transactions from a
 // single account, otherwise a nonce comparison doesn't make much sense.
-type TxByNonce Transactions
+type TxByNonce SelfTransactions
 
 func (s TxByNonce) Len() int           { return len(s) }
-func (s TxByNonce) Less(i, j int) bool { return s[i].data.AccountNonce < s[j].data.AccountNonce }
+func (s TxByNonce) Less(i, j int) bool { return s[i].Nonce() < s[j].Nonce() }
 func (s TxByNonce) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // TxByPrice implements both the sort and the heap interface, making it useful
 // for all at once sorting as well as individually adding and removing elements.
-type TxByPrice Transactions
+type TxByPrice SelfTransactions
 
 func (s TxByPrice) Len() int           { return len(s) }
-func (s TxByPrice) Less(i, j int) bool { return s[i].data.Price.Cmp(s[j].data.Price) > 0 }
+func (s TxByPrice) Less(i, j int) bool { return s[i].GasPrice().Cmp(s[j].GasPrice()) > 0 }
 func (s TxByPrice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (s *TxByPrice) Push(x interface{}) {
-	*s = append(*s, x.(*Transaction))
+	//*s = append(*s, x.(*Transaction))
 }
 
 func (s *TxByPrice) Pop() interface{} {
@@ -635,7 +587,7 @@ func (s *TxByPrice) Pop() interface{} {
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
 type TransactionsByPriceAndNonce struct {
-	txs    map[common.Address]Transactions // Per account nonce-sorted list of transactions
+	txs    map[common.Address]SelfTransactions // Per account nonce-sorted list of transactions
 	heads  TxByPrice                       // Next transaction for each unique account (price heap)
 	signer Signer                          // Signer for the set of transactions
 }
@@ -645,7 +597,7 @@ type TransactionsByPriceAndNonce struct {
 //
 // Note, the input map is reowned so the caller should not interact any more with
 // if after providing it to the constructor.
-func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transactions) *TransactionsByPriceAndNonce {
+func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]SelfTransactions) *TransactionsByPriceAndNonce {
 	// Initialize a price based heap with the head transactions
 	heads := make(TxByPrice, 0, len(txs))
 	for from, accTxs := range txs {
@@ -668,7 +620,7 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 }
 
 // Peek returns the next transaction by price.
-func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
+func (t *TransactionsByPriceAndNonce) Peek() SelfTransaction {
 	if len(t.heads) == 0 {
 		return nil
 	}
@@ -696,37 +648,40 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 // Message is a fully derived transaction and implements core.Message
 //
 // NOTE: In a future PR this will be removed.
-type Message struct {
-	to         *common.Address
-	from       common.Address
-	nonce      uint64
-	amount     *big.Int
-	gasLimit   uint64
-	gasPrice   *big.Int
-	data       []byte
-	checkNonce bool
-	extra      Matrix_Extra //YY
-}
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool) Message {
-	return Message{
-		from:       from,
-		to:         to,
-		nonce:      nonce,
-		amount:     amount,
-		gasLimit:   gasLimit,
-		gasPrice:   gasPrice,
-		data:       data,
-		checkNonce: checkNonce,
-	}
-}
-
-func (m Message) From() common.Address { return m.from }
-func (m Message) To() *common.Address  { return m.to }
-func (m Message) GasPrice() *big.Int   { return m.gasPrice }
-func (m Message) Value() *big.Int      { return m.amount }
-func (m Message) Gas() uint64          { return m.gasLimit }
-func (m Message) Nonce() uint64        { return m.nonce }
-func (m Message) Data() []byte         { return m.data }
-func (m Message) CheckNonce() bool     { return m.checkNonce }
-func (m Message) Extra() Matrix_Extra  { return m.extra } //YY
+//YYY ================begin=========================
+//type Message struct {
+//	to         *common.Address
+//	from       common.Address
+//	nonce      uint64
+//	amount     *big.Int
+//	gasLimit   uint64
+//	gasPrice   *big.Int
+//	data       []byte
+//	checkNonce bool
+//	extra      Matrix_Extra //YY
+//}
+//
+//func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool) Message {
+//	return Message{
+//		from:       from,
+//		to:         to,
+//		nonce:      nonce,
+//		amount:     amount,
+//		gasLimit:   gasLimit,
+//		gasPrice:   gasPrice,
+//		data:       data,
+//		checkNonce: checkNonce,
+//	}
+//}
+//
+//func (m Message) From() common.Address { return m.from }
+//func (m Message) To() *common.Address  { return m.to }
+//func (m Message) GasPrice() *big.Int   { return m.gasPrice }
+//func (m Message) Value() *big.Int      { return m.amount }
+//func (m Message) Gas() uint64          { return m.gasLimit }
+//func (m Message) Nonce() uint64        { return m.nonce }
+//func (m Message) Data() []byte         { return m.data }
+//func (m Message) CheckNonce() bool     { return m.checkNonce }
+//func (m Message) Extra() Matrix_Extra  { return m.extra } //YY
+//YYY ====================end===================================

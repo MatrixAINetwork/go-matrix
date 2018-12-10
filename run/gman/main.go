@@ -61,15 +61,15 @@ var (
 		utils.ManashDatasetsInMemoryFlag,
 		utils.ManashDatasetsOnDiskFlag,
 		utils.TxPoolNoLocalsFlag,
-		utils.TxPoolJournalFlag,
-		utils.TxPoolRejournalFlag,
+		//utils.TxPoolJournalFlag, //YYY
+		//utils.TxPoolRejournalFlag,
 		utils.TxPoolPriceLimitFlag,
-		utils.TxPoolPriceBumpFlag,
+		//utils.TxPoolPriceBumpFlag,//YYY
 		utils.TxPoolAccountSlotsFlag,
 		utils.TxPoolGlobalSlotsFlag,
 		utils.TxPoolAccountQueueFlag,
 		utils.TxPoolGlobalQueueFlag,
-		utils.TxPoolLifetimeFlag,
+		//utils.TxPoolLifetimeFlag,//YYY
 		utils.FastSyncFlag,
 		utils.LightModeFlag,
 		utils.SyncModeFlag,
@@ -339,7 +339,7 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 			}
 		}
 		// Set the gas price to the limits from the CLI and start mining
-		matrix.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
+		//matrix.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
 		if err := matrix.StartMining(true); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)
 

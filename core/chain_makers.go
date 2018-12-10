@@ -36,7 +36,7 @@ type BlockGen struct {
 	statedb     *state.StateDB
 
 	gasPool  *GasPool
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	receipts []*types.Receipt
 	uncles   []*types.Header
 

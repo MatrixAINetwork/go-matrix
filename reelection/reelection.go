@@ -44,7 +44,7 @@ const (
 type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
+	TxPool() *core.TxPoolManager //YYY
 	ChainDb() mandb.Database
 }
 type AllNative struct {
