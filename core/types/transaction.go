@@ -26,10 +26,10 @@ var (
 )
 
 func init()  {
-	rlp.InterfaceConstructorMap[10] = func() interface{} {
+	rlp.InterfaceConstructorMap[uint16(NormalTxIndex)] = func() interface{} {
 		return &Transaction{}
 	}
-	rlp.InterfaceConstructorMap[20] = func() interface{} {
+	rlp.InterfaceConstructorMap[uint16(BroadCastTxIndex)] = func() interface{} {
 		return &TransactionBroad{}
 	}
 }

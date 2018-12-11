@@ -15,6 +15,7 @@ import (
 	"github.com/matrix/go-matrix/crypto/sha3"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/rlp"
+	"github.com/matrix/go-matrix/log"
 )
 
 // Tests block header storage and retrieval operations.
@@ -52,6 +53,7 @@ func TestHeaderStorage(t *testing.T) {
 
 // Tests block body storage and retrieval operations.
 func TestBodyStorage(t *testing.T) {
+	log.InitLog(3)
 	db := mandb.NewMemDatabase()
 	tx1 := types.NewTransaction(1, common.BytesToAddress([]byte{0x11}), big.NewInt(111), 1111, big.NewInt(11111), []byte{0x11, 0x11, 0x11})
 	tx2 := types.NewTransaction(2, common.BytesToAddress([]byte{0x11}), big.NewInt(111), 1111, big.NewInt(11111), []byte{0x11, 0x11, 0x11})
