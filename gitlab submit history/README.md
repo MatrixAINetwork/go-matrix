@@ -1502,3 +1502,21 @@
     f1e27a3f: 修改状态树相关修改
 
 ![](https://i.imgur.com/1bFZeb7.png)
+
+    12.11：huyuankai pushed to branch master_1115_broadcast at repository go-matrix
+    3805872c: 修改panic
+
+    12.11：huyuankai pushed to branch master_1115_broadcast at repository go-matrix
+    fc59c182: 修改区块生成 panic
+
+    12.11：sunanxiang pushed to branch master_nodeId at repository go-matrix
+    7f7dae7c: update
+
+    12.11：sunanxiang pushed to branch gman_account_entrust at repository go-matrix
+    d0c752ce: fmt
+
+
+    12.11：sunanxiang pushed to branch gman_account_entrust at repository go-matrix
+    8de772a3: modify
+
+![](https://i.imgur.com/vmfVFQg.png)
