@@ -85,8 +85,7 @@ func SetBroadcastTxs(head *types.Block, chainId *big.Int) {
 	tempMap[mc.Heartbeat] = make(map[common.Address][]byte)
 	tempMap[mc.Privatekey] = make(map[common.Address][]byte)
 	tempMap[mc.CallTheRoll] = make(map[common.Address][]byte)
-
-	txs := head.Transactions() //TODO 需要断言，因为Transactions()方法将来会返回接口
+	txs := head.Transactions()
 	for _, tx := range txs {
 		if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
 			temp := make(map[string][]byte)
@@ -159,7 +158,9 @@ func (bPool *BroadCastTxPool) Stop() {
 	// Unsubscribe subscriptions registered from blockchain
 	//bPool.chainHeadSub.Unsubscribe()
 	//bPool.wg.Wait()
-	ldb.Close()
+	if ldb != nil{
+		ldb.Close()
+	}
 	log.Info("Broad Transaction pool stopped")
 }
 
@@ -226,6 +227,7 @@ func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (reerr error) 
 				continue
 			}
 			bPool.special[hash] = tx
+			log.Info("file tx_pool_broad","func AddTxPool","broadCast transaction add txpool success")
 		}
 	} else {
 		reerr = errors.New("BroadCastTxPool:AddTxPool  Transaction type is error")
@@ -250,6 +252,7 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 			4、广播交易的类型必须是已知的如果是未知的则丢弃。（心跳、点名、公钥、私钥）
 	*/
 	height := bPool.chain.CurrentBlock().Number()
+	blockHash:=bPool.chain.CurrentBlock().Hash()
 	curBlockNum := height.Uint64()
 	tval := curBlockNum / common.GetBroadcastInterval()
 	strVal := fmt.Sprintf("%v", tval+1)
@@ -274,16 +277,19 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 			log.Error("The current block height is higher than the broadcast block height. (func filter())")
 			return false
 		}
-		addrs, err := p2p.GetRollBook()
-		if err != nil {
-			log.Error("GetRollBook error (func filter()  BroadCastTxPool)", "error", err)
-			return false
+		bids := ca.GetRolesByGroup(common.RoleBroadcast)
+		for _, bid := range bids {
+			addr,err := ca.ConvertNodeIdToAddress(bid)
+			if err != nil{
+				log.Error("ConvertNodeIdToAddress error (func filter()  BroadCastTxPool)", "error", err)
+				return false
+			}
+			if addr == from{
+				return true
+			}
 		}
-		if _, ok := addrs[from]; !ok {
-			log.Error("Unknown account information (func filter()  BroadCastTxPool)  mc.CallTheRoll")
-			return false
-		}
-		return true
+		log.Error("unknown broadcast Address. error (func filter()  BroadCastTxPool) ")
+		return false
 	case mc.Heartbeat:
 		nodelist, err := ca.GetElectedByHeight(height)
 		if err != nil {
@@ -292,7 +298,13 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 		}
 		for _, node := range nodelist {
 			if from == node.Address {
-				return true
+				currentAcc := from.Big()
+				ret := new(big.Int).Rem(currentAcc, big.NewInt(int64(common.GetBroadcastInterval())-1))
+				broadcastBlock := blockHash.Big()
+				val := new(big.Int).Rem(broadcastBlock, big.NewInt(int64(common.GetBroadcastInterval())-1))
+				if ret.Cmp(val) == 0 {
+					return true
+				}
 			}
 		}
 		log.WARN("Unknown account information (func filter()   BroadCastTxPool),mc.Heartbeat")
@@ -328,6 +340,10 @@ func insertDB(keyData []byte, val map[common.Address][]byte) error {
 		log.Error("insertDB", "json.Marshal(val) err", err)
 		return err
 	}
+	if ldb == nil{
+		log.Error("File tx_pool_broad","func insertDB","ldb is nil")
+		return nil
+	}
 	return ldb.Put(keyData, dataVal, nil)
 }
 
@@ -339,6 +355,10 @@ func GetBroadcastTxs(height *big.Int, txType string) (reqVal map[common.Address]
 
 	val := height.Uint64() / common.GetBroadcastInterval()
 	hv := types.RlpHash(txType + fmt.Sprintf("%v", val))
+	if ldb == nil{
+		log.Error("File tx_pool_broad","func GetBroadcastTxs","ldb is nil")
+		return
+	}
 	dataVal, err := ldb.Get(hv.Bytes(), nil)
 	if err != nil {
 		log.Error("GetBroadcastTxs", "Get broadcast failed", err)
@@ -366,6 +386,7 @@ func (bPool *BroadCastTxPool) GetAllSpecialTxs() map[common.Address][]types.Self
 		reqVal[from] = append(reqVal[from], tx)
 	}
 	bPool.special = make(map[common.Hash]types.SelfTransaction, 0)
+	log.Info("File tx_pool_broad","func GetAllSpecialTxs::len(reqVal)",len(reqVal))
 	return reqVal
 }
 

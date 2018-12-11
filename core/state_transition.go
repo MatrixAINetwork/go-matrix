@@ -15,6 +15,7 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/core/txinterface"
+	"github.com/matrix/go-matrix/core/types"
 )
 
 var (
@@ -109,15 +110,11 @@ func NewStateTransition(evm *vm.EVM, msg txinterface.Message, gp *GasPool) *Stat
 func ApplyMessage(evm *vm.EVM, tx txinterface.Message, gp *GasPool) ([]byte, uint64, bool, error) {
 	var stsi txinterface.StateTransitioner
 	switch tx.TxType() {
-	default:
-		//extx := tx.GetMatrix_EX()
-		//if (extx != nil) && len(extx) > 0 && extx[0].TxType == 2{
-		//	stsi = NewStateTransition(evm,tx,gp)
-		//}else if false{
-		//
-		//}else{
+	case types.NormalTxIndex:
 		stsi = NewStateTransition(evm,tx,gp)
-		//}
+	}
+	if stsi == nil{
+		log.Error("File state_transition","func AppleMessage","interface is nil")
 	}
 	return stsi.TransitionDb()
 }
