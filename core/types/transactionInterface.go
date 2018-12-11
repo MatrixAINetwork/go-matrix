@@ -44,5 +44,5 @@ type SelfTransaction interface {
 	GetTxN(index int) uint32
 	RawSignatureValues() (*big.Int, *big.Int, *big.Int)
 	Protected() bool
-	//CreateTransition(gp uint64) interface{}
+	GetConstructorType()uint16
 }
