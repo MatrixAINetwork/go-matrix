@@ -19,6 +19,7 @@ const (
 )
 
 func ReturnBroadCastType() (bType map[string]bool) {
+	bType = make(map[string]bool)
 	bType[Heartbeat] = true
 	bType[Publickey] = true
 	bType[Privatekey] = true
