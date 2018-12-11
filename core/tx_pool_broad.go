@@ -1,3 +1,7 @@
+// Copyright (c) 2018 The MATRIX Authors 
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package core
 
 import (
@@ -48,7 +52,7 @@ func NewBroadTxPool(chainconfig *params.ChainConfig, chain blockChainBroadCast, 
 }
 
 // Type return txpool type.
-func (bPool *BroadCastTxPool) Type() types.TxTypeInt {
+func (bPool *BroadCastTxPool) Type() common.TxTypeInt {
 	return types.BroadCastTxIndex
 }
 
@@ -77,7 +81,12 @@ func SetBroadcastTxs(head *types.Block, chainId *big.Int) {
 	)
 	log.Info("Block insert message", "height", head.Number().Uint64(), "head.Hash=", head.Hash())
 
-	txs := head.Transactions()  //TODO 需要断言，因为Transactions()方法将来会返回接口
+	tempMap[mc.Publickey] = make(map[common.Address][]byte)
+	tempMap[mc.Heartbeat] = make(map[common.Address][]byte)
+	tempMap[mc.Privatekey] = make(map[common.Address][]byte)
+	tempMap[mc.CallTheRoll] = make(map[common.Address][]byte)
+
+	txs := head.Transactions() //TODO 需要断言，因为Transactions()方法将来会返回接口
 	for _, tx := range txs {
 		if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
 			temp := make(map[string][]byte)
@@ -159,16 +168,16 @@ func (bPool *BroadCastTxPool) AddBroadTx(tx types.SelfTransaction, bType bool) (
 	if bType {
 		//txs := make([]types.SelfTransaction, 0)
 		//txs = append(txs, tx)
-		if errs := bPool.AddTxPool(tx); len(errs) > 0 {
-			return errs[0]
+		if err := bPool.AddTxPool(tx); err != nil {
+			return err
 		}
 		return nil
 	}
 
 	txMx := types.GetTransactionMx(tx)
-	if txMx == nil{
+	if txMx == nil {
 		// If it is nil, it may be because the assertion failed.
-		log.Error("Broad txpool","AddBroadTx() txMx is nil",tx)
+		log.Error("Broad txpool", "AddBroadTx() txMx is nil", tx)
 
 		return errors.New("tx is nil or txMx assertion failed")
 	}
@@ -184,27 +193,27 @@ func (bPool *BroadCastTxPool) AddBroadTx(tx types.SelfTransaction, bType bool) (
 }
 
 // AddTxPool
-func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (errs []error) {
+func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (reerr error) {
 	bPool.mu.Lock()
 	defer bPool.mu.Unlock()
 	//TODO 1、将交易dncode,2、过滤交易（白名单）
 	//for _, tx := range txs {
 	if uint64(tx.Size()) > params.TxSize {
 		log.Error("add broadcast tx pool", "tx`s size is too big", tx.Size())
-		return errs
+		return reerr
 	}
 	if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
 		from, addrerr := bPool.checkTxFrom(tx)
 		if addrerr != nil {
-			errs = append(errs, addrerr)
-			return errs
+			reerr = addrerr
+			return reerr
 		}
 		tmpdt := make(map[string][]byte)
 		err := json.Unmarshal(tx.Data(), &tmpdt)
 		if err != nil {
 			log.Error("add broadcast tx pool", "json.Unmarshal failed", err)
-			errs = append(errs, err)
-			return errs
+			reerr = err
+			return reerr
 		}
 		for keydata, _ := range tmpdt {
 			if !bPool.filter(from, keydata) {
@@ -213,25 +222,25 @@ func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (errs []error)
 			hash := types.RlpHash(keydata + from.String())
 			if bPool.special[hash] != nil {
 				log.Trace("Discarding already known broadcast transaction", "hash", hash)
-				errs = append(errs, fmt.Errorf("known broadcast transaction: %x", hash))
+				reerr = fmt.Errorf("known broadcast transaction: %x", hash)
 				continue
 			}
 			bPool.special[hash] = tx
 		}
 	} else {
-		errs = append(errs, errors.New("BroadCastTxPool:AddTxPool  Transaction type is error"))
+		reerr = errors.New("BroadCastTxPool:AddTxPool  Transaction type is error")
 		if len(tx.GetMatrix_EX()) > 0 {
 			log.Error("BroadCastTxPool:AddTxPool()", "transaction type error.Extra_tx type", tx.GetMatrix_EX()[0].TxType)
 		} else {
 			log.Error("BroadCastTxPool:AddTxPool()", "transaction type error.Extra_tx count", len(tx.GetMatrix_EX()))
 		}
-		return errs
+		return reerr
 	}
 	//}
 	//if len(txs) <= 0 {
 	//	log.Trace("transfer txs is nil")
 	//}
-	return nil //bPool.addTxs(txs, false)
+	return reerr //bPool.addTxs(txs, false)
 }
 func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok bool) {
 	/*   TODO 第三个问题不在这实现，上面已经做了判断了
@@ -308,7 +317,7 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 }
 
 // Pending
-func (bPool *BroadCastTxPool) Pending() (map[common.Address][]*types.Transaction, error) {
+func (bPool *BroadCastTxPool) Pending() (map[common.Address][]types.SelfTransaction, error) {
 	return nil, nil
 }
 
@@ -362,4 +371,7 @@ func (bPool *BroadCastTxPool) GetAllSpecialTxs() map[common.Address][]types.Self
 
 func (bPool *BroadCastTxPool) SubscribeNewTxsEvent(ch chan<- NewTxsEvent) event.Subscription {
 	return nil
+}
+func (bPool *BroadCastTxPool) ReturnAllTxsByN(listN []uint32, resqe common.TxTypeInt, addr common.Address, retch chan *RetChan_txpool) {
+
 }
