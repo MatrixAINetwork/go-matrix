@@ -377,6 +377,7 @@ func (bPool *BroadCastTxPool) GetAllSpecialTxs() map[common.Address][]types.Self
 	bPool.mu.Lock()
 	defer bPool.mu.Unlock()
 	reqVal := make(map[common.Address][]types.SelfTransaction, 0)
+	log.Info("File tx_pool_broad","func GetAllSpecialTxs:len(bPool.special)",len(bPool.special))
 	for _, tx := range bPool.special {
 		from, err := bPool.checkTxFrom(tx)
 		if err != nil {
