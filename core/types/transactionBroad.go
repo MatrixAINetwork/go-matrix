@@ -1,15 +1,12 @@
-// Copyright (c) 2018 The MATRIX Authors 
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
 package types
 
 import (
 	"math/big"
 	"github.com/matrix/go-matrix/common"
-	"io"
 	"github.com/matrix/go-matrix/rlp"
 	"sync/atomic"
 	"errors"
+	"io"
 )
 type TransactionBroad struct {
 	data txdata
@@ -34,7 +31,6 @@ func (tx *TransactionBroad) DecodeRLP(s *rlp.Stream) error {
 	if err == nil {
 		tx.size.Store(common.StorageSize(rlp.ListSize(size)))
 	}
-
 	return err
 }
 func (tx *TransactionBroad) GetTxN(index int) uint32{
@@ -67,7 +63,7 @@ func newBroadCastTransaction(txType byte, data []byte) *TransactionBroad {
 	d.Extra = append(d.Extra, mx)
 	return &TransactionBroad{data: d}
 }
-func (tx *TransactionBroad) TxType() TxTypeInt		{ return BroadCastTxIndex}
+func (tx *TransactionBroad) TxType() common.TxTypeInt		{ return BroadCastTxIndex}
 func (tx *TransactionBroad) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
 func (tx *TransactionBroad) Gas() uint64        { return tx.data.GasLimit }
 func (tx *TransactionBroad) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
@@ -208,4 +204,7 @@ func (tx *TransactionBroad) RawSignatureValues() (*big.Int, *big.Int, *big.Int) 
 }
 func (tx *TransactionBroad) Protected() bool {
 	return isProtectedV(tx.data.V)
+}
+func (tx *TransactionBroad)GetConstructorType()uint16{
+	return uint16(BroadCastTxIndex)
 }
