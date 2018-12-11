@@ -1543,3 +1543,11 @@
     e576ed40: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
     48d6b34e: modify block gaslimit and modify log
 
+    12.11：huyuankai pushed to branch master_1115_broadcast at repository go-matrix
+    6b70b3c5: Merge remote-tracking branch 'remotes/origin/master_1115' into master_1115_broadcast
+    a6b90c10: 广播周期上状态树
+    cb817514: 解决奖励加入超级区块特殊时序判断发放周期错误的问题
+    9e37ae24: 彩票修改普通交易判断条件
+    d5159d15: blockchain增加跑奖励接口
+
+![](https://i.imgur.com/e1r29A7.png)
