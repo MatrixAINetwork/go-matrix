@@ -362,3 +362,15 @@ type NetTopology struct {
 	Type            uint8
 	NetTopologyData []NetTopologyData
 }
+const (
+	//byte can not be 1,because 1 is occupied
+	ExtraNormalTxType    byte = 0
+	ExtraUnGasTxType     byte = 2
+	ExtraRevertTxType    byte = 3
+)
+
+type TxTypeInt uint8
+type RetCallTxN struct {
+	TXt TxTypeInt
+	ListN []uint32
+}
