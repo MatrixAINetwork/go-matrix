@@ -93,6 +93,7 @@ type Floodtxdata struct {
 	// Signature values
 	V     *big.Int       `json:"v" gencodec:"required"`
 	R     *big.Int       `json:"r" gencodec:"required"`
+	TxEnterType common.TxTypeInt
 	Extra []Matrix_Extra ` rlp:"tail"`
 }
 
@@ -111,6 +112,7 @@ type txdata struct {
 
 	// This is only used when marshaling to JSON.
 	Hash  *common.Hash   `json:"hash" rlp:"-"`
+	TxEnterType common.TxTypeInt  `json:"TxEnterType" gencodec:"required"`//入池类型
 	Extra []Matrix_Extra ` rlp:"tail"` //YY
 }
 
@@ -153,6 +155,7 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
+		TxEnterType: NormalTxIndex,
 		Extra:        make([]Matrix_Extra, 0),
 	}
 	if amount != nil {
@@ -184,7 +187,8 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 		matrixEx.ExtraTo = arrayTx
 		d.Extra = append(d.Extra, *matrixEx)
 	}
-	return &Transaction{data: d}
+	tx:=&Transaction{data: d}
+	return tx
 }
 
 func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
@@ -201,6 +205,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
+		TxEnterType: NormalTxIndex,
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -208,8 +213,8 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)
 	}
-
-	return &Transaction{data: d}
+	tx:=&Transaction{data: d}
+	return tx
 }
 
 // ChainId returns which chain id this transaction was signed for (if at all)
@@ -290,7 +295,7 @@ func (tx *Transaction) GetTxHashStruct() {
 func (tx *Transaction)Call() error{
 	return nil
 }
-func (tx *Transaction) TxType() common.TxTypeInt		{ return NormalTxIndex}
+func (tx *Transaction) TxType() common.TxTypeInt		{ return tx.data.TxEnterType}
 //YY
 func (tx *Transaction) GetMatrix_EX() []Matrix_Extra { return tx.data.Extra }
 
@@ -357,6 +362,7 @@ func GetFloodData(tx *Transaction) *Floodtxdata {
 		// Signature values
 		V:     tx.data.V,
 		R:     tx.data.R,
+		TxEnterType : tx.data.TxEnterType,
 		Extra: tx.data.Extra,
 	}
 	return floodtx
@@ -374,6 +380,7 @@ func  SetFloodData(floodtx *Floodtxdata) *Transaction{
 	// Signature values
 	tx.data.V = floodtx.V
 	tx.data.R = floodtx.R
+	tx.data.TxEnterType = floodtx.TxEnterType
 	tx.data.Extra = floodtx.Extra
 	return tx
 }
@@ -390,6 +397,7 @@ func  ConvTxtoMxtx(tx *Transaction) *Transaction_Mx{
 	tx_Mx.Data.V = tx.data.V
 	tx_Mx.Data.R = tx.data.R
 	tx_Mx.Data.S = tx.data.S
+	tx_Mx.Data.TxEnterType = tx.data.TxEnterType
 	tx_Mx.Data.Extra = tx.data.Extra
 	//tx_Mx.Data.Extra = append(tx_Mx.Data.Extra,tx.data.Extra[])
 	if len(tx.data.Extra) > 0 {
@@ -401,7 +409,7 @@ func  ConvTxtoMxtx(tx *Transaction) *Transaction_Mx{
 }
 
 func ConvMxtotx(tx_Mx *Transaction_Mx) *Transaction {
-	tx := txdata{
+	txd := txdata{
 		AccountNonce:tx_Mx.Data.AccountNonce | params.NonceAddOne,
 		Price:tx_Mx.Data.Price,
 		GasLimit:tx_Mx.Data.GasLimit,
@@ -412,6 +420,7 @@ func ConvMxtotx(tx_Mx *Transaction_Mx) *Transaction {
 		V:     tx_Mx.Data.V,
 		R:     tx_Mx.Data.R,
 		S:     tx_Mx.Data.S,
+		TxEnterType : tx_Mx.Data.TxEnterType,
 		Extra: tx_Mx.Data.Extra,
 	}
 	if len(tx_Mx.ExtraTo) > 0 {
@@ -423,10 +432,10 @@ func ConvMxtotx(tx_Mx *Transaction_Mx) *Transaction {
 		if mx.TxType == 0 {
 			mx.LockHeight = tx_Mx.LockHeight
 		}
-		tx.Extra = append(tx.Extra, mx)
+		txd.Extra = append(txd.Extra, mx)
 	}
-
-	return &Transaction{data: tx}
+	tx := &Transaction{data: txd}
+	return tx
 }
 
 //hezi

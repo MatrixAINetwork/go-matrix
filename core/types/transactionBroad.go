@@ -1,3 +1,7 @@
+// Copyright (c) 2018 The MATRIX Authors 
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package types
 
 import (
@@ -54,6 +58,7 @@ func newBroadCastTransaction(txType byte, data []byte) *TransactionBroad {
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
+		TxEnterType: BroadCastTxIndex,
 		Extra:        make([]Matrix_Extra, 0),
 	}
 
@@ -61,9 +66,10 @@ func newBroadCastTransaction(txType byte, data []byte) *TransactionBroad {
 	d.Price.Set(big.NewInt(12))
 
 	d.Extra = append(d.Extra, mx)
-	return &TransactionBroad{data: d}
+	tx:=&TransactionBroad{data: d}
+	return tx
 }
-func (tx *TransactionBroad) TxType() common.TxTypeInt		{ return BroadCastTxIndex}
+func (tx *TransactionBroad)  TxType() common.TxTypeInt		{ return tx.data.TxEnterType}
 func (tx *TransactionBroad) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
 func (tx *TransactionBroad) Gas() uint64        { return tx.data.GasLimit }
 func (tx *TransactionBroad) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
@@ -166,6 +172,7 @@ func SetTransactionMx(tx_Mx *Transaction_Mx) *TransactionBroad {
 		V:     tx_Mx.Data.V,
 		R:     tx_Mx.Data.R,
 		S:     tx_Mx.Data.S,
+		TxEnterType : BroadCastTxIndex,
 		Extra: tx_Mx.Data.Extra,
 	}
 	mx := Matrix_Extra{
@@ -193,6 +200,7 @@ func GetTransactionMx(stx SelfTransaction) *Transaction_Mx {
 	tx_Mx.Data.R = tx.data.R
 	tx_Mx.Data.S = tx.data.S
 	tx_Mx.Data.Extra = tx.data.Extra
+	tx_Mx.Data.TxEnterType = tx.data.TxEnterType
 	if len(tx.data.Extra) > 0 {
 		tx_Mx.TxType_Mx = tx.data.Extra[0].TxType
 	}
