@@ -1407,3 +1407,51 @@
     fcca361d: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
     d7b3e433: 修改旷工批量解签名
     ...
+
+    12.08：huyuankai pushed to branch mater_state at repository go-matrix
+    dfaba145: 接口提供
+
+![](https://i.imgur.com/5m5y7nX.png)
+
+    12.08：zhenghe pushed to branch gman_Account at repository go-matrix
+    c5596d85: 修改eth.sendTransaction命令
+
+    12.08：zhenghe pushed to branch gman_Account at repository go-matrix
+    18bb3501: Merge branch 'master' into gman_Account
+    0f3358e8: Merge branch 'gman_Account'
+    2a9d3188: 去注释，rpc显示特殊交易类型
+
+    12.08：zhenghe pushed to branch master at repository go-matrix
+    18bb3501: Merge branch 'master' into gman_Account
+    c5596d85: 修改eth.sendTransaction命令
+
+
+    12.08：huyuankai pushed to branch mater_state at repository go-matrix
+    6534752f: 回滚广播周期上树
+
+    12.08：zhenghe pushed to branch gman_Account at repository go-matrix
+    6b9bfa42: 修改委托交易bug
+
+
+    12.08：sunchunfeng pushed to branch master-state-tree-debug at repository go-matrix
+    a79fe8f9: Merge branch 'mater_state' of gitlab.matrix.com:matrix/go-matrix into mater_state
+    9bb3a322: 增加balance为空的判断
+    080d3ee2: 调整编解码函数
+    d2b86d84: 修改matrix state 编解码的问题
+    921d8d94: compile error
+    6e488e95: Merge branch 'mater_state' of gitlab.matrix.com:matrix/go-matrix into mater_state
+    6fdc7750: 删除选举模块 无用部分
+    dd64f00c: Merge branch 'master_1115' into mater_state
+    058b17bd: Merge branch 'mater_state' of http://192.168.3.81/matrix/go-matrix into mater_state
+    958ff3a2: 换届部分：删除无用部分
+
+![](https://i.imgur.com/2FVFTAc.png)
+
+
+    12.11：叶营 pushed to branch restart_temp at repository go-ethereum
+    4b111e31: modify log
+
+    12.11：zhangwen pushed to branch master_1115 at repository go-matrix
+    cb817514: 解决奖励加入超级区块特殊时序判断发放周期错误的问题
+
+![](https://i.imgur.com/Qvrk7ii.png)
