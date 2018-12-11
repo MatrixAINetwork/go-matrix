@@ -19,6 +19,7 @@ import (
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/txpoolCache"
 )
 
 //YY
@@ -274,7 +275,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 }
 
 // Type return txpool type.
-func (nPool *NormalTxPool) Type() types.TxTypeInt {
+func (nPool *NormalTxPool) Type() common.TxTypeInt {
 	return types.NormalTxIndex
 }
 
@@ -308,6 +309,7 @@ func (nPool *NormalTxPool) loop() {
 					}
 				}
 				delete(nPool.mapHighttx,h)
+				txpoolCache.DeleteTxCache(head.Header().HashNoSignsAndNonce(),head.Number().Uint64())
 				nPool.mu.Unlock()
 				nPool.getPendingTx() //YY
 			}
@@ -654,19 +656,21 @@ func (nPool *NormalTxPool) Content() (map[common.Address][]*types.Transaction, m
 // Pending retrieves all currently processable transactions, groupped by origin
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
-func (nPool *NormalTxPool) Pending() (map[common.Address][]*types.Transaction, error) {
+func (nPool *NormalTxPool) Pending() (map[common.Address][]types.SelfTransaction, error) {
 	nPool.mu.Lock()
 	defer nPool.mu.Unlock()
-	pending := make(map[common.Address][]*types.Transaction)
+	pending := make(map[common.Address][]types.SelfTransaction)
 	for addr, list := range nPool.pending {
 		txlist := list.Flatten()
+		var txser types.SelfTransactions
 		for _,tx:= range txlist{
+			txser = append(txser,tx)
 			if len(tx.N) <= 0 {
 				continue
 			}
 			nPool.NContainer[tx.N[0]] = tx
 		}
-		pending[addr] = txlist//.Flatten()
+		pending[addr] = txser//.Flatten()
 	}
 	return pending, nil
 }
@@ -725,13 +729,13 @@ func (nPool *NormalTxPool) CheckTx(mapSN map[uint32]*big.Int, nid discover.NodeI
 }
 
 //YY 接收到Leader打包的交易共识消息时根据N获取tx (调用本方法需要启动协程)
-func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Address, retch chan *RetChan) {
+func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe common.TxTypeInt, addr common.Address, retch chan *RetChan_txpool) {
 	log.Info("========YY===1", "ReturnAllTxsByN:len(listN)", len(listN))
 	if len(listN) <= 0 {
-		retch <- &RetChan{nil, nil, resqe}
+		retch <- &RetChan_txpool{nil, nil, resqe}
 		return
 	}
-	txs := make([]*types.Transaction, 0)
+	txs := make([]types.SelfTransaction, 0)
 	ns := make([]uint32, 0)
 	nPool.mu.Lock()
 	for _, n := range listN {
@@ -746,29 +750,29 @@ func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr commo
 	nPool.mu.Unlock()
 	log.Info("========YY===3", "ReturnAllTxsByN:len(ns)", len(ns), "len(txs):", len(txs))
 	if len(ns) > 0 {
-		txs = make([]*types.Transaction, 0)
+		txs = make([]types.SelfTransaction, 0)
 		nid, err1 := ca.ConvertAddressToNodeId(addr)
 		log.Info("leader node", "addr::", addr, "id::", nid.String())
 		if err1 != nil {
 			log.Info("========YY===5", "ReturnAllTxsByN:discover=err", err1)
-			retch <- &RetChan{nil, err1, resqe}
+			retch <- &RetChan_txpool{nil, err1, resqe}
 			return
 		}
 		msData, err2 := json.Marshal(ns)
 		if err2 != nil {
 			log.Info("========YY===6", "ReturnAllTxsByN:Marshal=err", err2)
-			retch <- &RetChan{nil, err2, resqe}
+			retch <- &RetChan_txpool{nil, err2, resqe}
 			return
 		}
 		// 发送缺失交易N的列表
 		nPool.SendMsg(MsgStruct{Msgtype: GetConsensusTxbyN, NodeId: nid, MsgData: msData}) //modi hezi(共识要的交易都带s)
 
-		rettime := time.NewTimer(5 * time.Second) // 2秒后没有收到需要的交易则返回
+		rettime := time.NewTimer(4 * time.Second) // 2秒后没有收到需要的交易则返回
 	forBreak:
 		for {
 			select {
 			case <-rettime.C:
-				log.Info("========YY===", "ReturnAllTxsByN:Time Out=", 0)
+				log.Info("File txpool", "ReturnAllTxsByN:Time Out=", 0)
 				break forBreak
 			case <-time.After(500 * time.Millisecond): //500毫秒轮训一次
 				tmpns := make([]uint32, 0)
@@ -796,16 +800,16 @@ func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe int, addr commo
 					txs = append(txs, tx)
 				} else {
 					txerr = errors.New("else loss tx")
-					txs = make([]*types.Transaction, 0)
+					txs = make([]types.SelfTransaction, 0)
 					break
 				}
 			}
 			nPool.mu.Unlock()
 		}
-		//retch <- &RetChan{txs, txerr, resqe}
+		retch <- &RetChan_txpool{txs, txerr, resqe}
 		log.Info("========YY===end if", "ReturnAllTxsByN:len(ns)", len(ns),"err",txerr)
 	} else {
-		//retch <- &RetChan{txs, nil, resqe}
+		retch <- &RetChan_txpool{txs, nil, resqe}
 		log.Info("========YY===end else", "ReturnAllTxsByN", "return success")
 	}
 }
@@ -824,6 +828,28 @@ func (nPool *NormalTxPool) GetConsensusTxByN(listN []uint32, nid discover.NodeID
 			mapNtx[n] = tx
 		} else {
 			log.Info("=======msg_GetConsensusTxByN====YY==tx is nil")
+		}
+	}
+	if len(mapNtx) != len(listN){
+		tmpMap := txpoolCache.GetTxByN_Cache(listN,nPool.chain.CurrentBlock().Number().Uint64())
+		log.Info("txpool","msg_GetConsensusTxByNlen(tmpMap)",len(tmpMap))
+		if tmpMap != nil{
+			if len(tmpMap) == len(listN){
+				mapNtx = tmpMap
+			}else{
+				log.Info("txpool","11111msg_GetConsensusTxByNlen(mapNtx)",len(mapNtx))
+				for _, n := range listN {
+					tx := nPool.getTxbyN(n,false)
+					if tx != nil {
+						mapNtx[n] = tx
+					} else {
+						if ttx,ok := tmpMap[n];ok{
+							mapNtx[n] = ttx
+						}
+					}
+				}
+				log.Info("txpool","22222msg_GetConsensusTxByNlen(mapNtx)",len(mapNtx))
+			}
 		}
 	}
 	nPool.mu.Unlock()
@@ -1216,7 +1242,7 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 			return ErrInsufficientFunds
 		}
 	}
-	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, nPool.homestead)
+	intrGas, err := IntrinsicGas(tx.Data())
 	if err != nil {
 		return err
 	}
@@ -1224,7 +1250,7 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 	if len(txEx) > 0 && len(txEx[0].ExtraTo) > 0 {
 		for _, tx_list := range txEx {
 			for _, txs := range tx_list.ExtraTo {
-				tmpintrGas, tmperr := IntrinsicGas(txs.Payload, txs.Recipient == nil, nPool.homestead)
+				tmpintrGas, tmperr := IntrinsicGas(txs.Payload)
 				if tmperr != nil {
 					return tmperr
 				}
@@ -1270,8 +1296,12 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 		return false, ErrTXNonceSame
 	}
 	//将交易加入pending
+	if nPool.pending[from] == nil{
+		nPool.pending[from] = newTxList(false)
+	}
 	nPool.pending[from].Add(tx, 0)
-
+	nPool.all.Add(tx)
+	nPool.pendingState.SetNonce(from, tx.Nonce()+1)
 	selfRole := ca.GetRole()
 	if selfRole == common.RoleMiner || selfRole == common.RoleValidator {
 		tx_s := tx.GetTxS()
@@ -1291,16 +1321,17 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 // AddLocal enqueues a single transaction into the pool if it is valid, marking
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
-func (nPool *NormalTxPool) AddTxPool(txer types.SelfTransaction) []error {
+func (nPool *NormalTxPool) AddTxPool(txer types.SelfTransaction) error {
 	//TODO 将交易dncode
 	txs := make([]*types.Transaction,0)
 	tx:=txer.(*types.Transaction)
 	txs = append(txs,tx)
-	return nPool.addTxs(txs, false)
+	err := nPool.addTxs(txs, false)
+	return err
 }
 
 // addTxs attempts to queue a batch of transactions if they are valid.
-func (nPool *NormalTxPool) addTxs(txs []*types.Transaction, local bool) []error {
+func (nPool *NormalTxPool) addTxs(txs []*types.Transaction, local bool) error {
 	//nPool.selfmlk.Lock()
 	nPool.getFromByTx(txs) //YY
 	//nPool.selfmlk.Unlock()
@@ -1312,12 +1343,12 @@ func (nPool *NormalTxPool) addTxs(txs []*types.Transaction, local bool) []error 
 
 // addTxsLocked attempts to queue a batch of transactions if they are valid,
 // whilst assuming the transaction pool lock is already held.
-func (nPool *NormalTxPool) addTxsLocked(txs []*types.Transaction, local bool) []error {
-	errs := make([]error, len(txs))
-	for i, tx := range txs {
-		_, errs[i] = nPool.add(tx, local)
+func (nPool *NormalTxPool) addTxsLocked(txs []*types.Transaction, local bool) (err error) {
+	//errs := make([]error, len(txs))
+	for _, tx := range txs {
+		_, err = nPool.add(tx, local)
 	}
-	return errs
+	return err
 }
 
 // Status returns the status (unknown/pending/queued) of a batch of transactions

@@ -94,9 +94,11 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	//===============hezi====================
 	var gas uint64
 	var failed bool
-	if extx := tx.GetMatrix_EX(); (extx != nil) && len(extx) > 0 && extx[0].TxType == 1 {
-		gas = uint64(0)
-		failed = true
+	if tx.TxType() == types.BroadCastTxIndex{
+		if extx := tx.GetMatrix_EX(); (extx != nil) && len(extx) > 0 && extx[0].TxType == 1{
+			gas = uint64(0)
+			failed = true
+		}
 	} else {
 		//_, gas, failed, err = ApplyMessage(vmenv, msg, gp) //YYY
 		_, gas, failed, err = ApplyMessage(vmenv, tx, gp)
