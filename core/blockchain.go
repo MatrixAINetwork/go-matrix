@@ -489,6 +489,10 @@ func (bc *BlockChain) insert(block *types.Block) {
 
 		bc.currentFastBlock.Store(block)
 	}
+	if common.IsBroadcastNumber(block.NumberU64()) {
+		SetBroadcastTxs(block, bc.chainConfig.ChainId)
+	}
+
 }
 
 // Genesis retrieves the chain's genesis block.
@@ -1555,7 +1559,7 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 
 //YY 发送心跳交易
 var viSendHeartTx bool = false //是否验证过发送心跳交易，每100块内只验证一次 //YY
-var blockHash common.Hash      //YY 广播区块的hash  默认值应该为创世区块的hash
+var saveBroacCastblockHash common.Hash      //YY 广播区块的hash  默认值应该为创世区块的hash
 func (bc *BlockChain) sendBroadTx() {
 	block := bc.CurrentBlock()
 	blockNum := block.Number()
@@ -1567,17 +1571,17 @@ func (bc *BlockChain) sendBroadTx() {
 	if !viSendHeartTx {
 		viSendHeartTx = true
 		//广播区块的hash与99取余如果与广播账户与99取余的结果一样那么发送广播交易
-		if len(blockHash) <= 0 { //如果长度为0说明是第一次执行
+		if len(saveBroacCastblockHash) <= 0 { //如果长度为0说明是第一次执行
 			if blockNum.Cmp(big.NewInt(int64(common.GetBroadcastInterval()))) < 0 { //当前区块小于100说明是100区块内 (下面的if else是为了应对中途加入的参选节点)
-				blockHash = bc.GetBlockByNumber(1).Hash() //创世区块的hash
+				saveBroacCastblockHash = bc.GetBlockByNumber(1).Hash() //创世区块的hash
 			} else {
-				blockHash = bc.GetBlockByNumber(subVal.Uint64()).Hash() //获取最近的广播区块的hash
+				saveBroacCastblockHash = bc.GetBlockByNumber(subVal.Uint64()).Hash() //获取最近的广播区块的hash
 			}
 		}
 		log.Info("===========YYY============2", "blockChian:sendBroadTx()", subVal)
 		currentAcc := ca.GetAddress().Big()//block.Coinbase().Big() //YY TODO 这里应该是广播账户。后期需要修改
 		ret := new(big.Int).Rem(currentAcc, big.NewInt(int64(common.GetBroadcastInterval())-1))
-		broadcastBlock := blockHash.Big()
+		broadcastBlock := saveBroacCastblockHash.Big()
 		val := new(big.Int).Rem(broadcastBlock, big.NewInt(int64(common.GetBroadcastInterval())-1))
 		if ret.Cmp(val) == 0 {
 			height := new(big.Int).Add(subVal, big.NewInt(int64(common.GetBroadcastInterval()))) //下一广播区块的高度
@@ -1588,7 +1592,7 @@ func (bc *BlockChain) sendBroadTx() {
 		log.Info("===========YYY============3", "blockChian:sendBroadTx()", ret, val)
 	}
 	if blockNumRem.Int64() == 0 { //到整百的区块后需要重置数据以便下一区块验证是否发送心跳交易
-		blockHash = block.Hash()
+		saveBroacCastblockHash = block.Hash()
 		viSendHeartTx = false
 		log.Info("===========YYY============4", "blockChian:sendBroadTx()", subVal)
 	}
