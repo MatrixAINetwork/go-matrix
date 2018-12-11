@@ -1455,3 +1455,40 @@
     cb817514: 解决奖励加入超级区块特殊时序判断发放周期错误的问题
 
 ![](https://i.imgur.com/Qvrk7ii.png)
+
+
+
+    12.11：huyuankai pushed to branch mater_state at repository go-matrix
+    6d77750f: Merge branch 'mater_state' of http://192.168.3.81/matrix/go-matrix into mater_state
+    7daa89a5: 广播周期信息每区块修改
+
+
+    12.11：zhangwen pushed to branch mater_state at repository go-matrix
+    9bbd93cc: work broadcast修改
+
+    12.11：zhangwen pushed to branch mater_state at repository go-matrix
+    98f39e4f: work漏掉一处
+
+
+    12.11：zhangwen pushed to branch master_1115 at repository go-matrix
+    bc5bc25c: Merge commit '29dbb6e3d8b89be257b51e6d260205891afb84e0' into master_1115
+    29dbb6e3: 奖励增加超级区块特殊时序的处理
+
+![](https://i.imgur.com/yUka4OF.png)
+
+
+
+    12.11：huyuankai pushed to branch master_1115_broadcast at repository go-matrix
+    51932afe: 修改leader 对广播周期的支持
+
+
+    12.11：sunchunfeng pushed to branch gman_account_entrust at repository go-matrix
+    002c8f23: 解决获取不到签名账户问题
+
+    12.11：huyuankai pushed to branch master_1115_broadcast at repository go-matrix
+    14bc3682: 修改panic
+
+    12.11：huyuankai pushed to branch master_1115_broadcast at repository go-matrix
+    2660d36f: 修改panic
+
+![](https://i.imgur.com/y8TxzC9.png)
