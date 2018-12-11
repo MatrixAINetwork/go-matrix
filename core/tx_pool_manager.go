@@ -11,6 +11,7 @@ import (
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/ca"
+	"time"
 )
 
 var (
@@ -20,9 +21,15 @@ var (
 )
 //YY
 type RetChan struct {
-	Rxs   []types.SelfTransaction
+	//Rxs   []types.SelfTransaction
+	AllTxs []*RetCallTx
 	Err   error
 	Resqe int
+}
+type RetChan_txpool struct {
+	Rxs   []types.SelfTransaction
+	Err   error
+	Tx_t common.TxTypeInt
 }
 type byteNumber struct {
 	maxNum, num uint32
@@ -54,7 +61,7 @@ type TxPoolManager struct {
 	txPoolsMutex sync.RWMutex
 	once         sync.Once
 	sub          event.Subscription
-	txPools      map[types.TxTypeInt]TxPool
+	txPools      map[common.TxTypeInt]TxPool
 	roleChan     chan common.RoleType
 	quit         chan struct{}
 	addPool      chan TxPool
@@ -64,7 +71,7 @@ type TxPoolManager struct {
 func NewTxPoolManager(config TxPoolConfig, chainconfig *params.ChainConfig, chain blockChain, path string) *TxPoolManager {
 	txPoolManager := &TxPoolManager{
 		txPoolsMutex: sync.RWMutex{},
-		txPools:      make(map[types.TxTypeInt]TxPool),
+		txPools:      make(map[common.TxTypeInt]TxPool),
 		quit:         make(chan struct{}),
 		roleChan:     make(chan common.RoleType),
 		addPool:      make(chan TxPool),
@@ -170,34 +177,45 @@ func (pm *TxPoolManager) Stop() {
 	log.Info("Transaction pool manager stopped")
 }
 
-//TODO 返回的交易可能需要用map存储，因为会有多个pending，每个pending中存放的都是不同类型交易
 func (pm *TxPoolManager) Pending() (map[common.Address]types.SelfTransactions, error) {
-	//TODO 循环遍历所有的交易池
+	pm.txPoolsMutex.Lock()
+	defer pm.txPoolsMutex.Unlock()
+	txser := make(map[common.Address]types.SelfTransactions)
 	for _,txpool := range pm.txPools{
-		txpool.Pending()
+		txmap,_ := txpool.Pending()
+		for addr,txs:=range txmap{
+			if txlist,ok:=txser[addr];ok{
+				txlist = append(txlist, txs...)
+				txser[addr] = txlist
+			}else {
+				txser[addr] = txs
+			}
+		}
 	}
-	return nil, nil
+	return txser, nil
 }
-
+func (pm *TxPoolManager) AddRemote(tx types.SelfTransaction) (err error) {
+	pm.txPoolsMutex.Lock()
+	defer pm.txPoolsMutex.Unlock()
+	err = pm.txPools[tx.TxType()].AddTxPool(tx)
+	return err
+}
 func (pm *TxPoolManager) AddRemotes(txs []types.SelfTransaction) []error {
 	for _, tx := range txs {
-		//TODO 根据交易类型判断调用哪个池的实例
 		pm.txPools[tx.TxType()].AddTxPool(tx)
 	}
 	return nil
 }
 
 func (pm *TxPoolManager) SubscribeNewTxsEvent(ch chan NewTxsEvent) (ev event.Subscription) {
-	t := <-ch
+	//if len(ch) <= 0{
+	//	return nil
+	//}
+	//t := <-ch
+	//TODO
 	pm.txPoolsMutex.RLock()
-	bpool, ok := pm.txPools[t.poolType]
-	pm.txPoolsMutex.RUnlock()
-	if !ok {
-		log.Error("TxPoolManager", "unknown type txpool (SubscribeNewTxsEvent)", t.poolType)
-		return nil
-	}
-	ev = bpool.SubscribeNewTxsEvent(ch)
-	return ev
+	defer pm.txPoolsMutex.RUnlock()
+	return pm.txPools[types.NormalTxIndex].SubscribeNewTxsEvent(ch)
 }
 
 // ProcessMsg
@@ -229,7 +247,7 @@ func (pm *TxPoolManager) ProcessMsg(m NetworkMsgData) {
 }
 
 // GetTxPoolByType get txpool by given type from manager.
-func (pm *TxPoolManager) GetTxPoolByType(tp types.TxTypeInt) (txPool TxPool, err error) {
+func (pm *TxPoolManager) GetTxPoolByType(tp common.TxTypeInt) (txPool TxPool, err error) {
 	pm.txPoolsMutex.RLock()
 	defer pm.txPoolsMutex.RUnlock()
 
@@ -239,15 +257,39 @@ func (pm *TxPoolManager) GetTxPoolByType(tp types.TxTypeInt) (txPool TxPool, err
 	return nil, ErrTxPoolNonexistent
 }
 
-//TODO 根据交易类型判断调用哪个池的实例(如何判断N对应的是哪个交易池，N的编号是否应该再加上交易类型)
-func (pm *TxPoolManager) ReturnAllTxsByN(listN []uint32, resqe int, addr common.Address, retch chan *RetChan) {
+func (pm *TxPoolManager) ReturnAllTxsByN(listretctx []*common.RetCallTxN, resqe int, addr common.Address, retch chan *RetChan) {
 	pm.txPoolsMutex.RLock()
-	npool, ok := pm.txPools[types.NormalTxIndex].(*NormalTxPool)
-	pm.txPoolsMutex.RUnlock()
-	if ok {
-		npool.ReturnAllTxsByN(listN, resqe, addr, retch)
-	} else {
-		log.Error("TxPoolManager:ReturnAllTxsByN unknown txpool")
+	defer pm.txPoolsMutex.RUnlock()
+	if len(listretctx) <= 0{
+		retch <- &RetChan{nil, nil, resqe}
+		return
+	}
+	txAcquireCh := make(chan *RetChan_txpool, len(listretctx))
+	for _,retctx := range listretctx{
+		go pm.txPools[retctx.TXt].ReturnAllTxsByN(retctx.ListN, retctx.TXt, addr, txAcquireCh)
+	}
+	timeOut := time.NewTimer(5*time.Second)
+	allTxs := make([]*RetCallTx,0)
+	for {
+		select {
+		case txch := <- txAcquireCh:
+			if txch.Err != nil{
+				log.Info("File txpoolManager", "ReturnAllTxsByN:loss tx=", 0)
+				txerr := errors.New("File txpoolManager loss tx")
+				retch <- &RetChan{nil, txerr, resqe}
+				return
+			}
+			allTxs = append(allTxs,&RetCallTx{txch.Tx_t,txch.Rxs})
+			if len(allTxs) == len(listretctx){
+				retch <- &RetChan{allTxs, nil, resqe}
+				return
+			}
+		case <-timeOut.C:
+			log.Info("File txpoolManager", "ReturnAllTxsByN:time out =", 0)
+			txerr := errors.New("File txpoolManager time out")
+			retch <- &RetChan{nil, txerr, resqe}
+			return
+		}
 	}
 }
 
@@ -267,7 +309,6 @@ func (pm *TxPoolManager) GetAllSpecialTxs() (reqVal map[common.Address][]types.S
 	return
 }
 
-//TODO 根据交易类型判断调用哪个池的实例
-func (pm *TxPoolManager) Stats() (int, int) {
+func (pm *TxPoolManager)Stats()(int,int)  {
 	return 0, 0
 }
