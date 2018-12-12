@@ -9,6 +9,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/math"
 	"github.com/matrix/go-matrix/params"
+	"math/big"
 )
 
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so
@@ -383,7 +384,18 @@ func gasSuicide(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, 
 
 		if eip158 {
 			// if empty and transfers value
-			if evm.StateDB.Empty(address) && evm.StateDB.GetBalance(contract.Address()).Sign() != 0 {
+			var amountIsZero bool
+			for _,tAccount := range evm.StateDB.GetBalance(contract.Address()){
+				if tAccount.AccountType == common.MainAccount{
+					if tAccount.Balance.Cmp(big.NewInt(int64(0))) == 0{
+						amountIsZero = true
+					}else {
+						amountIsZero = false
+					}
+					break
+				}
+			}
+			if evm.StateDB.Empty(address) && !amountIsZero /*evm.StateDB.GetBalance(contract.Address())[common.MainAccount].Sign() != 0*/ {
 				gas += gt.CreateBySuicide
 			}
 		} else if !evm.StateDB.Exist(address) {
