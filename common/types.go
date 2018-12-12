@@ -31,8 +31,26 @@ var (
 	addressT = reflect.TypeOf(Address{})
 )
 
+const (
+	MainAccount = iota	//主账户
+	FreezeAccount		//冻结账户
+	LockAccount			//锁仓账户
+	WithdrawAccount		//可撤销账户
+	EntrustAccount		//委托账户
+)
+var LastAccount uint32 = EntrustAccount	//必须赋值最后一个账户
+
+
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte
+
+//hezi账户属性定义
+type BalanceSlice struct {
+	AccountType	uint32
+	Balance	*big.Int
+}
+type BalanceType []BalanceSlice
+
 
 func BytesToHash(b []byte) Hash {
 	var h Hash
