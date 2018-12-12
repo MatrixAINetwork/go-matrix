@@ -1598,3 +1598,21 @@
     8caa7c48: web3.js修改长度校验
 
 ![](https://i.imgur.com/SAffvui.png)
+
+
+    12.12：sunchunfeng pushed to branch master_1115 at repository go-matrix
+    ed43ca46: Merge branch 'master_1115' of http://192.168.3.81/matrix/go-matrix into master_1115
+    071f3157: 提交选举单元测试仿真 代码
+
+    12.12：sunchunfeng pushed to branch evil-miner-5 at repository go-ethereum
+    692546c8: 矿工由最多选21个改为5个
+    e576ed40: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    48d6b34e: modify block gaslimit and modify log
+    87d7b071: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    c5998154: 利息通过交易发放
+    d1652085: modify
+    b27ef7c2: modify block gaslimit
+    4b111e31: modify log
+    592f17a7: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    c01fc851: 彩票奖励bug，漏掉普通一对一交易
+
