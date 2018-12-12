@@ -487,12 +487,24 @@ func (s *PublicBlockChainAPI) BlockNumber() *big.Int {
 // GetBalance returns the amount of wei for the given address in the state of the
 // given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
 // block numbers are also allowed.
-func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*big.Int, error) {
+func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (common.BalanceType, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
 	}
 	b := state.GetBalance(address)
+	if b == nil{
+		b = make(common.BalanceType,0)
+		tmp := new(common.BalanceSlice)
+		var i uint32
+		for i = 0; i <= common.LastAccount; i++{
+			tmp.AccountType = i
+			tmp.Balance = new(big.Int)
+			b = append(b,*tmp)
+		}
+	}
+
+	log.Info("GetBalance","余额:",b)
 	return b, state.Error()
 }
 
