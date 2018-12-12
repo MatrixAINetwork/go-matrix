@@ -176,7 +176,14 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 
 	// Push the wrapper for statedb.GetBalance
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		pushBigInt(dw.db.GetBalance(common.BytesToAddress(popSlice(ctx))), ctx)
+		//pushBigInt(dw.db.GetBalance(common.BytesToAddress(popSlice(ctx))), ctx)
+		tmp := dw.db.GetBalance(common.BytesToAddress(popSlice(ctx)))
+		for _,tAccount := range tmp{
+			if tAccount.AccountType == common.MainAccount{
+				pushBigInt(tAccount.Balance, ctx)
+				break
+			}
+		}
 		return 1
 	})
 	vm.PutPropString(obj, "getBalance")

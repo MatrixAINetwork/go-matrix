@@ -124,7 +124,7 @@ func (b *ManAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 }
 
 func (b *ManAPIBackend) GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(msg.From(), math.MaxBig256)
+	state.SetBalance(common.MainAccount,msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg.From(), msg.GasPrice(), header, b.man.BlockChain(), nil)
@@ -152,15 +152,10 @@ func (b *ManAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 }
 
 //TODO 调用该方法的时候应该返回错误的切片
-func (b *ManAPIBackend) SendTx(ctx context.Context, signedTx types.SelfTransaction) (err error) {
-	txs := make(types.SelfTransactions, 0)
-	txs = append(txs, signedTx)
-	errs := b.man.txPool.AddRemotes(txs)
-	if errs != nil {
-		err = errs[0]
-	}
-
-	return err
+func (b *ManAPIBackend) SendTx(ctx context.Context, signedTx types.SelfTransaction) (error) {
+	//txs := make(types.SelfTransactions, 0)
+	//txs = append(txs, signedTx)
+	return b.man.txPool.AddRemote(signedTx)
 }
 
 func (b *ManAPIBackend) GetPoolTransactions() (types.SelfTransactions, error) {
