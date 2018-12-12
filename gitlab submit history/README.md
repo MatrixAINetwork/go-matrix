@@ -1551,3 +1551,18 @@
     d5159d15: blockchain增加跑奖励接口
 
 ![](https://i.imgur.com/e1r29A7.png)
+
+    12.11：zhangwen pushed to branch master_1115 at repository go-matrix
+    41d973ef: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    8fc47a45: 超级区块支持matrix状态树
+
+    12.11：zhenghe pushed to branch master at repository go-matrix
+    cbf26648: 修改定时交易时间
+    4140237b: 规范log格式，同时修改请求区块消息的大小
+    e831af29: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    1c8ba7a5: 测试通过批量的可撤销交易、定时交易、撤销交易
+    e1c6b9ec: 修改命令行签名算hash时地址都用matrix地址
+    89e5118e: matrix地址改短了
+    0cc14ad7: 委托交易查询提供rpc接口
+    5d6ed2c9: modify timeTx
+    46fdc9dd: modify tx transfer and modify sendTransaction
