@@ -1627,3 +1627,26 @@
 
     12.12：sunanxiang pushed to branch master-child at repository go-ethereum
     9f3f596d: update man account
+
+    12.12:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    c7e166a3: Merge branch 'master' into master_nodeId
+    8caa7c48: web3.js修改长度校验
+    cbf26648: 修改定时交易时间
+    4140237b: 规范log格式，同时修改请求区块消息的大小
+    e831af29: Merge branch 'gman_Account' of gitlab.matrix.com:matrix/go-matrix into gman_Account
+    1c8ba7a5: 测试通过批量的可撤销交易、定时交易、撤销交易
+    e1c6b9ec: 修改命令行签名算hash时地址都用matrix地址
+    89e5118e: matrix地址改短了
+    0cc14ad7: 委托交易查询提供rpc接口
+    5d6ed2c9: modify timeTx
+
+    12.12:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    d097b523: modify
+
+![](https://i.imgur.com/RQ2g6sQ.png)
+
+    12.12:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    bb1b271f: modify
+
+
+
