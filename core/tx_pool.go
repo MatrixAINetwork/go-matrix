@@ -1234,12 +1234,27 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 	//YY add if
 	if len(txEx) > 0 && len(txEx[0].ExtraTo) > 0 {
 		// Transactor should have enough funds to cover the costs
-		if nPool.currentState.GetBalance(from).Cmp(tx.CostALL()) < 0 {
-			return ErrInsufficientFunds
+		//if nPool.currentState.GetBalance(from).Cmp(tx.CostALL()) < 0 {
+		//	return ErrInsufficientFunds
+		//}
+		//hezi
+		for _,tAccount := range nPool.currentState.GetBalance(from){
+			if tAccount.AccountType == common.MainAccount{
+				if tAccount.Balance.Cmp(tx.CostALL()) < 0{
+					return ErrInsufficientFunds
+				}
+			}
 		}
 	} else {
-		if nPool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-			return ErrInsufficientFunds
+		//if nPool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
+		//	return ErrInsufficientFunds
+		//}
+		for _,tAccount := range nPool.currentState.GetBalance(from){
+			if tAccount.AccountType == common.MainAccount{
+				if tAccount.Balance.Cmp(tx.Cost()) < 0{
+					return ErrInsufficientFunds
+				}
+			}
 		}
 	}
 	intrGas, err := IntrinsicGas(tx.Data())
@@ -1433,7 +1448,14 @@ func (nPool *NormalTxPool) DemoteUnexecutables() {
 			//nPool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, _ := list.Filter(nPool.currentState.GetBalance(addr), nPool.currentMaxGas)
+		tBalance := new(big.Int)
+		for _,tAccount := range nPool.currentState.GetBalance(addr){
+			if tAccount.AccountType == common.MainAccount{
+				tBalance = tAccount.Balance
+				break
+			}
+		}
+		drops, _ := list.Filter(tBalance, nPool.currentMaxGas)
 		for _, tx := range drops {
 			//YY ========begin=========
 			nPool.deleteMap(tx)
