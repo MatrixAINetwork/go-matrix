@@ -1581,3 +1581,12 @@
 
     12.12：sunanxiang pushed to branch restart_temp at repository go-ethereum
     335c66b1: modify buckets
+
+    12.12：zhenghe pushed to branch gman_account_entrust at repository go-matrix
+    74f16798: matrix账户地址改为短地址
+
+
+    12.12：zhenghe pushed to branch gman_Account at repository go-matrix
+    8caa7c48: web3.js修改长度校验
+
+![](https://i.imgur.com/wEd9Nls.png)
