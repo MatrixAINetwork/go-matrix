@@ -15,7 +15,6 @@ import (
 	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/pkg/errors"
-	"github.com/matrix/go-matrix/txpoolCache"
 )
 
 func (p *Process) processHeaderGen() error {
@@ -28,32 +27,26 @@ func (p *Process) processHeaderGen() error {
 		return err
 	}
 
-	log.INFO("processHeaderGen", "问题定位", "step1")
-
 	tstamp := tstart.Unix()
 	NetTopology := p.getNetTopology(parent.Header().NetTopology, p.number)
 	if nil == NetTopology {
 		log.Error(p.logExtraInfo(), "获取网络拓扑图错误 ", "")
 		NetTopology = &common.NetTopology{common.NetTopoTypeChange, nil}
 	}
-	log.INFO("processHeaderGen", "问题定位", "step2")
 
 	Elect := p.genElection(p.number)
 
 	log.Info(p.logExtraInfo(), "++++++++获取选举结果 ", Elect, "高度", p.number)
 	log.Info(p.logExtraInfo(), "++++++++获取拓扑结果 ", NetTopology, "高度", p.number)
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
-		log.INFO("processHeaderGen", "问题定位", "step2.2")
 		tstamp = parent.Time().Int64() + 1
 	}
-	log.INFO("processHeaderGen", "问题定位", "step3")
 	// this will ensure we're not going off too far in the future
 	if now := time.Now().Unix(); tstamp > now+1 {
 		wait := time.Duration(tstamp-now) * time.Second
 		log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
 		time.Sleep(wait)
 	}
-	log.INFO("processHeaderGen", "问题定位", "step4")
 	header := &types.Header{
 		ParentHash:  parent.Hash(),
 		Leader:      ca.GetAddress(),
@@ -66,16 +59,12 @@ func (p *Process) processHeaderGen() error {
 		Signatures:  make([]common.Signature, 0),
 		Version:     parent.Header().Version, //param
 	}
-	log.INFO("processHeaderGen", "问题定位", "step5")
 	if err := p.engine().Prepare(p.blockChain(), header); err != nil {
 		log.ERROR(p.logExtraInfo(), "Failed to prepare header for mining", err)
 		return err
 	}
-	log.INFO("processHeaderGen", "问题定位", "step6")
-	//todo:change until net group
 	//broadcast txs deal,remove no validators txs
 	if common.IsBroadcastNumber(header.Number.Uint64()) {
-		log.INFO("processHeaderGen", "问题定位", "step6.1111111111111111")
 		work, err := matrixwork.NewWork(p.blockChain().Config(), p.blockChain(), nil, header)
 		if err != nil {
 			log.ERROR(p.logExtraInfo(), "NewWork!", err, "高度", p.number)
@@ -83,7 +72,7 @@ func (p *Process) processHeaderGen() error {
 		}
 		mapTxs := p.pm.matrix.TxPool().GetAllSpecialTxs()
 
-		Txs := make([]types.SelfTransaction, 0)
+		Txs := make([]*types.Transaction, 0)
 		for _, txs := range mapTxs {
 			for _, tx := range txs {
 				log.INFO(p.logExtraInfo(), "交易数据 t", tx)
@@ -128,7 +117,6 @@ func (p *Process) processHeaderGen() error {
 		mc.PublishEvent(mc.HD_BroadcastMiningReq, &mc.BlockGenor_BroadcastMiningReqMsg{sendMsg})
 
 	} else {
-		log.INFO("processHeaderGen", "问题定位", "step6.2222222222222")
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "开始创建work")
 		work, err := matrixwork.NewWork(p.blockChain().Config(), p.blockChain(), nil, header)
 		if err != nil {
@@ -159,27 +147,20 @@ func (p *Process) processHeaderGen() error {
 		txsCode, Txs := work.ProcessTransactions(p.pm.matrix.EventMux(), p.pm.txPool, p.pm.bc)
 		log.INFO("=========", "ProcessTransactions finish", len(txsCode))
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "完成执行交易, 开始finalize")
-		log.INFO("processHeaderGen", "问题定位", "step7")
 		block, err := p.engine().Finalize(p.blockChain(), header, work.State, Txs, nil, work.Receipts)
-		log.INFO("问题定位-交易,", "step", 5)
 		if err != nil {
 			log.ERROR(p.logExtraInfo(), "Failed to finalize block for sealing", err)
 			return err
 		}
 		log.INFO(p.logExtraInfo(), "区块验证请求生成，交易部分", "完成finalize")
 		header = block.Header()
-		p2pBlock := &mc.HD_BlkConsensusReqMsg{Header: header, TxsCode: txsCode, From: ca.GetAddress()}
+		p2pBlock := &mc.HD_BlkConsensusReqMsg{Header: header, TxsCode: txsCode, ConsensusTurn: p.consensusTurn, From: ca.GetAddress()}
 		//send to local block verify module
 		localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, Txs: Txs, Receipts: work.Receipts, State: work.State}
-		if len(Txs) > 0{
-			txpoolCache.MakeStruck(Txs,header.HashNoSignsAndNonce(),p.number)
-		}
+		txpoolCache.MakeStruck(Txs,header.HashNoSignsAndNonce(),p.number)
 		log.INFO(p.logExtraInfo(), "!!!!本地发送区块验证请求, root", p2pBlock.Header.Root.TerminalString(), "高度", p.number)
 		mc.PublishEvent(mc.BlockGenor_HeaderVerifyReq, localBlock)
-		log.INFO(p.logExtraInfo(), "!!!!网络发送区块验证请求, hash", p2pBlock.Header.HashNoSignsAndNonce(), "tx数量", len(p2pBlock.TxsCode))
-		p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, p2pBlock, common.RoleValidator, nil)
-		log.INFO("processHeaderGen", "问题定位", "step8 ends")
-
+		p.startConsensusReqSender(p2pBlock)
 	}
 
 	return nil
@@ -200,4 +181,32 @@ func (p *Process) getParentBlock() (*types.Block, error) {
 	}
 
 	return parent, nil
+}
+
+func (p *Process) startConsensusReqSender(req *mc.HD_BlkConsensusReqMsg) {
+	p.closeConsensusReqSender()
+	sender, err := common.NewResendMsgCtrl(req, p.sendConsensusReqFunc, man.BlkPosReqSendInterval, man.BlkPosReqSendTimes)
+	if err != nil {
+		log.ERROR(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
+		return
+	}
+	p.consensusReqSender = sender
+}
+
+func (p *Process) closeConsensusReqSender() {
+	if p.consensusReqSender == nil {
+		return
+	}
+	p.consensusReqSender.Close()
+	p.consensusReqSender = nil
+}
+
+func (p *Process) sendConsensusReqFunc(data interface{}, times uint32) {
+	req, OK := data.(*mc.HD_BlkConsensusReqMsg)
+	if !OK {
+		log.ERROR(p.logExtraInfo(), "发出区块共识req", "反射消息失败", "次数", times)
+		return
+	}
+	log.INFO(p.logExtraInfo(), "!!!!网络发送区块验证请求, hash", req.Header.HashNoSignsAndNonce(), "tx数量", len(req.TxsCode), "次数", times)
+	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, req, common.RoleValidator, nil)
 }
