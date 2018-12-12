@@ -16,9 +16,9 @@ import (
 type StateDB interface {
 	CreateAccount(common.Address)
 
-	SubBalance(common.Address, *big.Int)
-	AddBalance(common.Address, *big.Int)
-	GetBalance(common.Address) *big.Int
+	SubBalance(uint32,common.Address, *big.Int)
+	AddBalance(uint32,common.Address, *big.Int)
+	GetBalance(common.Address) common.BalanceType
 
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
