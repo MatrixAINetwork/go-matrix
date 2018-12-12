@@ -79,14 +79,24 @@ type stateObject struct {
 
 // empty returns whether the account is considered empty.
 func (s *stateObject) empty() bool {
-	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash)
+	var amountIsZero bool
+	for _,tAccount := range s.data.Balance{
+		if tAccount.AccountType == common.MainAccount{
+			amount := tAccount.Balance
+			if amount.Cmp(big.NewInt(int64(0))) ==0{
+				amountIsZero = true
+			}
+			break
+		}
+	}
+	return s.data.Nonce == 0 && amountIsZero && bytes.Equal(s.data.CodeHash, emptyCodeHash)
 }
 
 // Account is the Matrix consensus representation of accounts.
 // These objects are stored in the main account trie.
 type Account struct {
 	Nonce    uint64
-	Balance  *big.Int
+	Balance  common.BalanceType
 	Root     common.Hash // merkle root of the storage trie
 	CodeHash []byte
 }
@@ -94,7 +104,16 @@ type Account struct {
 // newObject creates a state object.
 func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	if data.Balance == nil {
-		data.Balance = new(big.Int)
+		//data.Balance = new(big.Int)
+		//hezi初始化账户
+		data.Balance = make(common.BalanceType,0)
+		tmp := new(common.BalanceSlice)
+		var i uint32
+		for i = 0; i <= common.LastAccount; i++{
+			tmp.AccountType = i
+			tmp.Balance = new(big.Int)
+			data.Balance = append(data.Balance,*tmp)
+		}
 	}
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
@@ -224,7 +243,7 @@ func (self *stateObject) CommitTrie(db Database) error {
 
 // AddBalance removes amount from c's balance.
 // It is used to add funds to the destination account of a transfer.
-func (c *stateObject) AddBalance(amount *big.Int) {
+func (c *stateObject) AddBalance(accountType uint32,amount *big.Int) {
 	// EIP158: We must check emptiness for the objects such that the account
 	// clearing (0,0,0 objects) can take effect.
 	if amount.Sign() == 0 {
@@ -234,28 +253,52 @@ func (c *stateObject) AddBalance(amount *big.Int) {
 
 		return
 	}
-	c.SetBalance(new(big.Int).Add(c.Balance(), amount))
+	for _,tAccount := range c.Balance(){
+		if tAccount.AccountType == accountType{
+			if tAccount.Balance != nil{
+				amt := new(big.Int).Add(tAccount.Balance,amount)
+				c.SetBalance(accountType,amt)
+			}
+			break
+		}
+	}
 }
 
 // SubBalance removes amount from c's balance.
 // It is used to remove funds from the origin account of a transfer.
-func (c *stateObject) SubBalance(amount *big.Int) {
+func (c *stateObject) SubBalance(accountType uint32,amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	c.SetBalance(new(big.Int).Sub(c.Balance(), amount))
+	for _,tAccount := range c.Balance(){
+		if tAccount.AccountType == accountType{
+			if tAccount.Balance != nil{
+				amt := new(big.Int).Sub(tAccount.Balance,amount)
+				c.SetBalance(accountType,amt)
+			}
+			break
+		}
+	}
 }
 
-func (self *stateObject) SetBalance(amount *big.Int) {
+func (self *stateObject) SetBalance(accountType uint32,amount *big.Int) {
 	self.db.journal.append(balanceChange{
 		account: &self.address,
-		prev:    new(big.Int).Set(self.data.Balance),
+		//prev:    new(big.Int).Set(self.data.Balance),
+		prev:    self.data.Balance,
 	})
-	self.setBalance(amount)
+	self.setBalance(accountType,amount)
 }
 
-func (self *stateObject) setBalance(amount *big.Int) {
-	self.data.Balance = amount
+func (self *stateObject) setBalance(accountType uint32,amount *big.Int) {
+	//self.data.Balance[accountType] = amount
+	for index,tAccount := range self.data.Balance{
+		if tAccount.AccountType == accountType{
+			self.data.Balance[index].Balance = amount
+			break
+		}
+	}
+	//fmt.Println("ZH:balance:",self.data.Balance)
 }
 
 // Return the gas back to the origin. Used by the Virtual machine or Closures
@@ -332,7 +375,7 @@ func (self *stateObject) CodeHash() []byte {
 	return self.data.CodeHash
 }
 
-func (self *stateObject) Balance() *big.Int {
+func (self *stateObject) Balance() common.BalanceType {
 	return self.data.Balance
 }
 
