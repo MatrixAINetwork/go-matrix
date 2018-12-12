@@ -1616,3 +1616,14 @@
     592f17a7: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
     c01fc851: 彩票奖励bug，漏掉普通一对一交易
 
+![](https://i.imgur.com/KRjXqcg.png)
+
+
+    12.12：sunchunfeng pushed to branch evil-miner-5 at repository go-ethereum
+    df9efca6: 基于 restart-temp 做多5个矿工的提交 合并作恶测试
+
+    12.12：sunanxiang pushed to branch master-child at repository go-ethereum
+    bdf8d981: Update children/children.go
+
+    12.12：sunanxiang pushed to branch master-child at repository go-ethereum
+    9f3f596d: update man account
