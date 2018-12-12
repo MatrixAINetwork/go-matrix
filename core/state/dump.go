@@ -12,6 +12,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/trie"
+	"math/big"
 )
 
 type DumpAccount struct {
@@ -42,9 +43,17 @@ func (self *StateDB) RawDump() Dump {
 			panic(err)
 		}
 
+		tBalance := new(big.Int)
+		for _,tAccount := range data.Balance{
+			if tAccount.AccountType == common.MainAccount {
+				tBalance = tAccount.Balance
+				break
+			}
+		}
 		obj := newObject(nil, common.BytesToAddress(addr), data)
 		account := DumpAccount{
-			Balance:  data.Balance.String(),
+			//Balance:  data.Balance.String(),
+			Balance:  tBalance.String(),
 			Nonce:    data.Nonce,
 			Root:     common.Bytes2Hex(data.Root[:]),
 			CodeHash: common.Bytes2Hex(data.CodeHash),
