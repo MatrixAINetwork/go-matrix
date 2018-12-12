@@ -522,7 +522,7 @@ func decodeInterfaceRLP(s *Stream, val reflect.Value) error {
 	}else{
 		return &decodeError{msg: "interface constructor cannot find", typ: typ}
 	}
-	info, err := cachedTypeInfo1(reflect.ValueOf(valRLP.Value).Elem().Type(),tags{} )
+	info, err := cachedTypeInfo(reflect.ValueOf(valRLP.Value).Elem().Type(),tags{} )
 	err = info.decoder(s, reflect.ValueOf(valRLP.Value).Elem())
 	if err == EOL {
 		return &decodeError{msg: "too few elements", typ: typ}
