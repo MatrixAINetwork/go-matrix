@@ -21,14 +21,13 @@ func (p *Process) startReqVerifyBC() {
 			continue
 		}
 		//verify dpos
-		if err := p.blockChain().DPOSEngine().VerifyBlock(req.req.Header); err != nil {
+		if err := p.blockChain().DPOSEngine().VerifyBlock(p.blockChain(), req.req.Header); err != nil {
 			log.WARN(p.logExtraInfo(), "广播身份，启动阶段, DPOS共识失败", err, "req leader", req.req.Header.Leader.Hex(), "高度", p.number)
 			req.localVerifyResult = localVerifyResultStateFailed
 			continue
 		}
 
 		p.curProcessReq = req
-		p.curProcessReq.hash = p.curProcessReq.req.Header.HashNoSignsAndNonce()
 		p.state = StateReqVerify
 		p.bcProcessReqVerify()
 		return
@@ -67,7 +66,7 @@ func (p *Process) bcFinishedProcess(lvResult uint8) {
 
 	if lvResult == localVerifyResultSuccess {
 		// notify block genor server the result
-		result := mc.BlockVerifyConsensusOK{
+		result := mc.BlockLocalVerifyOK{
 			Header:    p.curProcessReq.req.Header,
 			BlockHash: p.curProcessReq.hash,
 			Txs:       p.curProcessReq.txs,
