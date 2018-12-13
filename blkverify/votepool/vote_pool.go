@@ -46,13 +46,13 @@ func NewVotePool(legalRole common.RoleType, logInfo string) *VotePool {
 	}
 }
 
-func (vp *VotePool) AddVote(signHash common.Hash, sign common.Signature, fromAccount common.Address, height uint64) error {
+func (vp *VotePool) AddVote(signHash common.Hash, sign common.Signature, fromAccount common.Address, height uint64, verifyFrom bool) error {
 	signAccount, validate, err := crypto.VerifySignWithValidate(signHash.Bytes(), sign.Bytes())
 	if err != nil {
 		return err
 	}
 
-	if signAccount.Equal(fromAccount) == false {
+	if verifyFrom && signAccount.Equal(fromAccount) == false {
 		return errors.Errorf("vote sign account[%s] != from account[%s]", signAccount.Hex(), fromAccount.Hex())
 	}
 
