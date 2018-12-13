@@ -1684,3 +1684,14 @@
     1001a183: modify interest
 
 ![](https://i.imgur.com/sqoySpu.png)
+
+
+    12.13：叶营 pushed to branch restart_temp at repository go-ethereum
+    9fe46a88: 回复正确广播区块和换届时的区块高度
+
+    12.13：叶营 pushed to branch restart_temp at repository go-ethereum
+    af38a5c6: add log
+
+    12.13：huyuankai pushed to branch master at repository go-matrix
+    fcd37fc4: 修改 未出块时，leader更换无法签名的bug
+
