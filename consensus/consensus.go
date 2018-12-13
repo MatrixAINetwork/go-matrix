@@ -14,6 +14,7 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
+	"github.com/matrix/go-matrix/mc"
 )
 
 // ChainReader defines a small collection of methods needed to access the local
@@ -72,12 +73,12 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []types.SelfTransaction,
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	Seal(chain ChainReader, header *types.Header, stop <-chan struct{}, foundMsgCh chan *FoundMsg, diffList []*big.Int, isBroadcastNode bool) error
+	Seal(chain ChainReader, header *types.Header, stop <-chan struct{}, isBroadcastNode bool) (*types.Header, error)
 
 	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 	// that a new block should have.
@@ -94,22 +95,27 @@ type PoW interface {
 	// Hashrate returns the current mining hashrate of a PoW consensus engine.
 	Hashrate() float64
 }
-type FoundMsg struct {
-	Header     *types.Header
-	Difficulty *big.Int
+
+type ValidatorReader interface {
+	// GetHeaderByNumber retrieves a block header from the database by number.
+	GetCurrentNumber() uint64
+	GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error)
 }
+
 type DPOSEngine interface {
-	VerifyBlock(header *types.Header) error
+	VerifyBlock(reader ValidatorReader, header *types.Header) error
+
+	VerifyBlocks(reader ValidatorReader, headers []*types.Header) error
 
 	//verify hash in current block
-	VerifyHash(signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
+	VerifyHash(reader ValidatorReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
 
 	//verify hash in given number block
-	VerifyHashWithNumber(signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error)
+	VerifyHashWithNumber(reader ValidatorReader, signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error)
 
 	//VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error)
 
-	VerifyHashWithVerifiedSigns(signs []*common.VerifiedSign) ([]common.Signature, error)
+	VerifyHashWithVerifiedSigns(reader ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error)
 
-	VerifyHashWithVerifiedSignsAndNumber(signs []*common.VerifiedSign, number uint64) ([]common.Signature, error)
+	VerifyHashWithVerifiedSignsAndNumber(reader ValidatorReader, signs []*common.VerifiedSign, number uint64) ([]common.Signature, error)
 }
