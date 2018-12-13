@@ -22,6 +22,12 @@ import (
 	"github.com/matrix/go-matrix/params"
 )
 
+type TopologyGraphReader interface {
+	GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error)
+	GetOriginalElect(number uint64) ([]common.Elect, error)
+	GetNextElect(number uint64) ([]common.Elect, error)
+}
+
 // Identity stand for node's identity.
 type Identity struct {
 	// self nodeId
@@ -32,8 +38,12 @@ type Identity struct {
 	duration      bool
 	currentHeight *big.Int
 
-	// levelDB
-	ldb *leveldb.DB
+	trChan         chan TopologyGraphReader
+	topologyReader TopologyGraphReader
+	topology       *mc.TopologyGraph
+	prevElect      []common.Elect
+	currentNodes   []discover.NodeID
+	frontNodes     []discover.NodeID
 
 	// self previous, current and next role type
 	currentRole common.RoleType
@@ -43,8 +53,8 @@ type Identity struct {
 	quit      chan struct{}
 
 	// lock and once to sync
-	lock *sync.RWMutex
-	once *sync.Once
+	lock sync.RWMutex
+	once sync.Once
 
 	// sub to unsubscribe block channel
 	sub event.Subscription
@@ -52,31 +62,11 @@ type Identity struct {
 	// logger
 	log log.Logger
 
-	// save id list
-	availableId uint32
-	idList      map[discover.NodeID]uint32
-
 	// deposit in current height
 	deposit []vm.DepositDetail
 
-	// elect
-	tempElect    []common.Elect
-	originalRole []common.Elect
-	// elect result: [role type, [nodeId]]
-	elect map[common.Address]common.RoleType
-	// current topology: [role type, [nodeId]]
-	topology map[uint16]common.Address
-
-	// current nodes
-	currentNodes []discover.NodeID
-	// front nodes
-	frontNodes []discover.NodeID
-
 	// addrByGroup
 	addrByGroup map[common.RoleType][]common.Address
-
-	// temp position
-	position []uint16
 }
 
 var ide = newIde()
@@ -86,11 +76,9 @@ func newIde() *Identity {
 		quit:        make(chan struct{}),
 		currentRole: common.RoleNil,
 		duration:    false,
-		lock:        new(sync.RWMutex),
-		once:        new(sync.Once),
-		idList:      make(map[discover.NodeID]uint32),
-		elect:       make(map[common.Address]common.RoleType),
-		topology:    make(map[uint16]common.Address),
+		trChan:      make(chan TopologyGraphReader, 1),
+		topology:    new(mc.TopologyGraph),
+		prevElect:   make([]common.Elect, 0),
 	}
 }
 
@@ -99,21 +87,7 @@ func (ide *Identity) init(id discover.NodeID, path string) {
 	ide.once.Do(func() {
 		// check bootNode and set identity
 		ide.self = id
-		//ide.ldb, _ = leveldb.OpenFile("./db/ca", nil)
 		ide.log = log.New()
-		var err error
-		ide.ldb, err = leveldb.OpenFile(path+"./db/ca", nil)
-		if nil != err {
-			ide.log.Error("identity init error", err)
-		} else {
-			ide.log.Info("identity init over")
-		}
-		for _, b := range params.BroadCastNodes {
-			if b.NodeID == id {
-				ide.addr = b.Address
-				break
-			}
-		}
 	})
 }
 
@@ -122,102 +96,68 @@ func Start(id discover.NodeID, path string) {
 	ide.init(id, path)
 
 	defer func() {
-		ide.ldb.Close()
 		ide.sub.Unsubscribe()
 
 		close(ide.quit)
 		close(ide.blockChan)
 	}()
 
+	select {
+	case tr := <-ide.trChan:
+		ide.topologyReader = tr
+	case <-ide.quit:
+		return
+	}
+
 	ide.blockChan = make(chan *types.Block)
 	ide.sub, _ = mc.SubscribeEvent(mc.NewBlockMessage, ide.blockChan)
+	log.INFO("CA", "订阅区块事件", "完成")
+	mc.PublishEvent(mc.CA_ReqCurrentBlock, struct{}{})
 
 	for {
 		select {
 		case block := <-ide.blockChan:
 			header := block.Header()
-			log.INFO("CA", "leader", header.Leader, "height", header.Number.Uint64(), "block hash", block.Hash())
+			hash := block.Hash()
 			ide.currentHeight = header.Number
-			height := header.Number.Uint64()
+
+			log.INFO("CA", "leader", header.Leader, "height", header.Number.Uint64(), "block hash", hash)
 
 			// init current height deposit
 			ide.deposit, _ = GetElectedByHeightWithdraw(header.Number)
-
 			// get self address from deposit
 			ide.addr = GetAddress()
 
-			switch {
-			// validator elected block
-			case common.IsReElectionNumber(height + VerifyNetChangeUpTime):
-				{
-					ide.duration = true
-					ide.tempElect = append(ide.tempElect, header.Elect...)
-
-					// maintain topology and check self next role
-					for _, e := range header.Elect {
-						ide.elect[e.Account] = e.Type.Transfer2CommonRole()
-					}
-				}
-			// miner elected block
-			case common.IsReElectionNumber(height + MinerNetChangeUpTime):
-				{
-					ide.duration = true
-					ide.tempElect = append(ide.tempElect, header.Elect...)
-
-					// maintain topology and check self next role
-					for _, e := range header.Elect {
-						ide.elect[e.Account] = e.Type.Transfer2CommonRole()
-					}
-				}
-			// formal elected block
-			case common.IsReElectionNumber(height + 1):
-				{
-					ide.duration = false
-					ide.elect = make(map[common.Address]common.RoleType)
-					ide.originalRole = make([]common.Elect, 0)
-					ide.originalRole = ide.tempElect
-					ide.currentRole = common.RoleNil
-				}
-			case common.IsReElectionNumber(height) && height > 0:
-				{
-					ide.tempElect = make([]common.Elect, 0)
-				}
-			case height == 0:
-				{
-					ide.originalRole = header.Elect
-				}
-			default:
-			}
-			log.INFO("身份不对问题定位", "ide.originalRole", ide.originalRole)
 			// do topology
-			initCurrentTopology(header.NetTopology)
-
-			for _, b := range params.BroadCastNodes {
-				if b.NodeID == ide.self {
-					ide.currentRole = common.RoleBroadcast
-					break
-				}
+			tg, err := ide.topologyReader.GetTopologyGraphByNumber(header.Number.Uint64())
+			if err != nil {
+				ide.log.Error("get topology", "error", err)
+				continue
 			}
-			// change default role
-			if ide.currentRole == common.RoleNil {
-				ide.currentRole = common.RoleDefault
-			}
+			ide.topology = tg
 
-			// init now topology: self peer
+			// get elect
+			elect, err := ide.topologyReader.GetNextElect(header.Number.Uint64())
+			if err != nil {
+				ide.log.Error("get next elect", "error", err)
+				continue
+			}
+			ide.prevElect = elect
+
+			// init topology
+			initCurrentTopology()
 			initNowTopologyResult()
 
-			// set topology graph and original role to levelDB
-			setToLevelDB(ide.originalRole)
+			// get nodes in buckets
+			nodesInBuckets := getNodesInBuckets(header.Number)
 
 			// send role message to elect
-			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), Leader: header.Leader})
-			log.INFO("公布身份变更消息", "data", mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), Leader: header.Leader})
+			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), BlockHash: hash, Leader: header.Leader})
+			log.Info("ca publish identity", "data", mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), Leader: header.Leader})
 			// get nodes in buckets and send to buckets
-			nodesInBuckets := getNodesInBuckets(header.Number)
 			mc.PublishEvent(mc.BlockToBuckets, mc.BlockToBucket{Ms: nodesInBuckets, Height: block.Header().Number, Role: ide.currentRole})
 			// send identity to linker
 			mc.PublishEvent(mc.BlockToLinkers, mc.BlockToLinker{Height: header.Number, Role: ide.currentRole})
-			mc.PublishEvent(mc.SendSyncRole, mc.SyncIdEvent{Role: ide.currentRole})//lb
 		case <-ide.quit:
 			return
 		}
@@ -234,65 +174,44 @@ func Stop() {
 }
 
 // InitCurrentTopology init current topology.
-func initCurrentTopology(tp common.NetTopology) {
-	switch tp.Type {
-	case common.NetTopoTypeChange:
-		for _, v := range tp.NetTopologyData {
-			ide.topology[v.Position] = v.Account
-			if v.Account == ide.addr {
-				ide.currentRole = common.GetRoleTypeFromPosition(v.Position)
-			}
-			id, err := ConvertAddressToNodeId(v.Account)
-			if err != nil {
-				ide.log.Error("convert error", "ca", err)
-				continue
-			}
-			maintainIdList(id)
-		}
-	case common.NetTopoTypeAll:
-		ide.position = make([]uint16, 0)
-		ide.topology = make(map[uint16]common.Address)
-		for _, v := range tp.NetTopologyData {
-			ide.position = append(ide.position, v.Position)
-			ide.topology[v.Position] = v.Account
-			if v.Account == ide.addr {
-				ide.currentRole = common.GetRoleTypeFromPosition(v.Position)
-			}
-			id, err := ConvertAddressToNodeId(v.Account)
-			if err != nil {
-				ide.log.Error("convert error", "ca", err)
-				continue
-			}
-			maintainIdList(id)
+func initCurrentTopology() {
+	ide.currentRole = common.RoleDefault
+
+	for _, t := range ide.topology.NodeList {
+		if t.Account == ide.addr {
+			ide.currentRole = t.Type
 		}
 	}
-	log.INFO("当前拓扑信息", "ide.topology", ide.topology)
+	for _, b := range params.BroadCastNodes {
+		if b.NodeID == ide.self {
+			ide.currentRole = common.RoleBroadcast
+			break
+		}
+	}
+	log.Info("current topology", "info:", ide.topology)
 }
 
 // initNowTopologyResult
 func initNowTopologyResult() {
 	ide.lock.Lock()
-	defer ide.lock.Unlock()
 	ide.addrByGroup = make(map[common.RoleType][]common.Address)
-	for po, addr := range ide.topology {
-		role := common.GetRoleTypeFromPosition(po)
-		if role == common.RoleBackupValidator {
-			role = common.RoleValidator
-		}
-		if role == common.RoleBackupMiner {
-			role = common.RoleMiner
-		}
-		ide.addrByGroup[role] = append(ide.addrByGroup[role], addr)
+	for _, node := range ide.topology.NodeList {
+		ide.addrByGroup[node.Type] = append(ide.addrByGroup[node.Type], node.Account)
 	}
 	for _, b := range params.BroadCastNodes {
 		ide.addrByGroup[common.RoleBroadcast] = append(ide.addrByGroup[common.RoleBroadcast], b.Address)
 	}
+	ide.lock.Unlock()
+}
+
+// SetTopologyReader
+func SetTopologyReader(topologyReader TopologyGraphReader) {
+	ide.trChan <- topologyReader
 }
 
 // GetRolesByGroup
 func GetRolesByGroup(roleType common.RoleType) (result []discover.NodeID) {
 	ide.lock.RLock()
-	defer ide.lock.RUnlock()
 	for k, v := range ide.addrByGroup {
 		if (k & roleType) != 0 {
 			for _, addr := range v {
@@ -305,16 +224,18 @@ func GetRolesByGroup(roleType common.RoleType) (result []discover.NodeID) {
 			}
 		}
 	}
+	ide.lock.RUnlock()
 	return
 }
 
 // GetRolesByGroupWithBackup
-func GetRolesByGroupWithBackup(roleType common.RoleType) (result []discover.NodeID) {
+func GetRolesByGroupWithNextElect(roleType common.RoleType) (result []discover.NodeID) {
 	result = GetRolesByGroup(roleType)
-	for addr, role := range ide.elect {
+	for _, elect := range ide.prevElect {
 		temp := true
+		role := elect.Type.Transfer2CommonRole()
 		if (role & roleType) != 0 {
-			id, err := ConvertAddressToNodeId(addr)
+			id, err := ConvertAddressToNodeId(elect.Account)
 			if err != nil {
 				ide.log.Error("convert error", "ca", err)
 				continue
@@ -333,10 +254,11 @@ func GetRolesByGroupWithBackup(roleType common.RoleType) (result []discover.Node
 }
 
 // GetRolesByGroupOnlyBackup
-func GetRolesByGroupOnlyBackup(roleType common.RoleType) (result []discover.NodeID) {
-	for addr, role := range ide.elect {
+func GetRolesByGroupOnlyNextElect(roleType common.RoleType) (result []discover.NodeID) {
+	for _, elect := range ide.prevElect {
+		role := elect.Type.Transfer2CommonRole()
 		if (role & roleType) != 0 {
-			id, err := ConvertAddressToNodeId(addr)
+			id, err := ConvertAddressToNodeId(elect.Account)
 			if err != nil {
 				ide.log.Error("convert error", "ca", err)
 				continue
@@ -385,23 +307,14 @@ func GetElectedByHeightWithdraw(height *big.Int) ([]vm.DepositDetail, error) {
 	return depoistInfo.GetDepositAndWithDrawList(height)
 }
 
-// maintainIdList
-func maintainIdList(d discover.NodeID) {
-	ide.lock.Lock()
-	if _, ok := ide.idList[d]; !ok {
-		ide.idList[d] = ide.availableId
-		ide.availableId++
-	}
-	ide.lock.Unlock()
-}
-
 // GetNodeNumber
 func GetNodeNumber() (uint32, error) {
 	ide.lock.RLock()
 	defer ide.lock.RUnlock()
-	for k, v := range ide.idList {
-		if k == ide.self {
-			return v, nil
+
+	for _, n := range ide.topology.NodeList {
+		if n.Account == ide.addr {
+			return uint32(n.NodeNumber), nil
 		}
 	}
 	return 0, errors.New("No current node number. ")
@@ -415,9 +328,9 @@ func getNodesInBuckets(height *big.Int) (result []discover.NodeID) {
 	for _, m := range electedMiners {
 		msMap[m.Address] = m.NodeID
 	}
-	for _, v := range ide.topology {
+	for _, node := range ide.topology.NodeList {
 		for key := range msMap {
-			if key == v {
+			if key == node.Account {
 				delete(msMap, key)
 				break
 			}
@@ -440,6 +353,7 @@ func GetTopologyInLinker() (result map[common.RoleType][]discover.NodeID) {
 
 	result = make(map[common.RoleType][]discover.NodeID)
 	ide.lock.RLock()
+	defer ide.lock.RUnlock()
 	for k, v := range ide.addrByGroup {
 		for _, addr := range v {
 			id, err := ConvertAddressToNodeId(addr)
@@ -452,14 +366,15 @@ func GetTopologyInLinker() (result map[common.RoleType][]discover.NodeID) {
 		}
 	}
 	ide.lock.RUnlock()
-
-	for addr, role := range ide.elect {
-		temp := true
-		id, err := ConvertAddressToNodeId(addr)
+	for _, elect := range ide.prevElect {
+		id, err := ConvertAddressToNodeId(elect.Account)
 		if err != nil {
 			ide.log.Error("convert error", "ca", err)
 			continue
 		}
+
+		temp := true
+		role := elect.Type.Transfer2CommonRole()
 		for _, i := range result[role] {
 			if i == id {
 				temp = false
@@ -492,62 +407,18 @@ func GetDropNode() (result []discover.NodeID) {
 
 // GetFrontNodes
 func GetFrontNodes() []discover.NodeID {
+	ide.lock.RLock()
+	defer ide.lock.RUnlock()
 	return ide.frontNodes
-}
-
-func setToLevelDB(elect []common.Elect) error {
-	var (
-		tg = new(mc.TopologyGraph)
-		tp = make([]mc.TopologyNodeInfo, 0)
-	)
-
-	tg.Number = GetHeight()
-
-	// set topology graph
-	for key, val := range ide.topology {
-		st := mc.TopologyNodeInfo{}
-		for _, e := range elect {
-			if e.Account == val {
-				st.Stock = e.Stock
-				break
-			}
-		}
-		st.Type = common.GetRoleTypeFromPosition(key)
-		st.Account = val
-		st.Position = key
-		tp = append(tp, st)
-	}
-	tg.NodeList = tp
-
-	bytes, err := json.Marshal(tg)
-	if err != nil {
-		return err
-	}
-	tgBytes := append(tg.Number.Bytes(), []byte(LevelDBTopologyGraph)...)
-	ide.ldb.Put(tgBytes, bytes, nil)
-
-	// set original role
-	originalRoleBytes, err := json.Marshal(ide.originalRole)
-	if err != nil {
-		return err
-	}
-	orBytes := append(tg.Number.Bytes(), []byte(LevelDBOriginalRole)...)
-	return ide.ldb.Put(orBytes, originalRoleBytes, nil)
 }
 
 // GetAddress
 func GetAddress() common.Address {
-	for _, node := range ide.deposit {
-		if node.NodeID == ide.self {
-			return node.Address
-		}
+	addr, err := ConvertNodeIdToAddress(ide.self)
+	if err != nil {
+		log.Error("ca get self address", "error", err)
 	}
-	for _, b := range params.BroadCastNodes {
-		if b.NodeID == ide.self {
-			return b.Address
-		}
-	}
-	return common.Address{}
+	return addr
 }
 
 // GetSelfLevel
@@ -557,7 +428,7 @@ func GetSelfLevel() int {
 		return TopNode
 	case ide.currentRole == common.RoleBucket:
 		m := big.Int{}
-		return int(m.Mod(ide.addr.Hash().Big(), big.NewInt(4)).Int64())+1
+		return int(m.Mod(ide.addr.Hash().Big(), big.NewInt(4)).Int64()) + 1
 	case ide.currentRole <= common.RoleDefault:
 		return DefaultNode
 	default:
@@ -567,56 +438,35 @@ func GetSelfLevel() int {
 
 // GetTopologyByNumber
 func GetTopologyByNumber(reqTypes common.RoleType, number uint64) (*mc.TopologyGraph, error) {
-	tgBytes := append(big.NewInt(int64(number)).Bytes(), []byte(LevelDBTopologyGraph)...)
-	val, err := ide.ldb.Get(tgBytes, nil)
+	tg, err := ide.topologyReader.GetTopologyGraphByNumber(number)
 	if err != nil {
+		log.Error("GetAccountTopologyInfo", "error", err, "number", number)
 		return nil, err
 	}
 
-	es := new(mc.TopologyGraph)
-	err = json.Unmarshal(val, &es)
-	if err != nil {
-		return nil, err
+	rlt := &mc.TopologyGraph{
+		Number:        tg.Number,
+		CurNodeNumber: tg.CurNodeNumber,
 	}
-
-	newEs := new(mc.TopologyGraph)
-	newEs.Number = es.Number
-	tempList := make([]mc.TopologyNodeInfo, 0)
-	for _, tg := range es.NodeList {
-		if (tg.Type & reqTypes) != 0 {
-			tempList = append(tempList, tg)
+	for _, node := range tg.NodeList {
+		if node.Type&reqTypes != 0 {
+			rlt.NodeList = append(rlt.NodeList, node)
 		}
 	}
 
-	for _, p := range ide.position {
-		for _, n := range tempList {
-			if p == n.Position {
-				newEs.NodeList = append(newEs.NodeList, n)
-				break
-			}
-		}
-	}
-
-	return newEs, nil
+	return rlt, nil
 }
 
 // GetAccountTopologyInfo
 func GetAccountTopologyInfo(account common.Address, number uint64) (*mc.TopologyNodeInfo, error) {
-	tgBytes := append(big.NewInt(int64(number)).Bytes(), []byte(LevelDBTopologyGraph)...)
-	val, err := ide.ldb.Get(tgBytes, nil)
+	tg, err := ide.topologyReader.GetTopologyGraphByNumber(number)
 	if err != nil {
+		ide.log.Error("GetAccountTopologyInfo", "error", err)
 		return nil, err
 	}
-
-	es := new(mc.TopologyGraph)
-	err = json.Unmarshal(val, &es)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, tg := range es.NodeList {
-		if tg.Account == account {
-			return &tg, nil
+	for _, node := range tg.NodeList {
+		if node.Account == account {
+			return &node, nil
 		}
 	}
 	return nil, errors.New("not found")
@@ -629,21 +479,15 @@ func GetAccountOriginalRole(account common.Address, number uint64) (common.RoleT
 			return common.RoleBroadcast, nil
 		}
 	}
-	orBytes := append(big.NewInt(int64(number)).Bytes(), []byte(LevelDBOriginalRole)...)
-	val, err := ide.ldb.Get(orBytes, nil)
+	ori, err := ide.topologyReader.GetOriginalElect(number)
 	if err != nil {
+		ide.log.Error("get original elect", "error", err)
 		return common.RoleNil, err
 	}
 
-	es := make([]common.Elect, 0)
-	err = json.Unmarshal(val, &es)
-	if err != nil {
-		return common.RoleNil, err
-	}
-
-	for _, tg := range es {
-		if tg.Account == account {
-			return tg.Type.Transfer2CommonRole(), nil
+	for _, elect := range ori {
+		if elect.Account == account {
+			return elect.Type.Transfer2CommonRole(), nil
 		}
 	}
 	return common.RoleNil, errors.New("not found")
