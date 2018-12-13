@@ -1708,3 +1708,10 @@
     95ad26e7: Revert "合并二次秘钥相关"
     66495e15: update buckets
     ...
+
+    12.13：zhangwen pushed to branch master at repository go-matrix
+    005985e4: 增加打印
+
+
+    12.13：sunchunfeng pushed to branch master-debug at repository go-matrix
+    b520b4d4: 选举模块 股权方案 matlab仿真 与python程序完全一致
