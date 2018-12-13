@@ -1695,3 +1695,16 @@
     12.13：huyuankai pushed to branch master at repository go-matrix
     fcd37fc4: 修改 未出块时，leader更换无法签名的bug
 
+
+    12.13：huyuankai pushed to branch master-debug at repository go-matrix
+    fcd37fc4: 修改 未出块时，leader更换无法签名的bug
+    9cec40e9: 合并代码后超级区块第二笔交易没有状态树
+    8a75d751: 遗漏master二次密钥内容
+    7b8f8a73: Merge branch 'master' into master_1115
+    5099db76: 状态树增加超级区块信息
+    cb3a3a67: Merge remote-tracking branch 'remotes/origin/master-debug'
+    94ba44b5: Merge branch 'master_1115' of gitlab.matrix.com:matrix/go-matrix into master_1115
+    89316f45: 1.超级区块信息上树 2.修改获取超级区块相关接口
+    95ad26e7: Revert "合并二次秘钥相关"
+    66495e15: update buckets
+    ...
