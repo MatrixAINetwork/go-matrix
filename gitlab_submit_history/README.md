@@ -1748,3 +1748,12 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     209fbd97: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     7efeff65: 解决有空彩票奖励的问题
     8a2941e1: 利息修改为通过交易发放
+
+
+    12.14:zhenghe pushed to branch master at repository go-matrix
+    e89ba8da: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    ba186031: Merge branch 'master' into gman_Account
+    3dee275d: 修复交易执行失败回滚错误的问题
+
+    12.14:sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    56818dab: 解决选举模块非VIP默认股权问题（VIP1:2000,VIP2:1700,其他:1000）,(分母为1000)
