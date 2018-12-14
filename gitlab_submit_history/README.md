@@ -1736,3 +1736,15 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     b3f112ba: leader服务优化
     a7a23982: 添加日志
     358472cc: 奖励拓扑图读取通过状态树
+
+    12.14:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    f3576af9: Merge branch 'master' into master_nodeId
+    c5e07a21: 广播交易存储
+    14487176: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    9ac59ac7: 委托交易加入测试模式， 启动时需要加入 "--testmode 2222222222222222"
+
+
+    12.14:zhangwen pushed to branch master at repository go-matrix
+    209fbd97: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    7efeff65: 解决有空彩票奖励的问题
+    8a2941e1: 利息修改为通过交易发放
