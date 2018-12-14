@@ -1757,3 +1757,9 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.14:sunchunfeng pushed to branch restart_temp at repository go-ethereum
     56818dab: 解决选举模块非VIP默认股权问题（VIP1:2000,VIP2:1700,其他:1000）,(分母为1000)
+
+    12.14:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    e488901e: Update core/topology_store.go
+
+    12.14:sunchunfeng pushed to branch master at repository go-matrix
+    cbce914c: 公私钥交易从状态树获取
