@@ -1763,3 +1763,12 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.14:sunchunfeng pushed to branch master at repository go-matrix
     cbce914c: 公私钥交易从状态树获取
+
+    12.14:zhenghe pushed to branch gman_Account at repository go-matrix
+    96ceddd1: 修改获取抵押接口
+
+    12.14:zhangwen pushed to branch restart_temp at repository go-ethereum
+    b8af5de5: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    37c46b15: 1.固定区块奖励修改为100man 2.折半周期修改为300w块
+    788d46fb: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    18cd23e9: 彩票奖励随机数由vrf修改为选举随机数
