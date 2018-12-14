@@ -48,8 +48,9 @@ var (
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
 
-	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
-	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
+	preimageCounter     = metrics.NewRegisteredCounter("db/preimage/total", nil)
+	preimageHitCounter  = metrics.NewRegisteredCounter("db/preimage/hits", nil)
+	topologyGraphPrefix = []byte("g") //topologyGraphPrefix + num + blockHash -> topology graph
 )
 
 // TxLookupEntry is a positional metadata to help looking up the data content of
