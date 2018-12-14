@@ -1709,3 +1709,11 @@
     66495e15: update buckets
     ...
 Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+
+    12.14: huyuankai pushed to branch master at repository go-matrix
+    1c75d443: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    5eda82ac: 增加日志，追踪miss trie node 问题
+
+    12.14:sunchunfeng pushed to branch master at repository go-matrix
+    14487176: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    9ac59ac7: 委托交易加入测试模式， 启动时需要加入 "--testmode 2222222222222222"
