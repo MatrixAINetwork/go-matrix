@@ -23,6 +23,7 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
 	"github.com/hashicorp/golang-lru"
+	"github.com/matrix/go-matrix/mc"
 )
 
 const (
@@ -51,15 +52,17 @@ type HeaderChain struct {
 
 	procInterrupt func() bool
 
-	rand   *mrand.Rand
-	engine consensus.Engine
+	rand          *mrand.Rand
+	engine        consensus.Engine
+	dposEngine    consensus.DPOSEngine
+	topologyStore *TopologyStore
 }
 
 // NewHeaderChain creates a new HeaderChain structure.
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -79,6 +82,7 @@ func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine c
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
+		dposEngine:    dposEngine,
 	}
 
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
@@ -93,6 +97,9 @@ func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine c
 		}
 	}
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
+
+	hc.topologyStore = NewTopologyStore(hc, hc.chainDb)
+	hc.topologyStore.WriteTopologyGraph(hc.genesisHeader)
 
 	return hc, nil
 }
@@ -177,6 +184,11 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 		status = SideStatTy
 	}
 
+	//write topology graph
+	if err := hc.topologyStore.WriteTopologyGraph(header); err != nil {
+		log.ERROR("header chain", "缓存拓扑信息错误", err)
+	}
+
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 
@@ -203,6 +215,11 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 		}
 	}
 
+	err := hc.dposEngine.VerifyBlocks(hc, chain)
+	if err != nil {
+		log.Error("区块下载验证头链", "DPOS共识错误", err)
+		return 0, err
+	}
 	// Generate the list of seal verification requests, and start the parallel verifier
 	seals := make([]bool, len(chain))
 	for i := 0; i < len(seals)/checkFreq; i++ {
@@ -453,4 +470,41 @@ func (hc *HeaderChain) Engine() consensus.Engine { return hc.engine }
 // a header chain does not have blocks available for retrieval.
 func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	return nil
+}
+
+func (hc *HeaderChain) GetTopologyGraphByNumber(number uint64) (*mc.TopologyGraph, error) {
+	return hc.topologyStore.GetTopologyGraphByNumber(number)
+}
+
+func (hc *HeaderChain) GetOriginalElect(number uint64) ([]common.Elect, error) {
+	return hc.topologyStore.GetOriginalElect(number)
+}
+
+func (hc *HeaderChain) GetNextElect(number uint64) ([]common.Elect, error) {
+	return hc.topologyStore.GetNextElect(number)
+}
+
+func (hc *HeaderChain) NewTopologyGraph(header *types.Header) (*mc.TopologyGraph, error) {
+	return hc.topologyStore.NewTopologyGraph(header)
+}
+
+func (hc *HeaderChain) GetCurrentNumber() uint64 {
+	return hc.CurrentHeader().Number.Uint64()
+}
+
+func (hc *HeaderChain) GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error) {
+	tg, err := hc.GetTopologyGraphByNumber(number)
+	if err != nil {
+		return nil, err
+	}
+	rlt := &mc.TopologyGraph{
+		Number:        tg.Number,
+		CurNodeNumber: tg.CurNodeNumber,
+	}
+	for _, node := range tg.NodeList {
+		if node.Type&common.RoleValidator != 0 {
+			rlt.NodeList = append(rlt.NodeList, node)
+		}
+	}
+	return rlt, nil
 }
