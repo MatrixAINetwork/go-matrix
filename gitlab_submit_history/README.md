@@ -1826,3 +1826,11 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     b9e1f73e: 1.解决选举模块各节点被选中次数不相等问题
 
 
+
+    12.15:叶营 pushed to branch master at repository go-matrix
+    6bda9728: add func BatchSender
+
+
+    12.15:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    d0b3bfd2: modify key
+
