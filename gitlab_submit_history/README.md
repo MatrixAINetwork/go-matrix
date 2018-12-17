@@ -1818,3 +1818,11 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     ac806b03: 修改由于机器卡顿，导致leader服务重选定时器停止工作的bug
     18cd23e9: 彩票奖励随机数由vrf修改为选举随机数
     a23642fa: Update .gitlab-ci.yml
+
+    12.15:huyuankai pushed to branch master at repository go-matrix
+    cd218fb6: 修改遗漏代码
+
+    12.15:sunchunfeng pushed to branch master at repository go-matrix
+    b9e1f73e: 1.解决选举模块各节点被选中次数不相等问题
+
+
