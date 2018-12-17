@@ -1786,3 +1786,23 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     209fbd97: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     7efeff65: 解决有空彩票奖励的问题
     8a2941e1: 利息修改为通过交易发放
+
+    12.14:zhenghe pushed to branch master at repository go-matrix
+    95b015bb: Merge branch 'master' into gman_Account
+    11b6a8ef: 修改SignTxWithPasswd方法
+    96ceddd1: 修改获取抵押接口
+
+    12.14:叶营 pushed to branch restart_temp at repository go-ethereum
+    9f91c03f: 解决冲突
+    336bebcb: 修改利息奖励
+
+    12.15:huyuankai pushed to branch master at repository go-matrix
+    10904b59: 验证服务，票池流程修改
+
+    12.15:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    f6a3df3e: Merge branch 'master' into master_nodeId
+    10904b59: 验证服务，票池流程修改
+    95b015bb: Merge branch 'master' into gman_Account
+    11b6a8ef: 修改SignTxWithPasswd方法
+    96ceddd1: 修改获取抵押接口
+    cbce914c: 公私钥交易从状态树获取
