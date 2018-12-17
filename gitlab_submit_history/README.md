@@ -1806,3 +1806,15 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     11b6a8ef: 修改SignTxWithPasswd方法
     96ceddd1: 修改获取抵押接口
     cbce914c: 公私钥交易从状态树获取
+
+    12.15:叶营 pushed to branch revert-9f91c03f at repository go-ethereum
+    6e9fad26: Revert "解决冲突"
+    9f91c03f: 解决冲突
+    336bebcb: 修改利息奖励
+    b8af5de5: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    37c46b15: 1.固定区块奖励修改为100man 2.折半周期修改为300w块
+    56818dab: 解决选举模块非VIP默认股权问题（VIP1:2000,VIP2:1700,其他:1000）,(分母为1000)
+    788d46fb: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    ac806b03: 修改由于机器卡顿，导致leader服务重选定时器停止工作的bug
+    18cd23e9: 彩票奖励随机数由vrf修改为选举随机数
+    a23642fa: Update .gitlab-ci.yml
