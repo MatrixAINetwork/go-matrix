@@ -1833,4 +1833,9 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.15:sunanxiang pushed to branch master_nodeId at repository go-matrix
     d0b3bfd2: modify key
+ 
+    12.15:sunchunfeng pushed to branch master at repository go-matrix
+    b9e1f73e: 1.解决选举模块各节点被选中次数不相等问题
 
+    12.15:叶营 pushed to branch gman_Account at repository go-matrix
+    c226a2d6: 合并geth中的利息代码
