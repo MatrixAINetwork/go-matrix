@@ -1772,3 +1772,17 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     37c46b15: 1.固定区块奖励修改为100man 2.折半周期修改为300w块
     788d46fb: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
     18cd23e9: 彩票奖励随机数由vrf修改为选举随机数
+
+
+    12.14:zhenghe pushed to branch gman_Account at repository go-matrix
+    11b6a8ef: 修改SignTxWithPasswd方法
+
+
+    12.14:zhenghe pushed to branch gman_Account at repository go-matrix
+    95b015bb: Merge branch 'master' into gman_Account
+    cbce914c: 公私钥交易从状态树获取
+    dca69db6: fmt
+    e89ba8da: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    209fbd97: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    7efeff65: 解决有空彩票奖励的问题
+    8a2941e1: 利息修改为通过交易发放
