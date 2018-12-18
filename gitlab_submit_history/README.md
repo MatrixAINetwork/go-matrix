@@ -1848,3 +1848,32 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.15:zhenghe pushed to branch gman_Account at repository go-matrix
     fe3d0cbd: 修改默认gaslimit为21000
+
+
+    12.15:叶营 pushed to branch test_interest at repository go-ethereum
+    33f5e83b: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    83a72274: 修改利息判断
+    07847309: 矿工奖励修改为0.2man，验证者奖励修改为2man
+    7241b76a: modify if
+    277455b4: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    4d32b8aa: 矿工奖励修改为1man，验证者奖励修改为10man
+    80d34365: 矿工个数由5个调整为21个
+    83b85076: 调整公私钥交易log
+    ea1ae10d: add log
+    7b99fdb6: Revert "Revert "解决冲突""
+
+    12.18:zhenghe pushed to branch gman_Account at repository go-matrix
+    2ce3eb06: Merge branch 'master' into gman_Account
+    94a6ec52: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    dc14c738: leader服务 日志整理完成
+    2dcac453: 选举模块 单元测试
+    dfeb9719: miss tree node日志
+    4833cd4b: 重新提交被冲掉的代码
+    da43dac9: miss tree node 问题追踪
+    3df06d86: miss trie node 问题日志调整
+    6c5299cc: 追踪miss tire node 增加日志
+    5d0d9f1b: 补充日志
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    f78ad252: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    fc89fb99: 1.测试发现彩票奖励筛选的出来的交易无法获取from2.，走查发现普通交易需要解签，已修改 3. 交易费奖励、固定区块奖励、彩票奖励增加最新的测试用例
