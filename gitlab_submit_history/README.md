@@ -1839,3 +1839,12 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.15:叶营 pushed to branch gman_Account at repository go-matrix
     c226a2d6: 合并geth中的利息代码
+
+    12.15:叶营 pushed to branch master at repository go-matrix
+    aaa1048e: modify func FetcherNotify
+
+    12.15:huyuankai pushed to branch master at repository go-matrix
+    bdd0f5e3: fetch 上次调用 增加 address参数
+
+    12.15:zhenghe pushed to branch gman_Account at repository go-matrix
+    fe3d0cbd: 修改默认gaslimit为21000
