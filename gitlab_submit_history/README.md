@@ -1877,3 +1877,19 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     12.18:zhangwen pushed to branch master at repository go-matrix
     f78ad252: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     fc89fb99: 1.测试发现彩票奖励筛选的出来的交易无法获取from2.，走查发现普通交易需要解签，已修改 3. 交易费奖励、固定区块奖励、彩票奖励增加最新的测试用例
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    7d3eccaf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    cc6b4ce3: 1.增加惩罚和利息测试用例 2.修改惩罚获取初选列表和本周期计算的利息作为参数传入惩罚
+
+
+    12.18:huyuankai pushed to branch master at repository go-matrix
+    477f9f7b: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    c46ef282: 修改状态树，commit时的err返回
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    ce5d58a6: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    afdad082: 修复惩罚获取初选的高度计算错误
+
+    12.18:sunchunfeng pushed to branch master at repository go-matrix
+    dc9907f2: 增加命令行更新委托签名账户
