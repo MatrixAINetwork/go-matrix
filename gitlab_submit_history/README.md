@@ -1946,3 +1946,14 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     3c8a1f17: 修改dump显示所有账户余额
     4acd08a8: 修改状态树 异步panic问题
     05e77a31: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+
+
+    12.19:huyuankai pushed to branch pos_recovery at repository go-matrix
+    293a0f16: 修改索引编解码问题
+
+    12.19: huyuankai pushed to branch pos_recovery at repository go-matrix
+    9e0ef731: 增加POS回复流程
+
+
+    12.19:sunchunfeng pushed to branch master at repository go-matrix
+    a65a783d: 修改委托交易日志
