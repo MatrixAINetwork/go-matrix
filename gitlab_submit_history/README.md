@@ -1905,3 +1905,10 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     fc89fb99: 1.测试发现彩票奖励筛选的出来的交易无法获取from2.，走查发现普通交易需要解签，已修改 3. 交易费奖励、固定区块奖励、彩票奖励增加最新的测试用例
     2ce3eb06: Merge branch 'master' into gman_Account
     6c55506e: 去掉打印日志
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    ce5d58a6: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    afdad082: 修复惩罚获取初选的高度计算错误
+
+    12.18:sunchunfeng pushed to branch master at repository go-matrix
+    dc9907f2: 增加 命令行更新委托签名账户
