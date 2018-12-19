@@ -1912,3 +1912,16 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.18:sunchunfeng pushed to branch master at repository go-matrix
     dc9907f2: 增加 命令行更新委托签名账户
+
+
+    12:19:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    824baa15: Merge branch 'master' into master_nodeId
+    2a28c0c5: Merge branch 'master' into gman_Account
+    3c8a1f17: 修改dump显示所有账户余额
+    4acd08a8: 修改状态树 异步panic问题
+    05e77a31: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    c0a0a06e: 修改签名助手注册位置
+    13afe057: Merge branch 'master' into gman_Account
+    a3e417c9: 修改state异步读写问题
+    ce5d58a6: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    afdad082: 修复惩罚获取初选的高度计算错误
