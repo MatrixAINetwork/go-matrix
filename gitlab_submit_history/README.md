@@ -1893,3 +1893,15 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.18:sunchunfeng pushed to branch master at repository go-matrix
     dc9907f2: 增加命令行更新委托签名账户
+
+    12.18:叶营 pushed to branch master-sharding at repository go-matrix
+    4ca3f895: aaa
+    7d173701: Merge branch 'master' into master-sharding
+    53d1ff2d: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    ba59c9c7: 修改签名助手及钱包接口。使rpc签名交易，无密码不生效
+    359aaca6: Merge branch 'master' into gman_Account
+    0144627a: 奖励创世文件增加算法配置
+    f78ad252: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    fc89fb99: 1.测试发现彩票奖励筛选的出来的交易无法获取from2.，走查发现普通交易需要解签，已修改 3. 交易费奖励、固定区块奖励、彩票奖励增加最新的测试用例
+    2ce3eb06: Merge branch 'master' into gman_Account
+    6c55506e: 去掉打印日志
