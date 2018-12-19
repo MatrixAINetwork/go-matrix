@@ -20,7 +20,7 @@ type NetData struct {
 	Msg     []byte
 }
 
-type BroadcastRspMsgForMarshal struct {
+type fullBlockMsgForMarshal struct {
 	Header *types.Header
 	Txs    []*types.Transaction_Mx
 }
