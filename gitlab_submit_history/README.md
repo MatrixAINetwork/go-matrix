@@ -1925,3 +1925,11 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     a3e417c9: 修改state异步读写问题
     ce5d58a6: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     afdad082: 修复惩罚获取初选的高度计算错误
+
+
+    12.19:jerry.liu pushed to branch master at repository go-matrix
+    7e4a05af: Merge branch 'master' of http://gitlab.matrix.com/matrix/go-matrix
+    bffae367: 临时注掉ipfs 清理
+
+    12.19:sunchunfeng pushed to branch master at repository go-matrix
+    a65a783d: 修改委托交易日志
