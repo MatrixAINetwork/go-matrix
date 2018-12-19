@@ -1933,3 +1933,16 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.19:sunchunfeng pushed to branch master at repository go-matrix
     a65a783d: 修改委托交易日志
+
+
+    12.19:叶营 pushed to branch master-sharding at repository go-matrix
+    f266ba44: Merge branch 'master' into master-sharding
+    7e4a05af: Merge branch 'master' of http://gitlab.matrix.com/matrix/go-matrix
+    bffae367: 临时注掉ipfs 清理
+    a65a783d: 修改委托交易日志
+    c90416ee: ipfs区块同步更新
+    9f5d27d3: 整理随机数服务代码
+    2a28c0c5: Merge branch 'master' into gman_Account
+    3c8a1f17: 修改dump显示所有账户余额
+    4acd08a8: 修改状态树 异步panic问题
+    05e77a31: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
