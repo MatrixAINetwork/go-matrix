@@ -1988,3 +1988,10 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
     55d1548d: 修改判断条件错误
+
+    12.20:zhangwen pushed to branch master at repository go-matrix
+    1e43964b: 奖励发放状态初值在创建创建区块时写入，解决超级区块插入到1块不出块的问题
+
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    74f88466: 添加日志
