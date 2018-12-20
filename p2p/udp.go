@@ -57,9 +57,9 @@ func UdpSend(data interface{}) {
 
 	ids := make([]discover.NodeID, 0)
 	if ca.InDuration() {
-		ids = ca.GetRolesByGroupOnlyBackup(common.RoleValidator|common.RoleBackupValidator)
+		ids = ca.GetRolesByGroupOnlyNextElect(common.RoleValidator | common.RoleBackupValidator)
 	} else {
-		ids = ca.GetRolesByGroup(common.RoleValidator)
+		ids = ca.GetRolesByGroup(common.RoleValidator | common.RoleBackupValidator)
 	}
 	if len(ids) <= 2 {
 		for _, id := range ids {
