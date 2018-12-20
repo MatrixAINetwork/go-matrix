@@ -1957,3 +1957,16 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.19:sunchunfeng pushed to branch master at repository go-matrix
     a65a783d: 修改委托交易日志
+
+    12.19:zhangwen pushed to branch uptime_modify at repository go-ethereum
+    406fba8d: 1.初选验证者uptime减半 2.初选矿工uptime清0
+    e6d55c50: 移除无关打印
+    1e43550f: geth 修改gman
+    540d4a77: 1.增加windows panic日志输出到geth目录 2.geth.ipc修改为gman.ipc
+    baf25ed4: 修改git version命令只显示 Version、Architecture Operating System和git commit
+    98bce562: 折半周期500w
+    1901ecf4: 矿工奖励修改为3man，验证者奖励修改为7man
+    561cbbdd: 修改交易签名的问题, 无密码可签名的bug
+    33f5e83b: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    83a72274: 修改利息判断
+    ...
