@@ -26,11 +26,12 @@ type TopNodeService struct {
 	msgCheck messageCheck
 	dposRing *DPosVoteRing
 
-	topNodeState  TopNodeStateInterface
-	validatorSign ValidatorAccountInterface
-	msgSender     MessageSendInterface
-	msgCenter     MessageCenterInterface
-	cd            consensus.DPOSEngine
+	validatorReader consensus.ValidatorReader
+	topNodeState    TopNodeStateInterface
+	validatorSign   ValidatorAccountInterface
+	msgSender       MessageSendInterface
+	msgCenter       MessageCenterInterface
+	cd              consensus.DPOSEngine
 
 	leaderChangeCh     chan *mc.LeaderChangeNotify
 	leaderChangeSub    event.Subscription
@@ -60,6 +61,10 @@ func NewTopNodeService(cd consensus.DPOSEngine) *TopNodeService {
 	//	go t.update()
 
 	return t
+}
+
+func (self *TopNodeService) SetValidatorReader(reader consensus.ValidatorReader) {
+	self.validatorReader = reader
 }
 
 func (self *TopNodeService) SetTopNodeStateInterface(inter TopNodeStateInterface) {
@@ -268,7 +273,7 @@ func (serv *TopNodeService) consensusVotes(proposal interface{}, votes []voteInf
 	for _, value := range votes {
 		signList = append(signList, value.data.Sign)
 	}
-	tempSigns, err := serv.cd.VerifyHashWithNumber(votes[0].data.SignHash, signList, 10)
+	tempSigns, err := serv.cd.VerifyHashWithNumber(serv.validatorReader, votes[0].data.SignHash, signList, 10)
 	if err != nil {
 		log.Info(serv.extraInfo, "DPOS共识失败", err)
 		return
