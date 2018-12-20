@@ -1982,3 +1982,9 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
     2efb9cea: 增加日志
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    458aa797: 修改日志
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    55d1548d: 修改判断条件错误
