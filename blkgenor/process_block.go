@@ -135,7 +135,7 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 	p.processBlockInsert()
 }
 
-func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types.Transactions) ([]*types.Receipt, *state.StateDB, error) {
+func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types.SelfTransactions) ([]*types.Receipt, *state.StateDB, error) {
 	parent := p.blockChain().GetBlockByHash(header.ParentHash)
 	if parent == nil {
 		return nil, nil, errors.Errorf("父区块(%s)获取失败!", header.ParentHash.TerminalString())
