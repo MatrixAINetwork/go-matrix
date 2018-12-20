@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -49,7 +49,7 @@ func (p *Process) sendMineReqFunc(data interface{}, times uint32) {
 
 func (p *Process) startPosedReqSender(req *mc.HD_BlkConsensusReqMsg) {
 	p.closePosedReqSender()
-	sender, err := common.NewResendMsgCtrl(req, p.sendPosedReqFunc, man.PosedReqSendInterval, 0)
+	sender, err := common.NewResendMsgCtrl(req, p.sendPosedReqFunc, params.PosedReqSendInterval, 0)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
 		return
@@ -78,7 +78,7 @@ func (p *Process) sendPosedReqFunc(data interface{}, times uint32) {
 
 func (p *Process) startVoteMsgSender(vote *mc.HD_ConsensusVote) {
 	p.closeVoteMsgSender()
-	sender, err := common.NewResendMsgCtrl(vote, p.sendVoteMsgFunc, man.BlkVoteSendInterval, man.BlkVoteSendTimes)
+	sender, err := common.NewResendMsgCtrl(vote, p.sendVoteMsgFunc, params.BlkVoteSendInterval, params.BlkVoteSendTimes)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "创建投票消息发送器", "失败", "err", err)
 		return
