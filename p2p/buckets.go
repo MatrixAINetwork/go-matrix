@@ -137,7 +137,7 @@ func (b *Bucket) Start() {
 			case b.rings.Next().Value.(int64):
 				b.disconnectMiner()
 			case b.rings.Prev().Value.(int64):
-				miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupValidator)
+				miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupValidator)
 				b.outer(MaxLink, miners)
 			}
 		case <-b.quit:
@@ -172,7 +172,7 @@ func (b *Bucket) nodesCount() (count int) {
 
 // DisconnectMiner older disconnect miner.
 func (b *Bucket) disconnectMiner() {
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
 	for _, miner := range miners {
 		ServerP2p.RemovePeer(discover.NewNode(miner, nil, 0, 0))
 	}
@@ -221,7 +221,7 @@ func (b *Bucket) maintainInner() {
 // MaintainOuter maintain bucket outer.
 func (b *Bucket) maintainOuter() {
 	count := 0
-	miners := ca.GetRolesByGroupWithBackup(common.RoleMiner | common.RoleBackupMiner)
+	miners := ca.GetRolesByGroupWithNextElect(common.RoleMiner | common.RoleBackupMiner)
 	b.log.Info("maintainOuter", "peer info", miners)
 	for _, peer := range ServerP2p.Peers() {
 		for _, miner := range miners {
