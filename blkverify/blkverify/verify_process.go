@@ -9,7 +9,6 @@ import (
 
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/blkverify/votepool"
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/types"
@@ -387,8 +386,12 @@ func (p *Process) VerifyTxs(result *core.RetChan) {
 		return
 	}
 
-	log.INFO(p.logExtraInfo(), "开始交易验证, 数量", len(result.Rxs), "高度", p.number)
-	p.curProcessReq.txs = result.Rxs
+
+	log.INFO(p.logExtraInfo(), "开始交易验证, 数量", len(result.AllTxs), "高度", p.number)
+	for _,listN := range result.AllTxs{
+		p.curProcessReq.txs = append(p.curProcessReq.txs,listN.Txser...)
+	}
+
 
 	//跑交易交易验证， Root TxHash ReceiptHash Bloom GasLimit GasUsed
 	remoteHeader := p.curProcessReq.req.Header
@@ -576,7 +579,7 @@ func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 
 func (p *Process) blockChain() *core.BlockChain { return p.pm.bc }
 
-func (p *Process) txPool() *core.TxPool { return p.pm.txPool }
+func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //YYY
 
 func (p *Process) reElection() *reelection.ReElection { return p.pm.reElection }
 
