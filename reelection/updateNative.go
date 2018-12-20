@@ -37,7 +37,7 @@ func (self *ReElection) whereIsV(address common.Address, role common.RoleType, h
 	switch {
 	case role == common.RoleMiner:
 		height = height / common.GetBroadcastInterval()
-		height = height*common.GetBroadcastInterval() - params.MinerTopologyGenerateUptime
+		height = height*common.GetBroadcastInterval() - params.MinerTopologyGenerateUpTime
 		ans, _, err := self.readElectData(common.RoleMiner, height)
 		if err != nil {
 			return -1, mc.TopologyNodeInfo{}, err

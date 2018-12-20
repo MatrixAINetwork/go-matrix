@@ -107,7 +107,7 @@ func (self *ReElection) ToGenMinerTop(height uint64) error {
 		log.INFO(Module, "收到礦工拓撲生成相應,data", TopRsp)
 
 		self.minerGenSub.Unsubscribe()
-		err := self.writeElectData(common.RoleMiner, height+params.MinerTopologyGenerateUptime-params.MinerNetChangeUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
+		err := self.writeElectData(common.RoleMiner, height+params.MinerTopologyGenerateUpTime-params.MinerNetChangeUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 		log.INFO(Module, "寫礦工的選舉信息到數據庫", err, "data", ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
 
 		return err
