@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package params
@@ -9,7 +9,6 @@ import (
 
 	"fmt"
 	"github.com/matrix/go-matrix/log"
-	"github.com/pkg/errors"
 	"os"
 )
 
@@ -18,26 +17,29 @@ const (
 	MinerNetChangeUpTime  = 4
 
 	VerifyTopologyGenerateUpTime = 8
-	MinerTopologyGenerateUptime  = 8
+	MinerTopologyGenerateUpTime  = 8
 
 	RandomVoteTime = 5
-	HCSIM          = 1
-	HCP2P          = 2
+
+	LRSParentMiningTime = int64(20)
+	LRSPOSOutTime       = int64(20)
+	LRSReelectOutTime   = int64(40)
+	LRSReelectInterval  = 5
+
+	VotePoolTimeout    = 55 * 1000
+	VotePoolCountLimit = 5
+
+	BlkPosReqSendInterval   = 5
+	BlkPosReqSendTimes      = 6
+	BlkVoteSendInterval     = 3
+	BlkVoteSendTimes        = 8
+	MinerReqSendInterval    = 3
+	PosedReqSendInterval    = 10
+	MinerResultSendInterval = 3
 )
 
 var (
-	SignAccount         = "0xc47d9e507c1c5cb65cc7836bb668549fc8f547df"
-	SignAccountPassword = "12345"
-	HcMethod            = HCP2P
-
-	NoBootNode      = errors.New("无boot节点")
-	NoBroadCastNode = errors.New("无广播节点")
-)
-
-const (
-	//TODO: VotePoolTimeout
-	VotePoolTimeout    = 37 * 1000
-	VotePoolCountLimit = 5
+	DifficultList = []uint64{1}
 )
 
 func Config_Init(Config_PATH string) {
