@@ -14,15 +14,14 @@ import (
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
-	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/params"
 	"gopkg.in/fatih/set.v0"
+	"github.com/matrix/go-matrix/msgsend"
 )
 
 const (
@@ -54,7 +53,7 @@ type Work struct {
 	Block *types.Block // the new block
 
 	header   *types.Header
-	txs      []*types.Transaction
+	txs      []types.SelfTransaction
 	receipts []*types.Receipt
 
 	createdAt time.Time
@@ -97,11 +96,11 @@ type worker struct {
 	localMiningRequestCh  chan *mc.BlockGenor_BroadcastMiningReqMsg
 	localMiningRequestSub event.Subscription
 	mineReqCtrl           *mineReqCtrl
-	hd                    *hd.HD
+	hd                    *msgsend.HD
 	mineResultSender      *common.ResendMsgCtrl
 }
 
-func newWorker(config *params.ChainConfig, engine consensus.Engine, validatorReader consensus.ValidatorReader, dposEngine consensus.DPOSEngine, mux *event.TypeMux, hd *hd.HD) (*worker, error) {
+func newWorker(config *params.ChainConfig, engine consensus.Engine, validatorReader consensus.ValidatorReader, dposEngine consensus.DPOSEngine, mux *event.TypeMux, hd *msgsend.HD) (*worker, error) {
 	worker := &worker{
 		config: config,
 		engine: engine,
@@ -270,8 +269,8 @@ func (self *worker) foundHandle(header *types.Header) {
 
 func (self *worker) CalDiffList(difficulty uint64) []*big.Int {
 	diffList := make([]*big.Int, 0)
-	for i := 0; i < len(man.DifficultList); i++ {
-		temp := difficulty / man.DifficultList[i]
+	for i := 0; i < len(params.DifficultList); i++ {
+		temp := difficulty / params.DifficultList[i]
 		if temp <= 1 {
 			diffList = append(diffList, big.NewInt(int64(1)))
 			break
@@ -460,7 +459,7 @@ func (self *worker) beginMine(reqData *mineReqData) {
 
 func (self *worker) startMineResultSender(data *mineReqData) {
 	self.stopMineResultSender()
-	sender, err := common.NewResendMsgCtrl(data, self.sendMineResultFunc, man.MinerResultSendInterval, 0)
+	sender, err := common.NewResendMsgCtrl(data, self.sendMineResultFunc, params.MinerResultSendInterval, 0)
 	if err != nil {
 		log.ERROR(ModuleMiner, "创建挖矿结果发送器", "失败", "err", err)
 		return

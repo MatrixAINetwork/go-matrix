@@ -19,6 +19,7 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/msgsend"
 )
 
 const (
@@ -51,7 +52,7 @@ type Miner struct {
 
 func (s *Miner) Getworker() *worker { return s.worker }
 
-func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, dposEngine consensus.DPOSEngine, hd *hd.HD) (*Miner, error) {
+func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, dposEngine consensus.DPOSEngine, hd *msgsend.HD) (*Miner, error) {
 	miner := &Miner{
 		mux:    mux,
 		engine: engine,
