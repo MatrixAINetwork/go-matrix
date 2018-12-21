@@ -26,6 +26,7 @@ import (
 	"github.com/matrix/go-matrix/trie"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"gopkg.in/urfave/cli.v1"
+	"github.com/matrix/go-matrix/consensus/mtxdpos"
 )
 
 var (
@@ -368,7 +369,8 @@ func copyDb(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), func() bool { return false })
+	dposEngine := mtxdpos.NewMtxDPOS()
+	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), dposEngine, func() bool { return false })
 	if err != nil {
 		return err
 	}
