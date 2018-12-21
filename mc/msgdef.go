@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors 
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -22,7 +22,7 @@ type HdRev struct {
 
 type BlockData struct {
 	Header *types.Header
-	Txs    types.Transactions
+	Txs    types.SelfTransactions
 }
 
 //Miner Module
@@ -132,12 +132,12 @@ type HD_BlkConsensusReqMsg struct {
 	From          common.Address
 	Header        *types.Header
 	ConsensusTurn uint32
-	TxsCode       []uint32
+	TxsCode       []*common.RetCallTxN
 }
 
 type LocalBlockVerifyConsensusReq struct {
 	BlkVerifyConsensusReq *HD_BlkConsensusReqMsg
-	Txs                   types.Transactions // 交易列表
+	Txs                   types.SelfTransactions // 交易列表
 	Receipts              []*types.Receipt   // 收据
 	State                 *state.StateDB     // apply state changes here 状态数据库
 }
@@ -146,13 +146,13 @@ type BlockPOSFinishedNotify struct {
 	Number        uint64
 	Header        *types.Header // 包含签名列表的header
 	ConsensusTurn uint32
-	TxsCode       []uint32
+	TxsCode       []*common.RetCallTxN
 }
 
 type BlockLocalVerifyOK struct {
 	Header    *types.Header // 包含签名列表的header
 	BlockHash common.Hash
-	Txs       types.Transactions // 交易列表
+	Txs       types.SelfTransactions // 交易列表
 	Receipts  []*types.Receipt   // 收据
 	State     *state.StateDB     // apply state changes here 状态数据库
 }
@@ -302,6 +302,6 @@ type HD_FullBlockReqMsg struct {
 
 type HD_FullBlockRspMsg struct {
 	Header *types.Header
-	Txs    types.Transactions
+	Txs    types.SelfTransactions
 	From   common.Address
 }

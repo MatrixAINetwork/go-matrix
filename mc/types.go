@@ -18,6 +18,15 @@ const (
 	CallTheRoll = "CallTheRoll"    //点名交易  （广播节点随机连接1000个点）
 )
 
+func ReturnBroadCastType() (bType map[string]bool) {
+	bType = make(map[string]bool)
+	bType[Heartbeat] = true
+	bType[Publickey] = true
+	bType[Privatekey] = true
+	bType[CallTheRoll] = true
+	return bType
+}
+
 type BlockToBucket struct {
 	Ms     []discover.NodeID
 	Height *big.Int
@@ -46,6 +55,10 @@ type LeaderStateMsg struct {
 	Leader      common.Address
 	Number      big.Int
 	ReelectTurn uint8
+}
+
+type SyncIdEvent struct { //lb
+	Role common.RoleType
 }
 
 // type BlockVerifyReqMsg struct {
