@@ -1995,3 +1995,9 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
     74f88466: 添加日志
+
+    12.21：zhenghe pushed to branch gman_Account at repository go-matrix
+    fe85bedb: 修复彩票奖励获取不到区块有可能panic的问题
+    9e92482c: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    44d23fa2: 彩票不排序和移除vrf无关打印
+    8c3b8e11: 修改选举量化 解决委托交易不能attach以后输入密码问题
