@@ -283,7 +283,7 @@ func (api *PrivateMinerAPI) TestHeaderGen(kind string, s string) {
 	case "normal":
 		//mc.PublicEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 1})
 		//mc.PublicEvent(mc.BlkVerify_VerifyConsensusOK, &mc.BlockVerifyConsensusOK{testHeader, nil, nil, nil})
-		log.INFO("successfully normal ", "data", mc.BlockVerifyConsensusOK{Header: testHeader})
+		log.INFO("successfully normal ", "data", mc.BlockLocalVerifyOK{Header: testHeader})
 	case "start":
 		//type LeaderChangeNotify struct {
 		//	ConsensusState bool //共识结果
@@ -316,12 +316,6 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.lock.Unlock()
 
 	//api.e.txPool.SetGasPrice((*big.Int)(&gasPrice)) //YYY
-	return true
-}
-
-// SetManerbase sets the manbase of the miner
-func (api *PrivateMinerAPI) SetManerbase(manbase common.Address) bool {
-	api.e.SetManerbase(manbase)
 	return true
 }
 
