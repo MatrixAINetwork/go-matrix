@@ -2014,3 +2014,14 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     32e448b2: 修改顶点共识流程
     ffd584d2: 1.增加验证过的区块共识持久化缓存及POS恢复流程
     28302b9d: 修改广播交易存储位置,有txpool.go改到txpool_broad.go
+
+
+    12.21:huyuankai pushed to branch rand_master at repository go-matrix
+    c8d6e4d3: Merge branch 'master' into rand_master
+    17ca6248: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    0b303bdf: 解决超级区块插入广播区块前一块，leader消息早于ca消息到达区块生成模块导致广播区块不出块的问题
+    238cdad3: "修改委托交易下的vrf失败问题",
+
+    12.21:zhangwen pushed to branch master at repository go-matrix
+    17ca6248: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    0b303bdf: 解决超级区块插入广播区块前一块，leader消息早于ca消息到达区块生成模块导致广播区块不出块的问题
