@@ -186,7 +186,7 @@ func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (inte
 		From: from,
 		BlockMainData: &mc.BlockData{
 			Header: msg.Header,
-			Txs:    make(types.Transactions, 0),
+			Txs:    make(types.SelfTransactions, 0),
 		},
 	}
 	size := len(msg.Txs)
@@ -509,7 +509,7 @@ func (*fullBlockRspCodec) DecodeFn(data []byte, from common.Address) (interface{
 	sendMsg := &mc.HD_FullBlockRspMsg{
 		From:   from,
 		Header: msg.Header,
-		Txs:    make(types.Transactions, 0),
+		Txs:    make(types.SelfTransactions, 0),
 	}
 	size := len(msg.Txs)
 	for i := 0; i < size; i++ {
