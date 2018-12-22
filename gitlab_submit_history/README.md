@@ -2050,3 +2050,19 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.22:zhenghe pushed to branch gman_Account at repository go-matrix
     b0d01b89: 增加超级交易
+
+    12.22:Yang Sun pushed to branch topNodeTest at repository go-matrix
+    dab9c9f0: 1,修复心跳检测错误；2，修复下线共识重复写入区块；3，修改部分log
+
+
+    12.22:huyuankai pushed to branch blk_verify_log at repository go-matrix
+    71d3044e: Merge branch 'master' into blk_verify_log
+    cfe69ac1: 1.清除日志 2.修复惩罚和彩票奖励处理的bug
+    a8d89bdf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    890a393a: 创世区块增加超级区块账户和版本号签名账户、基金会由nodeinfo修改为账户
+    fd9a5cd3: "换届服务漏合并的代码",
+    df6592e3: "删除开发者模式 删除测试网模式 删除rinkeby模式",
+    f2842418: 出块趋向时间由1改为6
+    b325b874: 修改man.getTransaction web3.js查看交易问题
+
+
