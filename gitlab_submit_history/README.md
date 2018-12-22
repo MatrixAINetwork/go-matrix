@@ -2031,3 +2031,19 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.22:sunanxiang pushed to branch master_nodeId at repository go-matrix
     ae6571d7: add log
+ 
+
+    12.22:huyuankai pushed to branch blk_verify_log at repository go-matrix
+    71864ea2: 调整广播周期日志
+
+    12.22:zhenghe pushed to branch gman_Account at repository go-matrix
+    6007a37a: Merge branch 'master' into gman_Account
+    a8d89bdf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    890a393a: 创世区块增加超级区块账户和版本号签名账户、基金会由nodeinfo修改为账户
+    fd9a5cd3: "换届服务漏合并的代码",
+    df6592e3: "删除开发者模式 删除测试网模式 删除rinkeby模式",
+    f2842418: 出块趋向时间由1改为6
+    b325b874: 修改man.getTransaction web3.js查看交易问题
+    17ca6248: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    0b303bdf: 解决超级区块插入广播区块前一块，leader消息早于ca消息到达区块生成模块导致广播区块不出块的问题
+    238cdad3: "修改委托交易下的vrf失败问题",
