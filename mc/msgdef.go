@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -138,8 +138,8 @@ type HD_BlkConsensusReqMsg struct {
 type LocalBlockVerifyConsensusReq struct {
 	BlkVerifyConsensusReq *HD_BlkConsensusReqMsg
 	Txs                   types.SelfTransactions // 交易列表
-	Receipts              []*types.Receipt   // 收据
-	State                 *state.StateDB     // apply state changes here 状态数据库
+	Receipts              []*types.Receipt       // 收据
+	State                 *state.StateDB         // apply state changes here 状态数据库
 }
 
 type BlockPOSFinishedNotify struct {
@@ -153,8 +153,8 @@ type BlockLocalVerifyOK struct {
 	Header    *types.Header // 包含签名列表的header
 	BlockHash common.Hash
 	Txs       types.SelfTransactions // 交易列表
-	Receipts  []*types.Receipt   // 收据
-	State     *state.StateDB     // apply state changes here 状态数据库
+	Receipts  []*types.Receipt       // 收据
+	State     *state.StateDB         // apply state changes here 状态数据库
 }
 
 //BolckGenor
@@ -304,4 +304,9 @@ type HD_FullBlockRspMsg struct {
 	Header *types.Header
 	Txs    types.SelfTransactions
 	From   common.Address
+}
+
+type EveryBlockSeedRspMsg struct {
+	PublicKey []byte
+	Private   []byte
 }
