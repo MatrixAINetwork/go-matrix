@@ -2025,3 +2025,9 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     12.21:zhangwen pushed to branch master at repository go-matrix
     17ca6248: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     0b303bdf: 解决超级区块插入广播区块前一块，leader消息早于ca消息到达区块生成模块导致广播区块不出块的问题
+
+    12.22:zhenghe pushed to branch gman_Account at repository go-matrix
+    55fb7838: 修改man.getTransaction web3.js查看交易问题
+
+    12.22:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    ae6571d7: add log
