@@ -4,12 +4,9 @@
 package ca
 
 import (
-	"encoding/json"
 	"errors"
 	"math/big"
 	"sync"
-
-	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
@@ -158,6 +155,8 @@ func Start(id discover.NodeID, path string) {
 			mc.PublishEvent(mc.BlockToBuckets, mc.BlockToBucket{Ms: nodesInBuckets, Height: block.Header().Number, Role: ide.currentRole})
 			// send identity to linker
 			mc.PublishEvent(mc.BlockToLinkers, mc.BlockToLinker{Height: header.Number, Role: ide.currentRole})
+			mc.PublishEvent(mc.SendSyncRole, mc.SyncIdEvent{Role: ide.currentRole})//lb
+			mc.PublishEvent(mc.TxPoolManager, ide.currentRole)
 		case <-ide.quit:
 			return
 		}
@@ -353,7 +352,6 @@ func GetTopologyInLinker() (result map[common.RoleType][]discover.NodeID) {
 
 	result = make(map[common.RoleType][]discover.NodeID)
 	ide.lock.RLock()
-	defer ide.lock.RUnlock()
 	for k, v := range ide.addrByGroup {
 		for _, addr := range v {
 			id, err := ConvertAddressToNodeId(addr)
