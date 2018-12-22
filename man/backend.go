@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // Package man implements the Matrix protocol.
 package man
@@ -13,8 +12,6 @@ import (
 	"runtime"
 	"sync/atomic"
 	"time"
-
-	"github.com/matrix/go-matrix/random"
 
 	"github.com/matrix/go-matrix/ca"
 
@@ -37,23 +34,24 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/depoistInfo"
+	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/internal/manapi"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/man/filters"
 	"github.com/matrix/go-matrix/man/gasprice"
 	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/internal/manapi"
-	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/miner"
 	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/rpc"
 
 	"sync"
 
+	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/leaderelect"
 	"github.com/matrix/go-matrix/olconsensus"
 )
@@ -94,9 +92,9 @@ type Matrix struct {
 
 	APIBackend *ManAPIBackend
 
-	miner     *miner.Miner
-	gasPrice  *big.Int
-	manbase common.Address
+	miner    *miner.Miner
+	gasPrice *big.Int
+	manbase  common.Address
 
 	networkId     uint64
 	netRPCService *manapi.PublicNetAPI
@@ -110,7 +108,7 @@ type Matrix struct {
 	signHelper *signhelper.SignHelper
 
 	reelection   *reelection.ReElection //换届服务
-	random       *random.Random
+	random       *baseinterface.Random
 	topNode      *olconsensus.TopNodeService
 	blockgen     *blkgenor.BlockGenor
 	blockVerify  *blkverify.BlockVerify
@@ -158,7 +156,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		shutdownChan:  make(chan bool),
 		networkId:     config.NetworkId,
 		gasPrice:      config.GasPrice,
-		manbase:     config.Manerbase,
+		manbase:       config.Manerbase,
 		bloomRequests: make(chan chan *bloombits.Retrieval),
 		bloomIndexer:  NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
@@ -206,12 +204,13 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	man.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	//algorithm
-	dbDir := ctx.GetConfig().DataDir
-	man.reelection, err = reelection.New(man.blockchain, dbDir)
+	man.random, err = baseinterface.NewRandom(man)
 	if err != nil {
 		return nil, err
 	}
-	man.random, err = random.New(man.msgcenter)
+
+	dbDir := ctx.GetConfig().DataDir
+	man.reelection, err = reelection.New(man.blockchain, dbDir, man.random)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +446,7 @@ func (s *Matrix) Miner() *miner.Miner { return s.miner }
 
 func (s *Matrix) AccountManager() *accounts.Manager    { return s.accountManager }
 func (s *Matrix) BlockChain() *core.BlockChain         { return s.blockchain }
-func (s *Matrix) TxPool() *core.TxPoolManager        { return s.txPool } //YYY
+func (s *Matrix) TxPool() *core.TxPoolManager          { return s.txPool } //YYY
 func (s *Matrix) EventMux() *event.TypeMux             { return s.eventMux }
 func (s *Matrix) Engine() consensus.Engine             { return s.engine }
 func (s *Matrix) DPOSEngine() consensus.DPOSEngine     { return s.blockchain.DPOSEngine() }
