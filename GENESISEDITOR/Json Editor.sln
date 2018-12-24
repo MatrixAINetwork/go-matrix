@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Json Editor", "Json Editor\Json Editor.csproj", "{C0BE5E35-87CC-40E0-92D8-1D42C60F016D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonTreeView", "JsonTreeView\JsonTreeView.csproj", "{9CDC178E-FC2B-4F43-BF78-280D18BEBE18}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C0BE5E35-87CC-40E0-92D8-1D42C60F016D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0BE5E35-87CC-40E0-92D8-1D42C60F016D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0BE5E35-87CC-40E0-92D8-1D42C60F016D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0BE5E35-87CC-40E0-92D8-1D42C60F016D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9CDC178E-FC2B-4F43-BF78-280D18BEBE18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9CDC178E-FC2B-4F43-BF78-280D18BEBE18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9CDC178E-FC2B-4F43-BF78-280D18BEBE18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9CDC178E-FC2B-4F43-BF78-280D18BEBE18}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
