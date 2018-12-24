@@ -1,21 +1,23 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package reelection
 
 import (
+	"sync"
+	"time"
+
 	"github.com/matrix/go-matrix/accounts"
+	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/election"
-	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
 	"github.com/syndtr/goleveldb/leveldb"
-	"sync"
-	"time"
 )
 
 var (
@@ -44,7 +46,7 @@ const (
 type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
+	TxPool() *core.TxPoolManager //YYY
 	ChainDb() mandb.Database
 }
 type AllNative struct {
@@ -86,6 +88,8 @@ type ReElection struct {
 	electionSeedCh  chan *mc.ElectionEvent //选举种子请求消息通道
 	electionSeedSub event.Subscription
 
+	random *baseinterface.Random
+
 	//allNative AllNative
 
 	currentID common.RoleType //当前身份
@@ -94,7 +98,7 @@ type ReElection struct {
 	lock  sync.Mutex
 }
 
-func New(bc *core.BlockChain, dbDir string) (*ReElection, error) {
+func New(bc *core.BlockChain, dbDir string, random *baseinterface.Random) (*ReElection, error) {
 	reelection := &ReElection{
 		bc:             bc,
 		roleUpdateCh:   make(chan *mc.RoleUpdatedMsg, ChanSize),
@@ -103,6 +107,7 @@ func New(bc *core.BlockChain, dbDir string) (*ReElection, error) {
 		electionSeedCh: make(chan *mc.ElectionEvent, ChanSize),
 
 		currentID: common.RoleDefault,
+		random:    random,
 	}
 	reelection.elect = election.NewEle()
 	var err error
