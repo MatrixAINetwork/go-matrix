@@ -2178,3 +2178,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix	(Author: sunchunfeng
 "修改委托交易下的vrf失败问题",	(Author: sunchunfeng)
 "修改委托交易下的vrf失败问题",	(Author: sunchunfeng)
 del self	(Author: sunchunfeng)
+修改leader服务日志	(Author: sunchunfeng)
