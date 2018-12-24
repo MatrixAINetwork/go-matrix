@@ -1708,4 +1708,416 @@
     95ad26e7: Revert "合并二次秘钥相关"
     66495e15: update buckets
     ...
-add version description	sunanxiang
+Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+
+    12.14: huyuankai pushed to branch master at repository go-matrix
+    1c75d443: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    5eda82ac: 增加日志，追踪miss trie node 问题
+
+    12.14:sunchunfeng pushed to branch master at repository go-matrix
+    14487176: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    9ac59ac7: 委托交易加入测试模式， 启动时需要加入 "--testmode 2222222222222222"
+
+    12.14:sunanxiang pushed to branch master-child at repository go-ethereum
+    9874f890: add proof
+
+
+    12.14:zhenghe pushed to branch master at repository go-matrix
+    c5e07a21: 广播交易存储
+
+    12.14:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    a6edaedb: Update run/gman/signcmd.go
+    70bf6c57: fmt
+    1c75d443: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    5eda82ac: 增加日志，追踪miss trie node 问题
+    d592a224: 整理日志
+    91868c9a: 修改矿工奖励导致的panic
+    4211e1aa: Merge remote-tracking branch 'remotes/origin/master-debug'
+    b3f112ba: leader服务优化
+    a7a23982: 添加日志
+    358472cc: 奖励拓扑图读取通过状态树
+
+    12.14:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    f3576af9: Merge branch 'master' into master_nodeId
+    c5e07a21: 广播交易存储
+    14487176: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    9ac59ac7: 委托交易加入测试模式， 启动时需要加入 "--testmode 2222222222222222"
+
+
+    12.14:zhangwen pushed to branch master at repository go-matrix
+    209fbd97: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    7efeff65: 解决有空彩票奖励的问题
+    8a2941e1: 利息修改为通过交易发放
+
+
+    12.14:zhenghe pushed to branch master at repository go-matrix
+    e89ba8da: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    ba186031: Merge branch 'master' into gman_Account
+    3dee275d: 修复交易执行失败回滚错误的问题
+
+    12.14:sunchunfeng pushed to branch restart_temp at repository go-ethereum
+    56818dab: 解决选举模块非VIP默认股权问题（VIP1:2000,VIP2:1700,其他:1000）,(分母为1000)
+
+    12.14:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    e488901e: Update core/topology_store.go
+
+    12.14:sunchunfeng pushed to branch master at repository go-matrix
+    cbce914c: 公私钥交易从状态树获取
+
+    12.14:zhenghe pushed to branch gman_Account at repository go-matrix
+    96ceddd1: 修改获取抵押接口
+
+    12.14:zhangwen pushed to branch restart_temp at repository go-ethereum
+    b8af5de5: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    37c46b15: 1.固定区块奖励修改为100man 2.折半周期修改为300w块
+    788d46fb: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    18cd23e9: 彩票奖励随机数由vrf修改为选举随机数
+
+
+    12.14:zhenghe pushed to branch gman_Account at repository go-matrix
+    11b6a8ef: 修改SignTxWithPasswd方法
+
+
+    12.14:zhenghe pushed to branch gman_Account at repository go-matrix
+    95b015bb: Merge branch 'master' into gman_Account
+    cbce914c: 公私钥交易从状态树获取
+    dca69db6: fmt
+    e89ba8da: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    209fbd97: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    7efeff65: 解决有空彩票奖励的问题
+    8a2941e1: 利息修改为通过交易发放
+
+    12.14:zhenghe pushed to branch master at repository go-matrix
+    95b015bb: Merge branch 'master' into gman_Account
+    11b6a8ef: 修改SignTxWithPasswd方法
+    96ceddd1: 修改获取抵押接口
+
+    12.14:叶营 pushed to branch restart_temp at repository go-ethereum
+    9f91c03f: 解决冲突
+    336bebcb: 修改利息奖励
+
+    12.15:huyuankai pushed to branch master at repository go-matrix
+    10904b59: 验证服务，票池流程修改
+
+    12.15:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    f6a3df3e: Merge branch 'master' into master_nodeId
+    10904b59: 验证服务，票池流程修改
+    95b015bb: Merge branch 'master' into gman_Account
+    11b6a8ef: 修改SignTxWithPasswd方法
+    96ceddd1: 修改获取抵押接口
+    cbce914c: 公私钥交易从状态树获取
+
+    12.15:叶营 pushed to branch revert-9f91c03f at repository go-ethereum
+    6e9fad26: Revert "解决冲突"
+    9f91c03f: 解决冲突
+    336bebcb: 修改利息奖励
+    b8af5de5: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    37c46b15: 1.固定区块奖励修改为100man 2.折半周期修改为300w块
+    56818dab: 解决选举模块非VIP默认股权问题（VIP1:2000,VIP2:1700,其他:1000）,(分母为1000)
+    788d46fb: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    ac806b03: 修改由于机器卡顿，导致leader服务重选定时器停止工作的bug
+    18cd23e9: 彩票奖励随机数由vrf修改为选举随机数
+    a23642fa: Update .gitlab-ci.yml
+
+    12.15:huyuankai pushed to branch master at repository go-matrix
+    cd218fb6: 修改遗漏代码
+
+    12.15:sunchunfeng pushed to branch master at repository go-matrix
+    b9e1f73e: 1.解决选举模块各节点被选中次数不相等问题
+
+
+
+    12.15:叶营 pushed to branch master at repository go-matrix
+    6bda9728: add func BatchSender
+
+
+    12.15:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    d0b3bfd2: modify key
+ 
+    12.15:sunchunfeng pushed to branch master at repository go-matrix
+    b9e1f73e: 1.解决选举模块各节点被选中次数不相等问题
+
+    12.15:叶营 pushed to branch gman_Account at repository go-matrix
+    c226a2d6: 合并geth中的利息代码
+
+    12.15:叶营 pushed to branch master at repository go-matrix
+    aaa1048e: modify func FetcherNotify
+
+    12.15:huyuankai pushed to branch master at repository go-matrix
+    bdd0f5e3: fetch 上次调用 增加 address参数
+
+    12.15:zhenghe pushed to branch gman_Account at repository go-matrix
+    fe3d0cbd: 修改默认gaslimit为21000
+
+
+    12.15:叶营 pushed to branch test_interest at repository go-ethereum
+    33f5e83b: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    83a72274: 修改利息判断
+    07847309: 矿工奖励修改为0.2man，验证者奖励修改为2man
+    7241b76a: modify if
+    277455b4: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    4d32b8aa: 矿工奖励修改为1man，验证者奖励修改为10man
+    80d34365: 矿工个数由5个调整为21个
+    83b85076: 调整公私钥交易log
+    ea1ae10d: add log
+    7b99fdb6: Revert "Revert "解决冲突""
+
+    12.18:zhenghe pushed to branch gman_Account at repository go-matrix
+    2ce3eb06: Merge branch 'master' into gman_Account
+    94a6ec52: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    dc14c738: leader服务 日志整理完成
+    2dcac453: 选举模块 单元测试
+    dfeb9719: miss tree node日志
+    4833cd4b: 重新提交被冲掉的代码
+    da43dac9: miss tree node 问题追踪
+    3df06d86: miss trie node 问题日志调整
+    6c5299cc: 追踪miss tire node 增加日志
+    5d0d9f1b: 补充日志
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    f78ad252: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    fc89fb99: 1.测试发现彩票奖励筛选的出来的交易无法获取from2.，走查发现普通交易需要解签，已修改 3. 交易费奖励、固定区块奖励、彩票奖励增加最新的测试用例
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    7d3eccaf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    cc6b4ce3: 1.增加惩罚和利息测试用例 2.修改惩罚获取初选列表和本周期计算的利息作为参数传入惩罚
+
+
+    12.18:huyuankai pushed to branch master at repository go-matrix
+    477f9f7b: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    c46ef282: 修改状态树，commit时的err返回
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    ce5d58a6: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    afdad082: 修复惩罚获取初选的高度计算错误
+
+    12.18:sunchunfeng pushed to branch master at repository go-matrix
+    dc9907f2: 增加命令行更新委托签名账户
+
+    12.18:叶营 pushed to branch master-sharding at repository go-matrix
+    4ca3f895: aaa
+    7d173701: Merge branch 'master' into master-sharding
+    53d1ff2d: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    ba59c9c7: 修改签名助手及钱包接口。使rpc签名交易，无密码不生效
+    359aaca6: Merge branch 'master' into gman_Account
+    0144627a: 奖励创世文件增加算法配置
+    f78ad252: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    fc89fb99: 1.测试发现彩票奖励筛选的出来的交易无法获取from2.，走查发现普通交易需要解签，已修改 3. 交易费奖励、固定区块奖励、彩票奖励增加最新的测试用例
+    2ce3eb06: Merge branch 'master' into gman_Account
+    6c55506e: 去掉打印日志
+
+    12.18:zhangwen pushed to branch master at repository go-matrix
+    ce5d58a6: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    afdad082: 修复惩罚获取初选的高度计算错误
+
+    12.18:sunchunfeng pushed to branch master at repository go-matrix
+    dc9907f2: 增加 命令行更新委托签名账户
+
+
+    12:19:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    824baa15: Merge branch 'master' into master_nodeId
+    2a28c0c5: Merge branch 'master' into gman_Account
+    3c8a1f17: 修改dump显示所有账户余额
+    4acd08a8: 修改状态树 异步panic问题
+    05e77a31: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+    c0a0a06e: 修改签名助手注册位置
+    13afe057: Merge branch 'master' into gman_Account
+    a3e417c9: 修改state异步读写问题
+    ce5d58a6: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    afdad082: 修复惩罚获取初选的高度计算错误
+
+
+    12.19:jerry.liu pushed to branch master at repository go-matrix
+    7e4a05af: Merge branch 'master' of http://gitlab.matrix.com/matrix/go-matrix
+    bffae367: 临时注掉ipfs 清理
+
+    12.19:sunchunfeng pushed to branch master at repository go-matrix
+    a65a783d: 修改委托交易日志
+
+
+    12.19:叶营 pushed to branch master-sharding at repository go-matrix
+    f266ba44: Merge branch 'master' into master-sharding
+    7e4a05af: Merge branch 'master' of http://gitlab.matrix.com/matrix/go-matrix
+    bffae367: 临时注掉ipfs 清理
+    a65a783d: 修改委托交易日志
+    c90416ee: ipfs区块同步更新
+    9f5d27d3: 整理随机数服务代码
+    2a28c0c5: Merge branch 'master' into gman_Account
+    3c8a1f17: 修改dump显示所有账户余额
+    4acd08a8: 修改状态树 异步panic问题
+    05e77a31: Merge branch 'master' of http://192.168.3.81/matrix/go-matrix
+
+
+    12.19:huyuankai pushed to branch pos_recovery at repository go-matrix
+    293a0f16: 修改索引编解码问题
+
+    12.19: huyuankai pushed to branch pos_recovery at repository go-matrix
+    9e0ef731: 增加POS回复流程
+
+
+    12.19:sunchunfeng pushed to branch master at repository go-matrix
+    a65a783d: 修改委托交易日志
+
+    12.19:zhangwen pushed to branch uptime_modify at repository go-ethereum
+    406fba8d: 1.初选验证者uptime减半 2.初选矿工uptime清0
+    e6d55c50: 移除无关打印
+    1e43550f: geth 修改gman
+    540d4a77: 1.增加windows panic日志输出到geth目录 2.geth.ipc修改为gman.ipc
+    baf25ed4: 修改git version命令只显示 Version、Architecture Operating System和git commit
+    98bce562: 折半周期500w
+    1901ecf4: 矿工奖励修改为3man，验证者奖励修改为7man
+    561cbbdd: 修改交易签名的问题, 无密码可签名的bug
+    33f5e83b: Merge branch 'restart_temp' of gitlab.matrix.com:merge/go-ethereum into restart_temp
+    83a72274: 修改利息判断
+    ...
+
+    12.19:huyuankai pushed to branch pos_recovery at repository go-matrix
+    91f2e546: 修改交易部分
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    aaa4f856: 增加日志
+
+    12.20:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    3fac81e2: add
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    2efb9cea: 增加日志
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    458aa797: 修改日志
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    55d1548d: 修改判断条件错误
+
+    12.20:zhangwen pushed to branch master at repository go-matrix
+    1e43964b: 奖励发放状态初值在创建创建区块时写入，解决超级区块插入到1块不出块的问题
+
+
+    12.20:huyuankai pushed to branch pos_recovery at repository go-matrix
+    74f88466: 添加日志
+
+    12.21：zhenghe pushed to branch gman_Account at repository go-matrix
+    fe85bedb: 修复彩票奖励获取不到区块有可能panic的问题
+    9e92482c: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    44d23fa2: 彩票不排序和移除vrf无关打印
+    8c3b8e11: 修改选举量化 解决委托交易不能attach以后输入密码问题
+
+    12.21:郑祥斌 pushed to branch master-sharding at repository go-matrix
+    79a95c8c: 'manapi\api.go:func(cointype)'
+
+
+    12.21:huyuankai pushed to branch master at repository go-matrix
+    0640f75d: 修改leader服务日志
+
+    12.21:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    091ab5fe: Merge branch 'master' into master_nodeId
+    32e448b2: 修改顶点共识流程
+    ffd584d2: 1.增加验证过的区块共识持久化缓存及POS恢复流程
+    28302b9d: 修改广播交易存储位置,有txpool.go改到txpool_broad.go
+
+
+    12.21:huyuankai pushed to branch rand_master at repository go-matrix
+    c8d6e4d3: Merge branch 'master' into rand_master
+    17ca6248: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    0b303bdf: 解决超级区块插入广播区块前一块，leader消息早于ca消息到达区块生成模块导致广播区块不出块的问题
+    238cdad3: "修改委托交易下的vrf失败问题",
+
+    12.21:zhangwen pushed to branch master at repository go-matrix
+    17ca6248: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    0b303bdf: 解决超级区块插入广播区块前一块，leader消息早于ca消息到达区块生成模块导致广播区块不出块的问题
+
+    12.22:zhenghe pushed to branch gman_Account at repository go-matrix
+    55fb7838: 修改man.getTransaction web3.js查看交易问题
+
+    12.22:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    ae6571d7: add log
+ 
+
+    12.22:huyuankai pushed to branch blk_verify_log at repository go-matrix
+    71864ea2: 调整广播周期日志
+
+    12.22:zhenghe pushed to branch gman_Account at repository go-matrix
+    6007a37a: Merge branch 'master' into gman_Account
+    a8d89bdf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    890a393a: 创世区块增加超级区块账户和版本号签名账户、基金会由nodeinfo修改为账户
+    fd9a5cd3: "换届服务漏合并的代码",
+    df6592e3: "删除开发者模式 删除测试网模式 删除rinkeby模式",
+    f2842418: 出块趋向时间由1改为6
+    b325b874: 修改man.getTransaction web3.js查看交易问题
+    17ca6248: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    0b303bdf: 解决超级区块插入广播区块前一块，leader消息早于ca消息到达区块生成模块导致广播区块不出块的问题
+    238cdad3: "修改委托交易下的vrf失败问题",
+
+    12.22:zhenghe pushed to branch gman_Account at repository go-matrix
+    b0d01b89: 增加超级交易
+
+    12.22:Yang Sun pushed to branch topNodeTest at repository go-matrix
+    dab9c9f0: 1,修复心跳检测错误；2，修复下线共识重复写入区块；3，修改部分log
+
+
+    12.22:huyuankai pushed to branch blk_verify_log at repository go-matrix
+    71d3044e: Merge branch 'master' into blk_verify_log
+    cfe69ac1: 1.清除日志 2.修复惩罚和彩票奖励处理的bug
+    a8d89bdf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    890a393a: 创世区块增加超级区块账户和版本号签名账户、基金会由nodeinfo修改为账户
+    fd9a5cd3: "换届服务漏合并的代码",
+    df6592e3: "删除开发者模式 删除测试网模式 删除rinkeby模式",
+    f2842418: 出块趋向时间由1改为6
+    b325b874: 修改man.getTransaction web3.js查看交易问题
+
+    12.22:jerry.liu pushed to branch master at repository go-matrix
+    c04c5d55: ipfs区块同步增加异常流程处理
+
+
+    12.22:叶营 pushed to branch master-sharding at repository go-matrix
+    33ee56c6: 可以正常跑空快
+
+    12.22:zhenghe pushed to branch gman_Account at repository go-matrix
+    fd3ff6db: 添加超级账户
+
+    12.22:Yang Sun pushed to branch master at repository go-matrix
+    1672a0fa: Merge branch 'master' of 192.168.3.81:matrix/go-matrix
+    61be9f9a: 顶点在线服务，日志调整
+
+    12.24:sunanxiang pushed to branch master at repository go-matrix
+    de235e19: modify bucket limit, BroadcastBlock and fmt
+
+
+    12.24:sunanxiang pushed to branch master at repository go-matrix
+    f6146003: del disconnect
+
+    12.24:yeting pushed to branch snapshot_zw at repository go-matrix
+
+    12.24:叶营 pushed to branch master-sharding at repository go-matrix
+    6aa5a930: 支持创建多币种的statedb
+
+
+    12.24:sunanxiang pushed to branch master at repository go-matrix
+    0462222a: Merge branch 'master' into master_nodeId
+    c0d8e0e9: del log
+    ae6571d7: add log
+    82623917: delete counter
+    b62f43a5: Merge branch 'master' into master_nodeId
+    7386aa71: modify server
+    36a917a1: del self
+    15d00152: fmt
+    091ab5fe: Merge branch 'master' into master_nodeId
+    f085843f: Merge branch 'master' into master_nodeId
+    ...
+
+    12.24:sunanxiang pushed to branch master at repository go-matrix
+    01f0de8f: add version description
+
+    12.24:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    0462222a: Merge branch 'master' into master_nodeId
+    de235e19: modify bucket limit, BroadcastBlock and fmt
+    f6146003: del disconnect
+    1672a0fa: Merge branch 'master' of 192.168.3.81:matrix/go-matrix
+    61be9f9a: 顶点在线服务，日志调整
+    c04c5d55: ipfs区块同步增加异常流程处理
+    cfe69ac1: 1.清除日志 2.修复惩罚和彩票奖励处理的bug
+    a8d89bdf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    890a393a: 创世区块增加超级区块账户和版本号签名账户、基金会由nodeinfo修改为账户
+    fd9a5cd3: "换届服务漏合并的代码",
+    ...
+add version description	(Author: sunanxiang)
