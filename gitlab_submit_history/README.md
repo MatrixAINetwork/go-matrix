@@ -2120,5 +2120,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     890a393a: 创世区块增加超级区块账户和版本号签名账户、基金会由nodeinfo修改为账户
     fd9a5cd3: "换届服务漏合并的代码",
     ...
-add version description	(Author: sunanxiang)
-Merge branch 'master' into master_nodeId	(Author: sunanxiang)
+提供创世文件默认配置,(用户可选择性的填写创世文件,也可不填)	(Author: sunchunfeng)
