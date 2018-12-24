@@ -2065,4 +2065,13 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     f2842418: 出块趋向时间由1改为6
     b325b874: 修改man.getTransaction web3.js查看交易问题
 
+    12.22:jerry.liu pushed to branch master at repository go-matrix
+    c04c5d55: ipfs区块同步增加异常流程处理
+
+
+    12.22:叶营 pushed to branch master-sharding at repository go-matrix
+    33ee56c6: 可以正常跑空快
+
+
+
 
