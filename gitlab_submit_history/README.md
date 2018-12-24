@@ -2072,6 +2072,12 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     12.22:叶营 pushed to branch master-sharding at repository go-matrix
     33ee56c6: 可以正常跑空快
 
+    12.22:zhenghe pushed to branch gman_Account at repository go-matrix
+    fd3ff6db: 添加超级账户
+
+    12.22:Yang Sun pushed to branch master at repository go-matrix
+    1672a0fa: Merge branch 'master' of 192.168.3.81:matrix/go-matrix
+    61be9f9a: 顶点在线服务，日志调整
 
 
 
