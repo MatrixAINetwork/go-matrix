@@ -2088,4 +2088,21 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 
     12.24:yeting pushed to branch snapshot_zw at repository go-matrix
 
+    12.24:叶营 pushed to branch master-sharding at repository go-matrix
+    6aa5a930: 支持创建多币种的statedb
+
+
+    12.24:sunanxiang pushed to branch master at repository go-matrix
+    0462222a: Merge branch 'master' into master_nodeId
+    c0d8e0e9: del log
+    ae6571d7: add log
+    82623917: delete counter
+    b62f43a5: Merge branch 'master' into master_nodeId
+    7386aa71: modify server
+    36a917a1: del self
+    15d00152: fmt
+    091ab5fe: Merge branch 'master' into master_nodeId
+    f085843f: Merge branch 'master' into master_nodeId
+    ...
+
 
