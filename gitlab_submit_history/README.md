@@ -2105,4 +2105,18 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     f085843f: Merge branch 'master' into master_nodeId
     ...
 
+    12.24:sunanxiang pushed to branch master at repository go-matrix
+    01f0de8f: add version description
 
+    12.24:sunanxiang pushed to branch master_nodeId at repository go-matrix
+    0462222a: Merge branch 'master' into master_nodeId
+    de235e19: modify bucket limit, BroadcastBlock and fmt
+    f6146003: del disconnect
+    1672a0fa: Merge branch 'master' of 192.168.3.81:matrix/go-matrix
+    61be9f9a: 顶点在线服务，日志调整
+    c04c5d55: ipfs区块同步增加异常流程处理
+    cfe69ac1: 1.清除日志 2.修复惩罚和彩票奖励处理的bug
+    a8d89bdf: Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
+    890a393a: 创世区块增加超级区块账户和版本号签名账户、基金会由nodeinfo修改为账户
+    fd9a5cd3: "换届服务漏合并的代码",
+    ...
