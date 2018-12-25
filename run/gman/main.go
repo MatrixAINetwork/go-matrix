@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -17,17 +17,20 @@ import (
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/console"
-	"github.com/matrix/go-matrix/man"
-	"github.com/matrix/go-matrix/manclient"
 	"github.com/matrix/go-matrix/internal/debug"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/man"
+	"github.com/matrix/go-matrix/manclient"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/pod"
+	_ "github.com/matrix/go-matrix/random/electionseed"
+	_ "github.com/matrix/go-matrix/random/ereryblockseed"
+	_ "github.com/matrix/go-matrix/random/everybroadcastseed"
+	"github.com/matrix/go-matrix/run/utils"
 )
 
 const (
@@ -129,7 +132,6 @@ var (
 		utils.IPCDisabledFlag,
 		utils.IPCPathFlag,
 	}
-
 )
 
 func init() {
