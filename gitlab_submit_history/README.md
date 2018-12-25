@@ -2124,3 +2124,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 add version description	(Author: sunchunfeng)
 Merge branch 'master' into master_nodeId	(Author: sunchunfeng)
 modify bucket limit, BroadcastBlock and fmt	(Author: sunchunfeng)
+del disconnect	(Author: sunchunfeng)
