@@ -1,0 +1,15 @@
+D:\gitWork\JSon-Editor\Json Editor\bin\Debug\Newtonsoft.Json.dll
+D:\gitWork\JSon-Editor\Json Editor\bin\Debug\Newtonsoft.Json.xml
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\Json Editor.csprojAssemblyReference.cache
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\Json Editor.csproj.GenerateResource.cache
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\Json Editor.csproj.CoreCompileInputs.cache
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\Json Editor.csproj.CopyComplete
+D:\gitWork\JSon-Editor\Json Editor\bin\Debug\MATRIX.Genesis.block.gen.exe.config
+D:\gitWork\JSon-Editor\Json Editor\bin\Debug\MATRIX.Genesis.block.gen.exe
+D:\gitWork\JSon-Editor\Json Editor\bin\Debug\MATRIX.Genesis.block.gen.pdb
+D:\gitWork\JSon-Editor\Json Editor\bin\Debug\JsonTreeView.dll
+D:\gitWork\JSon-Editor\Json Editor\bin\Debug\JsonTreeView.pdb
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\Editor.Forms.AboutBox.resources
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\Editor.Forms.JsonEditorMainForm.resources
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\MATRIX.Genesis.block.gen.exe
+D:\gitWork\JSon-Editor\Json Editor\obj\Debug\MATRIX.Genesis.block.gen.pdb
