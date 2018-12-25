@@ -2134,3 +2134,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix	(Author: sunchunfeng
 "换届服务漏合并的代码",	(Author: sunchunfeng)
 "删除开发者模式 删除测试网模式 删除rinkeby模式",	(Author: sunchunfeng)
 出块趋向时间由1改为6	(Author: sunchunfeng)
+del log	(Author: sunchunfeng)
