@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package reelection
@@ -18,27 +18,28 @@ import (
 
 //得到随机种子
 func (self *ReElection) GetSeed(height uint64) (*big.Int, error) {
-
-	sendData := self.CalcbeforeSeedGen(height)
-
-	var err error
-	self.electionSeedSub, err = mc.SubscribeEvent(mc.Random_TopoSeedRsp, self.electionSeedCh)
-	if err != nil {
-		return nil, err
-	}
-	mc.PublishEvent(mc.ReElec_TopoSeedReq, &sendData)
-
-	select {
-	case seed := <-self.electionSeedCh:
-		log.INFO(Module, "received seed", seed)
-		self.electionSeedSub.Unsubscribe()
-		return seed.Seed, nil
-
-	case <-time.After(Time_Out_Limit):
-		self.electionSeedSub.Unsubscribe()
-		log.INFO(Module, "received seed", "Time_Out_Falied")
-		return nil, errors.New("Seed Gen failed")
-	}
+	return self.random.GetRandom(common.GetLastBroadcastNumber(height), "electionseed")
+	//
+	//sendData := self.CalcbeforeSeedGen(height)
+	//
+	//var err error
+	//self.electionSeedSub, err = mc.SubscribeEvent(mc.Random_TopoSeedRsp, self.electionSeedCh)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//mc.PublishEvent(mc.ReElec_TopoSeedReq, &sendData)
+	//
+	//select {
+	//case seed := <-self.electionSeedCh:
+	//	log.INFO(Module, "received seed", seed)
+	//	self.electionSeedSub.Unsubscribe()
+	//	return seed.Seed, nil
+	//
+	//case <-time.After(Time_Out_Limit):
+	//	self.electionSeedSub.Unsubscribe()
+	//	log.INFO(Module, "received seed", "Time_Out_Falied")
+	//	return nil, errors.New("Seed Gen failed")
+	//}
 }
 
 //随机种子生成前的消息准备
