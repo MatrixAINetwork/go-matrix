@@ -2136,3 +2136,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix	(Author: sunchunfeng
 出块趋向时间由1改为6	(Author: sunchunfeng)
 del log	(Author: sunchunfeng)
 add log	(Author: sunchunfeng)
+修改man.getTransaction web3.js查看交易问题	(Author: sunchunfeng)
