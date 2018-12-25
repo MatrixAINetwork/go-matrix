@@ -2123,3 +2123,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 提供创世文件默认配置,(用户可选择性的填写创世文件,也可不填)	(Author: sunchunfeng)
 add version description	(Author: sunchunfeng)
 Merge branch 'master' into master_nodeId	(Author: sunchunfeng)
+modify bucket limit, BroadcastBlock and fmt	(Author: sunchunfeng)
