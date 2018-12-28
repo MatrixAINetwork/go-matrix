@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -16,8 +16,11 @@ import (
 	"strconv"
 	"strings"
 
+	"encoding/json"
+
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
+	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/fdlimit"
 	"github.com/matrix/go-matrix/consensus"
@@ -28,19 +31,19 @@ import (
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/dashboard"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/man/gasprice"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/manstats"
-	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/p2p/nat"
 	"github.com/matrix/go-matrix/p2p/netutil"
 	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/pod"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -347,7 +350,11 @@ var (
 		Usage: "Password file to use for non-interactive password input",
 		Value: "",
 	}
-
+	AccountPasswordFileFlag = cli.StringFlag{
+		Name:  "entrust",
+		Usage: "Password file to entrustment transaction",
+		Value: "",
+	}
 	VMEnableDebugFlag = cli.BoolFlag{
 		Name:  "vmdebug",
 		Usage: "Record information useful for VM and contract debugging",
@@ -766,6 +773,48 @@ func setManerbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *man.Config) {
 	}
 }
 
+type JsonStruct struct {
+}
+
+func NewJsonStruct() *JsonStruct {
+	return &JsonStruct{}
+}
+
+func (jst *JsonStruct) Load(filename string, v interface{}) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		fmt.Println("读取通用配置文件失败 err", err, "file", filename)
+
+		return
+	}
+	err = json.Unmarshal(data, v)
+	if err != nil {
+		fmt.Println("通用配置文件数据获取失败 err", err)
+		return
+	}
+}
+
+type EntrustPassword struct {
+	Password map[common.Address]string
+}
+
+func MakeEntrustPassword(ctx *cli.Context) map[common.Address]string {
+	path := ctx.GlobalString(AccountPasswordFileFlag.Name)
+	fmt.Println("MakeEntrustPassword", "path", path)
+
+	JsonParse := NewJsonStruct()
+	v := EntrustPassword{}
+	JsonParse.Load(path, &v)
+	fmt.Println("MakeEntrustPassword", v.Password)
+	for k, _ := range v.Password {
+		fmt.Println(k, v.Password[k])
+	}
+	fmt.Println("MakeEntrustPassword len()", len(v.Password))
+
+	signhelper.EntrustValue = v.Password
+	return v.Password
+}
+
 // MakePasswordList reads password lines from the file specified by the global --password flag.
 func MakePasswordList(ctx *cli.Context) []string {
 	path := ctx.GlobalString(PasswordFileFlag.Name)
@@ -1119,7 +1168,6 @@ func RegisterManStatsService(stack *pod.Node, url string) {
 		// Retrieve both man and les services
 		var manServ *man.Matrix
 		ctx.Service(&manServ)
-
 
 		return manstats.New(url, manServ)
 	}); err != nil {
