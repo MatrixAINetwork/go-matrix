@@ -11,7 +11,6 @@ import (
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/election"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mandb"
@@ -94,7 +93,7 @@ type ReElection struct {
 
 	currentID common.RoleType //当前身份
 
-	elect *election.Elector
+	elect baseinterface.ElectionInterface
 	lock  sync.Mutex
 }
 
@@ -109,7 +108,7 @@ func New(bc *core.BlockChain, dbDir string, random *baseinterface.Random) (*ReEl
 		currentID: common.RoleDefault,
 		random:    random,
 	}
-	reelection.elect = election.NewEle()
+	reelection.elect = baseinterface.NewElect()
 	var err error
 	dbDir = dbDir + "_reElection"
 	reelection.ldb, err = leveldb.OpenFile(dbDir, nil)
