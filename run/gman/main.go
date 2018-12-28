@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -30,6 +30,12 @@ import (
 	_ "github.com/matrix/go-matrix/random/electionseed"
 	_ "github.com/matrix/go-matrix/random/ereryblockseed"
 	_ "github.com/matrix/go-matrix/random/everybroadcastseed"
+
+	_ "github.com/matrix/go-matrix/crypto"
+	_ "github.com/matrix/go-matrix/crypto/vrf"
+	_ "github.com/matrix/go-matrix/election/layered"
+	_ "github.com/matrix/go-matrix/election/nochoice"
+	_ "github.com/matrix/go-matrix/election/stock"
 	"github.com/matrix/go-matrix/run/utils"
 )
 
@@ -47,6 +53,7 @@ var (
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
+		utils.AccountPasswordFileFlag,
 		utils.BootnodesFlag,
 		utils.BootnodesV4Flag,
 		utils.BootnodesV5Flag,
@@ -225,6 +232,8 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 
 	// Start up the node itself
 	utils.StartNode(stack)
+	mapp := utils.MakeEntrustPassword(ctx)
+	fmt.Println("委托交易mapp", mapp, "len", len(mapp))
 
 	// Unlock any account specifically requested
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
