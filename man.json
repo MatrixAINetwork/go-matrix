@@ -1,0 +1,21 @@
+{
+	"BootNode":[
+	"enode://b624a3fb585a48b4c96e4e6327752b1ba82a90a948f258be380ba17ead7c01f6d4ad43d665bb11c50475c058d3aad1ba9a35c0e0c4aa118503bf3ce79609bef6@47.93.13.189:50505"
+	],
+	"SuperVersion":[
+	{"Address":"0xe0b98f47c977267581df784de664074cad88c736"}
+	],
+	"SuperRollback":[
+	{"Address":"0x8bc3468f3b93ad70c0d7c5b4b3e4627cbf2e31fa"}
+	],
+	 "RandomConfig":{
+        "electionseed":"Minhash&Key",
+        "matrix":"matrix"
+        },
+	"BroadcastInterval":10,
+	"ReelectionInterval":30,
+	"Echelon":[
+	{"MinMoney":200000000000000000000000,"Quota":4,"Ratio":2},
+	{"MinMoney":100000000000000000000000,"Quota":2,"Ratio":1}
+	]
+}
