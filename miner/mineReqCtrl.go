@@ -10,7 +10,7 @@ import (
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 	"math/big"
 	"sync"
@@ -46,7 +46,7 @@ func (self *mineReqData) ResendMineResult(curTime int64) error {
 
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	if curTime-self.mineResultSendTime < params.MinerResultSendInterval {
+	if curTime-self.mineResultSendTime < manparams.MinerResultSendInterval {
 		return errors.Errorf("挖矿发送间隔尚未到, 上次发送时间(%d), 当前时间(%d)", self.mineResultSendTime, curTime)
 	}
 	self.mineResultSendTime = curTime
@@ -57,17 +57,19 @@ type mineReqCtrl struct {
 	curNumber       uint64
 	currentMineReq  *mineReqData
 	role            common.RoleType
+	bcInterval      *manparams.BCInterval
 	posEngine       consensus.DPOSEngine
-	validatorReader consensus.ValidatorReader
+	validatorReader consensus.StateReader
 	reqCache        map[common.Hash]*mineReqData
 	futureReq       map[uint64][]*mineReqData //todo 考虑作恶，可以加入限长
 }
 
-func newMinReqCtrl(posEngine consensus.DPOSEngine, validatorReader consensus.ValidatorReader) *mineReqCtrl {
+func newMinReqCtrl(posEngine consensus.DPOSEngine, validatorReader consensus.StateReader) *mineReqCtrl {
 	return &mineReqCtrl{
 		curNumber:       0,
 		currentMineReq:  nil,
 		role:            common.RoleNil,
+		bcInterval:      nil,
 		validatorReader: validatorReader,
 		posEngine:       posEngine,
 		reqCache:        make(map[common.Hash]*mineReqData),
@@ -75,18 +77,34 @@ func newMinReqCtrl(posEngine consensus.DPOSEngine, validatorReader consensus.Val
 	}
 }
 
+func (ctrl *mineReqCtrl) Clear() {
+	ctrl.curNumber = 0
+	ctrl.role = common.RoleNil
+	ctrl.bcInterval = nil
+	ctrl.currentMineReq = nil
+	ctrl.reqCache = make(map[common.Hash]*mineReqData)
+	ctrl.futureReq = make(map[uint64][]*mineReqData)
+	return
+}
+
 func (ctrl *mineReqCtrl) SetNewNumber(number uint64, role common.RoleType) {
 	if ctrl.curNumber > number {
 		return
-	} else if ctrl.curNumber == number {
-		ctrl.role = role
-		return
-	} else {
-		ctrl.curNumber = number
-		ctrl.role = role
-		ctrl.fixMap()
-		return
 	}
+
+	ctrl.role = role
+	bcInterval, err := manparams.NewBCIntervalByNumber(number - 1)
+	if err != nil {
+		log.ERROR("miner ctrl", "获取广播周期失败", err)
+	} else {
+		ctrl.bcInterval = bcInterval
+	}
+
+	if ctrl.curNumber < number {
+		ctrl.curNumber = number
+		ctrl.fixMap()
+	}
+	return
 }
 
 func (ctrl *mineReqCtrl) AddMineReq(header *types.Header, txs types.SelfTransactions, isBroadcastReq bool) (*mineReqData, error) {
@@ -218,7 +236,11 @@ func (ctrl *mineReqCtrl) checkMineReq(header *types.Header) error {
 }
 
 func (ctrl *mineReqCtrl) roleCanMine(role common.RoleType, number uint64) bool {
-	if common.IsBroadcastNumber(number) {
+	if ctrl.bcInterval == nil {
+		return false
+	}
+
+	if ctrl.bcInterval.IsBroadcastNumber(number) {
 		return role == common.RoleBroadcast
 	} else {
 		return role == common.RoleMiner || role == common.RoleInnerMiner

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
@@ -7,49 +7,59 @@ import (
 	"sync"
 
 	"github.com/matrix/go-matrix/accounts/signhelper"
+	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/msgsend"
+	"github.com/matrix/go-matrix/olconsensus"
 	"github.com/matrix/go-matrix/reelection"
 	"github.com/pkg/errors"
 )
 
 type ProcessManage struct {
-	mu         sync.Mutex
-	curNumber  uint64
-	processMap map[uint64]*Process
-	matrix     Backend
-	hd         *msgsend.HD
-	signHelper *signhelper.SignHelper
-	bc         *core.BlockChain
-	txPool     *core.TxPool
-	reElection *reelection.ReElection
-	engine     consensus.Engine
-	dposEngine consensus.DPOSEngine
+	mu          sync.Mutex
+	curNumber   uint64
+	processMap  map[uint64]*Process
+	matrix      Backend
+	hd          *msgsend.HD
+	signHelper  *signhelper.SignHelper
+	bc          *core.BlockChain
+	txPool      *core.TxPoolManager //YYY
+	reElection  *reelection.ReElection
+	engine      consensus.Engine
+	dposEngine  consensus.DPOSEngine
+	olConsensus *olconsensus.TopNodeService
+	random      *baseinterface.Random
 }
 
 func NewProcessManage(matrix Backend) *ProcessManage {
 	return &ProcessManage{
-		curNumber:  0,
-		processMap: make(map[uint64]*Process),
-		matrix:     matrix,
-		hd:         matrix.HD(),
-		signHelper: matrix.SignHelper(),
-		bc:         matrix.BlockChain(),
-		txPool:     matrix.TxPool(),
-		reElection: matrix.ReElection(),
-		engine:     matrix.BlockChain().Engine(),
-		dposEngine: matrix.BlockChain().DPOSEngine(),
+		curNumber:   0,
+		processMap:  make(map[uint64]*Process),
+		matrix:      matrix,
+		hd:          matrix.HD(),
+		signHelper:  matrix.SignHelper(),
+		bc:          matrix.BlockChain(),
+		txPool:      matrix.TxPool(),
+		reElection:  matrix.ReElection(),
+		engine:      matrix.BlockChain().Engine(),
+		dposEngine:  matrix.BlockChain().DPOSEngine(),
+		olConsensus: matrix.OLConsensus(),
+		random:      matrix.Random(),
 	}
 }
 
-func (pm *ProcessManage) SetCurNumber(number uint64) {
+func (pm *ProcessManage) SetCurNumber(number uint64, preSuperBlock bool) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
 	pm.curNumber = number
-	pm.fixProcessMap()
+	if preSuperBlock {
+		pm.clearProcessMap()
+	} else {
+		pm.fixProcessMap()
+	}
 }
 
 func (pm *ProcessManage) GetCurNumber() uint64 {
@@ -98,8 +108,6 @@ func (pm *ProcessManage) fixProcessMap() {
 		return
 	}
 
-	log.INFO(pm.logExtraInfo(), "PM 开始修正map, process数量", len(pm.processMap), "修复高度", pm.curNumber)
-
 	delKeys := make([]uint64, 0)
 	for key, process := range pm.processMap {
 		if key < pm.curNumber-1 {
@@ -115,6 +123,27 @@ func (pm *ProcessManage) fixProcessMap() {
 	log.INFO(pm.logExtraInfo(), "PM 结束修正map, process数量", len(pm.processMap))
 }
 
+func (pm *ProcessManage) clearProcessMap() {
+	if pm.curNumber == 0 {
+		return
+	}
+
+	if len(pm.processMap) == 0 {
+		return
+	}
+
+	delKeys := make([]uint64, 0)
+	for key, process := range pm.processMap {
+		process.Close()
+		delKeys = append(delKeys, key)
+	}
+
+	for _, delKey := range delKeys {
+		delete(pm.processMap, delKey)
+	}
+
+	log.Debug(pm.logExtraInfo(), "超级区块：PM 结束删除map, process数量", len(pm.processMap))
+}
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
 	var minNumber uint64
 	if pm.curNumber < 1 {
@@ -124,11 +153,11 @@ func (pm *ProcessManage) isLegalNumber(number uint64) error {
 	}
 
 	if number < minNumber {
-		return errors.Errorf("number(%d) is less than current number(%d)", number, pm.curNumber)
+		return errors.Errorf("高度(%d) 过于小于当前高度 范围(%d)", number, pm.curNumber)
 	}
 
 	if number > pm.curNumber+2 {
-		return errors.Errorf("number(%d) is too big than current number(%d)", number, pm.curNumber)
+		return errors.Errorf("高度(%d) 过于大于当前高度 范围(%d)", number, pm.curNumber)
 	}
 
 	return nil

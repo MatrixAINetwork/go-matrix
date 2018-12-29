@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // Package clique implements the proof-of-authority consensus engine.
 package clique
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/hexutil"
@@ -23,12 +23,11 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/crypto/sha3"
-	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/rpc"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -562,7 +561,7 @@ func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) erro
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
-func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []types.SelfTransaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = types.CalcUncleHash(nil)

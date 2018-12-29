@@ -1,13 +1,14 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package man
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/matrix/go-matrix/accounts"
@@ -18,18 +19,17 @@ import (
 	"github.com/matrix/go-matrix/core/bloombits"
 	"github.com/matrix/go-matrix/core/rawdb"
 	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/core/txinterface"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
+	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/man/gasprice"
 	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
-	"errors"
-	"fmt"
-	"github.com/matrix/go-matrix/core/txinterface"
+	"github.com/pkg/errors"
 )
 
 // ManAPIBackend implements manapi.Backend for full nodes
@@ -95,7 +95,9 @@ func (b *ManAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 func (b *ManAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return b.man.blockchain.GetBlockByHash(hash), nil
 }
-
+func (b *ManAPIBackend) GetState() (*state.StateDB, error) {
+	return b.man.BlockChain().State()
+}
 func (b *ManAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.man.chainDb, hash); number != nil {
 		return rawdb.ReadReceipts(b.man.chainDb, hash, *number), nil
@@ -124,7 +126,7 @@ func (b *ManAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 }
 
 func (b *ManAPIBackend) GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(common.MainAccount,msg.From(), math.MaxBig256)
+	state.SetBalance(common.MainAccount, msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg.From(), msg.GasPrice(), header, b.man.BlockChain(), nil)
@@ -151,10 +153,39 @@ func (b *ManAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 	return b.man.BlockChain().SubscribeLogsEvent(ch)
 }
 
+func (b *ManAPIBackend) ImportSuperBlock(ctx context.Context, filePath string) (common.Hash, error) {
+	log.Info("ManAPIBackend", "收到超级区块插入", filePath)
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Error("ManAPIBackend", "超级区块插入", "读取配置文件异常", "err", err)
+		return common.Hash{}, errors.Errorf("reader config file from \"%s\" err (%v)", filePath, err)
+	}
+
+	matrixGenesis := new(core.Genesis1)
+	if err := json.NewDecoder(file).Decode(matrixGenesis); err != nil {
+		log.Error("ManAPIBackend", "超级区块插入", "文件数据解码错误", err)
+		file.Close()
+		return common.Hash{}, errors.Errorf("decode config file from \"%s\" err (%v)", filePath, err)
+	}
+	file.Close()
+
+	superGen := new(core.Genesis)
+	core.ManGenesisToEthGensis(matrixGenesis, superGen)
+
+	superBlock, err := b.man.BlockChain().InsertSuperBlock(superGen, true)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	for i := 0; i < 3; i++ {
+		b.man.protocolManager.AllBroadcastBlock(superBlock, true)
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return superBlock.Hash(), nil
+}
+
 //TODO 调用该方法的时候应该返回错误的切片
-func (b *ManAPIBackend) SendTx(ctx context.Context, signedTx types.SelfTransaction) (error) {
-	//txs := make(types.SelfTransactions, 0)
-	//txs = append(txs, signedTx)
+func (b *ManAPIBackend) SendTx(ctx context.Context, signedTx types.SelfTransaction) error {
 	return b.man.txPool.AddRemote(signedTx)
 }
 
@@ -175,7 +206,11 @@ func (b *ManAPIBackend) GetPoolTransaction(hash common.Hash) types.SelfTransacti
 	if nerr == nil {
 		npool, ok := npooler.(*core.NormalTxPool)
 		if ok {
-			return npool.Get(hash)
+			tx := npool.Get(hash)
+			if tx == nil {
+				return nil
+			}
+			return tx
 		} else {
 			return nil
 		}
@@ -220,6 +255,8 @@ func (b *ManAPIBackend) Stats() (pending int, queued int) {
 
 //TODO 应该将返回值加入切片中否则以后多一种交易就要添加一个返回值
 func (b *ManAPIBackend) TxPoolContent() (ntxs map[common.Address]types.SelfTransactions, btxs map[common.Address]types.SelfTransactions) {
+	ntxs = make(map[common.Address]types.SelfTransactions)
+	btxs = make(map[common.Address]types.SelfTransactions)
 	bpooler, err := b.man.TxPool().GetTxPoolByType(types.BroadCastTxIndex)
 	if err == nil {
 		_, ok := bpooler.(*core.BroadCastTxPool)
@@ -233,9 +270,17 @@ func (b *ManAPIBackend) TxPoolContent() (ntxs map[common.Address]types.SelfTrans
 	if nerr == nil {
 		npool, ok := npooler.(*core.NormalTxPool)
 		if ok {
-			//ntxs, _ = npool.Content()
-			ntxs= nil //YYY TODO npool.Content()
-			fmt.Println(npool) //TODO 删除
+			txlist := npool.Content()
+			for k, vlist := range txlist {
+				txser := make([]types.SelfTransaction, 0)
+				for _, v := range vlist {
+					txser = append(txser, v)
+				}
+				if vs, ok := ntxs[k]; !ok {
+					txser = append(txser, vs...)
+				}
+				ntxs[k] = txser
+			}
 		} else {
 			ntxs = nil
 		}
@@ -284,21 +329,12 @@ func (b *ManAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 
 //YY
 func (b *ManAPIBackend) SignTx(signedTx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) {
-	return b.man.signHelper.SignTx(signedTx, chainID)
+	return b.man.signHelper.SignTx(signedTx, chainID, b.man.blockchain.CurrentBlock().ParentHash())
 }
 
 //YY
 func (b *ManAPIBackend) SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error {
-	bpooler, err := b.man.txPool.GetTxPoolByType(types.BroadCastTxIndex)
-	if err == nil {
-		bpool, ok := bpooler.(*core.BroadCastTxPool)
-		if ok {
-			return bpool.AddBroadTx(signedTx, bType)
-		} else {
-			return errors.New("SendBroadTx() unknown txpool")
-		}
-	}
-	return err
+	return b.man.txPool.AddBroadTx(signedTx, bType)
 }
 
 //YY
@@ -309,12 +345,8 @@ func (b *ManAPIBackend) FetcherNotify(hash common.Hash, number uint64) {
 	*/
 	return
 	ids := ca.GetRolesByGroup(common.RoleValidator)
-	log.Info("==========YY===========", "FetcherNotify()��Validator`s count", len(ids))
 	for _, id := range ids {
 		peer := b.man.protocolManager.Peers.Peer(id.String())
-		log.Info("==========YY===========", "FetcherNotify()��Validator`s NodeID", id)
-		log.Info("==========YY===========", "FetcherNotify()��get PeerID by Validator ID", peer.id)
 		b.man.protocolManager.fetcher.Notify(id.String(), hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)
-		log.Info("==========YY===========", "FetcherNotify()��send Notify completed", 111111111111111)
 	}
 }

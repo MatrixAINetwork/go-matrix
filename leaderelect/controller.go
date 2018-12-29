@@ -1,85 +1,46 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
 
 import (
-	"errors"
 	"time"
 
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-)
-
-type state uint8
-
-const (
-	idle state = iota
-	waitingBlockReq
-	waitingDPOSResult
-	reelectLeader
-)
-
-func (s state) String() string {
-	switch s {
-	case idle:
-		return "闲置状态"
-	case waitingBlockReq:
-		return "等待区块验证请求状态"
-	case waitingDPOSResult:
-		return "等待DPOS结果状态"
-	case reelectLeader:
-		return "重选状态"
-	default:
-		return "未知状态"
-	}
-}
-
-var (
-	waitingBlockReqTimer   = 40 * time.Second
-	waitingDPOSResultTimer = 40 * time.Second
-	reelectLeaderTimer     = 40 * time.Second
-
-	ErrInvalidState = errors.New("不支持的状态")
+	"strconv"
 )
 
 type controller struct {
-	matrix                 Matrix
-	number                 uint64
-	state                  state
-	curLeader              common.Address
-	curTurns               uint8
-	timer                  *time.Timer
-	calServer              *leaderCalculator
-	slaver                 *ldreSlaver
-	master                 *ldreMaster
-	blockVerifyStateCh     chan *mc.BlockVerifyStateNotify
-	reelectLeaderSuccessCh chan *mc.ReelectLeaderSuccMsg
-	quitCh                 chan struct{}
-	extra                  string
+	timer        *time.Timer
+	reelectTimer *time.Timer
+	matrix       Matrix
+	dc           *cdc
+	mp           *msgPool
+	selfCache    *masterCache
+	msgCh        chan interface{}
+	quitCh       chan struct{}
+	logInfo      string
 }
 
-func newController(matrix Matrix, extra string, calServer *leaderCalculator, number uint64) *controller {
+func newController(matrix Matrix, logInfo string, number uint64) *controller {
+	if number < 1 {
+		log.Crit(logInfo, "创建controller失败", "number < 1", "number", number)
+	}
 	ctrller := &controller{
-		matrix:                 matrix,
-		number:                 number,
-		state:                  idle,
-		curLeader:              common.Address{},
-		curTurns:               0,
-		timer:                  nil,
-		calServer:              calServer,
-		slaver:                 nil,
-		master:                 nil,
-		blockVerifyStateCh:     make(chan *mc.BlockVerifyStateNotify, 2),
-		reelectLeaderSuccessCh: make(chan *mc.ReelectLeaderSuccMsg, 1),
-		quitCh:                 make(chan struct{}),
-		extra:                  extra,
+		timer:        time.NewTimer(time.Minute),
+		reelectTimer: time.NewTimer(time.Minute),
+		matrix:       matrix,
+		dc:           newCDC(number, matrix.BlockChain(), logInfo),
+		mp:           newMsgPool(),
+		selfCache:    newMasterCache(number),
+		msgCh:        make(chan interface{}, 10),
+		quitCh:       make(chan struct{}),
+		logInfo:      logInfo,
 	}
 
 	go ctrller.run()
-	log.INFO(ctrller.extra, "创建控制", "成功", "高度", ctrller.number)
 	return ctrller
 }
 
@@ -95,17 +56,21 @@ func (self *controller) Number() uint64 {
 	return self.dc.number
 }
 
-func (self *controller) State() state {
+func (self *controller) State() stateDef {
 	return self.dc.state
 }
 
-func (self *controller) ConsensusTurn() uint32 {
-	return self.dc.curConsensusTurn
+func (self *controller) ConsensusTurn() *mc.ConsensusTurnInfo {
+	return &self.dc.curConsensusTurn
+}
+
+func (self *controller) ParentHash() common.Hash {
+	return self.dc.leaderCal.preHash
 }
 
 func (self *controller) run() {
-	log.INFO(self.logInfo, "控制服务", "启动", "高度", self.dc.number)
-	defer log.INFO(self.logInfo, "控制服务", "退出", "高度", self.dc.number)
+	log.Debug(self.logInfo, "controller", "begin run()", "高度", self.dc.number)
+	defer log.Debug(self.logInfo, "controller", "exit run()", "高度", self.dc.number)
 
 	self.setTimer(0, self.timer)
 	self.setTimer(0, self.reelectTimer)
@@ -126,20 +91,21 @@ func (self *controller) run() {
 	}
 }
 
-func (self *controller) sendLeaderMsg() {
+func (self *controller) publishLeaderMsg() {
 	msg, err := self.dc.PrepareLeaderMsg()
 	if err != nil {
-		log.ERROR(self.logInfo, "公布leader身份", "准备消息错误", "err", err)
+		log.ERROR(self.logInfo, "公布leader身份消息", "准备消息失败", "err", err)
 		return
 	}
-	log.INFO(self.logInfo, "公布leader身份, leader", msg.Leader.Hex(), "Next Leader", msg.NextLeader.Hex(), "高度", msg.Number,
-		"共识状态", msg.ConsensusState, "共识轮次", msg.ConsensusTurn, "重选轮次", msg.ReelectTurn)
+	log.INFO(self.logInfo, "公布leader身份消息, leader", msg.Leader.Hex(), "高度", msg.Number,
+		"共识状态", msg.ConsensusState, "共识轮次", msg.ConsensusTurn.String(), "重选轮次", msg.ReelectTurn,
+		"pre Leader", msg.PreLeader.Hex(), "Next Leader", msg.NextLeader.Hex())
 	mc.PublishEvent(mc.Leader_LeaderChangeNotify, msg)
 }
 
 func (self *controller) setTimer(outTime int64, timer *time.Timer) {
 	var OK bool
-	if outTime == 0 {
+	if outTime <= 0 {
 		OK = timer.Stop()
 	} else {
 		OK = timer.Reset(time.Duration(outTime) * time.Second)
@@ -148,7 +114,7 @@ func (self *controller) setTimer(outTime int64, timer *time.Timer) {
 		for {
 			select {
 			case <-timer.C:
-				log.DEBUG(self.logInfo, "超时器处理", "释放无用超时")
+				log.Trace(self.logInfo, "超时器处理", "释放无用超时")
 			default:
 				return
 			}
@@ -157,5 +123,5 @@ func (self *controller) setTimer(outTime int64, timer *time.Timer) {
 }
 
 func (self *controller) curTurnInfo() string {
-	return "共识轮次(" + strconv.Itoa(int(self.dc.curConsensusTurn)) + ")&重选轮次(" + strconv.Itoa(int(self.dc.curReelectTurn)) + ")"
+	return "共识轮次(" + self.dc.curConsensusTurn.String() + ")&重选轮次(" + strconv.Itoa(int(self.dc.curReelectTurn)) + ")"
 }

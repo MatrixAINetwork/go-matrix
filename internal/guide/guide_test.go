@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // This file contains the code snippets from the developer's guide embedded into
 // Go tests. This ensures that any code published in out guides will not break

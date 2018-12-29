@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package trie
 
@@ -11,8 +10,8 @@ import (
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/rlp"
 )
 

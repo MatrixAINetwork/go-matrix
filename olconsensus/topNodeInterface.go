@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package olconsensus
@@ -8,31 +8,16 @@ import (
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/event"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/msgsend"
+	"github.com/matrix/go-matrix/p2p"
 )
-
-type OnlineState uint8
-
-const (
-	Online OnlineState = iota + 1
-	Offline
-)
-
-func (o OnlineState) String() string {
-	switch o {
-	case Online:
-		return "在线"
-	case Offline:
-		return "下线"
-	default:
-		return "未知状态"
-	}
-}
 
 type NodeOnLineInfo struct {
 	Address     common.Address
-	OnlineState [30]uint8
+	Role        common.RoleType
+	OnlineState []uint8
 }
 
 type TopNodeStateInterface interface {
@@ -40,7 +25,7 @@ type TopNodeStateInterface interface {
 }
 
 type ValidatorAccountInterface interface {
-	SignWithValidate(hash []byte, validate bool) (sig common.Signature, err error)
+	SignWithValidate(hash []byte, validate bool, blkhash common.Hash) (sig common.Signature, err error)
 	IsSelfAddress(addr common.Address) bool
 }
 
@@ -51,6 +36,10 @@ type MessageSendInterface interface {
 type MessageCenterInterface interface {
 	SubscribeEvent(aim mc.EventCode, ch interface{}) (event.Subscription, error)
 	PublishEvent(aim mc.EventCode, data interface{}) error
+}
+
+type StateReaderInterface interface {
+	GetMatrixStateDataByHash(key string, hash common.Hash) (interface{}, error)
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -67,11 +56,24 @@ func NewTopNodeInstance(sh *signhelper.SignHelper, hd *msgsend.HD) *TopNodeInsta
 }
 
 func (self *TopNodeInstance) GetTopNodeOnlineState() []NodeOnLineInfo {
-	return nil
+	onlineStat := make([]NodeOnLineInfo, 0)
+	//调用p2p的接口获取节点在线状态
+	result := p2p.GetTopNodeAliveInfo(common.RoleValidator | common.RoleBackupValidator)
+	for _, value := range result {
+		state := NodeOnLineInfo{
+			Address:     value.Account,
+			Role:        value.Type,
+			OnlineState: value.Heartbeats,
+		}
+		onlineStat = append(onlineStat, state)
+		log.Debug("共识节点状态", "获取在线状态, node", value.Account, "心跳", value.Heartbeats)
+	}
+
+	return onlineStat
 }
 
-func (self *TopNodeInstance) SignWithValidate(hash []byte, validate bool) (sig common.Signature, err error) {
-	return self.signHelper.SignHashWithValidate(hash, validate)
+func (self *TopNodeInstance) SignWithValidate(hash []byte, validate bool, blkhash common.Hash) (sig common.Signature, err error) {
+	return self.signHelper.SignHashWithValidate(hash, validate, blkhash)
 }
 
 func (self *TopNodeInstance) IsSelfAddress(addr common.Address) bool {
@@ -80,6 +82,7 @@ func (self *TopNodeInstance) IsSelfAddress(addr common.Address) bool {
 
 func (self *TopNodeInstance) SendNodeMsg(subCode mc.EventCode, msg interface{}, Roles common.RoleType, address []common.Address) {
 	self.hd.SendNodeMsg(subCode, msg, Roles, address)
+	log.Info("共识节点状态", "发送消息完成", "")
 }
 
 func (self *TopNodeInstance) SubscribeEvent(aim mc.EventCode, ch interface{}) (event.Subscription, error) {

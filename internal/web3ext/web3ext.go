@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // package web3ext contains gman specific web3.js extensions.
 package web3ext
@@ -359,6 +358,11 @@ web3._extend({
 			params: 0,
 		}),
 		new web3._extend.Method({
+			name:'getCommit',
+			call:'debug_getCommit',
+			params:0,
+		}),
+		new web3._extend.Method({
 			name: 'storageRangeAt',
 			call: 'debug_storageRangeAt',
 			params: 5,
@@ -422,6 +426,31 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, web3._extend.utils.toHex]
 		}),
 		//hezi
+		new web3._extend.Method({
+			name: 'getEntrustList',
+			call: 'man_getEntrustList',
+			params: 1,
+		}),
+		new web3._extend.Method({
+			name: 'getAuthFrom',
+			call: 'man_getAuthFrom',
+			params: 2,
+		}),
+		new web3._extend.Method({
+			name: 'getEntrustFrom',
+			call: 'man_getEntrustFrom',
+			params: 2,
+		}),
+		new web3._extend.Method({
+			name: 'getAuthFromByTime',
+			call: 'man_getAuthFromByTime',
+			params: 2,
+		}),
+		new web3._extend.Method({
+			name: 'getEntrustFromByTime',
+			call: 'man_getEntrustFromByTime',
+			params: 2,
+		}),
 		new web3._extend.Method({
 			name: 'getTopology',
 			call: 'man_getTopology',
@@ -526,6 +555,11 @@ web3._extend({
 			name: 'importRawKey',
 			call: 'personal_importRawKey',
 			params: 2
+		}),
+		new web3._extend.Method({
+			name: 'setEntrustSignAccount',
+			call: 'personal_setEntrustSignAccount',
+			params: 3
 		}),
 		new web3._extend.Method({
 			name: 'sign',

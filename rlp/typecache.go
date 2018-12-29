@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package rlp
 
@@ -23,8 +22,9 @@ type typeinfo struct {
 	writer
 }
 type InterfaceTyper interface {
-	GetConstructorType()uint16
+	GetConstructorType() uint16
 }
+
 // represents struct tags
 type tags struct {
 	// rlp:"nil" controls whether empty input results in a nil pointer.
@@ -106,10 +106,12 @@ func structFields(typ reflect.Type) (fields []field, err error) {
 	}
 	return fields, nil
 }
-type InterfaceRLP struct{
+
+type InterfaceRLP struct {
 	TypeKind uint16
-	Value interface{}
+	Value    interface{}
 }
+
 func parseStructTag(typ reflect.Type, fi int) (tags, error) {
 	f := typ.Field(fi)
 	var ts tags

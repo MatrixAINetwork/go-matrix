@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package rlp
 
@@ -341,7 +340,7 @@ func makeWriter(typ reflect.Type, ts tags) (writer, error) {
 	case kind != reflect.Ptr && reflect.PtrTo(typ).Implements(encoderInterface):
 		return writeEncoderNoPtr, nil
 	case kind == reflect.Interface:
-		return writeTypeInterface,nil
+		return writeTypeInterface, nil
 	case typ.AssignableTo(reflect.PtrTo(bigInt)):
 		return writeBigIntPtr, nil
 	case typ.AssignableTo(bigInt):
@@ -476,16 +475,25 @@ func writeEncoderNoPtr(val reflect.Value, w *encbuf) error {
 	}
 	return val.Addr().Interface().(Encoder).EncodeRLP(w)
 }
-
-func writeTypeInterface(val reflect.Value, w *encbuf)error{
+func writeTypeInterface(val reflect.Value, w *encbuf) error {
 	if val.Type().Implements(typerInterface) {
-		valRLP := InterfaceRLP{val.Interface().(InterfaceTyper).GetConstructorType(),val.Interface()}
-		writer,_ := makeStructWriter(reflect.TypeOf(valRLP))
-		return writer(reflect.ValueOf(valRLP),w)
-	}else {
-		return writeInterface(val,w)
+		valRLP := InterfaceRLP{val.Interface().(InterfaceTyper).GetConstructorType(), val.Interface()}
+		info, _ := cachedTypeInfo(reflect.TypeOf(valRLP), tags{})
+		return info.writer(reflect.ValueOf(valRLP), w)
+	} else {
+		return writeInterface(val, w)
 	}
 }
+
+//func writeTypeInterface(val reflect.Value, w *encbuf)error{
+//	if val.Type().Implements(typerInterface) {
+//		valRLP := InterfaceRLP{val.Interface().(InterfaceTyper).GetConstructorType(),val.Interface()}
+//		writer,_ := makeStructWriter(reflect.TypeOf(valRLP))
+//		return writer(reflect.ValueOf(valRLP),w)
+//	}else {
+//		return writeInterface(val,w)
+//	}
+//}
 func writeInterface(val reflect.Value, w *encbuf) error {
 	if val.IsNil() {
 		// Write empty list. This is consistent with the previous RLP

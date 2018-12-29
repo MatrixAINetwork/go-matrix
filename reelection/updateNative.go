@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package reelection
@@ -6,237 +6,187 @@ package reelection
 import (
 	"encoding/json"
 	"errors"
-	"math/big"
-
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/core/matrixstate"
+	"github.com/matrix/go-matrix/election/support"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
 )
 
-func locate(address common.Address, master []mc.TopologyNodeInfo, backUp []mc.TopologyNodeInfo, cand []mc.TopologyNodeInfo) (int, mc.TopologyNodeInfo) {
-	for _, v := range master {
-		if v.Account == address {
-			return 0, v
-		}
-	}
-	for _, v := range backUp {
-		if v.Account == address {
-			return 1, v
-		}
-	}
-	for _, v := range cand {
-		if v.Account == address {
-			return 2, v
-		}
-	}
-	return -1, mc.TopologyNodeInfo{}
-}
-
-func (self *ReElection) whereIsV(address common.Address, role common.RoleType, height uint64) (int, mc.TopologyNodeInfo, error) {
-	switch {
-	case role == common.RoleMiner:
-		height = height / common.GetBroadcastInterval()
-		height = height*common.GetBroadcastInterval() - params.MinerTopologyGenerateUpTime
-		ans, _, err := self.readElectData(common.RoleMiner, height)
-		if err != nil {
-			return -1, mc.TopologyNodeInfo{}, err
-		}
-		flag, aimOnline := locate(address, ans.MasterMiner, ans.BackUpMiner, []mc.TopologyNodeInfo{})
-		return flag, aimOnline, nil
-
-	case role == common.RoleValidator:
-		height = height / common.GetBroadcastInterval()
-		height = height*common.GetBroadcastInterval() - params.VerifyTopologyGenerateUpTime
-		_, ans, err := self.readElectData(common.RoleValidator, height)
-		if err != nil {
-			return -1, mc.TopologyNodeInfo{}, err
-		}
-		flag, aimOnline := locate(address, ans.MasterValidator, ans.BackUpValidator, ans.CandidateValidator)
-		return flag, aimOnline, nil
-	default:
-		log.ERROR(Module, "whereIsV ", "role must be role or validatoe")
-		return -1, mc.TopologyNodeInfo{}, errors.New("whereIsV role must be role or validatoe")
-	}
-}
-func (self *ReElection) ToNativeMinerStateUpdate(height uint64, allNative AllNative) (AllNative, error) {
-	DiffFromBlock := self.bc.GetHeaderByNumber(height).NetTopology
-	//测试
-	//DiffFromBlock := common.NetTopology{}
-	//aim := 0x04 + 0x08
-	TopoGrap, err:= GetCurrentTopology(height-1, common.RoleMiner)
-	if err!=nil{
-		log.ERROR(Module,"从CA获取验证者拓扑图错误 err",err)
-		return allNative,err
-	}
-	online, offline := self.CalOnline(DiffFromBlock, TopoGrap)
-	log.INFO(Module, "ToNativeMinerStateUpdate online", online, "offline", offline)
-	allNative.MasterMiner, allNative.BackUpMiner = deleteOfflineNode(offline, allNative.MasterMiner, allNative.BackUpMiner)
-
-	for _, v := range online {
-		flag, aimonline, err := self.whereIsV(v, common.RoleMiner, height)
-		if err != nil {
-			return AllNative{}, err
-		}
-		if flag == -1 {
-			continue
-		}
-		allNative.MasterMiner, allNative.BackUpMiner, _ = self.NativeUpdate(allNative.MasterMiner, allNative.BackUpMiner, []mc.TopologyNodeInfo{}, aimonline, flag)
-	}
-
-	return allNative, nil
-}
-
-func (self *ReElection) ToNativeValidatorStateUpdate(height uint64, allNative AllNative) (AllNative, error) {
-
-	DiffFromBlock := self.bc.GetHeaderByNumber(height - 1).NetTopology
-
-	//测试
-	//DiffFromBlock := common.NetTopology{}
-	//aim := 0x01 + 0x02
-	TopoGrap, err := GetCurrentTopology(height-1, common.RoleValidator)
-	if err!=nil{
-		log.ERROR(Module,"从ca获取验证者拓扑图失败",err)
-		return allNative,err
-	}
-	online, offline := self.CalOnline(DiffFromBlock, TopoGrap)
-	log.INFO(Module, "ToNativeValidatorStateUpdate online", online, "offline", offline)
-	allNative.MasterValidator, allNative.BackUpValidator = deleteOfflineNode(offline, allNative.MasterValidator, allNative.BackUpValidator)
-
-	for _, v := range online {
-		flag, aimonline, err := self.whereIsV(v, common.RoleMiner, height)
-		if err != nil {
-			return AllNative{}, err
-		}
-
-		if flag == -1 {
-			continue
-		}
-
-		allNative.MasterValidator, allNative.BackUpValidator, allNative.CandidateValidator = self.NativeUpdate(allNative.MasterValidator, allNative.BackUpValidator, allNative.CandidateValidator, aimonline, flag)
-
-	}
-
-	return allNative, nil
-}
-
-func deleteOfflineNode(offline []common.Address, Master []mc.TopologyNodeInfo, BackUp []mc.TopologyNodeInfo) ([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo) {
-	for k, v := range Master {
-		if IsInArray(v.Account, offline) {
-			Master = append(Master[:k], Master[k+1:]...)
-		}
-	}
-	for k, v := range BackUp {
-		if IsInArray(v.Account, offline) {
-			BackUp = append(BackUp[:k], BackUp[k+1:]...)
-		}
-	}
-	return Master, BackUp
-}
-
-func (self *ReElection) CalOnline(diff common.NetTopology, top *mc.TopologyGraph) ([]common.Address, []common.Address) {
-	online := make([]common.Address, 0)
-	offline := make([]common.Address, 0)
-
-	for _, v := range diff.NetTopologyData {
-
-		if v.Position == 0xF000 {
-			offline = append(offline, v.Account)
-			continue
-		}
-		if v.Position == 0xF001 {
-			online = append(online, v.Account)
-			continue
-		}
-		nativeAdd := checkInGraph(top, v.Position)
-		if checkInDiff(diff, nativeAdd) == false {
-			offline = append(offline, nativeAdd)
-		}
-
-	}
-
-	return online, offline
-}
-func checkInGraph(top *mc.TopologyGraph, pos uint16) common.Address {
+func GetAllNativeDataForUpdate(electstate mc.ElectGraph, electonline mc.ElectOnlineStatus, top *mc.TopologyGraph) support.AllNative {
+	mapTopStatus := make(map[common.Address]common.RoleType, 0)
 	for _, v := range top.NodeList {
-		if v.Position == pos {
-			return v.Account
+		mapTopStatus[v.Account] = v.Type
+	}
+	native := support.AllNative{}
+	mapELectStatus := make(map[common.Address]common.RoleType, 0)
+	for _, v := range electstate.ElectList {
+		mapELectStatus[v.Account] = v.Type
+		switch v.Type {
+		case common.RoleValidator:
+			native.Master = append(native.Master, v)
+		case common.RoleBackupValidator:
+			native.BackUp = append(native.BackUp, v)
+		case common.RoleCandidateValidator:
+			native.Candidate = append(native.Candidate, v)
 		}
 	}
-	return common.Address{}
-}
-func checkInDiff(diff common.NetTopology, add common.Address) bool {
-	for _, v := range diff.NetTopologyData {
-		if v.Account == add {
-			return true
+	for _, v := range electonline.ElectOnline {
+		if v.Position != common.PosOnline { //过滤在线的
+			continue
+		}
+		if _, ok := mapTopStatus[v.Account]; ok == true { //过滤当前不在拓扑图中的
+			continue
+		}
+		if _, ok := mapELectStatus[v.Account]; ok == true { //在初选列表中的
+			switch mapELectStatus[v.Account] {
+			case common.RoleValidator:
+				native.MasterQ = append(native.MasterQ, v.Account)
+			case common.RoleBackupValidator:
+				native.BackUpQ = append(native.BackUpQ, v.Account)
+			case common.RoleCandidateValidator:
+				native.CandidateQ = append(native.CandidateQ, v.Account)
+			}
 		}
 	}
-	return false
+	return native
 }
-func IsInArray(aimAddress common.Address, offline []common.Address) bool {
+func GetOnlineAlter(offline []common.Address, online []common.Address, electonline mc.ElectOnlineStatus) []mc.Alternative {
+	ans := []mc.Alternative{}
+	mappOnlineStatus := make(map[common.Address]uint16)
+	for _, v := range electonline.ElectOnline {
+		mappOnlineStatus[v.Account] = v.Position
+	}
 	for _, v := range offline {
-		if v == aimAddress {
-			return true
+		if _, ok := mappOnlineStatus[v]; ok == false {
+			log.ERROR(Module, "计算下线节点的alter时 下线节点不在初选列表中 账户", v.String())
+			continue
+		}
+		if mappOnlineStatus[v] == common.PosOffline {
+			log.ERROR(Module, "该节点已处于下线阶段 不需要上块 账户", v.String())
+			continue
+		}
+		temp := mc.Alternative{
+			A:        v,
+			Position: common.PosOffline,
+		}
+		ans = append(ans, temp)
+	}
+
+	for _, v := range online {
+		if _, ok := mappOnlineStatus[v]; ok == false {
+			log.ERROR(Module, "计算上线节点的alter时 上线节点不在初选列表中 账户", v.String())
+			continue
+		}
+		if mappOnlineStatus[v] == common.PosOnline {
+			log.ERROR(Module, "该节点已处于上线阶段，不需要上块 账户", v.String())
+			continue
+		}
+		temp := mc.Alternative{
+			A:        v,
+			Position: common.PosOnline,
+		}
+		ans = append(ans, temp)
+	}
+	log.INFO(Module, "计算上下线节点结果 online", online, "offline", offline, "ans", ans)
+	return ans
+}
+
+func (self *ReElection) TopoUpdate(allNative support.AllNative, top *mc.TopologyGraph, height uint64) ([]mc.Alternative, error) {
+	elect, err := self.GetElectPlug(height)
+	if err != nil {
+		log.ERROR(Module, "获取选举插件")
+		return []mc.Alternative{}, err
+	}
+
+	data, err := self.bc.GetMatrixStateDataByNumber(mc.MSKeyElectConfigInfo, height)
+	if err != nil {
+		log.ERROR("GetElectInfo", "获取选举基础信息失败 err", err)
+		return nil, err
+	}
+	electInfo, OK := data.(*mc.ElectConfigInfo)
+	if OK == false || electInfo == nil {
+		log.ERROR("ElectConfigInfo", "ElectConfigInfo ", "反射失败", "高度", height)
+		return nil, errors.New("反射失败")
+	}
+	allNative.ElectInfo = electInfo
+	return elect.ToPoUpdate(allNative, top), nil
+}
+
+func (self *ReElection) LastMinerGenTimeStamp(height uint64, types common.RoleType, hash common.Hash) (uint64, error) {
+
+	data, err := self.GetElectGenTimes(height)
+	if err != nil {
+		log.ERROR(Module, "获取配置文件失败 err", err)
+		return 0, err
+	}
+	minerGenTime := uint64(data.MinerNetChange)
+	validatorGenTime := uint64(data.ValidatorNetChange)
+
+	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "根据hash获取广播周期信息 err", err)
+		return 0, err
+	}
+	switch types {
+	case common.RoleMiner:
+		return bcInterval.GetNextReElectionNumber(height) - minerGenTime, nil
+	default:
+		return bcInterval.GetNextReElectionNumber(height) - validatorGenTime, nil
+	}
+
+}
+
+func (self *ReElection) GetTopNodeInfo(hash common.Hash, types common.RoleType) ([]mc.ElectNodeInfo, []mc.ElectNodeInfo, []mc.ElectNodeInfo, error) {
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "根据hash获取高度失败 err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	heightPos, err := self.LastMinerGenTimeStamp(height, types, hash)
+	if err != nil {
+		log.ERROR(Module, "根据生成点高度失败", height, "types", types)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+
+	hashPos, err := self.GetHeaderHashByNumber(hash, heightPos)
+	log.INFO(Module, "GetTopNodeInfo pos", heightPos)
+	if err != nil {
+		log.ERROR(Module, "根据hash算父header失败 hash", hashPos)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	headerPos := self.bc.GetHeaderByHash(hashPos)
+	stateDB, err := self.bc.StateAt(headerPos.Root)
+	ElectGraphBytes := stateDB.GetMatrixData(matrixstate.GetKeyHash(mc.MSKeyElectGraph))
+	var electState mc.ElectGraph
+	if err := json.Unmarshal(ElectGraphBytes, &electState); err != nil {
+		log.ERROR(Module, "GetElection Unmarshal err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	master := []mc.ElectNodeInfo{}
+	backup := []mc.ElectNodeInfo{}
+	cand := []mc.ElectNodeInfo{}
+
+	switch types {
+	case common.RoleMiner:
+		for _, v := range electState.NextMinerElect {
+			switch v.Type {
+			case common.RoleMiner:
+				master = append(master, v)
+			}
+		}
+	case common.RoleValidator:
+		for _, v := range electState.NextValidatorElect {
+			switch v.Type {
+			case common.RoleValidator:
+				master = append(master, v)
+			case common.RoleBackupValidator:
+				backup = append(backup, v)
+			case common.RoleCandidateValidator:
+				cand = append(cand, v)
+
+			}
 		}
 	}
-	return false
-}
-func (self *ReElection) writeNativeData(height uint64, data AllNative) error {
-	key := MakeNativeDBKey(height)
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	err = self.ldb.Put([]byte(key), jsonData, nil)
-	return err
-}
-
-func (self *ReElection) readNativeData(height uint64) (AllNative, error) {
-	key := MakeNativeDBKey(height)
-	ans, err := self.ldb.Get([]byte(key), nil)
-	if err != nil {
-		return AllNative{}, err
-	}
-	var realAns AllNative
-	err = json.Unmarshal(ans, &realAns)
-	if err != nil {
-		return AllNative{}, err
-	}
-
-	return realAns, nil
-
-}
-func MakeNativeDBKey(height uint64) string {
-	t := big.NewInt(int64(height))
-	ss := t.String() + "---" + "Native"
-	return ss
-}
-func (self *ReElection) GetNativeFromDB(height uint64) error {
-	log.INFO(Module, "GetNativeFromDB", height)
-	minerH := height - params.MinerNetChangeUpTime
-	minerELect, _, err := self.readElectData(common.RoleMiner, minerH)
-	if err != nil {
-		return err
-	}
-
-	validatorH := height - params.VerifyNetChangeUpTime
-	_, validatorElect, err := self.readElectData(common.RoleValidator, validatorH)
-	if err != nil {
-		return err
-	}
-	log.INFO(Module, "GetNativeFromDB", height, "ready to writeNativeData data", AllNative{
-		MasterMiner:        minerELect.MasterMiner,
-		BackUpMiner:        minerELect.BackUpMiner,
-		MasterValidator:    validatorElect.MasterValidator,
-		BackUpValidator:    validatorElect.BackUpValidator,
-		CandidateValidator: validatorElect.CandidateValidator,
-	})
-	return self.writeNativeData(height, AllNative{
-		MasterMiner:        minerELect.MasterMiner,
-		BackUpMiner:        minerELect.BackUpMiner,
-		MasterValidator:    validatorElect.MasterValidator,
-		BackUpValidator:    validatorElect.BackUpValidator,
-		CandidateValidator: validatorElect.CandidateValidator,
-	})
-
+	return master, backup, cand, nil
 }

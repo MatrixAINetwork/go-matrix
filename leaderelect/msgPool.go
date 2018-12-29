@@ -12,22 +12,23 @@ import (
 type msgPool struct {
 	parentHeader     *types.Header
 	posNotifyCache   []*mc.BlockPOSFinishedNotify
-	rlConsensusCache map[uint32]*mc.HD_ReelectLeaderConsensus
+	rlConsensusCache map[mc.ConsensusTurnInfo]*mc.HD_ReelectLeaderConsensus
 }
 
 func newMsgPool() *msgPool {
 	return &msgPool{
 		parentHeader:     nil,
 		posNotifyCache:   make([]*mc.BlockPOSFinishedNotify, 0),
-		rlConsensusCache: make(map[uint32]*mc.HD_ReelectLeaderConsensus),
+		rlConsensusCache: make(map[mc.ConsensusTurnInfo]*mc.HD_ReelectLeaderConsensus),
 	}
 }
 
 func (mp *msgPool) SavePOSNotifyMsg(msg *mc.BlockPOSFinishedNotify) error {
-	if nil == msg || (msg.Header.Leader == common.Address{}) {
-		return ErrMsgIsNil
+	if nil == msg || nil == msg.Header || (msg.Header.Leader == common.Address{}) {
+		return ErrParamsIsNil
 	}
 
+	//存在检查
 	for _, oldMsg := range mp.posNotifyCache {
 		if oldMsg.ConsensusTurn == msg.ConsensusTurn && oldMsg.Header.Leader == msg.Header.Leader {
 			return ErrMsgExistInCache
@@ -38,9 +39,9 @@ func (mp *msgPool) SavePOSNotifyMsg(msg *mc.BlockPOSFinishedNotify) error {
 	return nil
 }
 
-func (mp *msgPool) GetPOSNotifyMsg(leader common.Address, consensusTurn uint32) (*mc.BlockPOSFinishedNotify, error) {
+func (mp *msgPool) GetPOSNotifyMsg(leader common.Address, consensusTurn mc.ConsensusTurnInfo) (*mc.BlockPOSFinishedNotify, error) {
 	for _, msg := range mp.posNotifyCache {
-		if msg.ConsensusTurn == msg.ConsensusTurn && msg.Header.Leader == msg.Header.Leader {
+		if msg.ConsensusTurn == consensusTurn && msg.Header.Leader == leader {
 			return msg, nil
 		}
 	}
@@ -48,14 +49,14 @@ func (mp *msgPool) GetPOSNotifyMsg(leader common.Address, consensusTurn uint32) 
 }
 
 func (mp *msgPool) SaveRLConsensusMsg(msg *mc.HD_ReelectLeaderConsensus) {
-	if nil == msg || (msg.Req.InquiryReq.Master == common.Address{}) {
+	if nil == msg || nil == msg.Req || nil == msg.Req.InquiryReq || (msg.Req.InquiryReq.Master == common.Address{}) {
 		return
 	}
-	consensusTurn := msg.Req.InquiryReq.ConsensusTurn + msg.Req.InquiryReq.ReelectTurn
+	consensusTurn := calcNextConsensusTurn(msg.Req.InquiryReq.ConsensusTurn, msg.Req.InquiryReq.ReelectTurn)
 	mp.rlConsensusCache[consensusTurn] = msg
 }
 
-func (mp *msgPool) GetRLConsensusMsg(consensusTurn uint32) (*mc.HD_ReelectLeaderConsensus, error) {
+func (mp *msgPool) GetRLConsensusMsg(consensusTurn mc.ConsensusTurnInfo) (*mc.HD_ReelectLeaderConsensus, error) {
 	msg, OK := mp.rlConsensusCache[consensusTurn]
 	if !OK {
 		return nil, ErrNoMsgInCache

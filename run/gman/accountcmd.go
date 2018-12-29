@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -10,10 +10,10 @@ import (
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/console"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 

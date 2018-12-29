@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package core
 
@@ -100,8 +99,8 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 // CanTransfer checks wether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
 func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
-	for _,tAccount := range db.GetBalance(addr){
-		if tAccount.AccountType == common.MainAccount{
+	for _, tAccount := range db.GetBalance(addr) {
+		if tAccount.AccountType == common.MainAccount {
 			return tAccount.Balance.Cmp(amount) >= 0
 		}
 	}
@@ -110,6 +109,6 @@ func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
-	db.SubBalance(common.MainAccount,sender, amount)
-	db.AddBalance(common.MainAccount,recipient, amount)
+	db.SubBalance(common.MainAccount, sender, amount)
+	db.AddBalance(common.MainAccount, recipient, amount)
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package olconsensus
@@ -20,6 +20,7 @@ type DPosVoteState struct {
 	mu               sync.RWMutex
 	Hash             common.Hash
 	Proposal         interface{}
+	Voted            bool //本地是否对请求投过票
 	AffirmativeVotes []voteInfo
 }
 
@@ -28,24 +29,27 @@ func (ds *DPosVoteState) hasHash(hash common.Hash) bool {
 	defer ds.mu.RUnlock()
 	return ds.Hash == hash
 }
-func (ds *DPosVoteState) addProposal(proposal interface{}) bool {
+func (ds *DPosVoteState) addProposal(proposal interface{}, voted bool) bool {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 	have := ds.Proposal != nil
 	ds.Proposal = proposal
+	ds.Voted = voted
 	return have
 }
 func (ds *DPosVoteState) addVote(vote *mc.HD_ConsensusVote) (interface{}, []voteInfo) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 	insVote := voteInfo{messageState.RlpFnvHash(vote), vote}
+	log.Debug("共识节点状态", "fnvHash", insVote.hash, "From", vote.From.String())
 	for _, item := range ds.AffirmativeVotes {
 		if item.hash == insVote.hash {
+			log.Error("共识节点状态", "添加投票,投票已经存在 vote", vote, "已经收到的票数", len(ds.AffirmativeVotes))
 			return nil, nil
 		}
 	}
 	ds.AffirmativeVotes = append(ds.AffirmativeVotes, insVote)
-	log.Info("DPosVoteState", "length", len(ds.AffirmativeVotes))
+	log.Debug("共识节点状态", "添加投票length", len(ds.AffirmativeVotes), "proposal", ds.Proposal)
 	return ds.Proposal, ds.AffirmativeVotes[:]
 }
 func (ds *DPosVoteState) clear(proposal common.Hash) {
@@ -55,10 +59,10 @@ func (ds *DPosVoteState) clear(proposal common.Hash) {
 	ds.Proposal = nil
 	ds.AffirmativeVotes = make([]voteInfo, 0)
 }
-func (ds *DPosVoteState) getVotes() (interface{}, []voteInfo) {
+func (ds *DPosVoteState) getVotes() (interface{}, []voteInfo, bool) {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
-	return ds.Proposal, ds.AffirmativeVotes[:]
+	return ds.Proposal, ds.AffirmativeVotes[:], ds.Voted
 }
 
 type DPosVoteRing struct {
@@ -97,13 +101,13 @@ func (ring *DPosVoteRing) insertNewProposal(hash common.Hash) *DPosVoteState {
 	return ring.DPosVoteS[last]
 }
 
-func (ring *DPosVoteRing) getVotes(hash common.Hash) (interface{}, []voteInfo) {
+func (ring *DPosVoteRing) getVotes(hash common.Hash) (interface{}, []voteInfo, bool) {
 	ds, _ := ring.findProposal(hash)
 	return ds.getVotes()
 }
-func (ring *DPosVoteRing) addProposal(hash common.Hash, proposal interface{}) bool {
+func (ring *DPosVoteRing) addProposal(hash common.Hash, proposal interface{}, voted bool) bool {
 	ds, have := ring.findProposal(hash)
-	add := ds.addProposal(proposal)
+	add := ds.addProposal(proposal, voted)
 	return !(have && add)
 }
 func (ring *DPosVoteRing) addVote(hash common.Hash, vote *mc.HD_ConsensusVote) (interface{}, []voteInfo) {

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package man
 
@@ -20,11 +19,12 @@ import (
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/rawdb"
 	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/core/txinterface"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
-	"github.com/matrix/go-matrix/man/tracers"
 	"github.com/matrix/go-matrix/internal/manapi"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/man/tracers"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/rpc"
 	"github.com/matrix/go-matrix/trie"
@@ -264,7 +264,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				traced += uint64(len(txs))
 			}
 			// Generate the next state snapshot fast without tracing
-			_, _, _, err := api.man.blockchain.Processor().Process(block, statedb, vm.Config{})
+			_, _, _, err := api.man.blockchain.Processor().Process(block, statedb, vm.Config{}, nil)
 			if err != nil {
 				failed = err
 				break
@@ -499,7 +499,7 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if block = api.man.blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
 			return nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
-		_, _, _, err := api.man.blockchain.Processor().Process(block, statedb, vm.Config{})
+		_, _, _, err := api.man.blockchain.Processor().Process(block, statedb, vm.Config{}, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -542,7 +542,7 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, vmctx vm.Context, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+func (api *PrivateDebugAPI) traceTx(ctx context.Context, message txinterface.Message, vmctx vm.Context, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer vm.Tracer
@@ -601,7 +601,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 }
 
 // computeTxEnv returns the execution environment of a certain transaction.
-func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, error) {
+func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (txinterface.Message, vm.Context, *state.StateDB, error) {
 	// Create the parent state database
 	block := api.man.blockchain.GetBlockByHash(blockHash)
 	if block == nil {

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // Package miner implements Matrix block creation and mining.
 package miner
@@ -18,8 +17,8 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/msgsend"
+	"github.com/matrix/go-matrix/params"
 )
 
 const (
@@ -84,7 +83,7 @@ func (self *Miner) Start() {
 func (self *Miner) Stop() {
 	// todo:
 
-	//self.worker.Stop()
+	self.worker.Stop()
 	atomic.StoreInt32(&self.shouldStart, 0)
 
 }

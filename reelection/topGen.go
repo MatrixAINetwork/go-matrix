@@ -1,217 +1,263 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package reelection
 
 import (
-	"encoding/json"
 	"errors"
 	"math/big"
 
-	"github.com/matrix/go-matrix/params"
-
+	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/manparams"
 )
 
-//得到随机种子
-func (self *ReElection) GetSeed(height uint64) (*big.Int, error) {
-	return self.random.GetRandom(common.GetLastBroadcastNumber(height), "electionseed")
-	//
-	//sendData := self.CalcbeforeSeedGen(height)
-	//
-	//var err error
-	//self.electionSeedSub, err = mc.SubscribeEvent(mc.Random_TopoSeedRsp, self.electionSeedCh)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//mc.PublishEvent(mc.ReElec_TopoSeedReq, &sendData)
-	//
-	//select {
-	//case seed := <-self.electionSeedCh:
-	//	log.INFO(Module, "received seed", seed)
-	//	self.electionSeedSub.Unsubscribe()
-	//	return seed.Seed, nil
-	//
-	//case <-time.After(Time_Out_Limit):
-	//	self.electionSeedSub.Unsubscribe()
-	//	log.INFO(Module, "received seed", "Time_Out_Falied")
-	//	return nil, errors.New("Seed Gen failed")
-	//}
+type TopGenStatus struct {
+	MastV []mc.ElectNodeInfo
+	BackV []mc.ElectNodeInfo
+	CandV []mc.ElectNodeInfo
+
+	MastM []mc.ElectNodeInfo
+	BackM []mc.ElectNodeInfo
+	CandM []mc.ElectNodeInfo
 }
 
-//随机种子生成前的消息准备
-func (self *ReElection) CalcbeforeSeedGen(height uint64) mc.RandomRequest {
-	broadcastInterval := common.GetBroadcastInterval()
-	height_1 := height / broadcastInterval * broadcastInterval //上一个广播区块
-	height_2 := height_1 - common.GetBroadcastInterval()
+func (self *ReElection) HandleTopGen(hash common.Hash) (TopGenStatus, error) {
+	topGenStatus := TopGenStatus{}
 
-	minHash := self.getMinHash(height)
-	PrivateMap := getKeyTransInfo(height_1, mc.Privatekey)
-	PublicMap := getKeyTransInfo(height_2, mc.Publickey)
-	log.INFO(Module, "获取到的公私钥匙, 公钥长度", len(PublicMap), "私钥长度", len(PrivateMap), "当前高度", height)
-	for k, v := range PublicMap {
-		log.INFO(Module, "公钥key", k, "value", v, "当前高度", height)
-	}
-	for k, v := range PrivateMap {
-		log.INFO(Module, "私钥key", k, "value", v, "当前高度", height)
-	}
-
-	return mc.RandomRequest{MinHash: minHash, PrivateMap: PrivateMap, PublicMap: PublicMap}
-}
-func (self *ReElection) GetHashByNum(height uint64) common.Hash {
-	return self.bc.GetBlockByNumber(height).Hash()
-}
-func (self *ReElection) getMinHash(height uint64) common.Hash {
-
-	minhash := self.GetHashByNum(height)
-	BroadcastInterval := common.GetBroadcastInterval()
-	for i := height - 1; i > height-BroadcastInterval; i-- {
-		blockhash := self.GetHashByNum(uint64(i))
-		if minhash.Big().Cmp(blockhash.Big()) == 1 { //前者大于后者
-			minhash = blockhash
+	if self.IsMinerTopGenTiming(hash) { //矿工生成时间 240
+		log.INFO(Module, "是矿工生成时间点 hash", hash.String())
+		MastM, BackM, CandM, err := self.ToGenMinerTop(hash)
+		if err != nil {
+			log.ERROR(Module, "矿工拓扑生成错误 err", err)
+			return topGenStatus, err
 		}
-
+		topGenStatus.MastM = append(topGenStatus.MastM, MastM...)
+		topGenStatus.BackM = append(topGenStatus.BackM, BackM...)
+		topGenStatus.CandM = append(topGenStatus.CandM, CandM...)
 	}
-	return minhash
+
+	if self.IsValidatorTopGenTiming(hash) { //验证者生成时间 260
+		log.INFO(Module, "是验证者生成时间点 height", hash)
+		MastV, BackV, CandV, err := self.ToGenValidatorTop(hash)
+		if err != nil {
+			log.ERROR(Module, "验证者拓扑生成错误 err", err)
+			return topGenStatus, err
+		}
+		topGenStatus.MastV = append(topGenStatus.MastV, MastV...)
+		topGenStatus.BackV = append(topGenStatus.BackV, BackV...)
+		topGenStatus.CandV = append(topGenStatus.CandV, CandV...)
+	}
+	return topGenStatus, nil
+
 }
 
-func (self *ReElection) ToGenMinerTop(height uint64) error {
+//是不是矿工拓扑生成时间段
+func (self *ReElection) IsMinerTopGenTiming(hash common.Hash) bool {
 
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "判断是否是矿工生成点错误 hash", hash.String(), "err", err)
+		return false
+	}
+
+	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "获取广播区间失败 err", err)
+		return false
+	}
+
+	genData, err := self.GetElectGenTimes(height)
+	if err != nil {
+		log.ERROR(Module, "获取配置错误 高度", height, "err", err)
+		return false
+	}
+
+	if bcInterval.IsReElectionNumber(height + 1 + uint64(genData.MinerNetChange)) {
+		log.ERROR(Module, "是矿工生成点 高度", height, "MinerNetChange", genData.MinerNetChange, "换届周期", bcInterval.GetReElectionInterval())
+		return true
+	}
+
+	log.ERROR(Module, "不是矿工生成点 高度", height, "提前点", genData.MinerNetChange, "换届周期", bcInterval.GetReElectionInterval())
+	return false
+}
+
+//是不是验证者拓扑生成时间段
+func (self *ReElection) IsValidatorTopGenTiming(hash common.Hash) bool {
+
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "判断是否是验证者生成点错误 height", height, "err", err)
+		return false
+	}
+
+	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "获取广播区间失败 err", err)
+		return false
+	}
+
+	genData, err := self.GetElectGenTimes(height)
+	if err != nil {
+		log.ERROR(Module, "获取配置错误 高度", height, "err", err)
+		return false
+	}
+	if bcInterval.IsReElectionNumber(height + 1 + uint64(genData.ValidatorNetChange)) {
+		log.ERROR(Module, "是验证者生成点 height", height, "ValidatorNetChange", genData.ValidatorNetChange, "换届周期", bcInterval.GetReElectionInterval())
+		return true
+	}
+	log.ERROR(Module, "不是验证者生成点 高度", height, "提前切换高度", genData.ValidatorNetChange, "换届周期", bcInterval.GetReElectionInterval())
+	return false
+}
+
+//得到随机种子
+func (self *ReElection) GetSeed(hash common.Hash) (*big.Int, error) {
+	seed, err := self.random.GetRandom(hash, manparams.ElectionSeed)
+	log.Info(Module, "common.Default seed", seed)
+	return seed, err
+
+}
+
+func (self *ReElection) ToGenMinerTop(hash common.Hash) ([]mc.ElectNodeInfo, []mc.ElectNodeInfo, []mc.ElectNodeInfo, error) {
+	log.INFO(Module, "准备生成矿工拓扑图", "start", "hash", hash.String())
+	defer log.INFO(Module, "生成矿工拓扑图结束", "end", "hash", hash.String())
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "根据hash算高度失败 ToGenMinerTop hash", hash, "err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	data, err := self.GetElectGenTimes(height)
+	if err != nil {
+		log.ERROR(Module, "获取选举信息失败 高度", height, "err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	minerGen := uint64(data.MinerGen)
+
+	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "get broadcast interval err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+
+	height = bcInterval.GetNextReElectionNumber(height) - minerGen
 	minerDeposit, err := GetAllElectedByHeight(big.NewInt(int64(height)), common.RoleMiner) //
 	if err != nil {
-		log.ERROR(Module, "獲取礦工抵押交易失敗 err", err)
-		return err
+		log.ERROR(Module, "获取矿工抵押列表失败 err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
 	}
 	log.INFO(Module, "矿工抵押交易", minerDeposit)
 
-	seed, err := self.GetSeed(height)
+	elect, err := self.GetElectPlug(height)
 	if err != nil {
-		log.ERROR(Module, "獲取種子失敗 err", err)
-		return err
+		log.ERROR(Module, "获取选举插件失败 err", err, "高度", height)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	electConf, err := self.GetElectConfig(height)
+	if err != nil {
+		log.ERROR(Module, "获取选举信息失败 err", err, "高度", height)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+
+	seed, err := self.GetSeed(hash)
+	if err != nil {
+		log.ERROR(Module, "获取种子失败 err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
 	}
 	log.Info(Module, "矿工选举种子", seed)
 
-	TopRsp := self.elect.MinerTopGen(&mc.MasterMinerReElectionReqMsg{SeqNum: height, RandSeed: seed, MinerList: minerDeposit})
+	TopRsp := elect.MinerTopGen(&mc.MasterMinerReElectionReqMsg{SeqNum: height, RandSeed: seed, MinerList: minerDeposit, ElectConfig: *electConf})
 
-	err = self.writeElectData(common.RoleMiner, height+params.MinerTopologyGenerateUpTime-params.MinerNetChangeUpTime, ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
-	log.INFO(Module, "寫礦工的選舉信息到數據庫", err, "data", ElectMiner{MasterMiner: TopRsp.MasterMiner, BackUpMiner: TopRsp.BackUpMiner}, ElectValidator{})
-
-	return err
-
+	return TopRsp.MasterMiner, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, nil
 }
 
-func (self *ReElection) ToGenValidatorTop(height uint64) error {
+func (self *ReElection) ToGenValidatorTop(hash common.Hash) ([]mc.ElectNodeInfo, []mc.ElectNodeInfo, []mc.ElectNodeInfo, error) {
+	log.INFO(Module, "准备生成验证者拓扑图", "start", "hash", hash.String())
+	defer log.INFO(Module, "生成验证者拓扑图结束", "end", "hash", hash.String())
+	height, err := self.GetNumberByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "根据hash算高度失败 ToGenValidatorTop hash", hash.String())
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	data, err := self.GetElectGenTimes(height)
+	if err != nil {
+		log.ERROR(Module, "获取选举信息失败 err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	verifyGenTime := uint64(data.ValidatorGen)
+	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
+	if err != nil {
+		log.ERROR(Module, "根据hash获取广播周期信息 err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	height = bcInterval.GetNextReElectionNumber(height) - verifyGenTime
 	validatoeDeposit, err := GetAllElectedByHeight(big.NewInt(int64(height)), common.RoleValidator)
 	if err != nil {
-		log.ERROR(Module, "獲取驗證者抵押列表失敗 err", err)
-		return err
+		log.ERROR(Module, "获取验证者列表失败 err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
 	}
 	log.INFO(Module, "验证者抵押账户", validatoeDeposit)
 	foundDeposit := GetFound()
 
-	seed, err := self.GetSeed(height)
+	elect, err := self.GetElectPlug(height)
 	if err != nil {
-		log.ERROR(Module, "獲取驗證者種子生成失敗 err", err)
-		return err
+		log.ERROR(Module, "获取选举插件失败 err", err, "高度", height)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	electConf, err := self.GetElectConfig(height)
+	if err != nil {
+		log.ERROR(Module, "获取选举信息失败 err", err, "高度", height)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+	}
+	seed, err := self.GetSeed(hash)
+	if err != nil {
+		log.ERROR(Module, "获取验证者种子失败 err", err)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
 	}
 	log.INFO(Module, "验证者随机种子", seed)
 
-	TopRsp := self.elect.ValidatorTopGen(&mc.MasterValidatorReElectionReqMsg{SeqNum: height, RandSeed: seed, ValidatorList: validatoeDeposit, FoundationValidatoeList: foundDeposit})
-	err = self.writeElectData(common.RoleValidator, height+params.VerifyTopologyGenerateUpTime-params.VerifyNetChangeUpTime, ElectMiner{}, ElectValidator{MasterValidator: TopRsp.MasterValidator,
-		BackUpValidator:    TopRsp.BackUpValidator,
-		CandidateValidator: TopRsp.CandidateValidator,
-	})
-	return err
-
-}
-func (self *ReElection) writeElectData(aim common.RoleType, height uint64, minerData ElectMiner, validatorData ElectValidator) error {
-
-	switch {
-	case aim == common.RoleMiner:
-		data, err := json.Marshal(minerData)
-		if err != nil {
-			log.INFO(Module, "Marshal 礦工數據失敗 err", err, "data", data)
-			return err
-		}
-		key := MakeElectDBKey(height, common.RoleMiner)
-
-		err = self.ldb.Put([]byte(key), data, nil)
-		if err != nil {
-			log.ERROR(Module, "礦工 寫入數據庫失敗 err", err)
-			return err
-		}
-		log.INFO(Module, "key", key, "value", minerData)
-		return nil
-
-	case aim == common.RoleValidator:
-		data, err := json.Marshal(validatorData)
-		if err != nil {
-			log.INFO(Module, "Marshal 驗證者數據失敗 err", err, "data", data)
-			return err
-		}
-		key := MakeElectDBKey(height, common.RoleValidator)
-		err = self.ldb.Put([]byte(key), data, nil)
-		if err != nil {
-			log.ERROR(Module, "驗證者數據寫入數據庫失敗 err", err)
-			return err
-		}
-		log.INFO(Module, "key", key, "value", validatorData)
-		return nil
+	vipList, err := self.GetViPList(height)
+	if err != nil {
+		log.ERROR(Module, "获取viplist为空 err", err, "高度", height)
+		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
 	}
-	return nil
+	TopRsp := elect.ValidatorTopGen(&mc.MasterValidatorReElectionReqMsg{SeqNum: height, RandSeed: seed, ValidatorList: validatoeDeposit, FoundationValidatorList: foundDeposit, ElectConfig: *electConf, VIPList: vipList})
+
+	return TopRsp.MasterValidator, TopRsp.BackUpValidator, TopRsp.CandidateValidator, nil
+
 }
+func GetFound() []vm.DepositDetail {
+	return []vm.DepositDetail{}
+}
+func GetAllElectedByHeight(Heigh *big.Int, tp common.RoleType) ([]vm.DepositDetail, error) {
 
-func (self *ReElection) readElectData(aim common.RoleType, height uint64) (ElectMiner, ElectValidator, error) {
+	switch tp {
+	case common.RoleMiner:
+		ans, err := ca.GetElectedByHeightAndRole(Heigh, common.RoleMiner)
+		log.INFO("從CA獲取礦工抵押交易", "data", ans, "height", Heigh)
+		if err != nil {
+			return []vm.DepositDetail{}, errors.New("获取矿工交易身份不对")
+		}
+		return Trans(ans), nil
+	case common.RoleValidator:
+		ans, err := ca.GetElectedByHeightAndRole(Heigh, common.RoleValidator)
+		log.Info("從CA獲取驗證者抵押交易", "data", ans, "height", Heigh)
+		if err != nil {
+			return []vm.DepositDetail{}, errors.New("获取验证者交易身份不对")
+		}
+		return Trans(ans), nil
 
-	switch {
-	case aim == common.RoleMiner:
-		key := MakeElectDBKey(height, common.RoleMiner)
-		ans, err := self.ldb.Get([]byte(key), nil)
-		if err != nil {
-			log.ERROR(Module, "獲取db礦工選舉信息失敗 err", err, "key", key)
-			return ElectMiner{}, ElectValidator{}, err
-		}
-		var realAns ElectMiner
-		err = json.Unmarshal(ans, &realAns)
-		if err != nil {
-			log.ERROR(Module, "db里的礦工選舉信息Unmarshal失敗", err, "data", ans)
-			return ElectMiner{}, ElectValidator{}, err
-		}
-		return realAns, ElectValidator{}, nil
-
-	case aim == common.RoleValidator:
-		key := MakeElectDBKey(height, common.RoleValidator)
-		ans, err := self.ldb.Get([]byte(key), nil)
-		if err != nil {
-			log.INFO(Module, "獲取db驗證者選舉信息失敗 err", err, "key", key)
-			return ElectMiner{}, ElectValidator{}, err
-		}
-		var realAns ElectValidator
-		err = json.Unmarshal(ans, &realAns)
-		if err != nil {
-			log.INFO(Module, "db里的驗證者選舉信息Unmarshal失敗", err, "data", ans)
-			return ElectMiner{}, ElectValidator{}, err
-		}
-		return ElectMiner{}, realAns, nil
 	default:
-		log.ERROR(Module, "讀選舉信息，請使用礦工或者驗證者，暫時不支持其他模式", "nil")
-		return ElectMiner{}, ElectValidator{}, errors.New("選舉角色一定是礦工或者驗證者")
+		return []vm.DepositDetail{}, errors.New("获取抵押交易身份不对")
 	}
-
 }
-func MakeElectDBKey(height uint64, role common.RoleType) string {
-	t := big.NewInt(int64(height))
-	switch {
-	case role == common.RoleMiner:
-		key := t.String() + "---" + "Miner---Elect"
-		return key
-	case role == common.RoleValidator:
-		key := t.String() + "---" + "Validator---Elect"
-		return key
-	default:
-		log.ERROR("MakeElectDBKey failed role is not mathch role", role)
+func Trans(data []vm.DepositDetail) []vm.DepositDetail {
+	if common.TopAccountType == common.TopAccountA1 {
+		for k, _ := range data {
+			data[k].Address = data[k].SignAddress
+		}
 	}
-	return ""
+	return data
 }

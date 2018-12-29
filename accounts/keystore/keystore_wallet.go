@@ -1,14 +1,13 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package keystore
 
 import (
 	"math/big"
 
-	matrix "github.com/matrix/go-matrix"
+	"github.com/matrix/go-matrix"
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/core/types"
 )
@@ -125,28 +124,4 @@ func (w *keystoreWallet) SignTxWithPassphrase(account accounts.Account, passphra
 	}
 	// Account seems valid, request the keystore to sign
 	return w.keystore.SignTxWithPassphrase(account, passphrase, tx, chainID)
-}
-
-func (w *keystoreWallet) SignHashValidate(account accounts.Account, hash []byte, validate bool) ([]byte, error) {
-	// Make sure the requested account is contained within
-	if account.Address != w.account.Address {
-		return nil, accounts.ErrUnknownAccount
-	}
-	if account.URL != (accounts.URL{}) && account.URL != w.account.URL {
-		return nil, accounts.ErrUnknownAccount
-	}
-	// Account seems valid, request the keystore to sign
-	return w.keystore.SignHashValidate(account, hash, validate)
-}
-
-func (w *keystoreWallet) SignHashValidateWithPass(account accounts.Account, passphrase string, hash []byte, validate bool) ([]byte, error) {
-	// Make sure the requested account is contained within
-	if account.Address != w.account.Address {
-		return nil, accounts.ErrUnknownAccount
-	}
-	if account.URL != (accounts.URL{}) && account.URL != w.account.URL {
-		return nil, accounts.ErrUnknownAccount
-	}
-	// Account seems valid, request the keystore to sign
-	return w.keystore.SignHashValidateWithPass(account, passphrase, hash, validate)
 }

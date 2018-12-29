@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package state
 
@@ -9,10 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"math/big"
+
+	"bytes"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/trie"
-	"math/big"
+	"strconv"
 )
 
 type DumpAccount struct {
@@ -23,37 +25,43 @@ type DumpAccount struct {
 	Code     string            `json:"code"`
 	Storage  map[string]string `json:"storage"`
 }
-
 type Dump struct {
-	Root     string                 `json:"root"`
-	Accounts map[string]DumpAccount `json:"accounts"`
+	Root       string                 `json:"root"`
+	Accounts   map[string]DumpAccount `json:"accounts"`
+	MatrixData map[string]string      `json:"matrixData"`
 }
 
 func (self *StateDB) RawDump() Dump {
 	dump := Dump{
-		Root:     fmt.Sprintf("%x", self.trie.Hash()),
-		Accounts: make(map[string]DumpAccount),
+		Root:       fmt.Sprintf("%x", self.trie.Hash()),
+		Accounts:   make(map[string]DumpAccount),
+		MatrixData: make(map[string]string),
 	}
 
 	it := trie.NewIterator(self.trie.NodeIterator(nil))
 	for it.Next() {
 		addr := self.trie.GetKey(it.Key)
+		matrixdt := it.Value[:4]
+		if bytes.Compare(matrixdt, []byte("MAN-")) == 0 {
+			dump.MatrixData[common.Bytes2Hex(addr)] = common.Bytes2Hex(it.Value[4:])
+			continue
+		}
 		var data Account
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
 			panic(err)
 		}
 
 		tBalance := new(big.Int)
-		for _,tAccount := range data.Balance{
-			if tAccount.AccountType == common.MainAccount {
-				tBalance = tAccount.Balance
-				break
-			}
+		var total_balance string
+		for _, tAccount := range data.Balance {
+			tBalance = tAccount.Balance
+			str_account := strconv.Itoa(int(tAccount.AccountType))
+			str_balance := str_account + ":" + tBalance.String()
+			total_balance += str_balance + ","
 		}
 		obj := newObject(nil, common.BytesToAddress(addr), data)
 		account := DumpAccount{
-			//Balance:  data.Balance.String(),
-			Balance:  tBalance.String(),
+			Balance:  total_balance[:len(total_balance)-1],
 			Nonce:    data.Nonce,
 			Root:     common.Bytes2Hex(data.Root[:]),
 			CodeHash: common.Bytes2Hex(data.CodeHash),

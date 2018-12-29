@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package types
 
@@ -14,6 +13,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/params"
+	"runtime"
 	"sync"
 )
 
@@ -26,6 +26,24 @@ var (
 type sigCache struct {
 	signer Signer
 	from   common.Address
+}
+
+//批量解签名
+func BatchSender(txser SelfTransactions) {
+	var waitG = &sync.WaitGroup{}
+	maxProcs := runtime.NumCPU() //获取cpu个数
+	if maxProcs >= 2 {
+		runtime.GOMAXPROCS(maxProcs - 1) //限制同时运行的goroutines数量
+	}
+	for _, tx := range txser {
+		if tx.GetMatrixType() == common.ExtraUnGasTxType {
+			continue
+		}
+		sig := NewEIP155Signer(tx.ChainId())
+		waitG.Add(1)
+		go Sender_self(sig, tx, waitG)
+	}
+	waitG.Wait()
 }
 
 // MakeSigner returns a Signer based on the given chain config and block number.
@@ -61,13 +79,16 @@ func SignTx(tx SelfTransaction, s Signer, prv *ecdsa.PrivateKey) (SelfTransactio
 // not match the signer used in the current call.
 func Sender(signer Signer, tx SelfTransaction) (common.Address, error) {
 	if sc := tx.GetFromLoad(); sc != nil {
-		sigCache := sc.(sigCache)
-		// If the signer used to derive from in a previous
-		// call is not the same as used current, invalidate
-		// the cache.
-		if sigCache.signer.Equal(signer) {
-			return sigCache.from, nil
+		sigCache, ok := sc.(sigCache)
+		if ok {
+			// If the signer used to derive from in a previous
+			// call is not the same as used current, invalidate
+			// the cache.
+			if sigCache.signer.Equal(signer) {
+				return sigCache.from, nil
+			}
 		}
+
 	}
 
 	addr, err := signer.Sender(tx)
@@ -174,9 +195,9 @@ func (s EIP155Signer) Sender(tx SelfTransaction) (common.Address, error) {
 	}
 	//YY=====begin======
 	V := new(big.Int).Set(tx.GetTxV())
-	if V.Cmp(big.NewInt(128)) > 0 {
-		V.Sub(V, big.NewInt(128))
-	}
+	//if V.Cmp(big.NewInt(128)) > 0 {
+	//	V.Sub(V, big.NewInt(128))
+	//}
 	V.Sub(V, s.chainIdMul)
 	//=======end========
 	V.Sub(V, big8)
@@ -224,35 +245,43 @@ func (s EIP155Signer) SignatureValues(tx SelfTransaction, sig []byte) (R, S, V *
 func (s EIP155Signer) Hash(txer SelfTransaction) common.Hash {
 	switch txer.TxType() {
 	case NormalTxIndex:
-		tx,ok := txer.(*Transaction)
-		if !ok{
+		tx, ok := txer.(*Transaction)
+		if !ok {
 			return common.Hash{}
 		}
-		if len(tx.data.Extra) > 0 { //YY
-			return rlpHash([]interface{}{
-				tx.data.AccountNonce,
-				tx.data.Price,
-				tx.data.GasLimit,
-				tx.data.Recipient,
-				tx.data.Amount,
-				tx.data.Payload,
-				tx.data.Extra,
-				s.chainId, uint(0), uint(0),
-			})
-		} else {
-			return rlpHash([]interface{}{
-				tx.data.AccountNonce,
-				tx.data.Price,
-				tx.data.GasLimit,
-				tx.data.Recipient,
-				tx.data.Amount,
-				tx.data.Payload,
-				s.chainId, uint(0), uint(0),
-			})
-		}
+		var data1 txdata1
+		TxdataAddresToString(tx.Currency, &tx.data, &data1)
+		return rlpHash([]interface{}{
+			data1.AccountNonce,
+			data1.Price,
+			data1.GasLimit,
+			data1.Recipient,
+			data1.Amount,
+			data1.Payload,
+			s.chainId, uint(0), uint(0),
+			data1.TxEnterType,
+			data1.IsEntrustTx,
+			data1.CommitTime,
+			data1.Extra,
+		})
+		//}else{
+		//		return rlpHash([]interface{}{
+		//			tx.data.AccountNonce,
+		//			tx.data.Price,
+		//			tx.data.GasLimit,
+		//			tx.data.Recipient,
+		//			tx.data.Amount,
+		//			tx.data.Payload,
+		//			s.chainId, uint(0), uint(0),
+		//			tx.data.TxEnterType,
+		//			tx.data.IsEntrustTx,
+		//			tx.data.CommitTime,
+		//			tx.data.Extra,
+		//		})
+		//}
 	case BroadCastTxIndex:
-		tx,ok := txer.(*TransactionBroad)
-		if !ok{
+		tx, ok := txer.(*TransactionBroad)
+		if !ok {
 			return common.Hash{}
 		}
 		return rlpHash([]interface{}{
@@ -356,10 +385,10 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 //YY 将原来的deriveChainId方法改为deriveChainId1，然后重写deriveChainId方法
 func deriveChainId(v *big.Int) *big.Int {
 	v1 := new(big.Int).Set(v)
-	tmp := big.NewInt(128)
-	if v1.Cmp(tmp) > 0 {
-		v1.Sub(v1, tmp)
-	}
+	//tmp := big.NewInt(128)
+	//if v1.Cmp(tmp) > 0 {
+	//	v1.Sub(v1, tmp)
+	//}
 	return deriveChainId1(v1)
 }
 

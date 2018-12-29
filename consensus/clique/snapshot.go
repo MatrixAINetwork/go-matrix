@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package clique
 
@@ -9,11 +8,11 @@ import (
 	"bytes"
 	"encoding/json"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/params"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 // Vote represents a single vote that an authorized signer made to modify the

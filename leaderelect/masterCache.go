@@ -1,97 +1,69 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
 
 import (
-	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/crypto"
+
+	"github.com/matrix/go-matrix/accounts/signhelper"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/pkg/errors"
 	"time"
 )
 
-type masterCache struct {
-	number                uint64
-	inquiryResult         mc.ReelectRSPType
-	inquiryHash           common.Hash
-	inquiryMsg            *mc.HD_ReelectInquiryReqMsg
-	inquiryAgreeSignCache map[common.Address]*common.VerifiedSign
-	rlReqMsg              *mc.HD_ReelectLeaderReqMsg
-	rlReqHash             common.Hash
-	rlVoteCache           map[common.Address]*common.VerifiedSign
-	resultBroadcastHash   common.Hash
-	resultBroadcastMsg    *mc.HD_ReelectResultBroadcastMsg
-	resultRspCache        map[common.Address]*common.VerifiedSign
+type posPool struct {
+	reqHash   common.Hash
+	reqMsg    interface{}
+	voteCache map[common.Address]*common.VerifiedSign
 }
 
-func newMasterCache(number uint64) *masterCache {
-	return &masterCache{
-		number:                number,
-		inquiryResult:         mc.ReelectRSPTypeNone,
-		inquiryHash:           common.Hash{},
-		inquiryMsg:            nil,
-		inquiryAgreeSignCache: nil,
-		rlReqHash:             common.Hash{},
-		rlReqMsg:              nil,
-		rlVoteCache:           nil,
-		resultBroadcastHash:   common.Hash{},
-		resultBroadcastMsg:    nil,
-		resultRspCache:        nil,
+func newPosPool() *posPool {
+	return &posPool{
+		reqHash:   common.Hash{},
+		reqMsg:    nil,
+		voteCache: make(map[common.Address]*common.VerifiedSign),
 	}
 }
 
-func (self *masterCache) SetInquiryReq(req *mc.HD_ReelectInquiryReqMsg) common.Hash {
-	if nil == req {
-		return common.Hash{}
-	}
-	self.inquiryResult = mc.ReelectRSPTypeNone
-	self.inquiryMsg = req
-	self.inquiryHash = types.RlpHash(req)
-	self.inquiryAgreeSignCache = make(map[common.Address]*common.VerifiedSign)
-	self.rlReqMsg = nil
-	self.rlReqHash = common.Hash{}
-	self.rlVoteCache = make(map[common.Address]*common.VerifiedSign)
-	self.resultBroadcastHash = common.Hash{}
-	self.resultBroadcastMsg = nil
-	self.resultRspCache = make(map[common.Address]*common.VerifiedSign)
-
-	return self.inquiryHash
+func (pp *posPool) clear() {
+	pp.reqHash = common.Hash{}
+	pp.reqMsg = nil
+	pp.voteCache = make(map[common.Address]*common.VerifiedSign)
 }
 
-func (self *masterCache) ClearSelfInquiryMsg() {
-	self.inquiryResult = mc.ReelectRSPTypeNone
-	self.inquiryMsg = nil
-	self.inquiryHash = common.Hash{}
-	self.inquiryAgreeSignCache = make(map[common.Address]*common.VerifiedSign)
-	self.rlReqMsg = nil
-	self.rlReqHash = common.Hash{}
-	self.rlVoteCache = make(map[common.Address]*common.VerifiedSign)
-	self.resultBroadcastHash = common.Hash{}
-	self.resultBroadcastMsg = nil
-	self.resultRspCache = make(map[common.Address]*common.VerifiedSign)
+func (pp *posPool) saveReqMsg(reqMsg interface{}) {
+	pp.reqMsg = reqMsg
 }
 
-func (self *masterCache) CheckInquiryRspMsg(rsp *mc.HD_ReelectInquiryRspMsg) error {
-	if nil == rsp {
-		return ErrMsgIsNil
-	}
-	if (self.inquiryHash == common.Hash{}) {
-		return ErrSelfReqIsNil
-	}
-	if rsp.ReqHash != self.inquiryHash {
-		return errors.Errorf("reqHash不匹配, reqHash(%s)!=localHash(%s)", rsp.ReqHash.TerminalString(), self.inquiryHash.TerminalString())
-	}
-	return nil
+func (pp *posPool) saveReqMsgAndHash(reqMsg interface{}) common.Hash {
+	pp.reqMsg = reqMsg
+	pp.reqHash = types.RlpHash(reqMsg)
+	pp.voteCache = make(map[common.Address]*common.VerifiedSign)
+	return pp.reqHash
 }
 
-func (self *masterCache) SaveInquiryAgreeSign(reqHash common.Hash, sign common.Signature, from common.Address) error {
-	if _, exist := self.inquiryAgreeSignCache[from]; exist {
-		return errors.Errorf("来自(%s)的签名已存在!", from.Hex())
+func (pp *posPool) getReqMsg() interface{} {
+	return pp.reqMsg
+}
+
+func (pp *posPool) saveVoteMsg(reqHash common.Hash, sign common.Signature, from common.Address, cdc *cdc, signHelper *signhelper.SignHelper) error {
+	if (pp.reqHash == common.Hash{} || pp.reqMsg == nil) {
+		return ErrParamsIsNil
 	}
-	signAccount, validate, err := crypto.VerifySignWithValidate(reqHash.Bytes(), sign.Bytes())
+	if cdc == nil || cdc.leaderCal == nil || signHelper == nil {
+		return ErrCDCOrSignHelperisNil
+	}
+
+	if reqHash != pp.reqHash {
+		return errors.Errorf("reqHash不匹配, reqHash(%s)!=localHash(%s)", reqHash.TerminalString(), pp.reqHash.TerminalString())
+	}
+	if _, exist := pp.voteCache[from]; exist {
+		return errors.Errorf("响应已存在, from[%v]", from)
+	}
+	signAccount, validate, err := signHelper.VerifySignWithValidateByReader(cdc, reqHash.Bytes(), sign.Bytes(), cdc.leaderCal.preHash)
 	if err != nil {
 		return errors.Errorf("签名解析错误(%v)", err)
 	}
@@ -101,36 +73,118 @@ func (self *masterCache) SaveInquiryAgreeSign(reqHash common.Hash, sign common.S
 	if !validate {
 		return errors.New("签名为不同意签名")
 	}
-	self.inquiryAgreeSignCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
+	pp.voteCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
 	return nil
 }
 
-func (self *masterCache) GetInquiryAgreeSigns() []*common.VerifiedSign {
+func (pp *posPool) getVotes() []*common.VerifiedSign {
 	signs := make([]*common.VerifiedSign, 0)
-	for _, v := range self.inquiryAgreeSignCache {
+	for _, v := range pp.voteCache {
 		sign := v
 		signs = append(signs, sign)
 	}
 	return signs
 }
 
-func (self *masterCache) SetInquiryResultAgree(rightSign []common.Signature) error {
-	if self.inquiryResult != mc.ReelectRSPTypeNone {
-		return errors.Errorf("已存在询问结果(%v)", self.inquiryResult)
+type masterCache struct {
+	number                uint64
+	selfAddr              common.Address
+	lastSignalInquiryTime int64
+	inquiryResult         mc.ReelectRSPType
+	inquiryPool           *posPool
+	rlReqPool             *posPool
+	broadcastPool         *posPool
+}
+
+func newMasterCache(number uint64) *masterCache {
+	return &masterCache{
+		number:                number,
+		selfAddr:              common.Address{},
+		lastSignalInquiryTime: 0,
+		inquiryResult:         mc.ReelectRSPTypeNone,
+		inquiryPool:           newPosPool(),
+		rlReqPool:             newPosPool(),
+		broadcastPool:         newPosPool(),
 	}
-	self.inquiryResult = mc.ReelectRSPTypeAgree
-	self.rlReqMsg = &mc.HD_ReelectLeaderReqMsg{
-		InquiryReq: self.inquiryMsg,
-		AgreeSigns: rightSign,
-		TimeStamp:  0,
+}
+
+func (self *masterCache) ClearSelfInquiryMsg() {
+	self.lastSignalInquiryTime = 0
+	self.inquiryResult = mc.ReelectRSPTypeNone
+	self.inquiryPool.clear()
+	self.rlReqPool.clear()
+	self.broadcastPool.clear()
+}
+
+func (self *masterCache) CanSendSingleInquiryReq(time int64, interval int64) bool {
+	if time-self.lastSignalInquiryTime <= interval {
+		return false
 	}
-	self.inquiryMsg = nil
-	self.inquiryHash = common.Hash{}
-	self.inquiryAgreeSignCache = make(map[common.Address]*common.VerifiedSign)
+	return true
+}
+
+func (self *masterCache) SetLastSingleInquiryReqTime(time int64) {
+	self.lastSignalInquiryTime = time
+}
+
+func (self *masterCache) GetInquiryResult() mc.ReelectRSPType {
+	return self.inquiryResult
+}
+
+func (self *masterCache) SaveInquiryReq(req *mc.HD_ReelectInquiryReqMsg) common.Hash {
+	if nil == req {
+		log.Debug("leader masterCache", "SaveInquiryReq()", "param is nil")
+		return common.Hash{}
+	}
+
+	self.ClearSelfInquiryMsg()
+	self.inquiryResult = mc.ReelectRSPTypeNone
+	return self.inquiryPool.saveReqMsgAndHash(req)
+}
+
+func (self *masterCache) IsMatchedInquiryRsp(rsp *mc.HD_ReelectInquiryRspMsg) error {
+	if nil == rsp {
+		return ErrParamsIsNil
+	}
+	if (self.inquiryPool.reqHash == common.Hash{}) {
+		return ErrSelfReqIsNil
+	}
+	if rsp.ReqHash != self.inquiryPool.reqHash {
+		return errors.Errorf("reqHash不匹配, reqHash(%s)!=localHash(%s)", rsp.ReqHash.TerminalString(), self.inquiryPool.reqHash.TerminalString())
+	}
 	return nil
 }
 
-func (self *masterCache) SetInquiryResultNotAgree(result mc.ReelectRSPType, rsp *mc.HD_ReelectInquiryRspMsg) error {
+func (self *masterCache) SaveInquiryVote(reqHash common.Hash, sign common.Signature, from common.Address, cdc *cdc, signHelper *signhelper.SignHelper) error {
+	return self.inquiryPool.saveVoteMsg(reqHash, sign, from, cdc, signHelper)
+}
+
+func (self *masterCache) GetInquiryVotes() []*common.VerifiedSign {
+	return self.inquiryPool.getVotes()
+}
+
+func (self *masterCache) GenRLReqMsg(inquiryAgreeVotes []common.Signature) error {
+	if self.inquiryResult != mc.ReelectRSPTypeNone {
+		return errors.Errorf("已存在询问结果(%v)，无法生存重选请求", self.inquiryResult)
+	}
+	self.inquiryResult = mc.ReelectRSPTypeAgree
+
+	inquiryMsg, OK := self.inquiryPool.getReqMsg().(*mc.HD_ReelectInquiryReqMsg)
+	if OK == false || inquiryMsg == nil {
+		return errors.New("获取询问消息失败")
+	}
+
+	reqMsg := &mc.HD_ReelectLeaderReqMsg{
+		InquiryReq: inquiryMsg,
+		AgreeSigns: inquiryAgreeVotes,
+		TimeStamp:  0,
+	}
+	self.rlReqPool.saveReqMsg(reqMsg)
+	self.inquiryPool.clear()
+	return nil
+}
+
+func (self *masterCache) GenBroadcastMsgWithInquiryResult(result mc.ReelectRSPType, rsp *mc.HD_ReelectInquiryRspMsg) error {
 	if result != mc.ReelectRSPTypePOS && result != mc.ReelectRSPTypeAlreadyRL {
 		return errors.Errorf("设置目标结果类型错误! target result = %v", result)
 	}
@@ -138,134 +192,88 @@ func (self *masterCache) SetInquiryResultNotAgree(result mc.ReelectRSPType, rsp 
 		return errors.Errorf("已存在询问结果(%v)", self.inquiryResult)
 	}
 	self.inquiryResult = result
-	self.inquiryMsg = nil
-	self.inquiryHash = common.Hash{}
-	self.inquiryAgreeSignCache = make(map[common.Address]*common.VerifiedSign)
-	self.rlReqMsg = nil
-	self.resultBroadcastMsg = &mc.HD_ReelectResultBroadcastMsg{
+	self.inquiryPool.clear()
+
+	broadcastMsg := &mc.HD_ReelectBroadcastMsg{
 		Number:    self.number,
 		Type:      result,
 		POSResult: rsp.POSResult,
 		RLResult:  rsp.RLResult,
-		From:      ca.GetAddress(),
+		From:      self.selfAddr,
 	}
+	self.broadcastPool.saveReqMsg(broadcastMsg)
 	return nil
 }
 
-func (self *masterCache) SetRLResultBroadcastSuccess(signs []common.Signature) error {
+func (self *masterCache) GenBroadcastMsgWithRLSuccess(rlAgreeVotes []common.Signature) error {
 	if self.inquiryResult != mc.ReelectRSPTypeAgree {
 		return errors.Errorf("当前询问结果(%v) != ReelectRSPTypeAgree", self.inquiryResult)
 	}
 
-	rlResult := &mc.HD_ReelectLeaderConsensus{
-		Req:   self.rlReqMsg,
-		Votes: signs,
+	rlReq, OK := self.rlReqPool.getReqMsg().(*mc.HD_ReelectLeaderReqMsg)
+	if OK == false || rlReq == nil {
+		return errors.New("缓存中获取重选leader请求消息失败!")
 	}
 
 	self.inquiryResult = mc.ReelectRSPTypeAlreadyRL
-	self.resultBroadcastMsg = &mc.HD_ReelectResultBroadcastMsg{
+
+	rlResult := &mc.HD_ReelectLeaderConsensus{
+		Req:   rlReq,
+		Votes: rlAgreeVotes,
+	}
+	broadcastMsg := &mc.HD_ReelectBroadcastMsg{
 		Number:    self.number,
 		Type:      mc.ReelectRSPTypeAgree,
 		POSResult: nil,
 		RLResult:  rlResult,
-		From:      ca.GetAddress(),
+		From:      self.selfAddr,
 	}
+	self.broadcastPool.saveReqMsg(broadcastMsg)
+	self.rlReqPool.clear()
 	return nil
-}
-
-func (self *masterCache) InquiryResult() mc.ReelectRSPType {
-	return self.inquiryResult
 }
 
 func (self *masterCache) GetRLReqMsg() (*mc.HD_ReelectLeaderReqMsg, common.Hash, error) {
 	if self.inquiryResult != mc.ReelectRSPTypeAgree {
 		return nil, common.Hash{}, errors.Errorf("当前询问结果(%v) != ReelectRSPTypeAgree", self.inquiryResult)
 	}
-	self.rlReqMsg.TimeStamp = uint64(time.Now().Unix())
-	self.rlReqHash = types.RlpHash(self.rlReqMsg)
-	self.rlVoteCache = make(map[common.Address]*common.VerifiedSign)
-	return self.rlReqMsg, self.rlReqHash, nil
+
+	reqMsg, OK := self.rlReqPool.getReqMsg().(*mc.HD_ReelectLeaderReqMsg)
+	if OK == false || reqMsg == nil {
+		return nil, common.Hash{}, errors.New("缓存中不存在请求消息")
+	}
+	reqMsg.TimeStamp = uint64(time.Now().Unix())
+	return reqMsg, self.rlReqPool.saveReqMsgAndHash(reqMsg), nil
 }
 
-func (self *masterCache) SaveRLVote(signHash common.Hash, sign common.Signature, from common.Address) error {
-	if (self.rlReqHash == common.Hash{}) {
-		return ErrSelfReqIsNil
-	}
-	if signHash != self.rlReqHash {
-		return errors.Errorf("signHash不匹配, signHash(%s)!=localHash(%s)", signHash.TerminalString(), self.rlReqHash.TerminalString())
-	}
-	if _, exist := self.rlVoteCache[from]; exist {
-		return errors.Errorf("来自(%s)的签名已存在", from.Hex())
-	}
-	signAccount, validate, err := crypto.VerifySignWithValidate(signHash.Bytes(), sign.Bytes())
-	if err != nil {
-		return errors.Errorf("签名解析错误(%v)", err)
-	}
-	if signAccount != from {
-		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), from.Hex())
-	}
-	if !validate {
-		return errors.New("签名为不同意签名")
-	}
-	self.rlVoteCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
-	return nil
+func (self *masterCache) SaveRLVote(signHash common.Hash, sign common.Signature, from common.Address, cdc *cdc, signHelper *signhelper.SignHelper) error {
+	return self.rlReqPool.saveVoteMsg(signHash, sign, from, cdc, signHelper)
 }
 
-func (self *masterCache) GetRLSigns() []*common.VerifiedSign {
-	signs := make([]*common.VerifiedSign, 0)
-	for _, v := range self.rlVoteCache {
-		sign := v
-		signs = append(signs, sign)
-	}
-	return signs
+func (self *masterCache) GetRLVotes() []*common.VerifiedSign {
+	return self.rlReqPool.getVotes()
 }
 
-func (self *masterCache) GetResultBroadcastMsg() (*mc.HD_ReelectResultBroadcastMsg, common.Hash, error) {
-	if self.resultBroadcastMsg == nil {
+func (self *masterCache) GetBroadcastMsg() (*mc.HD_ReelectBroadcastMsg, common.Hash, error) {
+	broadcastMsg, OK := self.broadcastPool.getReqMsg().(*mc.HD_ReelectBroadcastMsg)
+	if OK == false || broadcastMsg == nil {
 		return nil, common.Hash{}, errors.Errorf("缓存中没有重选结果广播消息")
 	}
-	self.resultBroadcastMsg.TimeStamp = uint64(time.Now().Unix())
-	self.resultBroadcastHash = types.RlpHash(self.resultBroadcastMsg)
-	self.resultRspCache = make(map[common.Address]*common.VerifiedSign)
-	return self.resultBroadcastMsg, self.resultBroadcastHash, nil
+	return broadcastMsg, self.broadcastPool.saveReqMsgAndHash(broadcastMsg), nil
 }
 
-func (self *masterCache) GetLocalResultMsg() (*mc.HD_ReelectResultBroadcastMsg, error) {
-	if self.resultBroadcastMsg == nil {
+func (self *masterCache) GetLocalBroadcastMsg() (*mc.HD_ReelectBroadcastMsg, error) {
+	broadcastMsg, OK := self.broadcastPool.getReqMsg().(*mc.HD_ReelectBroadcastMsg)
+	if OK == false || broadcastMsg == nil {
 		return nil, errors.Errorf("缓存中没有重选结果广播消息")
 	}
-	return self.resultBroadcastMsg, nil
+	return broadcastMsg, nil
 }
 
-func (self *masterCache) SaveResultRsp(resultHash common.Hash, sign common.Signature, from common.Address) error {
-	if (self.resultBroadcastHash == common.Hash{}) {
-		return ErrBroadcastIsNil
-	}
-	if resultHash != self.resultBroadcastHash {
-		return errors.Errorf("ResultHash不匹配, ResultHash(%s)!=localHash(%s)", resultHash.TerminalString(), self.resultBroadcastHash.TerminalString())
-	}
-	if _, exist := self.resultRspCache[from]; exist {
-		return errors.Errorf("响应已存在, from[%v]", from)
-	}
-	signAccount, validate, err := crypto.VerifySignWithValidate(resultHash.Bytes(), sign.Bytes())
-	if err != nil {
-		return errors.Errorf("签名解析错误(%v)", err)
-	}
-	if signAccount != from {
-		return errors.Errorf("签名账户(%s)与发送账户(%s)不匹配", signAccount.Hex(), from.Hex())
-	}
-	if !validate {
-		return errors.New("签名为不同意签名")
-	}
-	self.resultRspCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
-	return nil
+func (self *masterCache) SaveBroadcastVote(broadcastHash common.Hash, sign common.Signature, from common.Address, cdc *cdc, signHelper *signhelper.SignHelper) error {
+	return self.broadcastPool.saveVoteMsg(broadcastHash, sign, from, cdc, signHelper)
 }
 
-func (self *masterCache) GetResultRspSigns() []*common.VerifiedSign {
-	signs := make([]*common.VerifiedSign, 0)
-	for _, v := range self.resultRspCache {
-		sign := v
-		signs = append(signs, sign)
-	}
-	return signs
+func (self *masterCache) GetBroadcastVotes() []*common.VerifiedSign {
+	return self.broadcastPool.getVotes()
 }

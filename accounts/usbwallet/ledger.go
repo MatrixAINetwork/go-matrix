@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // This file contains the implementation for interacting with the Ledger hardware
 // wallets. The wire protocol spec can be found in the Ledger Blue GitHub repo:

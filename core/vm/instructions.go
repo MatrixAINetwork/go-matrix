@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package vm
 
@@ -382,8 +381,8 @@ func opBalance(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 	slot := stack.peek()
 	//slot.Set(evm.StateDB.GetBalance(common.BigToAddress(slot))[common.MainAccount])
 	tmp := evm.StateDB.GetBalance(common.BigToAddress(slot))
-	for _,tAccount := range tmp{
-		if tAccount.AccountType == common.MainAccount{
+	for _, tAccount := range tmp {
+		if tAccount.AccountType == common.MainAccount {
 			slot.Set(tAccount.Balance)
 			break
 		}
@@ -791,9 +790,9 @@ func opStop(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 
 func opSuicide(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	balance := evm.StateDB.GetBalance(contract.Address())
-	for _,tAccount := range balance{
-		if tAccount.AccountType == common.MainAccount{
-			evm.StateDB.AddBalance(common.MainAccount,common.BigToAddress(stack.pop()), tAccount.Balance)
+	for _, tAccount := range balance {
+		if tAccount.AccountType == common.MainAccount {
+			evm.StateDB.AddBalance(common.MainAccount, common.BigToAddress(stack.pop()), tAccount.Balance)
 			break
 		}
 	}

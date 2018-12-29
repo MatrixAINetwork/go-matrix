@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -20,9 +20,9 @@ import (
 	"github.com/matrix/go-matrix/core/rawdb"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/internal/debug"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/rlp"
 )

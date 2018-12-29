@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // Package consensus implements different Matrix consensus engines.
 package consensus
@@ -12,9 +11,9 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rpc"
-	"github.com/matrix/go-matrix/mc"
 )
 
 // ChainReader defines a small collection of methods needed to access the local
@@ -73,7 +72,7 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []types.SelfTransaction,
 		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new block for the given input block with the local miner's
@@ -96,26 +95,30 @@ type PoW interface {
 	Hashrate() float64
 }
 
-type ValidatorReader interface {
-	// GetHeaderByNumber retrieves a block header from the database by number.
-	GetCurrentNumber() uint64
-	GetValidatorByNumber(number uint64) (*mc.TopologyGraph, error)
+type StateReader interface {
+	GetCurrentHash() common.Hash
+	GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGraph, error)
+	GetBroadcastAccount(blockHash common.Hash) (common.Address, error)
+	GetVersionSuperAccounts(blockHash common.Hash) ([]common.Address, error)
+	GetBlockSuperAccounts(blockHash common.Hash) ([]common.Address, error)
+	GetBroadcastInterval(blockHash common.Hash) (*mc.BCIntervalInfo, error)
+	GetAuthAccount(addr common.Address, hash common.Hash) (common.Address, error)
 }
 
 type DPOSEngine interface {
-	VerifyBlock(reader ValidatorReader, header *types.Header) error
+	VerifyVersion(reader StateReader, header *types.Header) error
 
-	VerifyBlocks(reader ValidatorReader, headers []*types.Header) error
+	CheckSuperBlock(reader StateReader, header *types.Header) error
+
+	VerifyBlock(reader StateReader, header *types.Header) error
 
 	//verify hash in current block
-	VerifyHash(reader ValidatorReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
+	VerifyHash(reader StateReader, signHash common.Hash, signs []common.Signature) ([]common.Signature, error)
 
-	//verify hash in given number block
-	VerifyHashWithNumber(reader ValidatorReader, signHash common.Hash, signs []common.Signature, number uint64) ([]common.Signature, error)
+	//verify hash in given block
+	VerifyHashWithBlock(reader StateReader, signHash common.Hash, signs []common.Signature, blockHash common.Hash) ([]common.Signature, error)
 
-	//VerifyHashWithStocks(signHash common.Hash, signs []common.Signature, stocks map[common.Address]uint16) ([]common.Signature, error)
+	VerifyHashWithVerifiedSigns(reader StateReader, signs []*common.VerifiedSign) ([]common.Signature, error)
 
-	VerifyHashWithVerifiedSigns(reader ValidatorReader, signs []*common.VerifiedSign) ([]common.Signature, error)
-
-	VerifyHashWithVerifiedSignsAndNumber(reader ValidatorReader, signs []*common.VerifiedSign, number uint64) ([]common.Signature, error)
+	VerifyHashWithVerifiedSignsAndBlock(reader StateReader, signs []*common.VerifiedSign, blockHash common.Hash) ([]common.Signature, error)
 }

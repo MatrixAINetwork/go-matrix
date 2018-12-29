@@ -4,63 +4,47 @@
 package support
 
 import (
-	"math/big"
-
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/vm"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 )
 
-func MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg) *mc.MasterMinerReElectionRsp {
-	MinerElectMap := make(map[string]vm.DepositDetail)
-	for i, item := range mmrerm.MinerList {
-		//				MinerElectMap[string(item.Account[:])] = item
-		MinerElectMap[item.NodeID.String()] = item
-		if item.Deposit == nil {
-			mmrerm.MinerList[i].Deposit = big.NewInt(DefaultDeposit)
-		}
-		if item.WithdrawH == nil {
-			mmrerm.MinerList[i].WithdrawH = big.NewInt(DefaultWithdrawH)
-		}
-		if item.OnlineTime == nil {
-			mmrerm.MinerList[i].OnlineTime = big.NewInt(DefaultOnlineTime)
-		}
+func MakeElectNode(address common.Address, Pos int, Stock int, VIPLevel common.VIPRoleType, Type common.RoleType) mc.ElectNodeInfo {
+	return mc.ElectNodeInfo{
+		Account:  address,
+		Position: uint16(Pos),
+		Stock:    uint16(Stock),
+		VIPLevel: VIPLevel,
+		Type:     Type,
+	}
+}
+
+func MakeMinerAns(chosed []Strallyint, seqnum uint64) *mc.MasterMinerReElectionRsp {
+	minerResult := &mc.MasterMinerReElectionRsp{}
+	minerResult.SeqNum = seqnum
+	for k, v := range chosed {
+		minerResult.MasterMiner = append(minerResult.MasterMiner, MakeElectNode(v.Addr, k, v.Value, common.VIP_Nil, common.RoleMiner))
+		log.Info(ModuleLogName, "Master", MakeElectNode(v.Addr, k, v.Value, common.VIP_Nil, common.RoleMiner))
+	}
+	return minerResult
+}
+
+func MakeValidatoeTopGenAns(seqnum uint64, master []Strallyint, backup []Strallyint, candiate []Strallyint) *mc.MasterValidatorReElectionRsq {
+	ans := &mc.MasterValidatorReElectionRsq{
+		SeqNum: seqnum,
 	}
 
-	value := CalcAllValueFunction(mmrerm.MinerList)
-
-	a, b := MinerNodesSelected(value, mmrerm.RandSeed.Int64(), N) //Ele.Engine(value, mmrerm.RandSeed.Int64()) //0x12217)
-	/*
-		for index, item := range a {
-			fmt.Println(index, "---", item.Nodeid, "===")
-		}
-		for index, item := range b {
-			fmt.Println(index, "---", item.Nodeid, "===")
-		}
-	*/
-	MinerEleRs := new(mc.MasterMinerReElectionRsp)
-	MinerEleRs.SeqNum = mmrerm.SeqNum
-
-	for index, item := range a {
-		//	fmt.Println(item.Nodeid, []byte(item.Nodeid))
-		tmp := MinerElectMap[item.Nodeid]
-		var ToG mc.TopologyNodeInfo
-		ToG.Account = tmp.Address
-		ToG.Position = uint16(index)
-		ToG.Type = common.RoleMiner
-		ToG.Stock = uint16(item.Value)
-		MinerEleRs.MasterMiner = append(MinerEleRs.MasterMiner, ToG)
+	for _, v := range master {
+		ans.MasterValidator = append(ans.MasterValidator, MakeElectNode(v.Addr, len(ans.MasterValidator), v.Value, v.VIPLevel, common.RoleValidator))
+		log.Info(ModuleLogName, "Master", MakeElectNode(v.Addr, len(ans.MasterValidator), v.Value, v.VIPLevel, common.RoleValidator))
 	}
-
-	for index, item := range b {
-		tmp := MinerElectMap[item.Nodeid]
-		var ToG mc.TopologyNodeInfo
-		ToG.Account = tmp.Address
-		//				ToG.OnlineState = true
-		ToG.Position = uint16(index)
-		ToG.Type = common.RoleBackupMiner
-		ToG.Stock = uint16(item.Value)
-		MinerEleRs.BackUpMiner = append(MinerEleRs.BackUpMiner, ToG)
+	for _, v := range backup {
+		ans.BackUpValidator = append(ans.BackUpValidator, MakeElectNode(v.Addr, len(ans.BackUpValidator), v.Value, v.VIPLevel, common.RoleBackupValidator))
+		log.Info(ModuleLogName, "back", MakeElectNode(v.Addr, len(ans.BackUpValidator), v.Value, v.VIPLevel, common.RoleBackupValidator))
 	}
-	return MinerEleRs
+	for _, v := range candiate {
+		ans.CandidateValidator = append(ans.CandidateValidator, MakeElectNode(v.Addr, len(ans.CandidateValidator), v.Value, v.VIPLevel, common.RoleCandidateValidator))
+		log.Info(ModuleLogName, "cand", MakeElectNode(v.Addr, len(ans.CandidateValidator), v.Value, v.VIPLevel, common.RoleCandidateValidator))
+	}
+	return ans
 }

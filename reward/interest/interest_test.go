@@ -1,6 +1,3 @@
-// Copyright (c) 2018 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package interest
 
 import (
@@ -878,7 +875,5 @@ func Test_interest6(t *testing.T) {
 		interestTest := New(&State{5e+18})
 
 		interestTest.InterestCalc(&State{0}, 3601)
-
 	})
-
 }

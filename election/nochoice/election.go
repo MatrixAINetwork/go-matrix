@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package nochoice
@@ -27,60 +27,56 @@ func RegInit() baseinterface.ElectionInterface {
 }
 
 func (self *nochoice) MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg) *mc.MasterMinerReElectionRsp {
-	log.INFO("不选方案", "矿工拓扑生成", len(mmrerm.MinerList))
-	MinerTopGenAns := mc.MasterMinerReElectionRsp{}
+	log.INFO("直接选举方案", "矿工拓扑生成", len(mmrerm.MinerList))
+	nodeElect := support.NewElelection(nil, mmrerm.MinerList, mmrerm.ElectConfig, mmrerm.RandSeed, mmrerm.SeqNum, common.RoleMiner)
 
-	for index, v := range mmrerm.MinerList {
-		tempNode := mc.TopologyNodeInfo{
-			Account:  v.Address,
-			Position: uint16(index),
-			Stock:    DefauleStock,
+	nodeElect.ProcessBlackNode()
+	nodeElect.ProcessWhiteNode()
+
+	lastNode := nodeElect.GetLastNode()
+
+	MinerTopGenAns := mc.MasterMinerReElectionRsp{
+		SeqNum: nodeElect.SeqNum,
+	}
+
+	for _, v := range lastNode {
+		MinerTopGenAns.MasterMiner = append(MinerTopGenAns.MasterMiner, support.MakeElectNode(v.Address, len(MinerTopGenAns.MasterMiner), DefauleStock, common.VIP_Nil, common.RoleMiner))
+		if len(MinerTopGenAns.MasterMiner) >= int(nodeElect.EleCfg.MinerNum) {
+			break
 		}
-		if index < support.M {
-			tempNode.Type = common.RoleMiner
-			MinerTopGenAns.MasterMiner = append(MinerTopGenAns.MasterMiner, tempNode)
-			continue
-		}
-		tempNode.Type = common.RoleBackupMiner
-		MinerTopGenAns.BackUpMiner = append(MinerTopGenAns.BackUpMiner, tempNode)
 	}
 	return &MinerTopGenAns
 
 }
 
 func (self *nochoice) ValidatorTopGen(mvrerm *mc.MasterValidatorReElectionReqMsg) *mc.MasterValidatorReElectionRsq {
-	log.INFO("不选方案", "验证者拓扑生成", len(mvrerm.ValidatorList))
-	ValidatorTop := mc.MasterValidatorReElectionRsq{}
-	MasterNum := 0
-	BackupNum := 0
+	log.INFO("直接选举方案", "验证者拓扑生成", len(mvrerm.ValidatorList))
+	nodeElect := support.NewElelection(nil, mvrerm.ValidatorList, mvrerm.ElectConfig, mvrerm.RandSeed, mvrerm.SeqNum, common.RoleValidator)
 
-	for index, v := range mvrerm.ValidatorList {
-		tempNode := mc.TopologyNodeInfo{
-			Account:  v.Address,
-			Position: uint16(index),
-			Stock:    DefauleStock,
-		}
-		if MasterNum < support.M {
-			tempNode.Type = common.RoleValidator
-			ValidatorTop.MasterValidator = append(ValidatorTop.MasterValidator, tempNode)
-			MasterNum++
+	nodeElect.ProcessBlackNode()
+	nodeElect.ProcessWhiteNode()
+	lastNode := nodeElect.GetLastNode()
+	ValidatorTop := mc.MasterValidatorReElectionRsq{
+		SeqNum: nodeElect.SeqNum,
+	}
+
+	for index, v := range lastNode {
+		if len(ValidatorTop.MasterValidator) < int(mvrerm.ElectConfig.ValidatorNum) {
+			ValidatorTop.MasterValidator = append(ValidatorTop.MasterValidator, support.MakeElectNode(v.Address, len(ValidatorTop.MasterValidator), DefauleStock, common.VIP_Nil, common.RoleValidator))
 			continue
 		}
-		if BackupNum < support.P {
-			tempNode.Type = common.RoleBackupValidator
-			ValidatorTop.BackUpValidator = append(ValidatorTop.BackUpValidator, tempNode)
-			BackupNum++
+		if len(ValidatorTop.BackUpValidator) < int(mvrerm.ElectConfig.BackValidator) {
+			ValidatorTop.BackUpValidator = append(ValidatorTop.BackUpValidator, support.MakeElectNode(v.Address, len(ValidatorTop.BackUpValidator), DefauleStock, common.VIP_Nil, common.RoleBackupValidator))
 			continue
 		}
-		tempNode.Type = common.RoleCandidateValidator
-		ValidatorTop.CandidateValidator = append(ValidatorTop.CandidateValidator, tempNode)
+		ValidatorTop.CandidateValidator = append(ValidatorTop.CandidateValidator, support.MakeElectNode(v.Address, index, DefauleStock, common.VIP_Nil, common.RoleCandidateValidator))
 
 	}
 	return &ValidatorTop
 }
 
-func (self *nochoice) ToPoUpdate(Q0, Q1, Q2 []mc.TopologyNodeInfo, nettopo mc.TopologyGraph, offline []common.Address) []mc.Alternative {
-	return support.ToPoUpdate(Q0, Q1, Q2, nettopo, offline)
+func (self *nochoice) ToPoUpdate(allNative support.AllNative, topoG *mc.TopologyGraph) []mc.Alternative {
+	return support.ToPoUpdate(allNative, topoG)
 }
 
 func (self *nochoice) PrimarylistUpdate(Q0, Q1, Q2 []mc.TopologyNodeInfo, online mc.TopologyNodeInfo, flag int) ([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo) {

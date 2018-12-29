@@ -4,41 +4,19 @@
 package layered
 
 import (
-	//"fmt"
-
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/election/support"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-)
-
-type Echelon struct {
-	MinMoney uint64
-	Quota    int
-}
-
-const (
-	DefauleStock = 1
-)
-
-var (
-	FirstEchelon = Echelon{
-		MinMoney: 10000000,
-		Quota:    3,
-	}
-	SecondEchelon = Echelon{
-		MinMoney: 100000,
-		Quota:    3,
-	}
+	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type layered struct {
 }
 
 func init() {
-	baseinterface.RegElectPlug("layered", RegInit)
+	baseinterface.RegElectPlug(manparams.ElectPlug_layerd, RegInit)
 }
 
 func RegInit() baseinterface.ElectionInterface {
@@ -46,109 +24,98 @@ func RegInit() baseinterface.ElectionInterface {
 }
 
 func (self *layered) MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg) *mc.MasterMinerReElectionRsp {
-	log.INFO("分层方案", "矿工拓扑生成", len(mmrerm.MinerList))
-	return support.MinerTopGen(mmrerm)
+	log.INFO("分层方案", "矿工拓扑生成", mmrerm)
+	vipEle := support.NewElelection(nil, mmrerm.MinerList, mmrerm.ElectConfig, mmrerm.RandSeed, mmrerm.SeqNum, common.RoleMiner)
+
+	vipEle.ProcessBlackNode()
+	vipEle.ProcessWhiteNode()
+	nodeList := vipEle.GetNodeByLevel(common.VIP_Nil)
+	value := support.CalcValue(nodeList, common.RoleMiner)
+	Chosed, value := support.GetList_Common(value, vipEle.NeedNum, vipEle.RandSeed)
+	return support.MakeMinerAns(Chosed, vipEle.SeqNum)
 
 }
 
 func (self *layered) ValidatorTopGen(mvrerm *mc.MasterValidatorReElectionReqMsg) *mc.MasterValidatorReElectionRsq {
-	log.INFO("分层方案", "验证者拓扑生成", len(mvrerm.ValidatorList))
-	ValidatorTopGen := mc.MasterValidatorReElectionRsq{}
-	ChoiceToMaster := make(map[common.Address]int, 0)
+	log.INFO("分层方案", "验证者拓扑生成", mvrerm)
 
-	InitMapList := make(map[string]vm.DepositDetail, 0)
+	vipEle := support.NewElelection(mvrerm.VIPList, mvrerm.ValidatorList, mvrerm.ElectConfig, mvrerm.RandSeed, mvrerm.SeqNum, common.RoleValidator)
+	vipEle.ProcessBlackNode()
+	vipEle.ProcessWhiteNode()
+	//vipEle.DisPlayNode()
 
-	for _, v := range mvrerm.ValidatorList {
-		InitMapList[v.NodeID.String()] = v
-	}
-
-	FirstQuota, SecondQuota := CalEchelonNum(mvrerm.ValidatorList)
-	//fmt.Println(len(FirstQuota), len(SecondQuota))
-
-	if len(FirstQuota) > FirstEchelon.Quota {
-		FirstQuota = sortByDepositAndUptime(FirstQuota)
-	}
-	for _, v := range FirstQuota {
-		tempNodeInfo := mc.TopologyNodeInfo{
-			Account:  v.Address,
-			Position: uint16(len(ValidatorTopGen.MasterValidator)),
-			Stock:    DefauleStock,
-			Type:     common.RoleValidator,
-		}
-		ValidatorTopGen.MasterValidator = append(ValidatorTopGen.MasterValidator, tempNodeInfo)
-		ChoiceToMaster[v.Address] = 1
-		if len(ValidatorTopGen.MasterValidator) >= FirstEchelon.Quota {
-			break
-		}
-	}
-
-	if len(SecondQuota) > SecondEchelon.Quota {
-		SecondQuota = sortByDepositAndUptime(SecondQuota)
-	}
-	for _, v := range SecondQuota {
-		tempNodeInfo := mc.TopologyNodeInfo{
-			Account:  v.Address,
-			Position: uint16(len(ValidatorTopGen.MasterValidator)),
-			Stock:    DefauleStock,
-			Type:     common.RoleValidator,
-		}
-		ValidatorTopGen.MasterValidator = append(ValidatorTopGen.MasterValidator, tempNodeInfo)
-		ChoiceToMaster[v.Address] = 1
-		if len(ValidatorTopGen.MasterValidator) >= SecondEchelon.Quota+FirstEchelon.Quota {
-			break
-		}
-	}
-	//fmt.Println("94", len(ValidatorTopGen.MasterValidator), len(ValidatorTopGen.BackUpValidator))
-
-	NowList := []vm.DepositDetail{}
-	for _, v := range mvrerm.ValidatorList {
-		_, ok := ChoiceToMaster[v.Address]
-		if ok {
+	for vipEleLoop := len(vipEle.VipLevelCfg) - 1; vipEleLoop >= 0; vipEleLoop-- {
+		if vipEle.VipLevelCfg[vipEleLoop].ElectUserNum <= 0 && vipEleLoop != 0 { //vip0继续处理
 			continue
 		}
-		NowList = append(NowList, v)
-	}
-	weight := GetValueByDeposit(NowList)
-	//fmt.Println("weight", len(weight))
-	//fmt.Println("zzz", support.M-len(ValidatorTopGen.MasterValidator))
+		nodeList := vipEle.GetNodeByLevel(common.GetVIPLevel(vipEleLoop))
 
-	a, b, c := support.ValNodesSelected(weight, mvrerm.RandSeed.Int64(), support.M-len(ValidatorTopGen.MasterValidator), 5, 0) //mvrerm.RandSeed.Int64(), 11, 5, 0) //0x12217)
-
-	//fmt.Println(len(a), len(b), len(c))
-	for _, v := range a {
-		tempNodeInfo := mc.TopologyNodeInfo{
-			Account:  InitMapList[v.Nodeid].Address,
-			Position: uint16(len(ValidatorTopGen.MasterValidator)),
-			Stock:    DefauleStock,
-			Type:     common.RoleValidator,
+		value := support.CalcValue(nodeList, common.RoleValidator)
+		curNeed := 0
+		if vipEleLoop == 0 {
+			curNeed = vipEle.NeedNum - vipEle.ChosedNum
+		} else {
+			curNeed = int(vipEle.VipLevelCfg[vipEleLoop].ElectUserNum)
 		}
-		ValidatorTopGen.MasterValidator = append(ValidatorTopGen.MasterValidator, tempNodeInfo)
-	}
-	for _, v := range b {
-		tempNodeInfo := mc.TopologyNodeInfo{
-			Account:  InitMapList[v.Nodeid].Address,
-			Position: uint16(len(ValidatorTopGen.BackUpValidator)),
-			Stock:    DefauleStock,
-			Type:     common.RoleBackupValidator,
+		if curNeed > vipEle.NeedNum-vipEle.ChosedNum {
+			curNeed = vipEle.NeedNum - vipEle.ChosedNum
 		}
-		ValidatorTopGen.BackUpValidator = append(ValidatorTopGen.BackUpValidator, tempNodeInfo)
-	}
-	for _, v := range c {
-		tempNodeInfo := mc.TopologyNodeInfo{
-			Account:  InitMapList[v.Nodeid].Address,
-			Position: uint16(len(ValidatorTopGen.CandidateValidator)),
-			Stock:    DefauleStock,
-			Type:     common.RoleCandidateValidator,
+
+		Chosed := []support.Strallyint{}
+
+		if vipEleLoop == 0 {
+			Chosed, value = support.GetList_Common(value, curNeed, vipEle.RandSeed)
+		} else {
+			Chosed, value = support.GetList_VIP(value, curNeed, vipEle.RandSeed)
 		}
-		ValidatorTopGen.CandidateValidator = append(ValidatorTopGen.CandidateValidator, tempNodeInfo)
+
+		vipEle.SetChosed(Chosed)
+
 	}
 
-	return &ValidatorTopGen
+	Master := []support.Strallyint{}
+	Backup := []support.Strallyint{}
+	Candidate := []support.Strallyint{}
 
+	for k, v := range vipEle.HasChosedNode {
+		for _, vv := range v {
+			temp := support.Strallyint{}
+			if k == len(vipEle.HasChosedNode)-1 {
+				temp = support.Strallyint{Addr: vv.Addr, Value: vv.Value, VIPLevel: common.VIP_Nil}
+			} else {
+				temp = support.Strallyint{Addr: vv.Addr, Value: vipEle.GetVipStock(vv.Addr), VIPLevel: common.GetVIPLevel(len(vipEle.VipLevelCfg) - 1 - k)}
+			}
+
+			if len(Master) < int(vipEle.EleCfg.ValidatorNum) {
+
+				Master = append(Master, temp)
+				continue
+			}
+			if len(Backup) < int(vipEle.EleCfg.BackValidator) {
+				Backup = append(Backup, temp)
+				continue
+			}
+		}
+	}
+
+	lastNode := vipEle.GetLastNode()
+	for _, v := range lastNode {
+		if len(Candidate) < int(4*vipEle.EleCfg.ValidatorNum-vipEle.EleCfg.BackValidator) {
+			Candidate = append(Candidate, support.Strallyint{Addr: v.Address, Value: 1})
+		}
+	}
+	return support.MakeValidatoeTopGenAns(mvrerm.SeqNum, Master, Backup, Candidate)
 }
 
-func (self *layered) ToPoUpdate(Q0, Q1, Q2 []mc.TopologyNodeInfo, nettopo mc.TopologyGraph, offline []common.Address) []mc.Alternative {
-	return support.ToPoUpdate(Q0, Q1, Q2, nettopo, offline)
+func TransVIPNode(vipnode []support.Node) []support.Strallyint {
+	ans := []support.Strallyint{}
+	for _, v := range vipnode {
+		ans = append(ans, support.Strallyint{Value: support.DefaultStock, Addr: v.Address})
+	}
+	return ans
+}
+func (self *layered) ToPoUpdate(allNative support.AllNative, topoG *mc.TopologyGraph) []mc.Alternative {
+	return support.ToPoUpdate(allNative, topoG)
 }
 
 func (self *layered) PrimarylistUpdate(Q0, Q1, Q2 []mc.TopologyNodeInfo, online mc.TopologyNodeInfo, flag int) ([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo) {

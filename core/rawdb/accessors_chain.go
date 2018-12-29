@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package rawdb
 
@@ -10,12 +9,11 @@ import (
 	"encoding/binary"
 	"math/big"
 
+	"encoding/json"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/rlp"
-	"github.com/matrix/go-matrix/mc"
-	"encoding/json"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -371,42 +369,33 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 	return a
 }
 
-//Topology graph
-func HasTopologyGraph(db DatabaseReader, blockHash common.Hash, number uint64) bool {
-	key := append(append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...))
-	if has, err := db.Has(key); !has || err != nil {
-		return false
-	}
-	return true
-}
+func ReadSuperBlockIndex(db DatabaseReader) *SuperBlockIndexData {
 
-func ReadTopologyGraph(db DatabaseReader, blockHash common.Hash, number uint64) *mc.TopologyGraph {
-	data, _ := db.Get(append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...))
-	if len(data) == 0 {
-		return nil
-	}
-	graph := new(mc.TopologyGraph)
-	if err := json.Unmarshal(data, &graph); err != nil {
-		log.Error("Invalid topology graph json data", "number", number, "hash", blockHash, "err", err)
-		return nil
-	}
-	return graph
-}
-
-func WriteTopologyGraph(db DatabaseWriter, blockHash common.Hash, number uint64, topologyGraph *mc.TopologyGraph) {
-	bytes, err := json.Marshal(topologyGraph)
+	data, err := db.Get([]byte("SBLK"))
 	if err != nil {
-		log.Crit("Failed to encode topology graph", "err", err)
+		//log.Error("ReadSuperBlockIndex ", "err", err)
+		return nil
+	}
+	if len(data) == 0 {
+		log.Error("ReadSuperBlockIndex ", "data len ", 0)
+		return nil
 	}
 
-	key := append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...)
-	if err := db.Put(key, bytes); err != nil {
-		log.Crit("Failed to store topology graph", "err", err)
+	sbi := new(SuperBlockIndexData)
+	if err := json.Unmarshal(data, &sbi); err != nil {
+		log.Error("Invalid SuperBlockIndexData data", "err", err)
+		return nil
 	}
+	return sbi
 }
 
-func DeleteTopologyGraph(db DatabaseDeleter, blockHash common.Hash, number uint64) {
-	if err := db.Delete(append(append(topologyGraphPrefix, encodeBlockNumber(number)...), blockHash.Bytes()...)); err != nil {
-		log.Crit("Failed to delete topology graph", "err", err)
+func WriteSuperBlockIndex(db DatabaseWriter, sbi *SuperBlockIndexData) {
+
+	bytes, err := json.Marshal(sbi)
+	if err != nil {
+		log.Crit("Failed to encode elect index", "err", err)
+	}
+	if err := db.Put([]byte("SBLK"), bytes); err != nil {
+		log.Crit("Failed to store elect index", "err", err)
 	}
 }

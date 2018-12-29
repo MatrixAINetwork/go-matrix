@@ -48,8 +48,8 @@ const (
 	HD_LeaderReelectInquiryRsp
 	HD_LeaderReelectReq
 	HD_LeaderReelectVote
-	HD_LeaderReelectResultBroadcast
-	HD_LeaderReelectResultBroadcastRsp
+	HD_LeaderReelectBroadcast
+	HD_LeaderReelectBroadcastRsp
 
 	//Topology
 	ReElec_MasterMinerReElectionReq

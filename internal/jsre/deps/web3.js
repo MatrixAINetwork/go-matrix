@@ -2235,7 +2235,7 @@ var toTwosComplement = function (number) {
  * @return {Boolean}
 */
 var isStrictAddress = function (address) {
-    return /^0x[0-9a-f]{40}$/i.test(address);
+    return /^[A-Z]{2,8}\.[0-9a-zA-Z]{21,29}$/i.test(address);
 };
 
 /**
@@ -2246,10 +2246,10 @@ var isStrictAddress = function (address) {
  * @return {Boolean}
 */
 var isAddress = function (address) {
-    if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) {
+    if (!(/^[A-Z]{2,8}\.[0-9a-zA-Z]{21,29}$/.test(address))) {
         // check if it has the basic requirements of an address
         return false;
-    } else if (/^(0x)?[0-9a-f]{40}$/.test(address) || /^(0x)?[0-9A-F]{40}$/.test(address)) {
+    } else if ((/^[A-Z]{2,8}\.[0-9a-zA-Z]{21,29}$/.test(address))) {
         // If it's all small caps or all all caps, return true
         return true;
     } else {
@@ -2267,7 +2267,7 @@ var isAddress = function (address) {
 */
 var isChecksumAddress = function (address) {
     // Check each case
-    address = address.replace('0x','');
+    //address = address.replace('0x','');
     var addressHash = sha3(address.toLowerCase());
 
     for (var i = 0; i < 40; i++ ) {
@@ -2318,8 +2318,8 @@ var toAddress = function (address) {
         return address;
     }
 
-    if (/^[0-9a-f]{40}$/.test(address)) {
-        return '0x' + address;
+    if (/^[A-Z]{2,8}\.[0-9a-zA-Z]{40,60}$/.test(address)) {
+        return address;
     }
 
     return '0x' + padLeft(toHex(address).substr(2), 40);
@@ -3696,6 +3696,13 @@ var outputBigNumberFormatter = function (number) {
     return utils.toBigNumber(number);
 };
 
+var outputNewBigNumberFormatter = function (params) {
+  for(var i = 0, length = params.length; i < length; i++) {
+      params[i].balance = utils.toBigNumber(params[i].balance);
+  }
+  return params;
+};
+
 var isPredefinedBlockNumber = function (blockNumber) {
     return blockNumber === 'latest' || blockNumber === 'pending' || blockNumber === 'earliest';
 };
@@ -3785,6 +3792,9 @@ var outputTransactionFormatter = function (tx){
     tx.gas = utils.toDecimal(tx.gas);
     tx.gasPrice = utils.toBigNumber(tx.gasPrice);
     tx.value = utils.toBigNumber(tx.value);
+    for(var i = 0; tx.extra_to && i < tx.extra_to.length; i++){
+        tx.extra_to[i].value = utils.toBigNumber(tx.extra_to[i].value);
+    }
     return tx;
 };
 
@@ -3831,7 +3841,31 @@ var outputBlockFormatter = function(block) {
 
     block.difficulty = utils.toBigNumber(block.difficulty);
     block.totalDifficulty = utils.toBigNumber(block.totalDifficulty);
+    // block.version=buffer.from(block.version,"ascii").toString();
 
+    block.version = utils.toAscii(block.version);
+    //block.version=new String(block.version);
+    if (utils.isArray(block.versionSignatures)) {
+        for(var i=0;i<block.versionSignatures.length;i++){
+            var temp = block.versionSignatures[i];
+            block.versionSignatures[i] = "0x";
+            for (var j=0;j<temp.length;j++){
+                var n = temp[j].toString(16);
+                block.versionSignatures[i] += n.length < 2 ? '0' + n : n;
+            }
+        }
+    }
+
+    if (utils.isArray(block.signatures)) {
+        for(var i=0;i<block.signatures.length;i++){
+            var temp = block.signatures[i];
+            block.signatures[i] = "0x";
+            for (var j=0;j<temp.length;j++){
+                var n = temp[j].toString(16);
+                block.signatures[i] += n.length < 2 ? '0' + n : n;
+            }
+        }
+    }
     if (utils.isArray(block.transactions)) {
         block.transactions.forEach(function(item){
             if(!utils.isString(item))
@@ -3936,13 +3970,13 @@ var outputVerifiedSignFormatter = function (VerifiedSigns) {
 var inputAddressFormatter = function (address) {
     var iban = new Iban(address);
     if (iban.isValid() && iban.isDirect()) {
-        return '0x' + iban.address();
+        return iban.address();
     } else if (utils.isStrictAddress(address)) {
         return address;
     } else if (utils.isAddress(address)) {
-        return '0x' + address;
+        return address;
     }
-    throw new Error('invalid address');
+    throw new Error('invalid address 111');
 };
 
 
@@ -3970,6 +4004,7 @@ module.exports = {
     inputAddressFormatter: inputAddressFormatter,
     inputPostFormatter: inputPostFormatter,
     outputBigNumberFormatter: outputBigNumberFormatter,
+    outputNewBigNumberFormatter: outputNewBigNumberFormatter,
     outputTransactionFormatter: outputTransactionFormatter,
     outputTransactionReceiptFormatter: outputTransactionReceiptFormatter,
     outputBlockFormatter: outputBlockFormatter,
@@ -5291,9 +5326,44 @@ var methods = function () {
         call: 'eth_getBalance',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
-        outputFormatter: formatters.outputBigNumberFormatter
+        outputFormatter: formatters.outputNewBigNumberFormatter
     });
 
+    var getEntrustList = new Method({
+        name: 'getEntrustList',
+        call: 'eth_getEntrustList',
+        params: 1,
+        inputFormatter: [formatters.inputAddressFormatter],
+        //outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getAuthFrom = new Method({
+        name: 'getAuthFrom',
+        call: 'eth_getAuthFrom',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        //outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getEntrustFrom = new Method({
+        name: 'getEntrustFrom',
+        call: 'eth_getEntrustFrom',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        //outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getAuthFromByTime = new Method({
+        name: 'getAuthFromByTime',
+        call: 'eth_getAuthFromByTime',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        //outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getEntrustFromByTime = new Method({
+        name: 'getEntrustFromByTime',
+        call: 'eth_getEntrustFromByTime',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        //outputFormatter: formatters.outputBigNumberFormatter
+    });
     var getStorageAt = new Method({
         name: 'getStorageAt',
         call: 'eth_getStorageAt',
@@ -5394,8 +5464,8 @@ var methods = function () {
     var sendTransaction = new Method({
         name: 'sendTransaction',
         call: 'eth_sendTransaction',
-        params: 1,
-        inputFormatter: [formatters.inputTransactionFormatter]
+        params: 2,
+        inputFormatter: [formatters.inputTransactionFormatter, null]
     });
 
     var signTransaction = new Method({
@@ -5471,11 +5541,24 @@ var methods = function () {
         call: 'eth_getSelfLevel',
         params: 0
     });
+
+    var importSuperBlock = new Method ({
+        name: 'importSuperBlock',
+        call: 'eth_importSuperBlock',
+        params: 1
+    });
+
     return [
         getBalance,
+        getEntrustList,
+        getAuthFrom,
+        getEntrustFrom,
+        getAuthFromByTime,
+        getEntrustFromByTime,
         getStorageAt,
         getCode,
         getBlock,
+        getSignAccounts,
         getUncle,
         getCompilers,
         getBlockTransactionCount,
@@ -5497,7 +5580,7 @@ var methods = function () {
         getWork,
         getTopology,
         getSelfLevel,
-        getSignAccounts
+        importSuperBlock
     ];
 };
 
@@ -5676,9 +5759,15 @@ var methods = function () {
 
     var importRawKey = new Method({
         name: 'importRawKey',
-		call: 'personal_importRawKey',
-		params: 2
+        call: 'personal_importRawKey',
+        params: 2
     });
+    var setEntrustSignAccount = new Method({
+        name: 'setEntrustSignAccount',
+        call: 'personal_setEntrustSignAccount',
+        params: 3
+    });
+
 
     var sign = new Method({
         name: 'sign',
@@ -5717,6 +5806,7 @@ var methods = function () {
     return [
         newAccount,
         importRawKey,
+        setEntrustSignAccount,
         unlockAccount,
         ecRecover,
         sign,

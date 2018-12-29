@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // Package state provides a caching layer atop the Matrix state trie.
 package state
@@ -12,6 +11,10 @@ import (
 	"sort"
 	"sync"
 
+	"bytes"
+	"encoding/json"
+	"github.com/matrix/go-matrix/base58"
+	"github.com/matrix/go-matrix/btrie"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/crypto"
@@ -19,6 +22,7 @@ import (
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rlp"
 	"github.com/matrix/go-matrix/trie"
+	"time"
 )
 
 type revision struct {
@@ -47,6 +51,14 @@ type StateDB struct {
 	stateObjects      map[common.Address]*stateObject
 	stateObjectsDirty map[common.Address]struct{}
 
+	revocablebtrie btrie.BTree //可撤销
+	timebtrie      btrie.BTree //定时
+
+	btreeMap        []BtreeDietyStruct
+	btreeMapDirty   []BtreeDietyStruct
+	matrixData      map[common.Hash][]byte
+	matrixDataDirty map[common.Hash][]byte
+
 	// DB error.
 	// State objects are used by the consensus core and VM which are
 	// unable to deal with database-level errors. Any error that occurs
@@ -72,6 +84,11 @@ type StateDB struct {
 
 	lock sync.Mutex
 }
+type BtreeDietyStruct struct {
+	Key  uint32
+	Data map[common.Hash][]byte
+	Typ  string
+}
 
 // Create a new state from a given trie.
 func New(root common.Hash, db Database) (*StateDB, error) {
@@ -79,15 +96,33 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &StateDB{
+	st := &StateDB{
 		db:                db,
 		trie:              tr,
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
+		matrixData:        make(map[common.Hash][]byte),
+		matrixDataDirty:   make(map[common.Hash][]byte),
+		btreeMap:          make([]BtreeDietyStruct, 0),
+		btreeMapDirty:     make([]BtreeDietyStruct, 0),
 		logs:              make(map[common.Hash][]*types.Log),
 		preimages:         make(map[common.Hash][]byte),
 		journal:           newJournal(),
-	}, nil
+	}
+
+	b, err1 := st.tryGetMatrixData(types.RlpHash(common.StateDBRevocableBtree))
+	if err1 == nil {
+		hash1 := common.BytesToHash(b)
+		st.NewBTrie(common.ExtraRevocable)
+		btrie.RestoreBtree(&st.revocablebtrie, nil, hash1, db.TrieDB(), common.ExtraRevocable, st)
+	}
+	b2, err2 := st.tryGetMatrixData(types.RlpHash(common.StateDBTimeBtree))
+	if err2 == nil {
+		hash2 := common.BytesToHash(b2)
+		st.NewBTrie(common.ExtraTimeTxType)
+		btrie.RestoreBtree(&st.timebtrie, nil, hash2, db.TrieDB(), common.ExtraTimeTxType, st)
+	}
+	return st, nil
 }
 
 // setError remembers the first non-nil error it is called with.
@@ -111,6 +146,10 @@ func (self *StateDB) Reset(root common.Hash) error {
 	self.trie = tr
 	self.stateObjects = make(map[common.Address]*stateObject)
 	self.stateObjectsDirty = make(map[common.Address]struct{})
+	self.btreeMap = make([]BtreeDietyStruct, 0)
+	self.btreeMapDirty = make([]BtreeDietyStruct, 0)
+	self.matrixData = make(map[common.Hash][]byte)
+	self.matrixDataDirty = make(map[common.Hash][]byte)
 	self.thash = common.Hash{}
 	self.bhash = common.Hash{}
 	self.txIndex = 0
@@ -183,9 +222,31 @@ func (self *StateDB) GetBalance(addr common.Address) common.BalanceType {
 	if stateObject != nil {
 		return stateObject.Balance()
 	}
-	return nil
+
+	b := make(common.BalanceType, 0)
+	tmp := new(common.BalanceSlice)
+	var i uint32
+	for i = 0; i <= common.LastAccount; i++ {
+		tmp.AccountType = i
+		tmp.Balance = new(big.Int)
+		b = append(b, *tmp)
+	}
+	return b
 }
 
+// Retrieve the balance from the given address or 0 if object not found
+func (self *StateDB) GetBalanceByType(addr common.Address, accType uint32) *big.Int {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		for _, tAccount := range stateObject.data.Balance {
+			if tAccount.AccountType == accType {
+				return tAccount.Balance
+			}
+		}
+	}
+
+	return big.NewInt(0)
+}
 func (self *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := self.getStateObject(addr)
 	if stateObject != nil {
@@ -234,9 +295,415 @@ func (self *StateDB) GetState(addr common.Address, bhash common.Hash) common.Has
 	return common.Hash{}
 }
 
+func (self *StateDB) GetStateByteArray(a common.Address, b common.Hash) []byte {
+	stateObject := self.getStateObject(a)
+	if stateObject != nil {
+		return stateObject.GetStateByteArray(self.db, b)
+	}
+	return nil
+}
+
+//根据授权人from和高度获取委托人的from列表,返回委托人地址列表(算法组调用,仅适用委托签名) A2 s
+func (self *StateDB) GetEntrustFrom(authFrom common.Address, height uint64) []common.Address {
+	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	if len(EntrustMarsha1Data) == 0 {
+		return nil
+	}
+	entrustDataList := make([]common.EntrustType, 0)
+	err := json.Unmarshal(EntrustMarsha1Data, &entrustDataList)
+	if err != nil {
+		return nil
+	}
+	addressList := make([]common.Address, 0)
+	for _, entrustData := range entrustDataList {
+		if entrustData.EnstrustSetType == params.EntrustByHeight && entrustData.IsEntrustSign == true && entrustData.StartHeight <= height && entrustData.EndHeight >= height {
+			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			addressList = append(addressList, entrustFrom)
+		}
+	}
+	return addressList
+}
+
+//根据委托人from和高度获取授权人的from,返回授权人地址(算法组调用,仅适用委托签名)	 A1
+func (self *StateDB) GetAuthFrom(entrustFrom common.Address, height uint64) common.Address {
+	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	if len(AuthMarsha1Data) == 0 {
+		return common.Address{}
+	}
+	AuthDataList := make([]common.AuthType, 0) //授权数据是结构体切片
+	err := json.Unmarshal(AuthMarsha1Data, &AuthDataList)
+	if err != nil {
+		return common.Address{}
+	}
+	for _, AuthData := range AuthDataList {
+		if AuthData.EnstrustSetType == params.EntrustByHeight && AuthData.IsEntrustSign == true && AuthData.StartHeight <= height && AuthData.EndHeight >= height {
+			return AuthData.AuthAddres
+		}
+	}
+	return common.Address{}
+}
+
+//根据授权人获取所有委托签名列表,(该方法用于取消委托时调用)
+func (self *StateDB) GetAllEntrustSignFrom(authFrom common.Address) []common.Address {
+	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	entrustDataList := make([]common.EntrustType, 0)
+	err := json.Unmarshal(EntrustMarsha1Data, &entrustDataList)
+	if err != nil {
+		return nil
+	}
+	addressList := make([]common.Address, 0)
+	for _, entrustData := range entrustDataList {
+		if entrustData.IsEntrustSign == true {
+			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			addressList = append(addressList, entrustFrom)
+		}
+	}
+	return addressList
+}
+
+//根据委托人from和时间获取授权人的from,返回授权人地址(内部调用,仅适用委托gas)
+func (self *StateDB) GetGasAuthFromByTime(entrustFrom common.Address, time uint64) common.Address {
+	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	if len(AuthMarsha1Data) == 0 {
+		return common.Address{}
+	}
+	AuthDataList := make([]common.AuthType, 0) //授权数据是结构体切片
+	err := json.Unmarshal(AuthMarsha1Data, &AuthDataList)
+	if err != nil {
+		return common.Address{}
+	}
+	for _, AuthData := range AuthDataList {
+		if AuthData.EnstrustSetType == params.EntrustByTime && AuthData.IsEntrustGas == true && AuthData.StartTime <= time && AuthData.EndTime >= time {
+			return AuthData.AuthAddres
+		}
+	}
+	return common.Address{}
+}
+
+//根据委托人from和高度获取授权人的from,返回授权人地址(内部调用,仅适用委托gas)
+func (self *StateDB) GetGasAuthFrom(entrustFrom common.Address, height uint64) common.Address {
+	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	if len(AuthMarsha1Data) > 0 {
+		AuthDataList := make([]common.AuthType, 0) //授权数据是结构体切片
+		err := json.Unmarshal(AuthMarsha1Data, &AuthDataList)
+		if err != nil {
+			return common.Address{}
+		}
+		for _, AuthData := range AuthDataList {
+			if AuthData.EnstrustSetType == params.EntrustByHeight && AuthData.IsEntrustGas == true && AuthData.StartHeight <= height && AuthData.EndHeight >= height {
+				return AuthData.AuthAddres
+			}
+		}
+	}
+	return common.Address{}
+}
+
+//根据授权人获取所有委托gas列表,(该方法用于取消委托时调用)
+func (self *StateDB) GetAllEntrustGasFrom(authFrom common.Address) []common.Address {
+	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	entrustDataList := make([]common.EntrustType, 0)
+	err := json.Unmarshal(EntrustMarsha1Data, &entrustDataList)
+	if err != nil {
+		return nil
+	}
+	addressList := make([]common.Address, 0)
+	for _, entrustData := range entrustDataList {
+		if entrustData.IsEntrustGas == true {
+			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			addressList = append(addressList, entrustFrom)
+		}
+	}
+	return addressList
+}
+
+func (self *StateDB) GetEntrustFromByTime(authFrom common.Address, time uint64) []common.Address {
+	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	if len(EntrustMarsha1Data) == 0 {
+		return nil
+	}
+	entrustDataList := make([]common.EntrustType, 0)
+	err := json.Unmarshal(EntrustMarsha1Data, &entrustDataList)
+	if err != nil {
+		return nil
+	}
+	addressList := make([]common.Address, 0)
+	for _, entrustData := range entrustDataList {
+		if entrustData.EnstrustSetType == params.EntrustByTime && entrustData.IsEntrustGas == true && entrustData.StartHeight <= time && entrustData.EndHeight >= time {
+			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			addressList = append(addressList, entrustFrom)
+		}
+	}
+	return addressList
+}
+
+//判断根据时间委托是否满足条件，用于执行按时间委托的交易(跑交易),此处time应该为header里的时间戳
+func (self *StateDB) GetIsEntrustByTime(entrustFrom common.Address, time uint64) bool {
+	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	if len(AuthMarsha1Data) == 0 {
+		return false
+	}
+	AuthDataList := make([]common.AuthType, 0) //授权数据是结构体切片
+	err := json.Unmarshal(AuthMarsha1Data, &AuthDataList)
+	if err != nil {
+		return false
+	}
+	for _, AuthData := range AuthDataList {
+		if AuthData.EnstrustSetType == params.EntrustByTime && AuthData.IsEntrustGas == true && AuthData.StartTime <= time && AuthData.EndTime >= time {
+			return true
+		}
+	}
+	return false
+}
+
+//钱包调用显示
+func (self *StateDB) GetAllEntrustList(authFrom common.Address) []common.EntrustType {
+	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	if len(EntrustMarsha1Data) == 0 {
+		return nil
+	}
+	entrustDataList := make([]common.EntrustType, 0)
+	err := json.Unmarshal(EntrustMarsha1Data, &entrustDataList)
+	if err != nil {
+		return nil
+	}
+
+	return entrustDataList
+}
+
 // Database retrieves the low level database supporting the lower level trie ops.
 func (self *StateDB) Database() Database {
 	return self.db
+}
+
+//isdel:true 表示需要从map中删除hash，false 表示不需要删除
+func (self *StateDB) GetSaveTx(typ byte, key uint32, hashlist []common.Hash, isdel bool) {
+	//var item trie.Item
+	var str string
+	data := make(map[common.Hash][]byte)
+
+	switch typ {
+	case common.ExtraRevocable:
+		log.Info("file statedb", "func GetSaveTx:ExtraRevocable", key)
+		item := self.revocablebtrie.Get(btrie.SpcialTxData{key, nil})
+		std, ok := item.(btrie.SpcialTxData)
+		if !ok {
+			log.Info("file statedb", "func GetSaveTx:ExtraRevocable", "item is nil")
+			return
+		}
+		self.revocablebtrie.Root().Printree(2)
+		delitem := self.revocablebtrie.Delete(item)
+		self.revocablebtrie.Root().Printree(2)
+
+		log.Info("file statedb", "revocablebtrie func GetSaveTx:del item key", delitem.(btrie.SpcialTxData).Key_Time, "len(delitem.(trie.SpcialTxData).Value_Tx)", len(delitem.(btrie.SpcialTxData).Value_Tx))
+		log.Info("file statedb", "revocablebtrie func GetSaveTx:del item key", std.Key_Time)
+		if isdel {
+			log.Info("file statedb", "revocablebtrie func GetSaveTx:del item val:begin", len(std.Value_Tx))
+			for _, hash := range hashlist {
+				delete(std.Value_Tx, hash)
+			}
+			data = std.Value_Tx
+			log.Info("file statedb", "revocablebtrie func GetSaveTx:del item val:end", len(std.Value_Tx))
+		}
+		str = common.StateDBRevocableBtree
+	case common.ExtraTimeTxType:
+		log.Info("file statedb", "func GetSaveTx:ExtraTimeTxType:Key", key)
+		item := self.timebtrie.Get(btrie.SpcialTxData{key, nil})
+		std, ok := item.(btrie.SpcialTxData)
+		if !ok {
+			log.Info("file statedb", "func GetSaveTx:ExtraTimeTxType", "item is nil")
+			return
+		}
+		self.timebtrie.Root().Printree(2)
+		delitem := self.timebtrie.Delete(item)
+		self.timebtrie.Root().Printree(2)
+
+		log.Info("file statedb", "timebtrie func GetSaveTx:del item key", delitem.(btrie.SpcialTxData).Key_Time, "len(delitem.(trie.SpcialTxData).Value_Tx)", len(delitem.(btrie.SpcialTxData).Value_Tx))
+		log.Info("file statedb", "timebtrie func GetSaveTx:del item key", std.Key_Time)
+		if isdel {
+			log.Info("file statedb", "timebtrie func GetSaveTx:del item val:begin", len(std.Value_Tx))
+			for _, hash := range hashlist {
+				delete(std.Value_Tx, hash)
+			}
+			data = std.Value_Tx
+			log.Info("file statedb", "timebtrie func GetSaveTx:del item val:end", len(std.Value_Tx))
+		}
+		str = common.StateDBTimeBtree
+	default:
+
+	}
+	var tmpB BtreeDietyStruct
+	tmpB.Typ = str
+	tmpB.Key = key
+	tmpB.Data = data
+	self.btreeMap = append(self.btreeMap, tmpB)
+	var tmpBD BtreeDietyStruct
+	tmpBD.Typ = str
+	tmpBD.Key = key
+	tmpBD.Data = data
+	self.btreeMapDirty = append(self.btreeMapDirty, tmpBD)
+	self.journal.append(addBtreeChange{typ: str, key: key})
+
+	self.CommitSaveTx()
+	return
+}
+func (self *StateDB) SaveTx(typ byte, key uint32, data map[common.Hash][]byte) {
+	var str string
+	switch typ {
+	case common.ExtraRevocable:
+		str = common.StateDBRevocableBtree
+	case common.ExtraTimeTxType:
+		str = common.StateDBTimeBtree
+	default:
+
+	}
+	var tmpB BtreeDietyStruct
+	tmpB.Typ = str
+	tmpB.Key = key
+	tmpB.Data = data
+	self.btreeMap = append(self.btreeMap, tmpB)
+	var tmpBD BtreeDietyStruct
+	tmpBD.Typ = str
+	tmpBD.Key = key
+	tmpBD.Data = data
+	self.btreeMapDirty = append(self.btreeMapDirty, tmpBD)
+	self.journal.append(addBtreeChange{typ: str, key: key})
+}
+func (self *StateDB) CommitSaveTx() {
+	//var typ byte
+	for _, btree := range self.btreeMap {
+		var hash common.Hash
+		//var btrie *trie.BTree
+		log.Info("file statedb", "func CommitSaveTx:Key", btree.Key, "mapData", btree.Data)
+		switch btree.Typ {
+		case common.StateDBRevocableBtree:
+			if len(btree.Data) > 0 {
+				self.revocablebtrie.ReplaceOrInsert(btrie.SpcialTxData{btree.Key, btree.Data})
+			}
+			tmproot := self.revocablebtrie.Root()
+			hash = btrie.BtreeSaveHash(tmproot, self.db.TrieDB(), common.ExtraRevocable, self)
+			self.updateMatrixData(types.RlpHash(common.StateDBRevocableBtree), hash[:])
+			//err := self.trie.TryUpdate(b, hash.Bytes())
+			//if err != nil {
+			//	log.Error("file statedb", "func CommitSaveTx:err2", err)
+			//}
+		case common.StateDBTimeBtree:
+			if len(btree.Data) > 0 {
+				self.timebtrie.ReplaceOrInsert(btrie.SpcialTxData{btree.Key, btree.Data})
+			}
+			tmproot := self.timebtrie.Root()
+			hash = btrie.BtreeSaveHash(tmproot, self.db.TrieDB(), common.ExtraTimeTxType, self)
+			//b := []byte(common.StateDBTimeBtree)
+			self.updateMatrixData(types.RlpHash(common.StateDBTimeBtree), hash[:])
+			//if err != nil {
+			//	log.Error("file statedb", "func CommitSaveTx:err2", err)
+			//}
+		default:
+
+		}
+	}
+	self.btreeMap = make([]BtreeDietyStruct, 0)
+	self.btreeMapDirty = make([]BtreeDietyStruct, 0)
+}
+func (self *StateDB) UpdateTxForBtree(key uint32) {
+	out := make([]btrie.Item, 0)
+	self.revocablebtrie.DescendLessOrEqual(btrie.SpcialTxData{Key_Time: key}, func(a btrie.Item) bool {
+		out = append(out, a)
+		return true
+	})
+	log.Info("file statedb", "func UpdateTxForBtree:len(out)", len(out), "time", key)
+	for _, it := range out {
+		item, ok := it.(btrie.SpcialTxData)
+		if !ok {
+			continue
+		}
+		log.Info("file statedb", "func UpdateTxForBtree:item.key", item.Key_Time, "item.Value", len(item.Value_Tx))
+		delhashs := make([]common.Hash, 0)
+		for hash, tm := range item.Value_Tx {
+			var rt common.RecorbleTx
+			errRT := json.Unmarshal(tm, &rt)
+			if errRT != nil {
+				log.Error("file statedb", "func UpdateTxForBtree,Unmarshal err", errRT)
+				continue
+			}
+			if rt.Typ != common.ExtraRevocable {
+				log.Info("file statedb", "func UpdateTxForBtree,Type is", rt.Typ, "type should ", common.ExtraRevocable)
+				continue
+			}
+			log.Info("file statedb", "func UpdateTxForBtree111,Type is", rt.Typ)
+			for _, vv := range rt.Adam { //一对多交易
+				log.Info("file statedb", "func UpdateTxForBtree:vv.Addr", vv.Addr, "vv.Amont", vv.Amont)
+				log.Info("file statedb", "func UpdateTxForBtree:from", rt.From, "vv.Amont", vv.Amont)
+				if self.GetBalanceByType(rt.From, common.WithdrawAccount).Cmp(vv.Amont) >= 0 {
+					self.SubBalance(common.WithdrawAccount, rt.From, vv.Amont)
+					aa := self.GetBalanceByType(vv.Addr, common.MainAccount)
+					log.Info("file statedb", "func UpdateTxForBtree:to", vv.Addr, "Balance:befor", aa)
+					self.AddBalance(common.MainAccount, vv.Addr, vv.Amont)
+					bb := self.GetBalanceByType(vv.Addr, common.MainAccount)
+					log.Info("file statedb", "func UpdateTxForBtree:to", vv.Addr, "Balance:after", bb, "call time ", time.Now().Unix())
+				} else {
+					log.Info("file statedb", "func UpdateTxForBtree", "amont is not enough")
+				}
+			}
+			log.Info("file statedb", "func UpdateTxForBtree:txHash", hash)
+			delhashs = append(delhashs, hash)
+			self.deleteMatrixData(hash, nil)
+		}
+		self.GetSaveTx(common.ExtraRevocable, item.Key_Time, delhashs, true)
+	}
+}
+func (self *StateDB) UpdateTxForBtreeBytime(key uint32) {
+	out := make([]btrie.Item, 0)
+	self.timebtrie.DescendLessOrEqual(btrie.SpcialTxData{Key_Time: key}, func(a btrie.Item) bool {
+		out = append(out, a)
+		return true
+	})
+	log.Info("file statedb", "func UpdateTxForBtreeBytime:len(out)", len(out), "time", key)
+	for _, it := range out {
+		item, ok := it.(btrie.SpcialTxData)
+		if !ok {
+			continue
+		}
+		log.Info("file statedb", "func UpdateTxForBtreeBytime:item.key", item.Key_Time, "item.Value", item.Value_Tx)
+		delhashs := make([]common.Hash, 0)
+		for hash, tm := range item.Value_Tx {
+			var rt common.RecorbleTx
+			errRT := json.Unmarshal(tm, &rt)
+			if errRT != nil {
+				log.Error("file statedb", "func UpdateTxForBtreeBytime,Unmarshal err", errRT)
+				continue
+			}
+			if rt.Typ != common.ExtraTimeTxType {
+				log.Info("file statedb", "func UpdateTxForBtreeBytime,Type is", rt.Typ, "type should ", common.ExtraTimeTxType)
+				continue
+			}
+			log.Info("file statedb", "func UpdateTxForBtreeBytime111,Type is", rt.Typ)
+			for _, vv := range rt.Adam { //一对多交易
+				log.Info("file statedb", "func UpdateTxForBtreeBytime:vv.Addr", vv.Addr, "vv.Amont", vv.Amont)
+				log.Info("file statedb", "func UpdateTxForBtreeBytime:from", rt.From, "vv.Amont", vv.Amont)
+				if self.GetBalanceByType(rt.From, common.WithdrawAccount).Cmp(vv.Amont) >= 0 {
+					self.SubBalance(common.WithdrawAccount, rt.From, vv.Amont)
+					aa := self.GetBalanceByType(vv.Addr, common.MainAccount)
+					log.Info("file statedb", "func UpdateTxForBtreeBytime:to", vv.Addr, "Balance:befor", aa)
+					self.AddBalance(common.MainAccount, vv.Addr, vv.Amont)
+					bb := self.GetBalanceByType(vv.Addr, common.MainAccount)
+					log.Info("file statedb", "func UpdateTxForBtreeBytime:to", vv.Addr, "Balance:after", bb, "call time ", time.Now().Unix())
+				} else {
+					log.Info("file statedb", "func UpdateTxForBtreeBytime", "amont is not enough")
+				}
+			}
+			log.Info("file statedb", "func UpdateTxForBtreeBytime:txHash", hash)
+			delhashs = append(delhashs, hash)
+		}
+		self.GetSaveTx(common.ExtraTimeTxType, item.Key_Time, delhashs, true)
+	}
+}
+func (self *StateDB) NewBTrie(typ byte) {
+	switch typ {
+	case common.ExtraRevocable:
+		self.revocablebtrie = *btrie.NewBtree(2, self.db.TrieDB())
+	case common.ExtraTimeTxType:
+		self.timebtrie = *btrie.NewBtree(2, self.db.TrieDB())
+	}
 }
 
 // StorageTrie returns the storage trie of an account.
@@ -263,25 +730,25 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
  */
 
 // AddBalance adds amount to the account associated with addr.
-func (self *StateDB) AddBalance(accountType uint32,addr common.Address, amount *big.Int) {
+func (self *StateDB) AddBalance(accountType uint32, addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.AddBalance(accountType,amount)
+		stateObject.AddBalance(accountType, amount)
 	}
 }
 
 // SubBalance subtracts amount from the account associated with addr.
-func (self *StateDB) SubBalance(accountType uint32,addr common.Address, amount *big.Int) {
+func (self *StateDB) SubBalance(accountType uint32, addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SubBalance(accountType,amount)
+		stateObject.SubBalance(accountType, amount)
 	}
 }
 
-func (self *StateDB) SetBalance(accountType uint32,addr common.Address, amount *big.Int) {
+func (self *StateDB) SetBalance(accountType uint32, addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetBalance(accountType,amount)
+		stateObject.SetBalance(accountType, amount)
 	}
 }
 
@@ -306,6 +773,13 @@ func (self *StateDB) SetState(addr common.Address, key, value common.Hash) {
 	}
 }
 
+func (self *StateDB) SetStateByteArray(addr common.Address, key common.Hash, value []byte) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.SetStateByteArray(self.db, key, value)
+	}
+}
+
 // Suicide marks the given account as suicided.
 // This clears the account balance.
 //
@@ -317,14 +791,14 @@ func (self *StateDB) Suicide(addr common.Address) bool {
 		return false
 	}
 	self.journal.append(suicideChange{
-		account:     &addr,
-		prev:        stateObject.suicided,
+		account: &addr,
+		prev:    stateObject.suicided,
 		//prevbalance: new(big.Int).Set(stateObject.Balance()),
 		prevbalance: stateObject.Balance(),
 	})
 	stateObject.markSuicided()
 	//stateObject.data.Balance = new(big.Int)
-	stateObject.data.Balance = make(common.BalanceType,0)
+	stateObject.data.Balance = make(common.BalanceType, 0)
 
 	return true
 }
@@ -380,6 +854,60 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 func (self *StateDB) setStateObject(object *stateObject) {
 	self.stateObjects[object.Address()] = object
 }
+func (self *StateDB) DeleteMxData(hash common.Hash, val []byte) {
+	self.deleteMatrixData(hash, val)
+}
+
+/************************11************************************************/
+func (self *StateDB) updateMatrixData(hash common.Hash, val []byte) {
+	vl := append([]byte("MAN-"), val...)
+	self.setError(self.trie.TryUpdate(hash[:], vl))
+}
+
+func (self *StateDB) tryGetMatrixData(hash common.Hash) (val []byte, err error) {
+	tmpval, err := self.trie.TryGet(hash[:])
+	if err != nil || len(tmpval) == 0 {
+		return nil, err
+	}
+	if bytes.Compare(tmpval[:4], []byte("MAN-")) == 0 {
+		val = tmpval[4:] //去掉"MAN-"前綴
+	} else {
+		val = tmpval
+	}
+	return
+}
+func (self *StateDB) deleteMatrixData(hash common.Hash, val []byte) {
+	self.setError(self.trie.TryDelete(hash[:]))
+}
+
+func (self *StateDB) GetMatrixData(hash common.Hash) (val []byte) {
+	val, exist := self.matrixData[hash]
+	if exist {
+		return val
+	}
+
+	// Load the data from the database.
+	tmpval, err := self.trie.TryGet(hash[:])
+	if len(tmpval) == 0 {
+		self.setError(err)
+		return nil
+	}
+	if bytes.Compare(tmpval[:4], []byte("MAN-")) == 0 {
+		val = tmpval[4:] //去掉"MAN-"前綴
+	} else {
+		val = tmpval
+	}
+	self.matrixData[hash] = val
+	return
+}
+
+func (self *StateDB) SetMatrixData(hash common.Hash, val []byte) {
+	self.journal.append(addMatrixDataChange{hash: hash})
+	self.matrixData[hash] = val
+	self.matrixDataDirty[hash] = val
+}
+
+/**************************22***********************************************/
 
 // Retrieve a state object or create a new state object if nil.
 func (self *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
@@ -419,8 +947,8 @@ func (self *StateDB) CreateAccount(addr common.Address) {
 	new, prev := self.createObject(addr)
 	if prev != nil {
 		//new.setBalance(prev.data.Balance)
-		for _,tAccount := range prev.data.Balance{
-			new.setBalance(tAccount.AccountType,tAccount.Balance)
+		for _, tAccount := range prev.data.Balance {
+			new.setBalance(tAccount.AccountType, tAccount.Balance)
 		}
 	}
 }
@@ -458,6 +986,10 @@ func (self *StateDB) Copy() *StateDB {
 		trie:              self.db.CopyTrie(self.trie),
 		stateObjects:      make(map[common.Address]*stateObject, len(self.journal.dirties)),
 		stateObjectsDirty: make(map[common.Address]struct{}, len(self.journal.dirties)),
+		btreeMap:          make([]BtreeDietyStruct, 0),
+		btreeMapDirty:     make([]BtreeDietyStruct, 0),
+		matrixData:        make(map[common.Hash][]byte),
+		matrixDataDirty:   make(map[common.Hash][]byte),
 		refund:            self.refund,
 		logs:              make(map[common.Hash][]*types.Log, len(self.logs)),
 		logSize:           self.logSize,
@@ -492,6 +1024,21 @@ func (self *StateDB) Copy() *StateDB {
 	for hash, preimage := range self.preimages {
 		state.preimages[hash] = preimage
 	}
+
+	//for hash := range self.matrixDataDirty {
+	//	if _, exist := state.matrixData[hash]; !exist {
+	//		state.stateObjects[addr] = self.matrixData[hash].deepCopy(state)
+	//		state.stateObjectsDirty[addr] = struct{}{}
+	//	}
+	//}
+	for hash, mandata := range self.matrixData {
+		state.matrixData[hash] = mandata
+		state.matrixDataDirty[hash] = mandata
+	}
+
+	state.btreeMap = self.btreeMap
+	state.btreeMapDirty = self.btreeMapDirty
+
 	return state
 }
 
@@ -547,6 +1094,16 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
+
+	for hash, val := range s.matrixData {
+		_, isDirty := s.matrixDataDirty[hash]
+		if !isDirty {
+			continue
+		}
+		s.updateMatrixData(hash, val)
+		delete(s.matrixDataDirty, hash)
+	}
+	s.CommitSaveTx()
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
@@ -603,11 +1160,21 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 		}
 		delete(s.stateObjectsDirty, addr)
 	}
+
+	for hash, val := range s.matrixData {
+		_, isDirty := s.matrixDataDirty[hash]
+		if !isDirty {
+			continue
+		}
+		s.updateMatrixData(hash, val)
+		delete(s.matrixDataDirty, hash)
+	}
+	s.CommitSaveTx()
 	// Write trie changes.
 	root, err = s.trie.Commit(func(leaf []byte, parent common.Hash) error {
 		var account Account
 		if err := rlp.DecodeBytes(leaf, &account); err != nil {
-			return nil
+			return err
 		}
 		if account.Root != emptyState {
 			s.db.TrieDB().Reference(account.Root, parent)
@@ -620,4 +1187,36 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (root common.Hash, err error) 
 	})
 	log.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
+}
+
+func (self *StateDB) MissTrieDebug() {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+
+	log.Info("miss tree node debug", "data amount", len(self.matrixData), "dirty amount", len(self.matrixDataDirty))
+	matrixKeys := make([]common.Hash, 0)
+	for key := range self.matrixData {
+		matrixKeys = append(matrixKeys, key)
+	}
+
+	sort.Slice(matrixKeys, func(i, j int) bool {
+		return matrixKeys[i].Big().Cmp(matrixKeys[j].Big()) <= 0
+	})
+
+	for i, k := range matrixKeys {
+		log.Info("miss tree node debug", "data index", i, "hash", k.TerminalString(), "data", self.matrixData[k])
+	}
+
+	dirtyKeys := make([]common.Hash, 0)
+	for key := range self.matrixDataDirty {
+		dirtyKeys = append(dirtyKeys, key)
+	}
+
+	sort.Slice(dirtyKeys, func(i, j int) bool {
+		return dirtyKeys[i].Big().Cmp(dirtyKeys[j].Big()) <= 0
+	})
+
+	for i, k := range dirtyKeys {
+		log.Info("miss tree node debug", "dirty index", i, "hash", k.TerminalString(), "data", self.matrixDataDirty[k])
+	}
 }

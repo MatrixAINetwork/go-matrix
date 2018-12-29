@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package p2p
@@ -11,7 +11,6 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/rlp"
 )
@@ -55,33 +54,34 @@ func UdpSend(data interface{}) {
 		return
 	}
 
-	ids := make([]discover.NodeID, 0)
+	signAddr := make([]common.Address, 0)
 	if ca.InDuration() {
-		ids = ca.GetRolesByGroupOnlyNextElect(common.RoleValidator | common.RoleBackupValidator)
+		signAddr = ca.GetRolesByGroupOnlyNextElect(common.RoleValidator | common.RoleBackupValidator)
 	} else {
-		ids = ca.GetRolesByGroup(common.RoleValidator | common.RoleBackupValidator)
+		signAddr = ca.GetRolesByGroup(common.RoleValidator | common.RoleBackupValidator)
 	}
-	if len(ids) <= 2 {
-		for _, id := range ids {
+	if len(signAddr) <= 2 {
+		for _, id := range signAddr {
 			send(id, bytes)
 		}
 		return
 	}
 
-	is := Random(len(ids), 2)
+	is := Random(len(signAddr), 2)
 	for _, i := range is {
-		send(ids[i], bytes)
+		send(signAddr[i], bytes)
 	}
 }
 
-func send(id discover.NodeID, data []byte) {
-	node := ServerP2p.ntab.Resolve(id)
-	if node == nil {
-		log.Error("buckets nodes", "p2p", id)
+func send(address common.Address, data []byte) {
+	node := ServerP2p.ntab.GetAllAddress()
+	n, ok := node[address]
+	if !ok {
+		log.Error("can't send udp to", "addr", address)
 		return
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", node.IP.String()+":30000")
+	addr, err := net.ResolveUDPAddr("udp", n.IP.String()+":30000")
 	if err != nil {
 		log.Error("Can't resolve address: ", "p2p udp", err)
 		return

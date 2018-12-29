@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package vm
@@ -374,10 +374,13 @@ func tMatrixDeposit(t *testing.T, p PrecompiledContract, deposit string, thresho
 	in = make([]byte, 4)
 	copy(in[:4], depositAbi.Methods[deposit].Id())
 
-	var nodeID = make([]byte, 64)
-	copy(nodeID, []byte("0xf26fa4112f2cc603a114d3eec20d5a4605debe1c3cecc36c347982aaf3c30e5790b9f936c2c4e6862e615255cb1bce05a1578f4e9766ab43991c87864d3ff1fe"))
-	bytes, _ := depositAbi.Methods[deposit].Inputs.Pack(nodeID)
-	in = append(in, bytes...)
+	var addr = make([]byte, 20)
+	var temp = make([]byte, 12)
+
+	copy(addr, []byte("05e3c16931c6e578f948231dca609d754c18fc09"))
+	//bytes, _ := depositAbi.Methods[deposit].Inputs.Pack(addr)
+	in = append(in, temp...)
+	in = append(in, addr...)
 	reqGas := p.RequiredGas(in)
 	contract = NewContract(AccountRef(common.HexToAddress("0xfabff5c20c795aa698c23a3e2a02570c9e0bb020")),
 		AccountRef(common.BytesToAddress([]byte{10})), threshold, reqGas)

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // This file contains some shares testing functionality, common to  multiple
 // different files and modules being tested.
@@ -22,9 +21,9 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/crypto"
+	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/params"

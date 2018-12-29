@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -8,8 +8,8 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/matrix/go-matrix/base58"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,7 +20,7 @@ import (
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/accounts/signhelper"
+	//"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/fdlimit"
 	"github.com/matrix/go-matrix/consensus"
@@ -161,7 +161,7 @@ var (
 	GCModeFlag = cli.StringFlag{
 		Name:  "gcmode",
 		Usage: `Blockchain garbage collection mode ("full", "archive")`,
-		Value: "full",
+		Value: "archive",
 	}
 	LightServFlag = cli.IntFlag{
 		Name:  "lightserv",
@@ -176,6 +176,14 @@ var (
 	LightKDFFlag = cli.BoolFlag{
 		Name:  "lightkdf",
 		Usage: "Reduce key-derivation RAM & CPU usage at some expense of KDF strength",
+	}
+	AesInputFlag = cli.StringFlag{
+		Name:  "aesin",
+		Usage: "aes 输入",
+	}
+	AesOutputFlag = cli.StringFlag{
+		Name:  "aesout",
+		Usage: "aes 输出",
 	}
 	// Dashboard settings
 	DashboardEnabledFlag = cli.BoolFlag{
@@ -339,6 +347,10 @@ var (
 		Name:  "testchangerole",
 		Usage: "change role",
 	}
+	GetCommitFlag = cli.StringFlag{
+		Name:  "testgetcommit",
+		Usage: "get commit",
+	}
 	// Account settings
 	UnlockedAccountFlag = cli.StringFlag{
 		Name:  "unlock",
@@ -350,9 +362,19 @@ var (
 		Usage: "Password file to use for non-interactive password input",
 		Value: "",
 	}
+	ManAddressFlag = cli.StringFlag{
+		Name:  "manAddress",
+		Usage: "deposit user signature account.",
+		Value: "",
+	}
 	AccountPasswordFileFlag = cli.StringFlag{
 		Name:  "entrust",
 		Usage: "Password file to entrustment transaction",
+		Value: "",
+	}
+	TestEntrustFlag = cli.StringFlag{
+		Name:  "testmode",
+		Usage: "默认使用2222222222222222解密",
 		Value: "",
 	}
 	VMEnableDebugFlag = cli.BoolFlag{
@@ -798,23 +820,6 @@ type EntrustPassword struct {
 	Password map[common.Address]string
 }
 
-func MakeEntrustPassword(ctx *cli.Context) map[common.Address]string {
-	path := ctx.GlobalString(AccountPasswordFileFlag.Name)
-	fmt.Println("MakeEntrustPassword", "path", path)
-
-	JsonParse := NewJsonStruct()
-	v := EntrustPassword{}
-	JsonParse.Load(path, &v)
-	fmt.Println("MakeEntrustPassword", v.Password)
-	for k, _ := range v.Password {
-		fmt.Println(k, v.Password[k])
-	}
-	fmt.Println("MakeEntrustPassword len()", len(v.Password))
-
-	signhelper.EntrustValue = v.Password
-	return v.Password
-}
-
 // MakePasswordList reads password lines from the file specified by the global --password flag.
 func MakePasswordList(ctx *cli.Context) []string {
 	path := ctx.GlobalString(PasswordFileFlag.Name)
@@ -869,8 +874,16 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	if ctx.GlobalIsSet(MaxPendingPeersFlag.Name) {
 		cfg.MaxPendingPeers = ctx.GlobalInt(MaxPendingPeersFlag.Name)
 	}
+	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
+		cfg.NetWorkId = ctx.GlobalUint64(NetworkIdFlag.Name)
+	}
 	if ctx.GlobalIsSet(NoDiscoverFlag.Name) || lightClient {
 		cfg.NoDiscovery = true
+	}
+	if manAddr := ctx.GlobalString(ManAddressFlag.Name); manAddr != "" {
+		innerAddr := base58.Base58DecodeToAddress(manAddr)
+		cfg.ManAddress = innerAddr
+		cfg.ManAddrStr = manAddr
 	}
 
 	// if we're running a light client or server, force enable the v5 peer discovery
@@ -1094,7 +1107,7 @@ func SetManConfig(ctx *cli.Context, stack *pod.Node, cfg *man.Config) {
 	}
 
 	// Override any default configs for hard coded networks.
-	switch {
+	/*switch {
 	case ctx.GlobalBool(TestnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 3
@@ -1128,7 +1141,7 @@ func SetManConfig(ctx *cli.Context, stack *pod.Node, cfg *man.Config) {
 		if !ctx.GlobalIsSet(GasPriceFlag.Name) {
 			cfg.GasPrice = big.NewInt(1)
 		}
-	}
+	}*/
 	// TODO(fjl): move trie cache generations into config
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
 		state.MaxTrieCacheGen = uint16(gen)

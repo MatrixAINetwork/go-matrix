@@ -1,15 +1,10 @@
-// Copyright (c) 2018 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package interest
 
 import (
-	"math/big"
-	"sort"
-
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/matrixstate"
 	"github.com/matrix/go-matrix/reward/util"
+	"math/big"
 
 	"github.com/matrix/go-matrix/mc"
 
@@ -79,29 +74,20 @@ func New(st util.StateDB) *interest {
 		return nil
 	}
 
-	Vip := VipCfg.(*[]mc.VIPConfig)
-	if 0 == len(*Vip) {
+	Vip := VipCfg.([]mc.VIPConfig)
+	if 0 == len(Vip) {
 		log.ERROR(PackageName, "利率表为空", "")
 		return nil
 	}
-	return &interest{*Vip, StateCfg.(*mc.InterestCfgStruct).CalcInterval, StateCfg.(*mc.InterestCfgStruct).PayInterval}
+	return &interest{Vip, StateCfg.(*mc.InterestCfgStruct).CalcInterval, StateCfg.(*mc.InterestCfgStruct).PayInterval}
 }
-func (tlr *interest) calcNodeInterest(deposit *big.Int, depositInterestRate []*DepositInterestRate) *big.Int {
+func (tlr *interest) calcNodeInterest(deposit *big.Int, blockInterest *big.Rat) *big.Int {
 
-	var blockInterest *big.Rat = nil
-	for i, depositIntere := range depositInterestRate {
-		if deposit.Cmp(big.NewInt(0)) <= 0 {
-			log.ERROR(PackageName, "抵押获取错误", deposit)
-			return big.NewInt(0)
-		}
-		if deposit.Cmp(depositIntere.Deposit) < 0 {
-			blockInterest = depositInterestRate[i-1].Interest
-			break
-		}
+	if deposit.Cmp(big.NewInt(0)) <= 0 {
+		log.ERROR(PackageName, "抵押获取错误", deposit)
+		return big.NewInt(0)
 	}
-	if blockInterest == nil {
-		blockInterest = depositInterestRate[len(depositInterestRate)-1].Interest
-	}
+
 	interstReward, _ := new(big.Rat).Mul(new(big.Rat).SetInt(deposit), blockInterest).Float64()
 	bigval := new(big.Float)
 	bigval.SetFloat64(interstReward)
@@ -125,13 +111,13 @@ func (ic *interest) payInterest(payInterestPeriod uint64, num uint64, state vm.S
 	}
 
 	//1.获取所有利息转到抵押账户 2.清除所有利息
-	log.INFO(PackageName, "发放利息,高度", num)
+	log.Debug(PackageName, "发放利息,高度", num)
 
 	AllInterestMap := depoistInfo.GetAllInterest(state)
 	Deposit := big.NewInt(0)
 
 	for account, interest := range AllInterestMap {
-		log.INFO(PackageName, "账户", account, "利息", interest.String())
+		log.Debug(PackageName, "账户", account, "利息", interest.String())
 		if interest.Cmp(big.NewInt(0)) <= 0 {
 			log.ERROR(PackageName, "获取的利息非法", interest)
 			continue
@@ -139,7 +125,7 @@ func (ic *interest) payInterest(payInterestPeriod uint64, num uint64, state vm.S
 		Deposit = new(big.Int).Add(Deposit, interest)
 	}
 	balance := state.GetBalance(common.InterestRewardAddress)
-	log.INFO(PackageName, "设置利息前的账户余额", balance[common.MainAccount].Balance.String())
+	log.Debug(PackageName, "设置利息前的账户余额", balance[common.MainAccount].Balance.String())
 	if balance[common.MainAccount].Balance.Cmp(Deposit) < 0 {
 		log.ERROR(PackageName, "利息账户余额不足，余额为", balance[common.MainAccount].Balance.String())
 		return nil
@@ -155,7 +141,7 @@ func (ic *interest) canPayInterst(state vm.StateDB, num uint64, payInterestPerio
 		return false
 	}
 	if latestNum >= ic.getLastInterestNumber(num-1, payInterestPeriod)+1 {
-		log.Info(PackageName, "当前周期利息已支付无须再处理", "")
+		log.Debug(PackageName, "当前周期利息已支付无须再处理", "")
 		return false
 	}
 	matrixstate.SetNumByState(mc.MSInterestPayNum, state, num)
@@ -184,8 +170,9 @@ func (ic *interest) calcInterest(calcInterestInterval uint64, num uint64, state 
 		deposit := new(big.Int).Mul(new(big.Int).SetUint64(v.MinMoney), util.ManPrice)
 		depositInterestRateList = append(depositInterestRateList, &DepositInterestRate{deposit, big.NewRat(int64(v.InterestRate), Denominator)})
 	}
-	sort.Sort(depositInterestRateList)
-
+	//sort.Sort(depositInterestRateList
+	nonVipCfg := ic.VIPConfig[0]
+	nonVipInterestRate := big.NewRat(int64(nonVipCfg.InterestRate), Denominator)
 	depositNodes, err := ca.GetElectedByHeight(new(big.Int).SetUint64(num - 1))
 	if nil != err {
 		log.ERROR(PackageName, "获取的抵押列表错误", err)
@@ -195,21 +182,46 @@ func (ic *interest) calcInterest(calcInterestInterval uint64, num uint64, state 
 		log.ERROR(PackageName, "获取的抵押列表为空", "")
 		return nil
 	}
-	log.INFO(PackageName, "计算利息,高度", num)
+	electGraph, err := matrixstate.GetDataByState(mc.MSKeyElectGraph, state)
+	if err != nil {
+		log.Error(PackageName, "获取初选拓扑图错误", err)
+		return nil
+	}
+	if electGraph == nil {
+		log.Error(PackageName, "获取初选拓扑图反射错误")
+		return nil
+	}
+	originElectNodes, ok := electGraph.(*mc.ElectGraph)
+	if !ok {
+		log.ERROR(PackageName, "反射失败", "")
+		return nil
+	}
+	if 0 == len(originElectNodes.ElectList) {
+		log.Error(PackageName, "get获取初选列表为空", "")
+		return nil
+	}
+	log.Debug(PackageName, "计算利息,高度", num)
 	InterestMap := make(map[common.Address]*big.Int)
-	for _, v := range depositNodes {
-
-		result := ic.calcNodeInterest(v.Deposit, depositInterestRateList)
+	for _, dv := range depositNodes {
+		var interestRate *big.Rat = nil
+		for _, ev := range originElectNodes.ElectList {
+			if ev.Account.Equal(dv.Address) {
+				interestRate = depositInterestRateList[ev.VIPLevel].Interest
+			}
+		}
+		if nil == interestRate {
+			interestRate = nonVipInterestRate
+		}
+		result := ic.calcNodeInterest(dv.Deposit, interestRate)
 		if result.Cmp(big.NewInt(0)) <= 0 {
 			log.ERROR(PackageName, "计算的利息非法", result)
 			continue
 		}
-		depoistInfo.AddInterest(state, v.Address, result)
-		InterestMap[v.Address] = result
-		log.INFO(PackageName, "账户", v.Address.String(), "deposit", v.Deposit.String(), "利息", result.String())
+		depoistInfo.AddInterest(state, dv.Address, result)
+		InterestMap[dv.Address] = result
+		log.Debug(PackageName, "账户", dv.Address.String(), "deposit", dv.Deposit.String(), "利息", result.String())
 	}
 	return InterestMap
-
 }
 
 func (ic *interest) canCalcInterest(state vm.StateDB, num uint64, calcInterestInterval uint64) bool {

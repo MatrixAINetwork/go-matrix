@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package rawdb
 
@@ -13,9 +12,9 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/crypto/sha3"
+	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/rlp"
-	"github.com/matrix/go-matrix/log"
 )
 
 // Tests block header storage and retrieval operations.
@@ -57,12 +56,12 @@ func TestBodyStorage(t *testing.T) {
 	db := mandb.NewMemDatabase()
 	tx1 := types.NewTransaction(1, common.BytesToAddress([]byte{0x11}), big.NewInt(111), 1111, big.NewInt(11111), []byte{0x11, 0x11, 0x11})
 	tx2 := types.NewTransaction(2, common.BytesToAddress([]byte{0x11}), big.NewInt(111), 1111, big.NewInt(11111), []byte{0x11, 0x11, 0x11})
-	aaa:=make([]types.SelfTransaction,0)
-	aaa = append(aaa,tx1)
-	aaa = append(aaa,tx2)
+	aaa := make([]types.SelfTransaction, 0)
+	aaa = append(aaa, tx1)
+	aaa = append(aaa, tx2)
 	// Create a test body to move around the database and make sure it's really new
 	//body := &types.Body{Uncles: []*types.Header{{Extra: []byte("test header")}}}
-	body := &types.Body{Transactions:aaa}
+	body := &types.Body{Transactions: aaa}
 	hasher := sha3.NewKeccak256()
 	rlp.Encode(hasher, body)
 	hash := common.BytesToHash(hasher.Sum(nil))

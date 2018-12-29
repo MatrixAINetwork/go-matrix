@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -12,8 +12,8 @@ import (
 
 	"strings"
 
-	"github.com/matrix/go-matrix/run/utils"
 	"github.com/matrix/go-matrix/internal/debug"
+	"github.com/matrix/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -60,8 +60,8 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.KeyStoreDirFlag,
 			utils.NoUSBFlag,
 			utils.NetworkIdFlag,
-			utils.TestnetFlag,
-			utils.RinkebyFlag,
+			//utils.TestnetFlag,
+			//utils.RinkebyFlag,
 			utils.SyncModeFlag,
 			utils.GCModeFlag,
 			utils.ManStatsURLFlag,
@@ -69,14 +69,16 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.LightServFlag,
 			utils.LightPeersFlag,
 			utils.LightKDFFlag,
+			utils.AesInputFlag,
+			utils.AesOutputFlag,
 		},
 	},
-	{Name: "DEVELOPER CHAIN",
+	/*	{Name: "DEVELOPER CHAIN",
 		Flags: []cli.Flag{
 			utils.DeveloperFlag,
 			utils.DeveloperPeriodFlag,
 		},
-	},
+	},*/
 	{
 		Name: "MANASH",
 		Flags: []cli.Flag{
@@ -176,9 +178,9 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.TargetGasLimitFlag,
 			utils.GasPriceFlag,
 			utils.ExtraDataFlag,
-			utils.TestLocalMiningFlag,
-			utils.TestHeaderGenFlag,
-			utils.TestChangeRoleFlag,
+			//utils.TestLocalMiningFlag,
+			//utils.TestHeaderGenFlag,
+			//utils.TestChangeRoleFlag,
 		},
 	},
 	{
@@ -200,6 +202,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.MetricsEnabledFlag,
 			utils.FakePoWFlag,
 			utils.NoCompactionFlag,
+			utils.GetCommitFlag,
 		}, debug.Flags...),
 	},
 	{

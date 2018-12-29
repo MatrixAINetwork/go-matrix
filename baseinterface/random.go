@@ -1,22 +1,25 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package baseinterface
 
 import (
-	"errors"
-	"fmt"
+	"github.com/matrix/go-matrix/core/matrixstate"
+	"github.com/matrix/go-matrix/core/state"
+	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/params"
 	"math/big"
 
-	"github.com/matrix/go-matrix/core"
+	"fmt"
+	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/manparams"
 )
 
 const (
-	ModuleRandom = "随机数服务"
+	ModuleRandom = "随机数接口服务"
 )
 
 var (
@@ -24,8 +27,35 @@ var (
 )
 
 func RegRandom(name string, fun func(string, RandomChainSupport) (RandomSubService, error)) {
-	fmt.Println("随机数服务注册函数", "name", name)
 	mapReg[name] = fun
+}
+
+type ChainReader interface {
+	// Config retrieves the blockchain's chain configuration.
+	Config() *params.ChainConfig
+
+	// CurrentHeader retrieves the current header from the local chain.
+	CurrentHeader() *types.Header
+
+	// GetHeader retrieves a block header from the database by hash and number.
+	GetHeader(hash common.Hash, number uint64) *types.Header
+
+	// GetHeaderByNumber retrieves a block header from the database by number.
+	GetHeaderByNumber(number uint64) *types.Header
+
+	// GetHeaderByHash retrieves a block header from the database by its hash.
+	GetHeaderByHash(hash common.Hash) *types.Header
+
+	GetBlockByNumber(number uint64) *types.Block
+	GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error)
+	// GetBlock retrieves a block sfrom the database by hash and number.
+	GetBlock(hash common.Hash, number uint64) *types.Block
+	StateAt(root common.Hash) (*state.StateDB, error)
+	State() (*state.StateDB, error)
+	GetMatrixStateData(key string) (interface{}, error)
+	GetMatrixStateDataByNumber(key string, number uint64) (interface{}, error)
+	GetSuperBlockNum() (uint64, error)
+	GetGraphByState(state matrixstate.StateDB) (*mc.TopologyGraph, *mc.ElectGraph, error)
 }
 
 type Random struct {
@@ -36,36 +66,52 @@ type Random struct {
 }
 
 type RandomChainSupport interface {
-	BlockChain() *core.BlockChain
+	BlockChain() ChainReader
 }
-type RandomSubService interface {
-	Prepare(uint64) error
-	CalcData(data uint64) (*big.Int, error)
+type RandomChain struct {
+	bc ChainReader
 }
 
-func NewRandom(support RandomChainSupport) (*Random, error) {
+func (self *RandomChain) BlockChain() ChainReader {
+	return self.bc
+}
+
+type RandomSubService interface {
+	Prepare(uint64) error
+	CalcData(data common.Hash) (*big.Int, error)
+}
+
+func checkDataValidity(support interface{}) bool {
+	return common.IsNil(support)
+}
+func NewRandom(bc ChainReader) (*Random, error) {
+	//if checkDataValidity(support)==false{
+	//	log.Error(ModuleRandom,"创建随机数服务阶段,输入不合法","输入为空接口")
+	//	return nil,errors.New("创建随机数服务阶段,输入不合法")
+	//}
 	random := &Random{
 		roleUpdateCh:  make(chan *mc.RoleUpdatedMsg, 1),
 		quitChan:      make(chan struct{}, 1),
 		mapSubService: make(map[string]RandomSubService, 0),
 	}
-	for _, name := range params.RandomServiceName {
+	support := &RandomChain{bc: bc}
+	for _, name := range manparams.RandomServiceName {
 		Plug, needNewSubService := getSubServicePlug(name)
 		if needNewSubService == false {
-			log.WARN(ModuleRandom, "新建子服务阶段", "", "子服务不需要被创建 名称", name)
+			log.Warn(ModuleRandom, "新建子服务阶段,子服务不需要被创建 名称", name)
 			continue
 		}
-		if err := random.NewSubServer(name, Plug, support); err != nil {
-			log.Error(ModuleRandom, "新建子服务阶段", "", "子服务Set失败 名称", name)
+		if err := random.newSubServer(name, Plug, support); err != nil {
+			log.Error(ModuleRandom, "新建子服务阶段,子服务创建失败 名称", name)
 			return nil, err
 		}
-		log.Error(ModuleRandom, "新建子服务阶段", "", "子服务创建成功 名称", name)
+		log.Info(ModuleRandom, "新建子服务阶段,子服务创建成功 名称", name)
 	}
 
 	var err error
 	random.roleUpdateSub, err = mc.SubscribeEvent(mc.CA_RoleUpdated, random.roleUpdateCh)
 	if err != nil {
-		log.Error(ModuleRandom, "订阅CA消息阶段", "", "CA消息订阅失败 err", err)
+		log.Error(ModuleRandom, "订阅CA消息阶段,CA消息订阅失败 err", err)
 		return nil, err
 	}
 	go random.update()
@@ -93,44 +139,41 @@ func (self *Random) processRoleUpdateData(data *mc.RoleUpdatedMsg) {
 	}
 }
 
-func (self *Random) NewSubServer(name string, plugConfig string, support RandomChainSupport) error {
+func (self *Random) newSubServer(name string, plugConfig string, support RandomChainSupport) error {
 	var err error
 	if _, ok := mapReg[name]; ok == false {
-		log.Error(ModuleRandom, "该子服务未注册", name)
-		return errors.New("mapSubService[name]")
+		log.Error(ModuleRandom, "新建子服务阶段,该子服务未注册", name)
+		return fmt.Errorf("该子服务未注册 %v", name)
 	}
 	if self.mapSubService[name], err = mapReg[name](plugConfig, support); err != nil {
-		log.Error(ModuleRandom, "新建子服务阶段", "", "该服务新建失败 err", err)
+		log.Error(ModuleRandom, "新建子服务阶段,该子服务新建失败", name, "err", err)
 	}
-	log.INFO(ModuleRandom, "新建子服务阶段", "", "服务创建成功 index", name)
+	log.Info(ModuleRandom, "新建子服务阶段,该子服务创建成功 index", name)
 	return nil
 }
 
-func (self *Random) GetRandom(height uint64, Type string) (*big.Int, error) {
-
-	return self.mapSubService[Type].CalcData(height)
-
+func (self *Random) GetRandom(hash common.Hash, Type string) (*big.Int, error) {
+	return self.mapSubService[Type].CalcData(hash)
 }
 
 func getSubServicePlug(name string) (string, bool) {
-	plug, ok := params.RandomConfig[name]
+	plug, ok := manparams.RandomConfig[name]
 	if ok == false {
-		log.ERROR(ModuleRandom, "获取插件状态", "", "配置中无该名字", params.RandomConfig[name])
+		log.Warn(ModuleRandom, "获取插件阶段,配置中无该子服务,不需要开启", name)
 		return "", false
 	}
-	//检查配置中的插件正确性
-	plugs, ok := params.RandomServicePlugs[name]
+
+	plugs, ok := manparams.RandomServicePlugs[name]
 	if ok == false {
-		fmt.Println("无该自服务名", name)
-		log.ERROR(ModuleRandom, "获取插件阶段", "", "无该子服务 服务名称", name)
+		log.Error(ModuleRandom, "获取插件阶段 无该子服务 服务名称", name)
 		return "", false
 	}
 	for _, v := range plugs {
 		if v == plug {
-			log.ERROR(ModuleRandom, "获取插件阶段", "", "插件列表中有该插件", plug)
+			log.Info(ModuleRandom, "获取插件阶段", "", "插件列表中有该插件", plug)
 			return v, true
 		}
 	}
-	log.ERROR(ModuleRandom, "获取插件阶段", "", "配置中的插件不合法，使用默认插件 名称", params.RandomServiceDefaultPlugs[name])
-	return params.RandomServiceDefaultPlugs[name], true
+	log.Warn(ModuleRandom, "获取插件阶段,配置中的插件不合法，使用默认插件 名称", manparams.RandomServiceDefaultPlugs[name])
+	return manparams.RandomServiceDefaultPlugs[name], true
 }

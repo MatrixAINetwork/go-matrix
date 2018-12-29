@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package state
 
@@ -26,6 +25,8 @@ func (self Code) String() string {
 
 type Storage map[common.Hash]common.Hash
 
+type StorageByteArray map[common.Hash][]byte
+
 func (self Storage) String() (str string) {
 	for key, value := range self {
 		str += fmt.Sprintf("%X : %X\n", key, value)
@@ -40,6 +41,14 @@ func (self Storage) Copy() Storage {
 		cpy[key] = value
 	}
 
+	return cpy
+}
+
+func (self StorageByteArray) Copy() StorageByteArray {
+	cpy := make(StorageByteArray)
+	for key, value := range self {
+		cpy[key] = value
+	}
 	return cpy
 }
 
@@ -69,6 +78,9 @@ type stateObject struct {
 	cachedStorage Storage // Storage entry cache to avoid duplicate reads
 	dirtyStorage  Storage // Storage entries that need to be flushed to disk
 
+	cachedStorageByteArray StorageByteArray
+	dirtyStorageByteArray  StorageByteArray
+
 	// Cache flags.
 	// When an object is marked suicided it will be delete from the trie
 	// during the "update" phase of the state transition.
@@ -80,10 +92,10 @@ type stateObject struct {
 // empty returns whether the account is considered empty.
 func (s *stateObject) empty() bool {
 	var amountIsZero bool
-	for _,tAccount := range s.data.Balance{
-		if tAccount.AccountType == common.MainAccount{
+	for _, tAccount := range s.data.Balance {
+		if tAccount.AccountType == common.MainAccount {
 			amount := tAccount.Balance
-			if amount.Cmp(big.NewInt(int64(0))) ==0{
+			if amount.Cmp(big.NewInt(int64(0))) == 0 {
 				amountIsZero = true
 			}
 			break
@@ -106,25 +118,27 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	if data.Balance == nil {
 		//data.Balance = new(big.Int)
 		//hezi初始化账户
-		data.Balance = make(common.BalanceType,0)
+		data.Balance = make(common.BalanceType, 0)
 		tmp := new(common.BalanceSlice)
 		var i uint32
-		for i = 0; i <= common.LastAccount; i++{
+		for i = 0; i <= common.LastAccount; i++ {
 			tmp.AccountType = i
 			tmp.Balance = new(big.Int)
-			data.Balance = append(data.Balance,*tmp)
+			data.Balance = append(data.Balance, *tmp)
 		}
 	}
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}
 	return &stateObject{
-		db:            db,
-		address:       address,
-		addrHash:      crypto.Keccak256Hash(address[:]),
-		data:          data,
-		cachedStorage: make(Storage),
-		dirtyStorage:  make(Storage),
+		db:                     db,
+		address:                address,
+		addrHash:               crypto.Keccak256Hash(address[:]),
+		data:                   data,
+		cachedStorage:          make(Storage),
+		dirtyStorage:           make(Storage),
+		cachedStorageByteArray: make(StorageByteArray),
+		dirtyStorageByteArray:  make(StorageByteArray),
 	}
 }
 
@@ -190,6 +204,19 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	return value
 }
 
+func (self *stateObject) GetStateByteArray(db Database, key common.Hash) []byte {
+	value, exists := self.cachedStorageByteArray[key]
+	if exists {
+		return value
+	}
+	// Load from DB in case it is missing.
+	value, err := self.getTrie(db).TryGet(key[:])
+	if err == nil && len(value) != 0 {
+		self.cachedStorageByteArray[key] = value
+	}
+	return value
+}
+
 // SetState updates a value in account storage.
 func (self *stateObject) SetState(db Database, key, value common.Hash) {
 	self.db.journal.append(storageChange{
@@ -203,6 +230,19 @@ func (self *stateObject) SetState(db Database, key, value common.Hash) {
 func (self *stateObject) setState(key, value common.Hash) {
 	self.cachedStorage[key] = value
 	self.dirtyStorage[key] = value
+
+}
+func (self *stateObject) SetStateByteArray(db Database, key common.Hash, value []byte) {
+	self.db.journal.append(storageByteArrayChange{
+		account:  &self.address,
+		key:      key,
+		prevalue: self.GetStateByteArray(db, key),
+	})
+	self.setStateByteArray(key, value)
+}
+func (self *stateObject) setStateByteArray(key common.Hash, value []byte) {
+	self.cachedStorageByteArray[key] = value
+	self.dirtyStorageByteArray[key] = value
 }
 
 // updateTrie writes cached storage modifications into the object's storage trie.
@@ -217,6 +257,14 @@ func (self *stateObject) updateTrie(db Database) Trie {
 		// Encoding []byte cannot fail, ok to ignore the error.
 		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
 		self.setError(tr.TryUpdate(key[:], v))
+	}
+	for key, value := range self.dirtyStorageByteArray {
+		delete(self.dirtyStorageByteArray, key)
+		if len(value) == 0 {
+			self.setError(tr.TryDelete(key[:]))
+			continue
+		}
+		self.setError(tr.TryUpdate(key[:], value))
 	}
 	return tr
 }
@@ -243,7 +291,7 @@ func (self *stateObject) CommitTrie(db Database) error {
 
 // AddBalance removes amount from c's balance.
 // It is used to add funds to the destination account of a transfer.
-func (c *stateObject) AddBalance(accountType uint32,amount *big.Int) {
+func (c *stateObject) AddBalance(accountType uint32, amount *big.Int) {
 	// EIP158: We must check emptiness for the objects such that the account
 	// clearing (0,0,0 objects) can take effect.
 	if amount.Sign() == 0 {
@@ -253,11 +301,11 @@ func (c *stateObject) AddBalance(accountType uint32,amount *big.Int) {
 
 		return
 	}
-	for _,tAccount := range c.Balance(){
-		if tAccount.AccountType == accountType{
-			if tAccount.Balance != nil{
-				amt := new(big.Int).Add(tAccount.Balance,amount)
-				c.SetBalance(accountType,amt)
+	for _, tAccount := range c.Balance() {
+		if tAccount.AccountType == accountType {
+			if tAccount.Balance != nil {
+				amt := new(big.Int).Add(tAccount.Balance, amount)
+				c.SetBalance(accountType, amt)
 			}
 			break
 		}
@@ -266,34 +314,36 @@ func (c *stateObject) AddBalance(accountType uint32,amount *big.Int) {
 
 // SubBalance removes amount from c's balance.
 // It is used to remove funds from the origin account of a transfer.
-func (c *stateObject) SubBalance(accountType uint32,amount *big.Int) {
+func (c *stateObject) SubBalance(accountType uint32, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	for _,tAccount := range c.Balance(){
-		if tAccount.AccountType == accountType{
-			if tAccount.Balance != nil{
-				amt := new(big.Int).Sub(tAccount.Balance,amount)
-				c.SetBalance(accountType,amt)
+	for _, tAccount := range c.Balance() {
+		if tAccount.AccountType == accountType {
+			if tAccount.Balance != nil {
+				amt := new(big.Int).Sub(tAccount.Balance, amount)
+				c.SetBalance(accountType, amt)
 			}
 			break
 		}
 	}
 }
 
-func (self *stateObject) SetBalance(accountType uint32,amount *big.Int) {
+func (self *stateObject) SetBalance(accountType uint32, amount *big.Int) {
+	tmpPrev := make(common.BalanceType, len(self.data.Balance))
+	copy(tmpPrev, self.data.Balance)
 	self.db.journal.append(balanceChange{
 		account: &self.address,
 		//prev:    new(big.Int).Set(self.data.Balance),
-		prev:    self.data.Balance,
+		prev: tmpPrev,
 	})
-	self.setBalance(accountType,amount)
+	self.setBalance(accountType, amount)
 }
 
-func (self *stateObject) setBalance(accountType uint32,amount *big.Int) {
+func (self *stateObject) setBalance(accountType uint32, amount *big.Int) {
 	//self.data.Balance[accountType] = amount
-	for index,tAccount := range self.data.Balance{
-		if tAccount.AccountType == accountType{
+	for index, tAccount := range self.data.Balance {
+		if tAccount.AccountType == accountType {
 			self.data.Balance[index].Balance = amount
 			break
 		}
@@ -312,6 +362,8 @@ func (self *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.code = self.code
 	stateObject.dirtyStorage = self.dirtyStorage.Copy()
 	stateObject.cachedStorage = self.dirtyStorage.Copy()
+	stateObject.dirtyStorageByteArray = self.dirtyStorageByteArray.Copy()
+	stateObject.cachedStorageByteArray = self.cachedStorageByteArray.Copy()
 	stateObject.suicided = self.suicided
 	stateObject.dirtyCode = self.dirtyCode
 	stateObject.deleted = self.deleted

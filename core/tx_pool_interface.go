@@ -5,7 +5,6 @@ import (
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/p2p/discover"
 )
 
@@ -21,35 +20,40 @@ const (
 	RecvConsensusTxbyN
 )
 
-
 // TxPool interface
 type TxPool interface {
-	Type() types.TxTypeInt
+	Type() byte
 	Stop()
-	AddTxPool(tx types.SelfTransaction) []error
-	Pending() (map[common.Address][]*types.Transaction, error)
-	SubscribeNewTxsEvent(chan<- NewTxsEvent) event.Subscription
+	AddTxPool(tx types.SelfTransaction) error
+	Pending() (map[common.Address][]types.SelfTransaction, error)
+	ReturnAllTxsByN(listN []uint32, resqe byte, addr common.Address, retch chan *RetChan_txpool)
 }
 
-//Expansion interface
 type TxpoolEx interface {
 	DemoteUnexecutables()
 	ListenUdp()
-	ReturnAllTxsByN(listN []uint32, resqe int, addr common.Address, retch chan *RetChan)
+}
+
+//Expansion interface
+
+type RetCallTx struct {
+	TXt byte
+	//ListN []uint32
+	Txser []types.SelfTransaction
 }
 
 // hezi
 type NetworkMsgData struct {
-	NodeId discover.NodeID
-	Data   []*MsgStruct
+	SendAddress common.Address
+	Data        []*MsgStruct
 }
 
 // hezi
 type MsgStruct struct {
 	Msgtype    uint32
-	NodeId     discover.NodeID
+	SendAddr   common.Address
 	MsgData    []byte
-	TxpoolType types.TxTypeInt
+	TxpoolType byte
 }
 
 //消息中心的接口（如果需要消息中心就要实现这两个方法）

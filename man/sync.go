@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package man
 
@@ -13,8 +12,8 @@ import (
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/p2p/discover"
 )
@@ -157,7 +156,7 @@ func (pm *ProtocolManager) syncer() {
 	pm.fetcher.Start()
 	defer pm.fetcher.Stop()
 	defer pm.downloader.Terminate()
-	log.WARN("syncer","syncer IpfsDownloadflg", pm.downloader.IpfsMode)
+	log.WARN("syncer", "syncer IpfsDownloadflg", pm.downloader.IpfsMode)
 	if pm.downloader.IpfsMode {
 		pm.WaitForDownLoadMode()
 
@@ -196,11 +195,29 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	currentBlock := pm.blockchain.CurrentBlock()
 	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
-	pHead, pTd := peer.Head()
-	log.Trace("download sync.go enter Synchronise td", "td", td, "pTd", pTd)
-	if pTd.Cmp(td) <= 0 {
+	sbi, err := pm.blockchain.GetSuperBlockInfo()
+	if nil != err {
+		log.Error("get super seq error")
 		return
 	}
+
+	sbs := sbi.Seq
+	sbh := sbi.Num
+	pHead, pTd, pSbs, pSbh := peer.Head()
+	log.Trace("download sync.go enter Synchronise td", "td", td, "pTd", pTd, "Sbs", sbs, "pSbs", pSbs)
+	if pSbs < sbs {
+		go peer.SendBlockHeaders([]*types.Header{currentBlock.Header()})
+		go peer.AsyncSendNewBlock(currentBlock, td, sbh, sbs)
+		log.Trace("对端peer超级序号小于本地的序号", "本地序号", sbs, "peer序号", pSbs, "peer hex", peer.id)
+		return
+	}
+	if pSbs == sbs {
+		if nil == td || pTd.Cmp(td) <= 0 {
+			log.Trace("对端peer超级td小于本地的td", "本地td", td, "peertd", pTd, "peer hex", peer.id)
+			return
+		}
+	}
+
 	log.Warn("download sync.go enter Synchronise", "currentBlock", currentBlock.NumberU64())
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync
@@ -222,13 +239,18 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	if mode == downloader.FastSync {
 		log.Trace("download sync.go enter Synchronise fastSync hash", "currentBlock", currentBlock.NumberU64())
 		// Make sure the peer's total difficulty we are synchronizing is higher.
-		if pm.blockchain.GetTdByHash(pm.blockchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
+		if sbs > pSbs {
 			return
+		}
+		if sbs == pSbs {
+			if pm.blockchain.GetTdByHash(pm.blockchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
+				return
+			}
 		}
 	}
 	log.Trace("download sync.go enter Synchronise downloader", "currentBlock", currentBlock.NumberU64())
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
-	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
+	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, pSbs, pSbh, mode); err != nil {
 		return
 	}
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
@@ -236,7 +258,11 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		atomic.StoreUint32(&pm.fastSync, 0)
 	}
 	atomic.StoreUint32(&pm.acceptTxs, 1) // Mark initial sync done
-	if head := pm.blockchain.CurrentBlock(); head.NumberU64() > 0 {
+
+	if pSbs < sbs {
+		go peer.SendBlockHeaders([]*types.Header{currentBlock.Header()})
+		go peer.AsyncSendNewBlock(currentBlock, td, sbh, sbs)
+	} else if head := pm.blockchain.CurrentBlock(); head.NumberU64() > 0 {
 		// We've completed a sync cycle, notify all peers of new state. This path is
 		// essential in star-topology networks where a gateway node needs to notify
 		// all its out-of-date peers of the availability of a new block. This failure

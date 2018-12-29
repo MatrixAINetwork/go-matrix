@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
@@ -9,9 +9,8 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
+	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
-
 	"sync"
 )
 
@@ -40,8 +39,8 @@ func (bpc *blockPowCache) addPow(diff *big.Int, minerResult *mc.HD_MiningRspMsg)
 
 	_, exist := fromMap[minerResult.From]
 	if exist {
-		log.ERROR(bpc.powPool.logInfo, "添加挖矿结果池,已存在的挖矿结果from", minerResult.From.Hex(), "diff", diff, "block hash", bpc.blockHash.TerminalString())
-		return errors.Errorf("pow is already exist")
+		log.WARN(bpc.powPool.logInfo, "添加挖矿结果池,已存在的挖矿结果from", minerResult.From.Hex(), "diff", diff, "block hash", bpc.blockHash.TerminalString())
+		return errors.Errorf("矿工挖矿结果已经存在")
 	}
 	fromMap[minerResult.From] = minerResult
 	return nil
@@ -65,7 +64,7 @@ func (bpc *blockPowCache) getPow(diff *big.Int) ([]*mc.HD_MiningRspMsg, error) {
 	diffHash := common.BytesToHash(diff.Bytes())
 	fromMap, OK := bpc.resultMap[diffHash]
 	if !OK || len(fromMap) == 0 {
-		return nil, errors.New("not result in pool, by diff")
+		return nil, errors.New("通过难度获取挖矿结果失败")
 	}
 
 	list := make([]*mc.HD_MiningRspMsg, 0)
@@ -90,7 +89,7 @@ func NewPowPool(logInfo string) *PowPool {
 	return &PowPool{
 		powMap:     make(map[common.Hash]*blockPowCache),
 		countMap:   make(map[common.Address]int),
-		countLimit: params.VotePoolCountLimit,
+		countLimit: manparams.VotePoolCountLimit,
 		logInfo:    logInfo,
 	}
 }
@@ -99,8 +98,20 @@ func (self *PowPool) AddMinerResult(blockHash common.Hash, diff *big.Int, minerR
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
+	if common.EmptyHash(blockHash) {
+		return errors.Errorf("区块hash是空")
+	}
+
+	if nil == diff || diff.Cmp(big.NewInt(0)) <= 0 {
+		return errors.Errorf("难度不合法")
+	}
+
+	if nil == minerResult {
+		return errors.Errorf("矿工挖矿结果是空")
+	}
+
 	if count := self.getFromCount(minerResult.From); count >= self.countLimit {
-		return errors.Errorf("from account had send too much mining result!")
+		return errors.Errorf("该账户发送矿工挖矿超过存储最大的数目")
 	}
 
 	blockCache, OK := self.powMap[blockHash]
@@ -114,34 +125,54 @@ func (self *PowPool) AddMinerResult(blockHash common.Hash, diff *big.Int, minerR
 		return err
 	}
 	self.plusFromCount(minerResult.From)
-	log.INFO(self.logInfo, "加入挖矿结果池成功 from", minerResult.From.Hex(), "diff", diff, "block hash", blockHash.TerminalString())
+	log.INFO(self.logInfo, "加入挖矿结果池成功 账户", minerResult.From.Hex(), "难度", diff, "区块 hash", blockHash.TerminalString())
 	return nil
 }
 
-func (self *PowPool) DelOneResult(blockHash common.Hash, diff *big.Int, from common.Address) {
+func (self *PowPool) DelOneResult(blockHash common.Hash, diff *big.Int, from common.Address) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
+	if common.EmptyHash(blockHash) {
+		return errors.Errorf("区块哈希是空")
+	}
+
+	if nil == diff || diff.Cmp(big.NewInt(0)) <= 0 {
+		return errors.Errorf("难度不合法")
+	}
+
+	if (from == common.Address{}) {
+		return errors.Errorf("账户地址是空")
+	}
 	blockCache, OK := self.powMap[blockHash]
 	if !OK {
-		return
+		return errors.Errorf("没有该数据,删除失败")
 	}
 
 	success := blockCache.delPow(diff, from)
 	if success {
 		count := self.getFromCount(from)
-		log.INFO(self.logInfo, "删除挖矿结果成功, from", from.Hex(), "原结果总数", count)
+		log.INFO(self.logInfo, "删除挖矿结果成功, 账户", from.Hex(), "原结果总数", count)
 		self.minusFromCount(from)
 	}
+	return nil
 }
 
 func (self *PowPool) GetMinerResults(blockHash common.Hash, diff *big.Int) ([]*mc.HD_MiningRspMsg, error) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
+	if common.EmptyHash(blockHash) {
+		return nil, errors.Errorf("区块哈希是空")
+	}
+
+	if nil == diff || diff.Cmp(big.NewInt(0)) <= 0 {
+		return nil, errors.Errorf("难度不合法")
+	}
+
 	blockCache, OK := self.powMap[blockHash]
 	if !OK {
-		return nil, errors.New("not result in pool, by block hash")
+		return nil, errors.New("没有对应区块hash的数据")
 	}
 
 	return blockCache.getPow(diff)

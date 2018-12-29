@@ -49,3 +49,19 @@ func (rt RoleType) String() string {
 		return strconv.Itoa(int(rt))
 	}
 }
+
+func (rt RoleType) Transfer2ElectRole() ElectRoleType {
+	switch rt {
+	case RoleMiner:
+		return ElectRoleMiner
+	case RoleBackupMiner:
+		return ElectRoleMinerBackUp
+	case RoleValidator:
+		return ElectRoleValidator
+	case RoleBackupValidator:
+		return ElectRoleValidatorBackUp
+	case RoleCandidateValidator:
+		return ElectRoleCandidateValidator
+	}
+	return ElectRoleNil
+}

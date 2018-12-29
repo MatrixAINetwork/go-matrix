@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
@@ -26,12 +26,23 @@ func NewControllerManager(matrix Matrix, logInfo string) *ControllerManager {
 	}
 }
 
+func (cm *ControllerManager) ClearController() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	cm.curNumber = 0
+	for _, ctrl := range cm.ctrlMap {
+		ctrl.Close()
+	}
+	cm.ctrlMap = make(map[uint64]*controller)
+}
+
 func (cm *ControllerManager) StartController(number uint64, msg *startControllerMsg) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
 	if cm.curNumber > number {
-		log.INFO(cm.logInfo, "处理start controller消息", "高度低于当前高度,不处理", "curNumber", cm.curNumber, "number", number)
+		log.Debug(cm.logInfo, "处理start controller消息", "高度低于当前高度,不处理", "curNumber", cm.curNumber, "number", number)
 		return
 	} else if cm.curNumber < number {
 		cm.curNumber = number
@@ -40,19 +51,28 @@ func (cm *ControllerManager) StartController(number uint64, msg *startController
 	cm.getController(number).ReceiveMsg(msg)
 }
 
-func (cm *ControllerManager) GetController(number uint64) (*controller, error) {
+func (cm *ControllerManager) ReceiveMsgByCur(msg interface{}) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	if cm.curNumber <= 0 {
+		return
+	}
+	ctrl := cm.getController(cm.curNumber)
+	ctrl.ReceiveMsg(msg)
+}
+
+func (cm *ControllerManager) ReceiveMsg(number uint64, msg interface{}) error {
+	if number <= 0 {
+		return errors.New("number(0) is illegal")
+	}
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	if err := cm.isLegalNumber(number); err != nil {
-		return nil, err
+		return err
 	}
-	return cm.getController(number), nil
-}
-
-func (cm *ControllerManager) GetCurController() *controller {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	return cm.getController(cm.curNumber)
+	ctrl := cm.getController(number)
+	ctrl.ReceiveMsg(msg)
+	return nil
 }
 
 func (cm *ControllerManager) fixCtrlMap() {
@@ -60,11 +80,11 @@ func (cm *ControllerManager) fixCtrlMap() {
 		return
 	}
 
-	log.INFO(cm.logInfo, "ctrlManager 开始修正map, controller数量", len(cm.ctrlMap), "修复高度", cm.curNumber)
+	log.Trace(cm.logInfo, "ctrlManager 开始修正map, controller数量", len(cm.ctrlMap), "修正高度", cm.curNumber)
 
 	delKeys := make([]uint64, 0)
 	for key, ctrl := range cm.ctrlMap {
-		if key < cm.curNumber {
+		if err := cm.isLegalNumber(key); err != nil {
 			ctrl.Close()
 			delKeys = append(delKeys, key)
 		}
@@ -74,14 +94,14 @@ func (cm *ControllerManager) fixCtrlMap() {
 		delete(cm.ctrlMap, delKey)
 	}
 
-	log.INFO(cm.logInfo, "PM 结束修正map, controller数量", len(cm.ctrlMap))
+	log.Trace(cm.logInfo, "ctrlManager 结束修正map, controller数量", len(cm.ctrlMap))
 }
 
 func (cm *ControllerManager) isLegalNumber(number uint64) error {
 	if number < cm.curNumber {
 		return errors.Errorf("number(%d) is less than current number(%d)", number, cm.curNumber)
 	}
-	if number > cm.curNumber+2 {
+	if number > cm.curNumber+mangerCacheMax {
 		return errors.Errorf("number(%d) is too big than current number(%d)", number, cm.curNumber)
 	}
 	return nil
@@ -90,7 +110,7 @@ func (cm *ControllerManager) isLegalNumber(number uint64) error {
 func (cm *ControllerManager) getController(number uint64) *controller {
 	ctrl, OK := cm.ctrlMap[number]
 	if OK == false {
-		log.INFO(cm.logInfo, "ctrlManager 创建controller，高度", number)
+		log.Trace(cm.logInfo, "ctrlManager 创建controller，高度", number)
 		ctrl = newController(cm.matrix, cm.logInfo, number)
 		cm.ctrlMap[number] = ctrl
 	}

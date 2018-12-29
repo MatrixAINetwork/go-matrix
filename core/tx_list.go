@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package core
 
@@ -39,7 +38,8 @@ func (h *nonceHeap) Pop() interface{} {
 type txSortedMap struct {
 	items map[uint64]*types.Transaction // Hash map storing the transaction data
 	index *nonceHeap                    // Heap of nonces of all the stored transactions (non-strict mode)
-	cache []*types.Transaction            // Cache of the transactions already sorted
+	cache []*types.Transaction          // Cache of the transactions already sorted
+	//cache []types.SelfTransaction
 }
 
 // newTxSortedMap creates a new nonce-sorted transaction map.
@@ -205,10 +205,19 @@ func (m *txSortedMap) Flatten() []*types.Transaction {
 	// If the sorting was not cached yet, create and cache it
 	if m.cache == nil {
 		m.cache = make([]*types.Transaction, 0, len(m.items))
+		tmptxser := make([]types.SelfTransaction, 0)
 		for _, tx := range m.items {
-			m.cache = append(m.cache, tx)
+			//m.cache = append(m.cache, tx)
+			tmptxser = append(tmptxser, tx)
 		}
-		//sort.Sort(types.TxByNonce(m.cache))//因为排不排序已经不重要了
+		sort.Sort(types.TxByNonce(tmptxser))
+		for _, txer := range tmptxser {
+			tx, ok := txer.(*types.Transaction)
+			if ok {
+				m.cache = append(m.cache, tx)
+			}
+		}
+
 	}
 	// Copy the cache to prevent accidental modifications
 	txs := make([]*types.Transaction, len(m.cache))
@@ -221,8 +230,8 @@ func (m *txSortedMap) Flatten() []*types.Transaction {
 // the executable/pending queue; and for storing gapped transactions for the non-
 // executable/future queue, with minor behavioral changes.
 type txList struct {
-	strict bool         // Whether nonces are strictly continuous or not
-	txs    *txSortedMap // Heap indexed sorted hash map of the transactions
+	strict bool                    // Whether nonces are strictly continuous or not
+	txs    map[string]*txSortedMap // Heap indexed sorted hash map of the transactions
 
 	costcap *big.Int // Price of the highest costing transaction (reset only if exceeds balance)
 	gascap  uint64   // Gas limit of the highest spending transaction (reset only if exceeds block limit)
@@ -230,18 +239,30 @@ type txList struct {
 
 // newTxList create a new transaction list for maintaining nonce-indexable fast,
 // gapped, sortable transaction lists.
-func newTxList(strict bool) *txList {
-	return &txList{
+func newTxList(strict bool, str string) *txList {
+	sortmap := newTxSortedMap()
+	tl := &txList{
 		strict:  strict,
-		txs:     newTxSortedMap(),
+		txs:     make(map[string]*txSortedMap),
 		costcap: new(big.Int),
 	}
+	if str == "" {
+		str = "MAN"
+	}
+	tl.txs[str] = sortmap //主币种
+	return tl
+
 }
 
 // Overlaps returns whether the transaction specified has the same nonce as one
 // already contained within the list.
 func (l *txList) Overlaps(tx *types.Transaction) bool {
-	return l.txs.Get(tx.Nonce()) != nil
+	sm, ok := l.txs[tx.GetTxCurrency()]
+	if !ok {
+		return false
+	}
+	return sm.Get(tx.Nonce()) != nil
+	//return l.txs.Get(tx.Nonce()) != nil
 }
 
 // Add tries to insert a new transaction into the list, returning whether the
@@ -262,7 +283,12 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 	//	}
 	//}
 	// Otherwise overwrite the old transaction with the current one
-	l.txs.Put(tx)
+	sm, ok := l.txs[tx.GetTxCurrency()]
+	if !ok {
+		l.txs[tx.GetTxCurrency()] = newTxSortedMap()
+		sm = l.txs[tx.GetTxCurrency()]
+	}
+	sm.Put(tx)
 	if cost := tx.Cost(); l.costcap.Cmp(cost) < 0 {
 		l.costcap = cost
 	}
@@ -275,9 +301,9 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 // Forward removes all transactions from the list with a nonce lower than the
 // provided threshold. Every removed transaction is returned for any post-removal
 // maintenance.
-func (l *txList) Forward(threshold uint64) []*types.Transaction {
-	return l.txs.Forward(threshold)
-}
+//func (l *txList) Forward(threshold uint64) []*types.Transaction {
+//	return l.txs.Forward(threshold)
+//}
 
 // Filter removes all transactions from the list with a cost or gas limit higher
 // than the provided thresholds. Every removed transaction is returned for any
@@ -288,7 +314,7 @@ func (l *txList) Forward(threshold uint64) []*types.Transaction {
 // a point in calculating all the costs or if the balance covers all. If the threshold
 // is lower than the costgas cap, the caps will be reset to a new high after removing
 // the newly invalidated transactions.
-func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) ([]*types.Transaction, []*types.Transaction) {
+func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, typ string) ([]*types.Transaction, []*types.Transaction) {
 	// If all transactions are below the threshold, short circuit
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
@@ -296,8 +322,12 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) ([]*types.Transacti
 	l.costcap = new(big.Int).Set(costLimit) // Lower the caps to the thresholds
 	l.gascap = gasLimit
 
+	sm, ok := l.txs[typ]
+	if !ok {
+		return nil, nil
+	}
 	// Filter out all the transactions above the account's funds
-	removed := l.txs.Filter(func(tx *types.Transaction) bool { return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit })
+	removed := sm.Filter(func(tx *types.Transaction) bool { return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit })
 
 	// If the list was strict, filter anything above the lowest nonce
 	var invalids []*types.Transaction
@@ -309,16 +339,16 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) ([]*types.Transacti
 				lowest = nonce
 			}
 		}
-		invalids = l.txs.Filter(func(tx *types.Transaction) bool { return tx.Nonce() > lowest })
+		invalids = sm.Filter(func(tx *types.Transaction) bool { return tx.Nonce() > lowest })
 	}
 	return removed, invalids
 }
 
 // Cap places a hard limit on the number of items, returning all transactions
 // exceeding that limit.
-func (l *txList) Cap(threshold int) []*types.Transaction {
-	return l.txs.Cap(threshold)
-}
+//func (l *txList) Cap(threshold int) []*types.Transaction {
+//	return l.txs.Cap(threshold)
+//}
 
 // Remove deletes a transaction from the maintained list, returning whether the
 // transaction was found, and also returning any transaction invalidated due to
@@ -326,12 +356,16 @@ func (l *txList) Cap(threshold int) []*types.Transaction {
 func (l *txList) Remove(tx *types.Transaction) (bool, []*types.Transaction) {
 	// Remove the transaction from the set
 	nonce := tx.Nonce()
-	if removed := l.txs.Remove(nonce); !removed {
+	sm, ok := l.txs[tx.GetTxCurrency()]
+	if !ok {
+		return false, nil
+	}
+	if removed := sm.Remove(nonce); !removed {
 		return false, nil
 	}
 	// In strict mode, filter out non-executable transactions
 	if l.strict {
-		return true, l.txs.Filter(func(tx *types.Transaction) bool { return tx.Nonce() > nonce })
+		return true, sm.Filter(func(tx *types.Transaction) bool { return tx.Nonce() > nonce })
 	}
 	return true, nil
 }
@@ -348,21 +382,25 @@ func (l *txList) Remove(tx *types.Transaction) (bool, []*types.Transaction) {
 //}
 
 // Len returns the length of the transaction list.
-func (l *txList) Len() int {
-	return l.txs.Len()
+func (l *txList) Len(typ string) int {
+	sm, ok := l.txs[typ]
+	if !ok {
+		return 0
+	}
+	return sm.Len()
 }
 
 // Empty returns whether the list of transactions is empty or not.
-func (l *txList) Empty() bool {
-	return l.Len() == 0
+func (l *txList) Empty(typ string) bool {
+	return l.Len(typ) == 0
 }
 
 // Flatten creates a nonce-sorted slice of transactions based on the loosely
 // sorted internal representation. The result of the sorting is cached in case
 // it's requested again before any modifications are made to the contents.
-func (l *txList) Flatten() []*types.Transaction {
-	return l.txs.Flatten()
-}
+//func (l *txList) Flatten() []*types.Transaction {
+//	return l.txs.Flatten()
+//}
 
 /*
 // priceHeap is a heap.Interface implementation over transactions for retrieving

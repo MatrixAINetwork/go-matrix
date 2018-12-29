@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -99,7 +99,7 @@ func Verify(pub *ecdsa.PublicKey, msg, vrf, nizk []byte) (bool, error) {
 	proof := append(nizk, vrf...)
 	_, err := ProofToHash(pub, h, msg, proof)
 	if err != nil {
-		log.Error("verifying VRF failed: %v", err)
+		log.Error("verifying VRF failed: %v", "err", err)
 		return false, nil
 	}
 	return true, nil

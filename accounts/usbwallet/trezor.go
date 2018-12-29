@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // This file contains the implementation for interacting with the Trezor hardware
 // wallets. The wire protocol spec can be found on the SatoshiLabs website:
@@ -16,13 +15,13 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/usbwallet/internal/trezor"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
-	"github.com/golang/protobuf/proto"
 )
 
 // ErrTrezorPINNeeded is returned if opening the trezor requires a PIN code. In
@@ -208,7 +207,7 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, tx types.SelfTransact
 	var signer types.Signer
 	if chainID == nil {
 		//signer = new(types.HomesteadSigner)
-		signer = types.NewEIP155Signer(chainID)//YYY
+		signer = types.NewEIP155Signer(chainID) //YYY
 	} else {
 		signer = types.NewEIP155Signer(chainID)
 		signature[64] = signature[64] - byte(chainID.Uint64()*2+35)

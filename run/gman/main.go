@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -22,9 +22,7 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/manclient"
-	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/params"
 	"github.com/matrix/go-matrix/pod"
 	_ "github.com/matrix/go-matrix/random/electionseed"
@@ -36,6 +34,7 @@ import (
 	_ "github.com/matrix/go-matrix/election/layered"
 	_ "github.com/matrix/go-matrix/election/nochoice"
 	_ "github.com/matrix/go-matrix/election/stock"
+	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/matrix/go-matrix/run/utils"
 )
 
@@ -54,10 +53,13 @@ var (
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
 		utils.AccountPasswordFileFlag,
+		utils.TestEntrustFlag,
 		utils.BootnodesFlag,
 		utils.BootnodesV4Flag,
 		utils.BootnodesV5Flag,
 		utils.DataDirFlag,
+		utils.AesInputFlag,
+		utils.AesOutputFlag,
 		utils.KeyStoreDirFlag,
 		utils.NoUSBFlag,
 		utils.DashboardEnabledFlag,
@@ -105,10 +107,10 @@ var (
 		utils.NetrestrictFlag,
 		utils.NodeKeyFileFlag,
 		utils.NodeKeyHexFlag,
-		utils.DeveloperFlag,
-		utils.DeveloperPeriodFlag,
-		utils.TestnetFlag,
-		utils.RinkebyFlag,
+		//utils.DeveloperFlag,
+		//utils.DeveloperPeriodFlag,
+		//utils.TestnetFlag,
+		//utils.RinkebyFlag,
 		utils.VMEnableDebugFlag,
 		utils.NetworkIdFlag,
 		utils.RPCCORSDomainFlag,
@@ -121,9 +123,8 @@ var (
 		utils.GpoPercentileFlag,
 		utils.ExtraDataFlag,
 		configFileFlag,
-		utils.TestLocalMiningFlag,
-		utils.TestHeaderGenFlag,
-		utils.TestChangeRoleFlag,
+		utils.GetCommitFlag,
+		utils.ManAddressFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -147,6 +148,8 @@ func init() {
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2013-2018 The go-matrix Authors"
 	app.Commands = []cli.Command{
+		// See signcmd.go
+		signatureCommand,
 		// See chaincmd.go:
 		initCommand,
 		importCommand,
@@ -156,6 +159,11 @@ func init() {
 		copydbCommand,
 		removedbCommand,
 		dumpCommand,
+		rollbackCommand,
+		genBlockCommand,
+		importSupBlockCommand,
+		signCommand,
+		signVersionCommand,
 		// See monitorcmd.go:
 		monitorCommand,
 		// See accountcmd.go:
@@ -173,6 +181,8 @@ func init() {
 		licenseCommand,
 		// See config.go
 		dumpConfigCommand,
+		CommitCommand,
+		AesEncryptCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -207,11 +217,11 @@ func init() {
 }
 
 func main() {
+	initPanicFile()
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
 }
 
 // gman is the main entry point into the system if no sprguments and runs it in
@@ -232,8 +242,7 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 
 	// Start up the node itself
 	utils.StartNode(stack)
-	mapp := utils.MakeEntrustPassword(ctx)
-	fmt.Println("委托交易mapp", mapp, "len", len(mapp))
+	//utils.SetEntrustPassword(ctx) //设置委托交易账户
 
 	// Unlock any account specifically requested
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
@@ -246,20 +255,12 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 		}
 	}
 
-	signHelper := stack.SignalHelper()
 	wallets := stack.AccountManager().Wallets()
-
-	if len(wallets) > 0 && len(wallets[0].Accounts()) > 0 && len(passwords) > 0 {
-		signHelper.SetAccountManager(stack.AccountManager(), wallets[0].Accounts()[0].Address, passwords[0])
-	}
 	if len(wallets) <= 0 {
 		log.Error("无钱包", "请新建钱包", "")
 	}
 	if len(wallets) > 0 && len(wallets[0].Accounts()) <= 0 {
 		log.Error("钱包无账户", "请新建账户", "")
-	}
-	if len(passwords) <= 0 {
-		log.Error("password无密码", "请重启时输入密码", "")
 	}
 
 	// Register wallet event handlers to open and auto-derive wallets
@@ -309,26 +310,10 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 		utils.Fatalf("Matrix service not running :%v", err)
 	}
 	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
-	log.INFO("BoradCastNode", "data", params.BroadCastNodes)
+	//log.INFO("BoradCastNode", "data", manparams.BroadCastNodes)
 	log.Info("main", "nodeid", stack.Server().Self().ID.String())
-
-	go func() {
-		time.Sleep(3 * time.Second)
-		mc.PublishEvent(mc.NewBlockMessage, matrix.BlockChain().GetBlockByNumber(0))
-		log.INFO("MAIN", "创世区块插入消息已发送", matrix.BlockChain().GetBlockByNumber(0))
-		log.INFO("Peer总量", "len", p2p.ServerP2p.PeerCount())
-
-	}()
-
 	log.INFO("创世文件选举信息", "data", matrix.BlockChain().GetBlockByNumber(0).Header().Elect)
 	log.INFO("创世文件拓扑图", "data", matrix.BlockChain().GetBlockByNumber(0).Header().NetTopology)
-	/*go func() {
-		time.Sleep(10 * time.Second)
-		valDep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleValidator)
-		log.INFO("验证者参选信息", "data", valDep, "err", err)
-		mindep, err := depoistInfo.GetDepositList(big.NewInt(0), common.RoleMiner)
-		log.INFO("矿工参选信息", "data", mindep, "err", err)
-	}()*/
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
@@ -364,5 +349,5 @@ func Init_Config_PATH(ctx *cli.Context) {
 		log.Error("无创世文件", "请在启动时使用--datadir", "")
 	}
 
-	params.Config_Init(config_dir + "/man.json")
+	manparams.Config_Init(config_dir + "/man.json")
 }

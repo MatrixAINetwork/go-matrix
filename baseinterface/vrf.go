@@ -1,11 +1,12 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package baseinterface
 
 import (
 	"crypto/ecdsa"
-	"fmt"
+	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/core/types"
 )
 
 var (
@@ -17,7 +18,9 @@ var (
 //func(self *vrfWithHash) computeVrf(sk *ecdsa.PrivateKey,prevVrf []byte) ([]byte, []byte, error) {
 type VrfInterface interface {
 	ComputeVrf(*ecdsa.PrivateKey, []byte) ([]byte, []byte, error)
-	VerifyVrf(*ecdsa.PublicKey, []byte, []byte, []byte) error
+	VerifyVrf(*types.Header, *types.Header, common.Address) error
+	GetVrfInfoFromHeader([]byte) ([]byte, []byte, []byte)
+	GetHeaderVrf([]byte, []byte, []byte) []byte
 }
 
 func NewVrf() VrfInterface {
@@ -25,6 +28,6 @@ func NewVrf() VrfInterface {
 }
 
 func RegVrf(name string, value func() VrfInterface) {
-	fmt.Println("Vrf插件 注册函数", "name", name)
+	//	fmt.Println("Vrf插件 注册函数", "name", name)
 	mapVrf[name] = value
 }

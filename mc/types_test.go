@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -20,7 +20,7 @@ func NewSub() *Sub {
 	sub := &Sub{
 		MasterMinerReElectionReqMsgCH: make(chan MasterMinerReElectionReqMsg, 10),
 	}
-	sub.MasterMinerReElectionReqMsgSub, _ = SubscribeEvent("ReElect_MasterMinerReElectionReqMsg", sub.MasterMinerReElectionReqMsgCH)
+	//sub.MasterMinerReElectionReqMsgSub, _ = SubscribeEvent("ReElect_MasterMinerReElectionReqMsg", sub.MasterMinerReElectionReqMsgCH)
 	go sub.update()
 	return sub
 }
@@ -37,8 +37,8 @@ func (self *Sub) update() {
 func Post() {
 	for {
 		time.Sleep(5 * time.Second)
-		err := PublishEvent("ReElect_MasterMinerReElectionReqMsg", MasterMinerReElectionReqMsg{SeqNum: 666})
-		fmt.Println("Post发送状态", err)
+		//err := PublishEvent("ReElect_MasterMinerReElectionReqMsg", MasterMinerReElectionReqMsg{SeqNum: 666})
+		//fmt.Println("Post发送状态", err)
 	}
 }
 func TestSub(t *testing.T) {

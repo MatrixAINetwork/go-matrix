@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package console
 
@@ -18,8 +17,8 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus/manash"
 	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/internal/jsre"
+	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/pod"
 )
 
@@ -64,7 +63,7 @@ func (p *hookedPrompter) SetWordCompleter(completer WordCompleter) {}
 type tester struct {
 	workspace string
 	stack     *node.Node
-	matrix  *man.Matrix
+	matrix    *man.Matrix
 	console   *Console
 	input     *hookedPrompter
 	output    *bytes.Buffer
@@ -126,7 +125,7 @@ func newTester(t *testing.T, confOverride func(*man.Config)) *tester {
 	return &tester{
 		workspace: workspace,
 		stack:     stack,
-		matrix:  matrix,
+		matrix:    matrix,
 		console:   console,
 		input:     prompter,
 		output:    printer,

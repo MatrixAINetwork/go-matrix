@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package console
 
@@ -115,6 +114,40 @@ func (b *bridge) OpenWallet(call otto.FunctionCall) (response otto.Value) {
 	}
 	return val
 }
+func (b *bridge) GetUserPassword(call otto.FunctionCall) otto.Value {
+	var passwd otto.Value
+
+	if call.Argument(2).IsUndefined() || call.Argument(2).IsNull() {
+		if input, err := b.prompter.PromptPassword("Passphrase: "); err != nil {
+			throwJSException(err.Error())
+		} else {
+			passwd, _ = otto.ToValue(input)
+		}
+	} else {
+		if !call.Argument(2).IsString() {
+			throwJSException("password must be a string")
+		}
+		passwd = call.Argument(2)
+	}
+	return passwd
+}
+
+func (b *bridge) SetEntrustSignAccount(call otto.FunctionCall) (response otto.Value) {
+	path := call.Argument(0)
+	passwd := b.GetUserPassword(call)
+	duration := otto.NullValue()
+	if call.Argument(1).IsDefined() && !call.Argument(1).IsNull() {
+		if !call.Argument(1).IsNumber() {
+			throwJSException("duration must be a number")
+		}
+		duration = call.Argument(1)
+	}
+	val, err := call.Otto.Call("jman.setEntrustSignAccount", nil, path, passwd, duration)
+	if err != nil {
+		throwJSException(err.Error())
+	}
+	return val
+}
 
 // UnlockAccount is a wrapper around the personal.unlockAccount RPC method that
 // uses a non-echoing password prompt to acquire the passphrase and executes the
@@ -146,11 +179,13 @@ func (b *bridge) UnlockAccount(call otto.FunctionCall) (response otto.Value) {
 	// Third argument is the duration how long the account must be unlocked.
 	duration := otto.NullValue()
 	if call.Argument(2).IsDefined() && !call.Argument(2).IsNull() {
+		fmt.Println("121")
 		if !call.Argument(2).IsNumber() {
 			throwJSException("unlock duration must be a number")
 		}
 		duration = call.Argument(2)
 	}
+	fmt.Println("duration", duration)
 	// Send the request to the backend and return
 	val, err := call.Otto.Call("jman.unlockAccount", nil, account, passwd, duration)
 	if err != nil {

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package console
 
@@ -126,7 +125,7 @@ func (c *Console) init(preload []string) error {
 	}
 	flatten := "var man = web3.man; var personal = web3.personal; "
 	for api := range apis {
-		if api == "web3"|| api == "man" {
+		if api == "web3" || api == "man" {
 			continue // manually mapped or ignore
 		}
 		if file, ok := web3ext.Modules[api]; ok {
@@ -171,8 +170,12 @@ func (c *Console) init(preload []string) error {
 			if _, err = c.jsre.Run(`jman.sign = personal.sign;`); err != nil {
 				return fmt.Errorf("personal.sign: %v", err)
 			}
+			if _, err = c.jsre.Run(`jman.setEntrustSignAccount = personal.setEntrustSignAccount;`); err != nil {
+				return fmt.Errorf("personal.setEntrustSignAccount:%v", err)
+			}
 			obj.Set("openWallet", bridge.OpenWallet)
 			obj.Set("unlockAccount", bridge.UnlockAccount)
+			obj.Set("setEntrustSignAccount", bridge.SetEntrustSignAccount)
 			obj.Set("newAccount", bridge.NewAccount)
 			obj.Set("sign", bridge.Sign)
 		}

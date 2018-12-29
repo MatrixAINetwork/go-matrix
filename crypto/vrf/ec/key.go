@@ -1,16 +1,16 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package ec
 
 import (
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"errors"
 	"io"
 	"math/big"
+
+	"github.com/btcsuite/btcd/btcec"
 )
 
 const (
@@ -36,10 +36,11 @@ type PublicKey struct {
 	*ecdsa.PublicKey
 }
 
+/*
 func (this *PrivateKey) Public() crypto.PublicKey {
 	return &PublicKey{Algorithm: this.Algorithm, PublicKey: &this.PublicKey}
 }
-
+*/
 func GenerateECKeyPair(c elliptic.Curve, rand io.Reader, alg ECAlgorithm) (*PrivateKey, *PublicKey, error) {
 	d, x, y, err := elliptic.GenerateKey(c, rand)
 	if err != nil {
@@ -109,7 +110,16 @@ func DecodePublicKey(data []byte, curve elliptic.Curve) (*ecdsa.PublicKey, error
 		//	return nil, errors.New("Point is not on the curve")
 		//}
 	} else if data[0] == compress_even || data[0] == compress_odd {
-		return deCompress(int(data[0]&1), data[1:length+1], curve)
+		//		curve := crypto.S256()
+		pk, err := btcec.ParsePubKey(data, btcec.S256())
+		return (*ecdsa.PublicKey)(pk), err
+		/*
+			if err != nil {
+				return false
+			}
+			pubkey, err := ParsePubKey(pb, S256())
+			return deCompress(int(data[0]&1), data[1:length+1], curve)
+		*/
 	} else {
 		return nil, errors.New("unknown encoding mode")
 	}

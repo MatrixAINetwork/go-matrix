@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 // Package nat provides access to common network port mapping protocols.
 package nat
@@ -14,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/matrix/go-matrix/log"
 	"github.com/jackpal/go-nat-pmp"
+	"github.com/matrix/go-matrix/log"
 )
 
 // An implementation of nat.Interface can map local ports to ports

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	"github.com/matrix/go-matrix/ca"
 
@@ -21,7 +20,7 @@ import (
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/blkgenor"
-	"github.com/matrix/go-matrix/blkverify/blkverify"
+	"github.com/matrix/go-matrix/blkverify"
 	"github.com/matrix/go-matrix/broadcastTx"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/hexutil"
@@ -52,8 +51,12 @@ import (
 	"sync"
 
 	"github.com/matrix/go-matrix/baseinterface"
+	//"github.com/matrix/go-matrix/leaderelect"
+	"time"
+
 	"github.com/matrix/go-matrix/leaderelect"
 	"github.com/matrix/go-matrix/olconsensus"
+	"github.com/matrix/go-matrix/p2p/discover"
 )
 
 var MsgCenter *mc.Center
@@ -109,8 +112,8 @@ type Matrix struct {
 
 	reelection   *reelection.ReElection //换届服务
 	random       *baseinterface.Random
-	topNode      *olconsensus.TopNodeService
-	blockgen     *blkgenor.BlockGenor
+	olConsensus  *olconsensus.TopNodeService
+	blockGen     *blkgenor.BlockGenor
 	blockVerify  *blkverify.BlockVerify
 	leaderServer *leaderelect.LeaderIdentity
 
@@ -135,6 +138,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
@@ -177,6 +181,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -185,7 +190,9 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	}
 	man.bloomIndexer.Start(man.blockchain)
 
-	ca.SetTopologyReader(man.blockchain.TopologyStore())
+	man.signHelper.SetAuthReader(man.blockchain)
+
+	ca.SetTopologyReader(man.blockchain.GetGraphStore())
 
 	//if config.TxPool.Journal != "" {
 	//	config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
@@ -204,16 +211,22 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	man.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	//algorithm
-	man.random, err = baseinterface.NewRandom(man)
+	man.random, err = baseinterface.NewRandom(man.blockchain)
 	if err != nil {
 		return nil, err
 	}
 
-	dbDir := ctx.GetConfig().DataDir
-	man.reelection, err = reelection.New(man.blockchain, dbDir, man.random)
+	man.reelection, err = reelection.New(man.blockchain, man.random)
 	if err != nil {
 		return nil, err
 	}
+
+	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyElectGraph, man.reelection.ProduceElectGraphData)
+	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyElectOnlineState, man.reelection.ProduceElectOnlineStateData)
+	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyPreBroadcastRoot, man.reelection.ProducePreBroadcastStateData)
+	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyMinHash, man.reelection.ProduceMinHashData)
+	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyPerAllTop, man.reelection.ProducePreAllTopData)
+	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyBroadcastTx, core.ProduceMatrixStateData)
 
 	man.APIBackend = &ManAPIBackend{man, nil}
 	gpoParams := config.GPO
@@ -226,18 +239,20 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 
 	man.leaderServer, err = leaderelect.NewLeaderIdentityService(man, "leader服务")
 
-	man.topNode = olconsensus.NewTopNodeService(man.blockchain.DPOSEngine())
+	man.olConsensus = olconsensus.NewTopNodeService(man.blockchain.DPOSEngine())
 	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
-	man.topNode.SetTopNodeStateInterface(topNodeInstance)
-	man.topNode.SetValidatorAccountInterface(topNodeInstance)
-	man.topNode.SetMessageSendInterface(topNodeInstance)
-	man.topNode.SetMessageCenterInterface(topNodeInstance)
+	man.olConsensus.SetValidatorReader(man.blockchain)
+	man.olConsensus.SetStateReaderInterface(man.blockchain)
+	man.olConsensus.SetTopNodeStateInterface(topNodeInstance)
+	man.olConsensus.SetValidatorAccountInterface(topNodeInstance)
+	man.olConsensus.SetMessageSendInterface(topNodeInstance)
+	man.olConsensus.SetMessageCenterInterface(topNodeInstance)
 
-	if err = man.topNode.Start(); err != nil {
+	if err = man.olConsensus.Start(); err != nil {
 		return nil, err
 	}
 
-	man.blockgen, err = blkgenor.New(man)
+	man.blockGen, err = blkgenor.New(man)
 	if err != nil {
 		return nil, err
 	}
@@ -444,23 +459,24 @@ func (s *Matrix) StopMining()         { s.miner.Stop() }
 func (s *Matrix) IsMining() bool      { return s.miner.Mining() }
 func (s *Matrix) Miner() *miner.Miner { return s.miner }
 
-func (s *Matrix) AccountManager() *accounts.Manager    { return s.accountManager }
-func (s *Matrix) BlockChain() *core.BlockChain         { return s.blockchain }
-func (s *Matrix) TxPool() *core.TxPoolManager          { return s.txPool } //YYY
-func (s *Matrix) EventMux() *event.TypeMux             { return s.eventMux }
-func (s *Matrix) Engine() consensus.Engine             { return s.engine }
-func (s *Matrix) DPOSEngine() consensus.DPOSEngine     { return s.blockchain.DPOSEngine() }
-func (s *Matrix) ChainDb() mandb.Database              { return s.chainDb }
-func (s *Matrix) IsListening() bool                    { return true } // Always listening
-func (s *Matrix) ManVersion() int                      { return int(s.protocolManager.SubProtocols[0].Version) }
-func (s *Matrix) NetVersion() uint64                   { return s.networkId }
-func (s *Matrix) Downloader() *downloader.Downloader   { return s.protocolManager.downloader }
-func (s *Matrix) CA() *ca.Identity                     { return s.ca }
-func (s *Matrix) MsgCenter() *mc.Center                { return s.msgcenter }
-func (s *Matrix) SignHelper() *signhelper.SignHelper   { return s.signHelper }
-func (s *Matrix) ReElection() *reelection.ReElection   { return s.reelection }
-func (s *Matrix) HD() *msgsend.HD                      { return s.hd }
-func (s *Matrix) TopNode() *olconsensus.TopNodeService { return s.topNode }
+func (s *Matrix) AccountManager() *accounts.Manager        { return s.accountManager }
+func (s *Matrix) BlockChain() *core.BlockChain             { return s.blockchain }
+func (s *Matrix) TxPool() *core.TxPoolManager              { return s.txPool } //YYY
+func (s *Matrix) EventMux() *event.TypeMux                 { return s.eventMux }
+func (s *Matrix) Engine() consensus.Engine                 { return s.engine }
+func (s *Matrix) DPOSEngine() consensus.DPOSEngine         { return s.blockchain.DPOSEngine() }
+func (s *Matrix) ChainDb() mandb.Database                  { return s.chainDb }
+func (s *Matrix) IsListening() bool                        { return true } // Always listening
+func (s *Matrix) ManVersion() int                          { return int(s.protocolManager.SubProtocols[0].Version) }
+func (s *Matrix) NetVersion() uint64                       { return s.networkId }
+func (s *Matrix) Downloader() *downloader.Downloader       { return s.protocolManager.downloader }
+func (s *Matrix) CA() *ca.Identity                         { return s.ca }
+func (s *Matrix) MsgCenter() *mc.Center                    { return s.msgcenter }
+func (s *Matrix) SignHelper() *signhelper.SignHelper       { return s.signHelper }
+func (s *Matrix) ReElection() *reelection.ReElection       { return s.reelection }
+func (s *Matrix) HD() *msgsend.HD                          { return s.hd }
+func (s *Matrix) OLConsensus() *olconsensus.TopNodeService { return s.olConsensus }
+func (s *Matrix) Random() *baseinterface.Random            { return s.random }
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.
@@ -474,6 +490,7 @@ func (s *Matrix) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Matrix protocol implementation.
 func (s *Matrix) Start(srvr *p2p.Server) error {
+	srvr.NetWorkId = s.config.NetworkId
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -496,26 +513,64 @@ func (s *Matrix) Start(srvr *p2p.Server) error {
 	//s.broadTx.Start()//YY
 	return nil
 }
-func (s *Matrix) FetcherNotify(hash common.Hash, number uint64) {
-	ids := ca.GetRolesByGroup(common.RoleValidator | common.RoleBroadcast)
-	selfId := p2p.ServerP2p.Self().ID.String()
-	for _, id := range ids {
-		if id.String() == selfId {
-			log.Info("func FetcherNotify  NodeID is same ", "selfID", selfId, "ca`s nodeID", id.String())
-			continue
+
+//func (s *Matrix) FetcherNotify(hash common.Hash, number uint64) {
+//	ids := ca.GetRolesByGroup(common.RoleValidator | common.RoleBroadcast)
+//	selfId := p2p.ServerP2p.Self().ID.String()
+//	for _, id := range ids {
+//		if id.String() == selfId {
+//			log.Info("func FetcherNotify  NodeID is same ", "selfID", selfId, "ca`s nodeID", id.String())
+//			continue
+//		}
+//		peer := s.protocolManager.Peers.Peer(id.String()[:16])
+//		if peer == nil {
+//			continue
+//		}
+//		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)
+//	}
+//}
+func (s *Matrix) FetcherNotify(hash common.Hash, number uint64, addr common.Address) {
+	log.Trace("download backend func FetcherNotify ", "number", number, "hash", hash.String(), "addr", addr.String())
+	return
+	var nid discover.NodeID
+	if len(addr) == 0 || addr == (common.Address{}) {
+		addrs := ca.GetRolesByGroup(common.RoleValidator | common.RoleBroadcast)
+		selfId := p2p.ServerP2p.Self().ID.String()
+		indexs := p2p.Random(len(addrs), 1)
+		if len(indexs) > 0 && indexs[0] <= (len(addrs)-1) {
+			nid = p2p.ServerP2p.ConvertAddressToId(addrs[indexs[0]])
 		}
-		peer := s.protocolManager.Peers.Peer(id.String()[:16])
-		if peer == nil {
-			log.Info("==========YY===========", "get PeerID is nil by Validator ID:id", id.String()[:16], "Peers:", s.protocolManager.Peers.peers)
-			continue
+		if nid.String() == selfId {
+			log.Info("func FetcherNotify  NodeID is same ", "selfID", selfId, "ca`s nodeID", nid.String())
+			if indexs[0] == (len(addrs) - 1) {
+				nid = p2p.ServerP2p.ConvertAddressToId(addrs[indexs[0]-1])
+			} else {
+				nid = p2p.ServerP2p.ConvertAddressToId(addrs[indexs[0]+1])
+			}
 		}
-		s.protocolManager.fetcher.Notify(id.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)
+
+	} else {
+		nid = p2p.ServerP2p.ConvertAddressToId(addr)
 	}
+	if nid.String() == "" {
+		log.Info("file backend func FetcherNotify", "NodeID is nil", nid.String(), "address", addr)
+		return
+	}
+	peer := s.protocolManager.Peers.Peer(nid.String()[:16])
+	if peer == nil {
+		log.Info("file backend func FetcherNotify", "get PeerID is nil by Validator ID:id", nid.String()[:16])
+		return
+	}
+	s.protocolManager.fetcher.Notify(nid.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)
+
 }
 
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Matrix protocol.
 func (s *Matrix) Stop() error {
+	s.blockGen.Close()
+	s.blockVerify.Close()
+	s.olConsensus.Close()
 	s.bloomIndexer.Close()
 	s.blockchain.Stop()
 	s.protocolManager.Stop()

@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package simulations
 
@@ -18,12 +17,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/p2p"
 	"github.com/matrix/go-matrix/p2p/discover"
 	"github.com/matrix/go-matrix/p2p/simulations/adapters"
 	"github.com/matrix/go-matrix/rpc"
-	"github.com/julienschmidt/httprouter"
 	"golang.org/x/net/websocket"
 )
 

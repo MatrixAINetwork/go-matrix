@@ -1,7 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors 
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 
 package vm
 
@@ -385,11 +384,11 @@ func gasSuicide(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, 
 		if eip158 {
 			// if empty and transfers value
 			var amountIsZero bool
-			for _,tAccount := range evm.StateDB.GetBalance(contract.Address()){
-				if tAccount.AccountType == common.MainAccount{
-					if tAccount.Balance.Cmp(big.NewInt(int64(0))) == 0{
+			for _, tAccount := range evm.StateDB.GetBalance(contract.Address()) {
+				if tAccount.AccountType == common.MainAccount {
+					if tAccount.Balance.Cmp(big.NewInt(int64(0))) == 0 {
 						amountIsZero = true
-					}else {
+					} else {
 						amountIsZero = false
 					}
 					break
