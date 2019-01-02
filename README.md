@@ -118,6 +118,48 @@ In this step, you will need to input the password set in step 5.
 Step 8: Run 'Attach': ./gman attach /chaindata/gman.ipc (gman.ipc is generated under /chaindata when starting gman)
 
 
+### Starting up your member nodes (Windows)
+Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
+
+    /gman: exe file
+
+    /MANGenesis.json: genesis file
+
+    /chaindata: a folder which you should create
+
+    man.json: common profile which shall be put under /chaindata
+
+Step 2: Run Initiate command
+    gman.exe --datadir chaindata\ init MANGenesis.json
+
+Step 3: Create a file named signAccount.json, whose contents are:
+
+    [
+      {
+        "Address":"MAN.2skMrkoEkecKjJLPz6qTdi8B3NgjU ",
+        "Password":"haolin0123"
+      }
+
+    ]
+
+Step 4: Run:
+
+    gman.exe --datadir chaindata aes --aesin signAccount.json --aesout entrust.json
+
+Upon the window prompt, you will be asked to set a password (which should contain upper-case letter[s], lower-case letter[s], number[s] and special character[s])
+
+Step 5: Start gman
+
+    gman --datadir chaindata  --networkid 1 --debug --verbosity 5  --manAddress  MAN.2skMrkoEkecKjJLPz6qTdi8B3NgjU --entrust entrust.json --gcmode archive --outputinfo 1 --syncmode full
+
+In this step, you will need to input the password set in step 5.
+
+Step 8: Open another window
+
+    gman attach ipc:\\.\pipe\gman.ipc 
+
+gman.ipc is generated under /chaindata when starting gman)
+
 
 ### License
 Copyright 2018 The MATRIX Authors
