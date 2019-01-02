@@ -64,7 +64,7 @@ wget https://github.com/MatrixAINetwork/GO-MATRIX/archive/master.zip
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command or copy our gman.exe from github ([https://github.com/MatrixAINetwork/GMAN_CLIENT](https://github.com/MatrixAINetwork/GMAN_CLIENT))
 
 
-### Starting up your member nodes (Linux)
+### Starting up your member nodes (Linux & Mac)
 
 Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
 
@@ -114,6 +114,9 @@ Step 7: Start gman
 ./gman --datadir /chaindata --networkid 1 --debug --verbosity 5 --manAddress MAN.gQAAHUeTBxvgbzf8tFgUtavDceJP --entrust /entrust.json --gcmode archive --outputinfo 1 --syncmode full
 
 In this step, you will need to input the password set in step 5.
+
+Step 8: Run 'Attach': ./gman attach /chaindata/gman.ipc (gman.ipc is generated under /chaindata when starting gman)
+
 
 
 ### License
