@@ -40,7 +40,7 @@ This MATRIX repository introduced so many distinct features and implements the M
 
 ### MATRIX WEB WALLET
 
-[http://wallet.matrix.io/](http://wallet.matrix.io/)
+[https://wallet.matrix.io/](https://wallet.matrix.io/)
 
 ### Getting Started
 Welcome! This guide is intended to get you running on the MATRIX network. To ensure your client behaves gracefully throughout the setup process, please check your system meets the following requirements:
@@ -64,7 +64,7 @@ wget https://github.com/MatrixAINetwork/GO-MATRIX/archive/master.zip
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command or copy our gman.exe from github
 
 
-#### Starting up your member nodes (Linux)
+### Starting up your member nodes (Linux)
 
 Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
 
@@ -116,7 +116,7 @@ Step 7: Start gman
 In this step, you will need to input the password set in step 5.
 
 
-#### License
+### License
 Copyright 2018 The MATRIX Authors
 
 The go-matrix library is licensed under MIT.
