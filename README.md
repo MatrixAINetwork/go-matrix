@@ -61,10 +61,12 @@ Git clone https://github.com/MatrixAINetwork/GO-MATRIX.git, or
 
 wget https://github.com/MatrixAINetwork/GO-MATRIX/archive/master.zip
 
-Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command or copy our gman.exe from github ([https://github.com/MatrixAINetwork/GMAN_CLIENT](https://github.com/MatrixAINetwork/GMAN_CLIENT))
+Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command 
+
+You can also obtain our gman.exe from github ([https://github.com/MatrixAINetwork/GMAN_CLIENT](https://github.com/MatrixAINetwork/GMAN_CLIENT))
 
 
-### Starting up your member nodes (Linux & Mac)
+### Starting up your member nodes (Linux & Mac) - for deposited users
 
 Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
 
@@ -117,6 +119,25 @@ In this step, you will need to input the password set in step 5.
 
 Step 8: Run 'Attach': ./gman attach /chaindata/gman.ipc (gman.ipc is generated under /chaindata when starting gman)
 
+
+### Starting up your member nodes (Linux & Mac) - for non-deposited users
+
+Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
+
+    /gman: exe file
+
+    /MANGenesis.json: genesis file
+
+    /chaindata: a folder which you should create
+
+    man.json: common profile which shall be put under /chaindata
+
+Step 2: Run Initiate command
+
+    ./gman  --datadir  /chaindata/   init    /MANGenesis.json
+
+Step 3: Start
+    ./gman --datadir /chaindata --networkid 1  --outputinfo 1 --syncmode 'full'
 
 ### Starting up your member nodes (Windows)
 Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
