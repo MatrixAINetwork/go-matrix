@@ -8,6 +8,7 @@ import (
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/pkg/errors"
+	"sort"
 )
 
 func NewGenesisTopologyGraph(number uint64, netTopology common.NetTopology) (*TopologyGraph, error) {
@@ -31,6 +32,7 @@ func NewGenesisTopologyGraph(number uint64, netTopology common.NetTopology) (*To
 			NodeNumber: newGraph.increaseNodeNumber(),
 		})
 	}
+	newGraph.sort()
 	return newGraph, nil
 }
 
@@ -63,6 +65,7 @@ func (self *TopologyGraph) Transfer2NextGraph(number uint64, blockTopology *comm
 				NodeNumber: newGraph.increaseNodeNumber(),
 			})
 		}
+		newGraph.sort()
 		return newGraph, nil
 
 	case common.NetTopoTypeChange:
@@ -78,25 +81,47 @@ func (self *TopologyGraph) Transfer2NextGraph(number uint64, blockTopology *comm
 }
 
 func (self *TopologyGraph) modifyGraphByChgInfo(chgInfo *common.NetTopologyData) {
+	// 上线节点，不处理
+	if chgInfo.Position == common.PosOnline {
+		return
+	}
+
 	size := len(self.NodeList)
-	for i := 0; i < size; i++ {
-		topNode := &self.NodeList[i]
-		if chgInfo.Position > topNode.Position {
-			if chgInfo.Position == common.PosOffline && chgInfo.Account == topNode.Account {
+	// 节点下线，从拓扑图中删除
+	if chgInfo.Position == common.PosOffline {
+		for i := 0; i < size; i++ {
+			curNode := &self.NodeList[i]
+			if chgInfo.Account == curNode.Account {
 				self.NodeList = append(self.NodeList[:i], self.NodeList[i+1:]...)
 				return
-			} else {
-				continue
 			}
-		} else if chgInfo.Position == topNode.Position {
+		}
+		return
+	}
+
+	// 位置替换信息处理
+	if chgInfo.Position > self.NodeList[size-1].Position {
+		// 变化位置，比当前最大位置还要大，将节点添加入队尾
+		newNode := TopologyNodeInfo{
+			Account:    chgInfo.Account,
+			Position:   chgInfo.Position,
+			Type:       common.GetRoleTypeFromPosition(chgInfo.Position),
+			NodeNumber: self.increaseNodeNumber(),
+		}
+		self.NodeList = append(self.NodeList, newNode)
+		return
+	}
+	for i := 0; i < size; i++ {
+		curNode := &self.NodeList[i]
+		if chgInfo.Position == curNode.Position {
 			if (chgInfo.Account == common.Address{}) {
 				self.NodeList = append(self.NodeList[:i], self.NodeList[i+1:]...)
 			} else {
-				topNode.Account.Set(chgInfo.Account)
-				topNode.NodeNumber = self.increaseNodeNumber()
+				curNode.Account.Set(chgInfo.Account)
+				curNode.NodeNumber = self.increaseNodeNumber()
 			}
 			return
-		} else if chgInfo.Position < topNode.Position {
+		} else if chgInfo.Position < curNode.Position {
 			newNode := TopologyNodeInfo{
 				Account:    chgInfo.Account,
 				Position:   chgInfo.Position,
@@ -110,6 +135,12 @@ func (self *TopologyGraph) modifyGraphByChgInfo(chgInfo *common.NetTopologyData)
 			return
 		}
 	}
+}
+
+func (self *TopologyGraph) sort() {
+	sort.Slice(self.NodeList, func(i, j int) bool {
+		return self.NodeList[i].Position < self.NodeList[j].Position
+	})
 }
 
 func (self *TopologyGraph) increaseNodeNumber() uint8 {
