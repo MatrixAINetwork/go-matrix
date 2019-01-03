@@ -139,7 +139,7 @@ Step 2: Run Initiate command
 Step 3: Start
     ./gman --datadir /chaindata --networkid 1  --outputinfo 1 --syncmode 'full'
 
-### Starting up your member nodes (Windows)
+### Starting up your member nodes (Windows) - for deposited users
 Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
 
     /gman: exe file
@@ -181,6 +181,24 @@ Step 8: Open another window
 
 gman.ipc is generated under /chaindata when starting gman)
 
+### Starting up your member nodes (Windows) - for non-deposited users
+
+Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
+
+    /gman: exe file
+
+    /MANGenesis.json: genesis file
+
+    /chaindata: a folder which you should create
+
+    man.json: common profile which shall be put under /chaindata
+
+Step 2: Run Initiate command
+    gman.exe --datadir chaindata\ init MANGenesis.json
+
+Step 3: Start gman
+
+    gman --datadir chaindata  --networkid 1 --outputinfo 1 -- syncmode full
 
 ### License
 Copyright 2018 The MATRIX Authors
