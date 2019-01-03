@@ -80,7 +80,7 @@ Step 1: Check out what you need to prepare (most of them can be obtaind from go-
 
 Step 2: Run Initiate command
 
-    ./gman  --datadir  /chaindata/   init    /MANGenesis.json
+    ./gman  --datadir  ./chaindata/   init    ./MANGenesis.json
 
 Step 3: Visit our web wallet to create a new wallet address, and save your keystore file as well as password.
 
@@ -101,7 +101,7 @@ Step 5: Create a file named signAccount.json under root, and its content is like
     ]
 Then, run: 
 
-    ./gman --datadir /chaindata aes --aesin ./signAccount.json --aesout entrust.json
+    ./gman --datadir ./chaindata aes --aesin ./signAccount.json --aesout entrust.json
 
 Upon the window prompt, you will be asked to set a password (which should contain upper-case letter[s], lower-case letter[s], number[s] and special character[s])
 
@@ -109,11 +109,11 @@ Step 6: Copy the generated entrust.json to root
 
 Step 7: Start gman
 
-    ./gman --datadir /chaindata --networkid 1 --debug --verbosity 5  --manAddress [your man.address here] --entrust /entrust.json --gcmode archive --outputinfo 1 --syncmode full 
+    ./gman --datadir ./chaindata --networkid 1 --debug --verbosity 5  --manAddress [your man.address here] --entrust ./entrust.json --gcmode archive --outputinfo 1 --syncmode full 
 
     for example, 
 
-./gman --datadir /chaindata --networkid 1 --debug --verbosity 5 --manAddress MAN.gQAAHUeTBxvgbzf8tFgUtavDceJP --entrust /entrust.json --gcmode archive --outputinfo 1 --syncmode full
+./gman --datadir ./chaindata --networkid 1 --debug --verbosity 5 --manAddress MAN.gQAAHUeTBxvgbzf8tFgUtavDceJP --entrust ./entrust.json --gcmode archive --outputinfo 1 --syncmode full
 
 In this step, you will need to input the password set in step 5.
 
@@ -134,10 +134,10 @@ Step 1: Check out what you need to prepare (most of them can be obtaind from go-
 
 Step 2: Run Initiate command
 
-    ./gman  --datadir  /chaindata/   init    /MANGenesis.json
+    ./gman  --datadir  ./chaindata/   init    ./MANGenesis.json
 
 Step 3: Start
-    ./gman --datadir /chaindata --networkid 1  --outputinfo 1 --syncmode 'full'
+    ./gman --datadir ./chaindata --networkid 1  --outputinfo 1 --syncmode 'full'
 
 ### Starting up your member nodes (Windows) - for deposited users
 Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
@@ -201,7 +201,7 @@ Step 3: Start gman
     gman --datadir chaindata  --networkid 1 --outputinfo 1 -- syncmode full
 
 ### License
-Copyright 2018 The MATRIX Authors
+Copyright 2018-2019 The MATRIX Authors
 
 The go-matrix library is licensed under MIT.
 
