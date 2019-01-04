@@ -742,6 +742,7 @@ func (tab *Table) add(new *Node) {
 		if val, ok := tab.nodeBindAddress[new.Address]; !ok {
 			tab.nodeBindAddress[new.Address] = new
 		} else if val.ID != new.ID && val.SignTime.Before(new.SignTime) {
+			log.Info("replace node info", "old", val.ID, "new", new.ID)
 			tab.nodeBindAddress[new.Address] = new
 		}
 	}
