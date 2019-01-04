@@ -94,11 +94,13 @@ func (ts *topNodeState) SaveConsensusResult(result *mc.HD_OnlineConsensusVoteRes
 			return
 		case -1: // old < param
 			ts.consensusResultRing[index] = result
+			log.Debug("共识节点状态", "共识请求发出时的高度", result.Req.Number, "轮次", result.Req.LeaderTurn, "被共识的节点", result.Req.Node.Hex(), "被共识的状态", result.Req.OnlineState.String())
 		}
 	} else {
 		ts.insertConsensusResult(result)
+		log.Debug("共识节点状态", "共识请求发出时的高度", result.Req.Number, "轮次", result.Req.LeaderTurn, "被共识的节点", result.Req.Node.Hex(), "被共识的状态", result.Req.OnlineState.String())
 	}
-	log.Info("共识节点状态", "保存共识结果完成", "")
+	log.Info("共识节点状态", "保存共识结果完成", "   ", "被共识的节点", result.Req.Node.Hex(), "被共识的状态", result.Req.OnlineState.String())
 }
 
 func (ts *topNodeState) GetConsensusResults() (results []*mc.HD_OnlineConsensusVoteResultMsg) {
@@ -167,12 +169,12 @@ func (ts *topNodeState) newTopNodeState(nodesOnlineInfo []NodeOnLineInfo, leader
 		case mc.OffLine:
 			if isOffline(value.OnlineState) {
 				offline = append(offline, value.Address)
-				log.Info("共识节点状态", "检查节点在线状态", "离线", "节点", value.Address.String(), "offline", "需要共识")
+				log.Info("共识节点状态", "检查节点在线状态", "离线", "当前高度", ts.curNumber, "节点", value.Address.String(), "offline", "需要共识")
 			}
 		case mc.OnLine:
 			if isOnline(value.OnlineState) {
 				online = append(online, value.Address)
-				log.Info("共识节点状态", "检查节点在线状态", "在线", "节点", value.Address.String(), "online", "需要共识")
+				log.Info("共识节点状态", "检查节点在线状态", "在线", "当前高度", ts.curNumber, "节点", value.Address.String(), "online", "需要共识")
 			}
 		}
 	}

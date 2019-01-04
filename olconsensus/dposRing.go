@@ -24,6 +24,10 @@ type DPosVoteState struct {
 	AffirmativeVotes []voteInfo
 }
 
+func (ds *DPosVoteState) setVoted() {
+	ds.Voted = true
+}
+
 func (ds *DPosVoteState) hasHash(hash common.Hash) bool {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
