@@ -155,6 +155,7 @@ Step 1: Check out what you need to prepare (most of them can be obtaind from go-
     man.json: common profile which shall be put under /chaindata
 
 Step 2: Run Initiate command
+
     gman.exe --datadir chaindata\ init MANGenesis.json
 
 Step 3: Create a file named signAccount.json, whose contents are:
@@ -198,6 +199,7 @@ Step 1: Check out what you need to prepare (most of them can be obtaind from go-
     man.json: common profile which shall be put under /chaindata
 
 Step 2: Run Initiate command
+
     gman.exe --datadir chaindata\ init MANGenesis.json
 
 Step 3: Start gman
