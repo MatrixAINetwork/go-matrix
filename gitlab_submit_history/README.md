@@ -2124,3 +2124,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
 upTime初选节点由折半修改为一直累加	(Author: zhangwen)
 Update version.go	(Author: zhangwen)
 fmt	(Author: zhangwen)
+Merge branch 'master' into master_nodeId	(Author: zhangwen)
