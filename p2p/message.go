@@ -99,6 +99,9 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 
 // SendToSingle send message to single peer.
 func SendToSingle(addr common.Address, msgCode uint64, data interface{}) error {
+	if addr == ServerP2p.ManAddress {
+		return nil
+	}
 	id := ServerP2p.ConvertAddressToId(addr)
 	if id == emptyNodeId {
 		log.Error("send to single peer failed, id convert failed", "peer addr", addr)
@@ -119,6 +122,9 @@ func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{})
 	address := ca.GetRolesByGroupWithNextElect(to)
 	peers := ServerP2p.Peers()
 	for _, addr := range address {
+		if addr == ServerP2p.ManAddress {
+			continue
+		}
 		id := ServerP2p.ConvertAddressToId(addr)
 		if id == emptyNodeId {
 			log.Error("send to single peer failed, id convert failed", "peer addr", addr)
@@ -145,6 +151,9 @@ func SendToGroup(to common.RoleType, msgCode uint64, data interface{}) error {
 	peers := ServerP2p.Peers()
 	log.Info("message.go", "查看所有的 ServerP2P peers Count", len(peers), "目标IDS数量", len(address), "role", to.String())
 	for _, addr := range address {
+		if addr == ServerP2p.ManAddress {
+			continue
+		}
 		bSend := false
 
 		id := ServerP2p.ConvertAddressToId(addr)
