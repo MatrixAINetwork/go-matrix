@@ -26,6 +26,7 @@ var (
 	errMethodId          = errors.New("error method id")
 	errWithdraw          = errors.New("withdraw is not set")
 	errExist             = errors.New("sign address exist")
+	errClear             = errors.New("clear address invalid")
 	errDeposit           = errors.New("deposit is not found")
 	errOverflow          = errors.New("deposit is overflow")
 	errDepositEmpty      = errors.New("depositList is Empty")
@@ -36,7 +37,7 @@ var (
 	errInterestAddrEmpty = errors.New("interest addr is empty")
 
 	depositDef = ` [{"constant": true,"inputs": [],"name": "getDepositList","outputs": [{"name": "","type": "address[]"}],"payable": false,"stateMutability": "view","type": "function"},
-			{"constant": true,"inputs": [{"name": "addr","type": "address"}],"name": "getDepositInfo","outputs": [{"name": "","type": "uint256"},{"name": "","type": "bytes"},{"name": "","type": "uint256"}],"payable": false,"stateMutability": "view","type": "function"},
+			{"constant": true,"inputs": [{"name": "addr","type": "address"}],"name": "getDepositInfo","outputs": [{"name": "","type": "uint256"},{"name": "","type": "address"},{"name": "","type": "uint256"}],"payable": false,"stateMutability": "view","type": "function"},
     		{"constant": false,"inputs": [{"name": "address","type": "address"}],"name": "valiDeposit","outputs": [],"payable": true,"stateMutability": "payable","type": "function"},
     		{"constant": false,"inputs": [{"name": "address","type": "address"}],"name": "minerDeposit","outputs": [],"payable": true,"stateMutability": "payable","type": "function"},
     		{"constant": false,"inputs": [],"name": "withdraw","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},
@@ -264,15 +265,6 @@ func (md *MatrixDeposit) setDeposit(contract *Contract, stateDB StateDB, dep *bi
 	return nil
 }
 
-//func (md *MatrixDeposit) getDepositWithNoAddress(contract *Contract, stateDB StateDB) *big.Int {
-//	depositKey := append(contract.CallerAddress[:], 'D')
-//	info := stateDB.GetState(contract.Address(), common.BytesToHash(depositKey))
-//	if info != emptyHash {
-//		return info.Big()
-//	}
-//	return big.NewInt(0)
-//}
-
 func (md *MatrixDeposit) getAddress(contract *Contract, stateDB StateDB, addr common.Address) common.Address {
 	// get signature address
 	signAddrKey := append(addr[:], 'N', 'X')
@@ -287,6 +279,7 @@ func (md *MatrixDeposit) setAddress(contract *Contract, stateDB StateDB, address
 	if (address == common.Address{}) {
 		return nil
 	}
+	// set signature address : deposit address
 	nodeYKey := append(address[:], 'N', 'Y')
 	hs := stateDB.GetState(contract.Address(), common.BytesToHash(nodeYKey))
 	if hs != emptyHash {
@@ -294,8 +287,30 @@ func (md *MatrixDeposit) setAddress(contract *Contract, stateDB StateDB, address
 	}
 	stateDB.SetState(contract.Address(), common.BytesToHash(nodeYKey), contract.CallerAddress.Hash())
 
+	// set old address empty
+	signAddr := md.getAddress(contract, stateDB, contract.CallerAddress)
+	oldNodeYKey := append(signAddr[:], 'N', 'Y')
+	stateDB.SetState(contract.Address(), common.BytesToHash(oldNodeYKey), common.Hash{})
+
+	// set deposit address : signature address
 	nodeXKey := append(contract.CallerAddress[:], 'N', 'X')
 	stateDB.SetState(contract.Address(), common.BytesToHash(nodeXKey), address.Hash())
+	return nil
+}
+
+func (md *MatrixDeposit) clearAddress(contract *Contract, stateDB StateDB, address common.Address) error {
+	if (address != common.Address{}) {
+		return errClear
+	}
+
+	signAddr := md.getAddress(contract, stateDB, contract.CallerAddress)
+	// signature address : []
+	nodeYKey := append(signAddr[:], 'N', 'Y')
+	stateDB.SetState(contract.Address(), common.BytesToHash(nodeYKey), common.Hash{})
+
+	// deposit address : []
+	nodeXKey := append(contract.CallerAddress[:], 'N', 'X')
+	stateDB.SetState(contract.Address(), common.BytesToHash(nodeXKey), common.Hash{})
 	return nil
 }
 
@@ -511,7 +526,7 @@ func (md *MatrixDeposit) getDepositInfo(in []byte, contract *Contract, evm *EVM)
 	}
 	signAddr := md.getAddress(contract, evm.StateDB, addr)
 	withdraw := md.getWithdrawHeight(contract, evm.StateDB, addr)
-	return depositAbi.Methods["getDepositInfo"].Outputs.Pack(deposit, signAddr[:], withdraw)
+	return depositAbi.Methods["getDepositInfo"].Outputs.Pack(deposit, signAddr, withdraw)
 }
 
 func (md *MatrixDeposit) modifyDepositState(contract *Contract, evm *EVM, addr common.Address) error {
@@ -554,8 +569,10 @@ func (md *MatrixDeposit) modifyRefundState(contract *Contract, evm *EVM) (*big.I
 		return nil, errDeposit
 	}
 
+	md.ResetSlash(contract, evm.StateDB, contract.CallerAddress)
+	md.ResetInterest(contract, evm.StateDB, contract.CallerAddress)
 	md.setDeposit(contract, evm.StateDB, big.NewInt(0))
-	md.setAddress(contract, evm.StateDB, common.Address{})
+	md.clearAddress(contract, evm.StateDB, common.Address{})
 	md.setWithdrawHeight(contract, evm.StateDB, big.NewInt(0))
 	md.SetOnlineTime(contract, evm.StateDB, contract.CallerAddress, big.NewInt(0))
 	md.removeDepositList(contract, evm.StateDB)
