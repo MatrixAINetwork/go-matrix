@@ -2122,3 +2122,4 @@ Merge branch 'master' of gitlab.matrix.com:matrix/go-matrix
     ...
 增加获取uptime web3 接口，使用  eth.getUpTime命令，格式参照getbalance命令	(Author: zhangwen)
 upTime初选节点由折半修改为一直累加	(Author: zhangwen)
+Update version.go	(Author: zhangwen)
