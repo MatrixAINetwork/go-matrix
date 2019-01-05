@@ -9,7 +9,6 @@ import (
 	"math/big"
 
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
@@ -49,7 +48,7 @@ func SetOnlineTime(stateDB vm.StateDB, address common.Address, ot *big.Int) erro
 
 func GetDepositList(tm *big.Int, getDeposit common.RoleType) ([]vm.DepositDetail, error) {
 	db, err := getDepositInfo(tm)
-	if err != nil {
+	if err != nil || db == nil {
 		return nil, err
 	}
 	contract := vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 60000)
@@ -92,11 +91,12 @@ func getDepositInfo(tm *big.Int) (db vm.StateDB, err error) {
 	depositInfo.Contract = vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 0)
 	var c context.Context
 	var h rpc.BlockNumber
-	encode := hexutil.EncodeBig(tm)
-	err = h.UnmarshalJSON([]byte(encode))
-	if err != nil {
-		return nil, err
-	}
+	h = rpc.BlockNumber(tm.Int64())
+	//encode := hexutil.EncodeBig(tm)
+	//err = h.UnmarshalJSON([]byte(encode))
+	//if err != nil {
+	//	return nil, err
+	//}
 	db, _, err = depositInfo.manApi.StateAndHeaderByNumber(c, h)
 	return db, err
 }
