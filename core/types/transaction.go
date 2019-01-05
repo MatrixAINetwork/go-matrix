@@ -613,6 +613,12 @@ func (tx *Transaction) GetIsEntrustGas() bool {
 func (tx *Transaction) GetIsEntrustByTime() bool {
 	return tx.IsEntrustByTime
 }
+func (tx *Transaction) SetIsEntrustGas(b bool) {
+	tx.IsEntrustGas = b
+}
+func (tx *Transaction) SetIsEntrustByTime(b bool) {
+	tx.IsEntrustByTime = b
+}
 
 //YY
 func (tx *Transaction) GetTxV() *big.Int  { return tx.data.V }
