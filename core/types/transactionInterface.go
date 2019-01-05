@@ -1,3 +1,7 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package types
 
 import (
@@ -53,6 +57,8 @@ type SelfTransaction interface {
 	GetLocalHeight() uint32
 	GetIsEntrustGas() bool
 	GetIsEntrustByTime() bool
+	SetIsEntrustGas(b bool)
+	SetIsEntrustByTime(b bool)
 }
 
 func SetTransactionToMx(txer SelfTransaction) (txm *Transaction_Mx) {
