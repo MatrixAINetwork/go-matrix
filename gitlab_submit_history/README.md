@@ -2130,3 +2130,4 @@ TxdataAddresToString增加to为空判断;tx的Marshal增加扩展字段	(Author:
 modify map	(Author: sunanxiang)
 modify time	(Author: sunanxiang)
 Merge branch 'master' into master_nodeId	(Author: sunanxiang)
+add log	(Author: sunanxiang)
