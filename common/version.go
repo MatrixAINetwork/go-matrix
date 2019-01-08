@@ -149,5 +149,12 @@ var (
 				"modify deposit: delete old signature address, reset account after withdraw and refund",
 			},
 		},
+		{
+			Version:   "Gman_Alg_0.0.18",
+			Submitter: "Ryan",
+			Commit: []string{
+				"fix peer bug after change identity, fix change nodeId bug",
+			},
+		},
 	}
 )
