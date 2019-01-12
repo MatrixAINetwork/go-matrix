@@ -12,7 +12,6 @@ import (
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 )
 
@@ -154,14 +153,6 @@ func (md *MtxDPOS) verifyHashWithSuperNodes(hash common.Hash, signatures []commo
 	return verifiedSigh
 }
 
-func (md *MtxDPOS) getBroadcastInterval(reader consensus.StateReader, blockHash common.Hash) (*manparams.BCInterval, error) {
-	data, err := reader.GetBroadcastInterval(blockHash)
-	if err != nil {
-		return nil, errors.Errorf("get broadcast interval from reader err(%v)", err)
-	}
-	return manparams.NewBCIntervalWithInterval(data)
-}
-
 func (md *MtxDPOS) VerifyBlock(reader consensus.StateReader, header *types.Header) error {
 	if nil == header {
 		return errors.New("header is nil")
@@ -175,9 +166,9 @@ func (md *MtxDPOS) VerifyBlock(reader consensus.StateReader, header *types.Heade
 		return md.CheckSuperBlock(reader, header)
 	}
 
-	bcInterval, err := md.getBroadcastInterval(reader, header.ParentHash)
+	bcInterval, err := reader.GetBroadcastIntervalByHash(header.ParentHash)
 	if err != nil {
-		return err
+		return errors.Errorf("get broadcast interval from reader err: %v", err)
 	}
 
 	number := header.Number.Uint64()
@@ -402,18 +393,20 @@ func (md *MtxDPOS) verifyBroadcastBlock(reader consensus.StateReader, header *ty
 	if from != header.Leader {
 		return errors.Errorf("broadcast block's sign account(%s) is not block leader(%s)", from.Hex(), header.Leader.Hex())
 	}
-
-	broadcast, err := reader.GetBroadcastAccount(header.ParentHash)
-	if err != nil || broadcast == (common.Address{}) {
-		return errors.Errorf("get broadcast account from state err(%s)", err)
-	}
-	if broadcast != from {
-		return errBroadcastVerifySign
-	}
 	if result == false {
 		return errBroadcastVerifySignFalse
 	}
-	return nil
+
+	broadcasts, err := reader.GetBroadcastAccounts(header.ParentHash)
+	if err != nil || len(broadcasts) == 0 {
+		return errors.Errorf("get broadcast account from state err(%s)", err)
+	}
+	for _, bc := range broadcasts {
+		if from == bc {
+			return nil
+		}
+	}
+	return errBroadcastVerifySign
 }
 
 func (md *MtxDPOS) getValidatorStocks(reader consensus.StateReader, hash common.Hash) (map[common.Address]uint16, error) {
