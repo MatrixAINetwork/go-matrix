@@ -2141,3 +2141,4 @@ Merge branch 'master_check_0109' of gitlab.matrix.com:matrix/go-matrix into mast
 勇哥修改抵押，按角色判断抵押	(Author: 叶营)
 增加惩罚的处理	(Author: 叶营)
 1.增加广播节点热备 2.状态树版本兼容调整 3.交易码判断错误bug修复	(Author: 叶营)
+uptime一直累加	(Author: 叶营)
