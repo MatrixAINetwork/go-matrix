@@ -22,7 +22,7 @@ func (p *Process) genElection(state *state.StateDB) []common.Elect {
 	return p.reElection().TransferToElectionStu(info)
 }
 
-func (p *Process) getNetTopology(num uint64, parentHash common.Hash, bcInterval *manparams.BCInterval) (*common.NetTopology, []*mc.HD_OnlineConsensusVoteResultMsg) {
+func (p *Process) getNetTopology(num uint64, parentHash common.Hash, bcInterval *mc.BCIntervalInfo) (*common.NetTopology, []*mc.HD_OnlineConsensusVoteResultMsg) {
 	if bcInterval.IsReElectionNumber(num + 1) {
 		return p.genAllNetTopology(parentHash)
 	}
@@ -41,31 +41,21 @@ func (p *Process) genAllNetTopology(parentHash common.Hash) (*common.NetTopology
 }
 
 func (p *Process) genChgNetTopology(parentHash common.Hash) (*common.NetTopology, []*mc.HD_OnlineConsensusVoteResultMsg) {
-	state, err := p.blockChain().GetStateByHash(parentHash)
+	state, err := p.blockChain().StateAtBlockHash(parentHash)
 	if err != nil {
 		log.Warn(p.logExtraInfo(), "生成拓扑变化", "获取父状态树失败", "err", err)
 		return nil, nil
 	}
 
-	topoData, err := matrixstate.GetDataByState(mc.MSKeyTopologyGraph, state)
-	if err != nil {
+	topology, err := matrixstate.GetTopologyGraph(state)
+	if err != nil || topology == nil {
 		log.Warn(p.logExtraInfo(), "生成拓扑变化", "状态树获取拓扑图失败", "err", err)
 		return nil, nil
 	}
-	topology, OK := topoData.(*mc.TopologyGraph)
-	if OK == false || topology == nil {
-		log.Warn(p.logExtraInfo(), "生成拓扑变化", "拓扑图数据反射失败")
-		return nil, nil
-	}
 
-	electStateData, err := matrixstate.GetDataByState(mc.MSKeyElectOnlineState, state)
-	if err != nil {
+	electState, err := matrixstate.GetElectOnlineState(state)
+	if err != nil || electState == nil {
 		log.Warn(p.logExtraInfo(), "生成拓扑变化", "状态树获取elect在线状态失败", "err", err)
-		return nil, nil
-	}
-	electState, OK := electStateData.(*mc.ElectOnlineStatus)
-	if OK == false || topology == nil {
-		log.Warn(p.logExtraInfo(), "生成拓扑变化", "elect在线状态数据反射失败")
 		return nil, nil
 	}
 
