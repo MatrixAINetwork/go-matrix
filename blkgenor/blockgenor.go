@@ -8,7 +8,6 @@ import (
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type BlockGenor struct {
@@ -161,17 +160,18 @@ func (self *BlockGenor) update() {
 
 func (self *BlockGenor) roleUpdatedMsgHandle(roleMsg *mc.RoleUpdatedMsg) error {
 	log.INFO(self.logExtraInfo(), "CA身份消息处理", "开始", "高度", roleMsg.BlockNum, "角色", roleMsg.Role.String(), "block hash", roleMsg.BlockHash.TerminalString())
-	bcInterval, err := manparams.NewBCIntervalByHash(roleMsg.BlockHash)
+	bcInterval, err := self.man.BlockChain().GetBroadcastIntervalByHash(roleMsg.BlockHash)
 	if err != nil {
 		log.Error(self.logExtraInfo(), "CA身份消息处理", "获取广播周期信息by hash 失败", "err", err)
 		return err
 	}
 
+	role := roleMsg.Role
 	curNumber := roleMsg.BlockNum + 1
 	self.pm.SetCurNumber(curNumber, roleMsg.IsSuperBlock)
-	if roleMsg.Role == common.RoleValidator || roleMsg.Role == common.RoleBroadcast {
+	if role == common.RoleValidator || role == common.RoleBroadcast {
 		curProcess := self.pm.GetCurrentProcess()
-		curProcess.StartRunning(roleMsg.Role, bcInterval)
+		curProcess.StartRunning(role, bcInterval)
 	}
 
 	return nil
@@ -232,7 +232,7 @@ func (self *BlockGenor) minerResultHandle(minerResult *mc.HD_MiningRspMsg) {
 
 func (self *BlockGenor) broadcastMinerResultHandle(result *mc.HD_BroadcastMiningRspMsg) {
 	number := result.BlockMainData.Header.Number.Uint64()
-	log.INFO(self.logExtraInfo(), "广播矿工挖矿结果消息处理", "开始", "高度", number, "交易数量", result.BlockMainData.Txs.Len())
+	log.INFO(self.logExtraInfo(), "广播矿工挖矿结果消息处理", "开始", "高度", number, "交易数量", result.BlockMainData.Txs.Len(), "from", result.From.Hex())
 	defer log.Debug(self.logExtraInfo(), "广播矿工挖矿结果消息处理", "结束", "高度", number)
 
 	process, err := self.pm.GetProcess(number)
@@ -318,6 +318,7 @@ func (self *BlockGenor) handleNewBlockRspMsg(rsp *mc.HD_FullBlockRspMsg) {
 	}
 
 	number := rsp.Header.Number.Uint64()
+
 	log.INFO(self.logExtraInfo(), "完整区块响应消息", "开始", "高度", number)
 	defer log.Debug(self.logExtraInfo(), "完整区块响应消息", "结束", "高度", number)
 	process, err := self.pm.GetProcess(number)
