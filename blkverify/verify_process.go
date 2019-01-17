@@ -410,9 +410,7 @@ func (p *Process) processReqOnce() {
 		return
 	}
 
-	//todo Version
 	//verify Version
-
 	if err := p.blockChain().DPOSEngine().VerifyVersion(p.blockChain(), p.curProcessReq.req.Header); err != nil {
 		log.ERROR(p.logExtraInfo(), "验证版本号失败", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
@@ -438,7 +436,7 @@ func (p *Process) startTxsVerify() {
 
 	p.changeState(StateTxsVerify)
 
-	txsCodeSize := len(p.curProcessReq.req.TxsCode)
+	txsCodeSize := p.curProcessReq.req.TxsCodeCount()
 	if txsCodeSize == 0 || txsCodeSize == len(p.curProcessReq.originalTxs) {
 		// 交易为空，或者已经得到全交易，跳过交易获取
 		log.Info(p.logExtraInfo(), "无需获取交易", "直接进入交易及状态验证", "txsCode size", txsCodeSize, "txs size", len(p.curProcessReq.originalTxs))
@@ -447,7 +445,7 @@ func (p *Process) startTxsVerify() {
 		// 开启交易获
 		p.txsAcquireSeq++
 		leader := p.curProcessReq.req.Header.Leader
-		log.INFO(p.logExtraInfo(), "开始交易获取,seq", p.txsAcquireSeq, "数量", len(p.curProcessReq.req.TxsCode), "leader", leader.Hex(), "高度", p.number)
+		log.INFO(p.logExtraInfo(), "开始交易获取,seq", p.txsAcquireSeq, "数量", p.curProcessReq.req.TxsCodeCount(), "leader", leader.Hex(), "高度", p.number)
 		txAcquireCh := make(chan *core.RetChan, 1)
 		go p.txPool().ReturnAllTxsByN(p.curProcessReq.req.TxsCode, p.txsAcquireSeq, leader, txAcquireCh)
 		go p.processTxsAcquire(txAcquireCh, p.txsAcquireSeq)
@@ -531,12 +529,20 @@ func (p *Process) verifyTxsAndState() {
 		return
 	}
 
+	// process state version
+	err = p.blockChain().ProcessStateVersion(p.curProcessReq.req.Header.Version, work.State)
+	if err != nil {
+		log.ERROR(p.logExtraInfo(), "状态树验证,错误", "运行状态树版本更新失败", "err", err)
+		p.startDPOSVerify(localVerifyResultStateFailed)
+		return
+	}
+
 	uptimeMap, err := p.blockChain().ProcessUpTime(work.State, localHeader)
 	if err != nil {
 		log.Error(p.logExtraInfo(), "uptime处理错误", err)
 		return
 	}
-	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.originalTxs, p.pm.bc, uptimeMap)
+	err = work.ConsensusTransactions(p.pm.event, p.curProcessReq.originalTxs, uptimeMap)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "交易验证，共识执行交易出错!", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultStateFailed)
@@ -763,7 +769,7 @@ func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }
 
 func (p *Process) blockChain() *core.BlockChain { return p.pm.bc }
 
-func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //YYY
+func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //Y
 
 func (p *Process) reElection() *reelection.ReElection { return p.pm.reElection }
 

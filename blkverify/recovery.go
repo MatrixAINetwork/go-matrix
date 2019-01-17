@@ -1,3 +1,7 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package blkverify
 
 import (
@@ -105,8 +109,8 @@ func readVerifiedBlocksFromDB(db mandb.Database) (blocks []verifiedBlock, err er
 			log.Info("verified block recovery", "req data illegal", "hash not match", "pos", pos, "data hash", req.Header.HashNoSignsAndNonce().TerminalString(), "index hash", hash.TerminalString())
 			continue
 		}
-		if len(req.TxsCode) != len(txs) {
-			log.Info("verified block recovery", "req data illegal", "txs size not match", "pos", pos, "txsCode size", len(req.TxsCode), "txs size", len(txs), "hash", hash.TerminalString())
+		if req.TxsCodeCount() != len(txs) {
+			log.Info("verified block recovery", "req data illegal", "txs size not match", "pos", pos, "txsCode size", req.TxsCodeCount(), "txs size", len(txs), "hash", hash.TerminalString())
 			continue
 		}
 
@@ -154,7 +158,8 @@ func encodeVerifiedBlock(req *mc.HD_BlkConsensusReqMsg, txs types.SelfTransactio
 		return nil, errors.New("req msg is nil")
 	}
 
-	if len(req.TxsCode) != txs.Len() {
+	txSize := txs.Len()
+	if req.TxsCodeCount() != txs.Len() {
 		return nil, errors.New("txs count is not match txCodes count")
 	}
 
@@ -163,7 +168,6 @@ func encodeVerifiedBlock(req *mc.HD_BlkConsensusReqMsg, txs types.SelfTransactio
 		return nil, errors.Errorf("req msg json.Marshal failed: %s", err)
 	}
 
-	txSize := txs.Len()
 	marshalTxs := make([]*types.Transaction_Mx, txSize)
 	for i := 0; i < txSize; i++ {
 		tx := txs[i]
