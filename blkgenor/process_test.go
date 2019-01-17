@@ -155,7 +155,7 @@ func toBLock(g *core.Genesis, db mandb.Database) *types.Block {
 		Version:           []byte(g.Version),
 		VersionSignatures: g.VersionSignatures,
 		VrfValue:          g.VrfValue,
-		Elect:             g.Elect,
+		Elect:             g.NextElect,
 		NetTopology:       g.NetTopology,
 		Signatures:        g.Signatures,
 		Leader:            g.Leader,
