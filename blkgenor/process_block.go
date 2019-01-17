@@ -153,11 +153,16 @@ func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types
 		return nil, nil, nil, errors.Errorf("创建worker错误(%v)", err)
 	}
 
+	err = p.blockChain().ProcessStateVersion(header.Version, work.State)
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("ProcessStateVersion err(%v)", err)
+	}
+
 	uptimeMap, err := p.blockChain().ProcessUpTime(work.State, localHeader)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf("执行uptime错误(%v)", err)
 	}
-	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, p.pm.bc, uptimeMap)
+	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, uptimeMap)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf("执行交易错误(%v)", err)
 	}
@@ -289,6 +294,7 @@ func (p *Process) dealMinerResultVerifyCommon(leader common.Address) {
 		//}
 	}
 	p.stopMinerPikerTimer()
+	p.closeConsensusReqSender()
 	readyMsg := &mc.NewBlockReadyMsg{
 		Header: blockData.block.Header,
 		State:  blockData.block.State.Copy(),
