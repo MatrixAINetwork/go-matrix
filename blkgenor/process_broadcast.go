@@ -12,8 +12,16 @@ import (
 )
 
 func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
+	if result == nil || result.BlockMainData == nil || result.BlockMainData.Header == nil {
+		log.Warn(p.logExtraInfo(), "广播区块挖矿结果", "消息为nil")
+		return
+	}
+	if result.From != result.BlockMainData.Header.Leader {
+		log.Info(p.logExtraInfo(), "广播区块挖矿结果", "消息from != 消息leader", "leader", result.BlockMainData.Header.Leader.Hex(), "from", result.From.Hex())
+		return
+	}
 	if p.preVerifyBroadcastMinerResult(result.BlockMainData) == false {
-		log.WARN(p.logExtraInfo(), "预验证广播区块挖矿结果错误", "抛弃该消息")
+		log.WARN(p.logExtraInfo(), "广播区块挖矿结果", "预验证事变, 抛弃该消息")
 		return
 	}
 
@@ -22,8 +30,7 @@ func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
 
 	// 缓存广播区块挖矿结果
 	log.INFO(p.logExtraInfo(), "缓存广播区块挖矿结果成功，高度", p.number)
-	p.broadcastRstCache = append(p.broadcastRstCache, result.BlockMainData)
-
+	p.broadcastRstCache[result.From] = result.BlockMainData
 	p.processMinerResultVerify(p.curLeader, true)
 }
 
@@ -59,8 +66,13 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 			continue
 		}
 
+		// 运行版本更新检查
+		if err := p.blockChain().ProcessStateVersion(result.Header.Version, work.State); err != nil {
+			log.ERROR(p.logExtraInfo(), "广播挖矿结果验证, 版本更新检查失败", err)
+			continue
+		}
 		//执行交易
-		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), result.Txs, p.pm.bc)
+		work.ProcessBroadcastTransactions(p.pm.matrix.EventMux(), result.Txs)
 		retTxs := work.GetTxs()
 		// 运行matrix状态树
 		block := types.NewBlock(result.Header, retTxs, nil, work.Receipts)
@@ -93,11 +105,11 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 			Header: result.Header,
 			State:  work.State.Copy(),
 		}
-		log.INFO(p.logExtraInfo(), "广播区块验证完成", "发送新区块准备完毕消息", "高度", p.number)
+		log.INFO(p.logExtraInfo(), "广播区块验证完成", "发送新区块准备完毕消息", "高度", p.number, "leader", result.Header.Leader.Hex())
 		mc.PublishEvent(mc.BlockGenor_NewBlockReady, readyMsg)
 
 		p.changeState(StateBlockInsert)
-		p.processBlockInsert(p.curLeader)
+		p.processBlockInsert(result.Header.Leader)
 		return
 	}
 }

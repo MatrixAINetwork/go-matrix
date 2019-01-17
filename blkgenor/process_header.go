@@ -303,6 +303,11 @@ func (p *Process) genHeaderTxs(header *types.Header) (*types.Block, []*common.Re
 	//broadcast txs deal,remove no validators txs
 
 	work, err := matrixwork.NewWork(p.blockChain().Config(), p.blockChain(), nil, header, p.pm.random)
+	err = p.blockChain().ProcessStateVersion(header.Version, work.State)
+	if err != nil {
+		log.ERROR(p.logExtraInfo(), "区块验证请求生成,交易部分", "运行状态树版本更新失败", "err", err)
+		return nil, nil, nil, nil, nil, err
+	}
 	upTimeMap, err := p.blockChain().ProcessUpTime(work.State, header)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "执行uptime错误", err, "高度", p.number)
@@ -321,7 +326,11 @@ func (p *Process) genBcHeaderTxs(header *types.Header) (*types.Block, *state.Sta
 		log.ERROR(p.logExtraInfo(), "NewWork!", err, "高度", p.number)
 		return nil, nil, nil, err
 	}
-
+	err = p.blockChain().ProcessStateVersion(header.Version, work.State)
+	if err != nil {
+		log.ERROR(p.logExtraInfo(), "广播区块验证请求生成,交易部分", "运行状态树版本更新失败", "err", err)
+		return nil, nil, nil, err
+	}
 	mapTxs := p.pm.matrix.TxPool().GetAllSpecialTxs()
 	Txs := make([]types.SelfTransaction, 0)
 	for _, txs := range mapTxs {
@@ -376,7 +385,7 @@ func (p *Process) sendConsensusReqFunc(data interface{}, times uint32) {
 		log.ERROR(p.logExtraInfo(), "发出区块共识req", "反射消息失败", "次数", times)
 		return
 	}
-	log.INFO(p.logExtraInfo(), "!!!!网络发送区块验证请求, hash", req.Header.HashNoSignsAndNonce(), "tx数量", len(req.TxsCode), "次数", times)
+	log.INFO(p.logExtraInfo(), "!!!!网络发送区块验证请求, hash", req.Header.HashNoSignsAndNonce(), "tx数量", req.TxsCodeCount(), "次数", times)
 	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, req, common.RoleValidator, nil)
 }
 
