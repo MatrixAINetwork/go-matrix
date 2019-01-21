@@ -1,3 +1,6 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package btrie
 
 import (
@@ -560,7 +563,7 @@ func (n *bnode) Printree(level int) {
 	if n == nil {
 		return
 	}
-	fmt.Println("%sNODE:%v\n", strings.Repeat("  ", level), n.items)
+	//fmt.Println("%sNODE:%v\n", strings.Repeat("  ", level), n.items)
 	for _, c := range n.children {
 		c.Printree(level + 1)
 	}
