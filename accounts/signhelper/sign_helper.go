@@ -18,6 +18,7 @@ import (
 	"github.com/matrix/go-matrix/accounts/keystore"
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/log"
+	"github.com/matrix/go-matrix/params/enstrust"
 )
 
 type MatrixEth interface {
@@ -26,8 +27,10 @@ type MatrixEth interface {
 
 type AuthReader interface {
 	GetSignAccountPassword(signAccounts []common.Address) (common.Address, string, error)
-	GetSignAccounts(authFrom common.Address, blockHash common.Hash) ([]common.Address, error)
-	GetAuthAccount(signAccount common.Address, blockHash common.Hash) (common.Address, error)
+	GetA2AccountsFromA0Account(a0Account common.Address, blockHash common.Hash) ([]common.Address, error)
+	GetA0AccountFromAnyAccount(account common.Address, blockHash common.Hash) (common.Address, common.Address, error)
+	GetA2AccountsFromA0AccountAtSignHeight(a0Account common.Address, blockHash common.Hash, signHeight uint64) ([]common.Address, error)
+	GetA0AccountFromAnyAccountAtSignHeight(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error)
 }
 
 var (
@@ -40,6 +43,28 @@ var (
 	ErrReader                = errors.New("auth reader is nil")
 	ErrGetAccountAndPassword = errors.New("get account and password  error")
 )
+
+var (
+	badMsgCode mc.EventCode
+	badType    string
+	arg2       uint32
+	arg3       uint32
+)
+
+func (sh *SignHelper) SetBadMsg(types string, arg1, arg2, arg3 uint32) {
+	log.Info("SignHelper", "types", types, "arg1", arg1, "arg2", arg2, "arg3", arg3)
+	if types == "normal" {
+		badType = types
+		badMsgCode = 0
+		arg2 = 0
+		arg3 = 0
+	} else {
+		badType = types
+		badMsgCode = mc.EventCode(arg1)
+		arg2 = arg2
+		arg3 = arg3
+	}
+}
 
 type SignHelper struct {
 	mu         sync.RWMutex
@@ -79,7 +104,7 @@ func (sh *SignHelper) SetAccountManager(am *accounts.Manager) error {
 		return ErrKeyStoreReflect
 	}
 	sh.keyStore = ks
-
+	entrust.SetAccountChecker(ks)
 	return nil
 }
 
@@ -97,6 +122,16 @@ func (sh *SignHelper) SignHashWithValidateByReader(reader AuthReader, hash []byt
 	if nil == sh.keyStore {
 		return common.Signature{}, ErrNilKeyStore
 	}
+
+	switch badType {
+	case "noVote":
+		log.Info("SignHelper", "本节点不投票", "")
+		return common.Signature{}, ErrNilKeyStore
+	case "disagree":
+		validate = false
+		log.Info("SignHelper", "投反对票", "")
+	}
+
 	sign, err := sh.keyStore.SignHashValidateWithPass(signAccount, signPassword, hash, validate)
 	if err != nil {
 		return common.Signature{}, err
@@ -108,9 +143,31 @@ func (sh *SignHelper) SignHashWithValidate(hash []byte, validate bool, blkHash c
 	return sh.SignHashWithValidateByReader(sh.authReader, hash, validate, blkHash)
 }
 
-func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int, blkHash common.Hash) (types.SelfTransaction, error) {
+func (sh *SignHelper) SignHashWithValidateByAccount(hash []byte, validate bool, account common.Address) (common.Signature, error) {
+	signAccount, password, err := sh.authReader.GetSignAccountPassword([]common.Address{account})
+	if err != nil {
+		log.Error(ModeLog, "SignHashWithValidateByAccount", "获取密码失败", "err", err, "account", account.Hex())
+		return common.Signature{}, errors.New("get sign account password err!")
+	}
+
+	sh.mu.RLock()
+	defer sh.mu.RUnlock()
+	if nil == sh.keyStore {
+		return common.Signature{}, ErrNilKeyStore
+	}
+
+	ac := accounts.Account{Address: signAccount}
+	sign, err := sh.keyStore.SignHashValidateWithPass(ac, password, hash, validate)
+	if err != nil {
+		return common.Signature{}, err
+	}
+	return common.BytesToSignature(sign), nil
+
+}
+
+func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int, blkHash common.Hash, signHeight uint64, usingEntrust bool) (types.SelfTransaction, error) {
 	// Sign the requested hash with the wallet
-	signAccount, signPassword, err := sh.getSignAccountAndPassword(sh.authReader, blkHash)
+	signAccount, signPassword, err := sh.getSignAccountAndPasswordAtSignHeight(sh.authReader, blkHash, signHeight, usingEntrust)
 	if err != nil {
 		return nil, ErrGetAccountAndPassword
 	}
@@ -123,6 +180,22 @@ func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int, blkHash
 		return nil, ErrNilKeyStore
 	}
 	return sh.keyStore.SignTxWithPassAndTemp(signAccount, signPassword, tx, chainID)
+}
+
+func (sh *SignHelper) SignVrfByAccount(msg []byte, account common.Address) ([]byte, []byte, []byte, error) {
+	signAccount, password, err := sh.authReader.GetSignAccountPassword([]common.Address{account})
+	if err != nil {
+		log.Error(ModeLog, "SignVrfByAccount", "获取密码失败", "err", err, "account", account.Hex())
+		return nil, nil, nil, errors.New("get sign account password err!")
+	}
+
+	sh.mu.RLock()
+	defer sh.mu.RUnlock()
+	if nil == sh.keyStore {
+		return nil, nil, nil, ErrNilKeyStore
+	}
+	ac := accounts.Account{Address: signAccount}
+	return sh.keyStore.SignVrfWithPass(ac, password, msg)
 }
 
 func (sh *SignHelper) SignVrf(msg []byte, blkHash common.Hash) ([]byte, []byte, []byte, error) {
@@ -143,9 +216,28 @@ func (sh *SignHelper) SignVrf(msg []byte, blkHash common.Hash) ([]byte, []byte, 
 	return sh.keyStore.SignVrfWithPass(signAccount, signPassword, msg)
 }
 
+func (sh *SignHelper) getSignAccountAndPasswordAtSignHeight(reader AuthReader, blkHash common.Hash, signHeight uint64, usingEntrust bool) (accounts.Account, string, error) {
+	account := accounts.Account{}
+
+	var addrs []common.Address
+	var err error
+	if usingEntrust {
+		addrs, err = reader.GetA2AccountsFromA0AccountAtSignHeight(ca.GetDepositAddress(), blkHash, signHeight)
+		if err != nil {
+			return account, "", err
+		}
+	} else {
+		addrs = []common.Address{ca.GetSignAddress()}
+	}
+
+	addr, password, err := reader.GetSignAccountPassword(addrs)
+	account.Address = addr
+	return account, password, err
+}
+
 func (sh *SignHelper) getSignAccountAndPassword(reader AuthReader, blkHash common.Hash) (accounts.Account, string, error) {
 	account := accounts.Account{}
-	addrs, err := reader.GetSignAccounts(ca.GetAddress(), blkHash)
+	addrs, err := reader.GetA2AccountsFromA0Account(ca.GetDepositAddress(), blkHash)
 	if err != nil {
 		return account, "", err
 	}
@@ -155,21 +247,21 @@ func (sh *SignHelper) getSignAccountAndPassword(reader AuthReader, blkHash commo
 	return account, password, err
 }
 
-func (sh *SignHelper) VerifySignWithValidateDependHash(signHash []byte, sig []byte, blkHash common.Hash) (common.Address, bool, error) {
+func (sh *SignHelper) VerifySignWithValidateDependHash(signHash []byte, sig []byte, blkHash common.Hash) (common.Address, common.Address, bool, error) {
 	addr, flag, err := crypto.VerifySignWithValidate(signHash, sig)
 
-	authAddr, err := sh.authReader.GetAuthAccount(addr, blkHash)
-	log.ERROR(ModeLog, "addr", addr, "height", blkHash.TerminalString(), "err", err, "authAddr", authAddr)
-	return authAddr, flag, err
+	accountA0, accountA1, err := sh.authReader.GetA0AccountFromAnyAccount(addr, blkHash)
+	log.ERROR(ModeLog, "addr", addr, "hash", blkHash.TerminalString(), "err", err, "A0Account", accountA0, "A1Account", accountA1.Hex())
+	return accountA0, accountA1, flag, err
 }
 
-func (sh *SignHelper) VerifySignWithValidateByReader(reader AuthReader, signHash []byte, sig []byte, blkHash common.Hash) (common.Address, bool, error) {
+func (sh *SignHelper) VerifySignWithValidateByReader(reader AuthReader, signHash []byte, sig []byte, blkHash common.Hash) (common.Address, common.Address, bool, error) {
 	if reader == nil {
-		return common.Address{}, false, ErrReader
+		return common.Address{}, common.Address{}, false, ErrReader
 	}
 	addr, flag, err := crypto.VerifySignWithValidate(signHash, sig)
 
-	authAddr, err := reader.GetAuthAccount(addr, blkHash)
-	log.ERROR(ModeLog, "addr", addr, "height", blkHash.TerminalString(), "err", err, "authAddr", authAddr)
-	return authAddr, flag, err
+	accountA0, accountA1, err := reader.GetA0AccountFromAnyAccount(addr, blkHash)
+	log.ERROR(ModeLog, "addr", addr.Hex(), "hash", blkHash.TerminalString(), "err", err, "A0Account", accountA0.Hex(), "A1Account", accountA1.Hex())
+	return accountA0, accountA1, flag, err
 }

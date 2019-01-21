@@ -273,7 +273,7 @@ func (ks *KeyStore) SignTx(a accounts.Account, tx types.SelfTransaction, chainID
 	if !found {
 		return nil, ErrLocked
 	}
-	//YYY ==================begin======================
+	//Y ==================begin======================
 	// Depending on the presence of the chain ID, sign with EIP155 or homestead
 	//if chainID != nil {
 	//	return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
@@ -281,7 +281,7 @@ func (ks *KeyStore) SignTx(a accounts.Account, tx types.SelfTransaction, chainID
 	//return types.SignTx(tx, types.HomesteadSigner{}, unlockedKey.PrivateKey)
 
 	return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
-	//YYY===================end=======================
+	//Y===================end=======================
 }
 
 // SignHashWithPassphrase signs hash if the private key matching the given address
@@ -550,7 +550,7 @@ func (ks *KeyStore) ImportECDSA(priv *ecdsa.PrivateKey, passphrase string) (acco
 }
 
 func (ks *KeyStore) importKey(key *Key, passphrase string) (accounts.Account, error) {
-	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.storage.JoinPath(keyFileName(key.Address))}}
+	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.storage.JoinPath(key.ManAddress())}}
 	if err := ks.storage.StoreKey(a.URL.Path, key, passphrase); err != nil {
 		return accounts.Account{}, err
 	}
@@ -578,6 +578,15 @@ func (ks *KeyStore) ImportPreSaleKey(keyJSON []byte, passphrase string) (account
 	ks.cache.add(a)
 	ks.refreshWallets()
 	return a, nil
+}
+
+func (ks *KeyStore) CheckAccountAndPassword(a accounts.Account, passphrase string) error {
+	_, key, err := ks.getDecryptedKey(a, passphrase)
+	if err != nil {
+		return err
+	}
+	zeroKey(key.PrivateKey)
+	return nil
 }
 
 // zeroKey zeroes a private key in memory.
