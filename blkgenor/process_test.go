@@ -1,3 +1,6 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
@@ -133,7 +136,7 @@ func toBLock(g *core.Genesis, db mandb.Database) *types.Block {
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(common.MainAccount, addr, account.Balance)
 		///*******************************************************/
-		////hezi 应该是通过发特殊交易添加账户
+		////  应该是通过发特殊交易添加账户
 		//statedb.AddBalance(common.LockAccount,addr, account.Balance)
 		//statedb.AddBalance(common.EntrustAccount,addr, account.Balance)
 		//statedb.AddBalance(common.FreezeAccount,addr, account.Balance)

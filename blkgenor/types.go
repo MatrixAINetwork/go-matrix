@@ -18,30 +18,16 @@ import (
 )
 
 var (
-	TimeStampError          = errors.New("Timestamp Error")
-	NodeIDError             = errors.New("Node Error")
-	PosHeaderError          = errors.New("PosHeader Error")
 	MinerResultError        = errors.New("MinerResult Error")
-	MinerPosfail            = errors.New("MinerResult POS Fail")
-	AccountError            = errors.New("Acccount Error")
-	TxsError                = errors.New("txs Error")
-	NoWallets               = errors.New("No Wallets ")
-	NoAccount               = errors.New("No Account   ")
 	ParaNull                = errors.New("Para is null  ")
-	Noleader                = errors.New("not leader  ")
-	SignaturesError         = errors.New("Signatures Error")
-	FakeHeaderError         = errors.New("FakeHeader Error")
-	VoteResultError         = errors.New("VoteResultError Error")
-	HeightError             = errors.New("Height Error")
 	HaveNotOKResultError    = errors.New("have no satisfy miner result")
 	HaveNoGenBlockError     = errors.New("have no gen block data")
 	HashNoSignNotMatchError = errors.New("hash without sign not match")
-	maxUint256              = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 )
 
 type Backend interface {
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPoolManager //YYY
+	TxPool() *core.TxPoolManager //Y
 	EventMux() *event.TypeMux
 	SignHelper() *signhelper.SignHelper
 	HD() *msgsend.HD
@@ -49,6 +35,7 @@ type Backend interface {
 	FetcherNotify(hash common.Hash, number uint64, addr common.Address)
 	OLConsensus() *olconsensus.TopNodeService
 	Random() *baseinterface.Random
+	ManBlkDeal() *blkmanage.ManBlkManage
 }
 
 type VrfMsg struct {

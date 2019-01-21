@@ -8,7 +8,7 @@ import (
 
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/baseinterface"
-	"github.com/matrix/go-matrix/consensus"
+	"github.com/matrix/go-matrix/consensus/blkmanage"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/msgsend"
@@ -25,12 +25,11 @@ type ProcessManage struct {
 	hd          *msgsend.HD
 	signHelper  *signhelper.SignHelper
 	bc          *core.BlockChain
-	txPool      *core.TxPoolManager //YYY
+	txPool      *core.TxPoolManager //Y
 	reElection  *reelection.ReElection
-	engine      consensus.Engine
-	dposEngine  consensus.DPOSEngine
 	olConsensus *olconsensus.TopNodeService
 	random      *baseinterface.Random
+	manblk      *blkmanage.ManBlkManage
 }
 
 func NewProcessManage(matrix Backend) *ProcessManage {
@@ -43,10 +42,9 @@ func NewProcessManage(matrix Backend) *ProcessManage {
 		bc:          matrix.BlockChain(),
 		txPool:      matrix.TxPool(),
 		reElection:  matrix.ReElection(),
-		engine:      matrix.BlockChain().Engine(),
-		dposEngine:  matrix.BlockChain().DPOSEngine(),
 		olConsensus: matrix.OLConsensus(),
 		random:      matrix.Random(),
+		manblk:      matrix.ManBlkDeal(),
 	}
 }
 
