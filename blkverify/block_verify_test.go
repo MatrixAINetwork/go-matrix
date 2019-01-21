@@ -3,28 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
 
-import (
-	"crypto/ecdsa"
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/consensus/manash"
-	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/man"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
-	"github.com/matrix/go-matrix/pod"
-	"github.com/matrix/go-matrix/reelection"
-	"io/ioutil"
-	"math/big"
-	"path/filepath"
-	"testing"
-	"time"
-)
-
-func TestRoleUpdatedMsg(t *testing.T) {
+/*func TestRoleUpdatedMsg(t *testing.T) {
 	blkVerify, err := NewBlockVerify(nil)
 	if err != nil {
 		t.Fatalf("StartServer failed: %v\n", err)
@@ -354,3 +333,4 @@ func generateTestValidators(count int) ([]mc.TopologyNodeInfo, map[common.Addres
 
 	return validators, keys
 }
+*/

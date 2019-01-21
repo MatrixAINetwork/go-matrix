@@ -7,6 +7,7 @@ import (
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/consensus/blkmanage"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
@@ -19,12 +20,13 @@ import (
 type Matrix interface {
 	HD() *msgsend.HD
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPoolManager //YYY
+	TxPool() *core.TxPoolManager //Y
 	SignHelper() *signhelper.SignHelper
 	ReElection() *reelection.ReElection
 	EventMux() *event.TypeMux
 	Random() *baseinterface.Random
 	ChainDb() mandb.Database
+	ManBlkDeal() *blkmanage.ManBlkManage
 }
 
 type BlockVerify struct {
