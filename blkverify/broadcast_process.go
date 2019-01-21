@@ -9,7 +9,7 @@ import (
 )
 
 func (p *Process) startReqVerifyBC() {
-	if p.checkState(StateStart) == false && p.checkState(StateEnd) == false {
+	if p.checkState(StateStart) == false {
 		log.WARN(p.logExtraInfo(), "广播身份，开启启动阶段，状态错误", p.state.String(), "高度", p.number)
 		return
 	}
@@ -21,7 +21,7 @@ func (p *Process) startReqVerifyBC() {
 			continue
 		}
 		//verify dpos
-		if err := p.blockChain().DPOSEngine().VerifyBlock(p.blockChain(), req.req.Header); err != nil {
+		if err := p.blockChain().DPOSEngine(req.req.Header.Version).VerifyBlock(p.blockChain(), req.req.Header); err != nil {
 			log.WARN(p.logExtraInfo(), "广播身份，启动阶段, DPOS共识失败", err, "req leader", req.req.Header.Leader.Hex(), "高度", p.number)
 			req.localVerifyResult = localVerifyResultStateFailed
 			continue
@@ -58,25 +58,27 @@ func (p *Process) bcFinishedProcess(lvResult verifyResult) {
 		log.ERROR(p.logExtraInfo(), "req is processing now, process can't finish!", "broadcast role")
 		return
 	}
-	if lvResult == localVerifyResultStateFailed {
-		log.ERROR(p.logExtraInfo(), "local verify header err, but dpos pass! please check your state!", "broadcast role")
-		//todo 硬分叉了，以后加需要处理
+
+	if lvResult != localVerifyResultSuccess {
+		log.Error(p.logExtraInfo(), "广播节点验证请求失败", lvResult.String(), "高度", p.number, "req hash", p.curProcessReq.hash.Hex(), "req from", p.curProcessReq.req.From.Hex())
+		log.Info(p.logExtraInfo(), "广播节点", "重启process流程")
+		p.curProcessReq = nil
+		p.state = StateStart
+		p.startReqVerifyBC()
 		return
 	}
 
-	if lvResult == localVerifyResultSuccess {
-		// notify block genor server the result
-		result := mc.BlockLocalVerifyOK{
-			Header:      p.curProcessReq.req.Header,
-			BlockHash:   p.curProcessReq.hash,
-			OriginalTxs: p.curProcessReq.originalTxs,
-			FinalTxs:    p.curProcessReq.finalTxs,
-			Receipts:    p.curProcessReq.receipts,
-			State:       p.curProcessReq.stateDB,
-		}
-		log.INFO(p.logExtraInfo(), "广播身份", "请求验证完成, 发出区块共识结果消息", "高度", p.number, "block hash", result.BlockHash.TerminalString())
-		mc.PublishEvent(mc.BlkVerify_VerifyConsensusOK, &result)
+	// notify block genor server the result
+	result := mc.BlockLocalVerifyOK{
+		Header:      p.curProcessReq.req.Header,
+		BlockHash:   p.curProcessReq.hash,
+		OriginalTxs: p.curProcessReq.originalTxs,
+		FinalTxs:    p.curProcessReq.finalTxs,
+		Receipts:    p.curProcessReq.receipts,
+		State:       p.curProcessReq.stateDB,
 	}
+	log.INFO(p.logExtraInfo(), "广播身份", "请求验证完成, 发出区块共识结果消息", "高度", p.number, "block hash", result.BlockHash.TerminalString())
+	mc.PublishEvent(mc.BlkVerify_VerifyConsensusOK, &result)
 
 	p.state = StateEnd
 }
