@@ -18,7 +18,7 @@ var (
 //func(self *vrfWithHash) computeVrf(sk *ecdsa.PrivateKey,prevVrf []byte) ([]byte, []byte, error) {
 type VrfInterface interface {
 	ComputeVrf(*ecdsa.PrivateKey, []byte) ([]byte, []byte, error)
-	VerifyVrf(*types.Header, *types.Header, common.Address) error
+	DecodeVrf(header *types.Header, preHeader *types.Header) (common.Address, error)
 	GetVrfInfoFromHeader([]byte) ([]byte, []byte, []byte)
 	GetHeaderVrf([]byte, []byte, []byte) []byte
 }
