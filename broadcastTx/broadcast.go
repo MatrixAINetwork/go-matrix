@@ -10,6 +10,8 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/matrix/go-matrix/ca"
+	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/internal/manapi"
@@ -49,7 +51,7 @@ func (bc *BroadCast) Start() {
 func (bc *BroadCast) Stop() {
 	bc.broadCastSub.Unsubscribe()
 	bc.wg.Wait()
-	log.Info("BroadCast Server stopped.--YY")
+	log.Info("BroadCast Server stopped.")
 }
 
 func (bc *BroadCast) loop() {
@@ -64,9 +66,10 @@ func (bc *BroadCast) loop() {
 	}
 }
 
-//YY 广播交易的接口
+// 广播交易的接口
 func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte) error {
-	currBlockHeight := bc.manBackend.CurrentBlock().Number()
+	currBlock := bc.manBackend.CurrentBlock()
+	currBlockHeight := currBlock.Number()
 	//TODO sunchunfeng test
 	if h.Cmp(currBlockHeight) < 0 {
 		log.Info("===Send BroadCastTx===", "block height less than 100")
@@ -76,7 +79,11 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 	if t == mc.CallTheRoll {
 		bType = true
 	}
-	bcInterval := manparams.NewBCInterval()
+
+	bcInterval, err := manparams.GetBCIntervalInfoByNumber(currBlockHeight.Uint64())
+	if err != nil || bcInterval == nil {
+		log.Info("===Send BroadCastTx===", "get broadcast interval err", err)
+	}
 	h.Quo(h, big.NewInt(int64(bcInterval.GetBroadcastInterval())))
 	t += h.String()
 	tmpData := make(map[string][]byte)
@@ -90,7 +97,8 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 		chainID = config.ChainId
 	}
 	t1 := time.Now()
-	signed, err := bc.manBackend.SignTx(tx, chainID)
+	usingEntrust := ca.GetRole() != common.RoleBroadcast
+	signed, err := bc.manBackend.SignTx(tx, chainID, currBlock.ParentHash(), bcInterval.GetNextBroadcastNumber(currBlockHeight.Uint64()), usingEntrust)
 	if err != nil {
 		log.Info("file broadcast", "sendBroadCastTransaction:SignTx=", err)
 		return err
@@ -99,6 +107,6 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 	err1 := bc.manBackend.SendBroadTx(context.Background(), signed, bType)
 	t3 := time.Since(t1)
 	log.Info("File BroadCast", "func sendBroadCastTransaction:t2", t2, "t3", t3)
-	log.Info("=========YY=========", "sendBroadCastTransaction:Return=", err1)
+	log.Info("==================", "sendBroadCastTransaction:Return=", err1)
 	return nil
 }
