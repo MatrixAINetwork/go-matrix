@@ -393,7 +393,7 @@ type callmsg struct {
 }
 
 func (m callmsg) From() common.Address { return m.CallMsg.From }
-func (m callmsg) Nonce() uint64        { return 0 | params.NonceAddOne } //YY
+func (m callmsg) Nonce() uint64        { return 0 | params.NonceAddOne } //
 func (m callmsg) CheckNonce() bool     { return false }
 func (m callmsg) To() *common.Address  { return m.CallMsg.To }
 func (m callmsg) GasPrice() *big.Int   { return m.CallMsg.GasPrice }

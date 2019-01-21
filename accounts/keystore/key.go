@@ -32,11 +32,15 @@ const (
 type Key struct {
 	Id uuid.UUID // Version 4 "random" for unique id not derived from key data
 	// to simplify lookups we also store the address
-	Address    common.Address
-	ManAddress string //hezi
+	Address common.Address
+	//	ManAddress string //
 	// we only store privkey as pubkey/address can be derived from it
 	// privkey in this struct is always in plaintext
 	PrivateKey *ecdsa.PrivateKey
+}
+
+func (key *Key) ManAddress() string {
+	return base58.Base58EncodeToString("MAN", key.Address)
 }
 
 type keyStore interface {
@@ -162,11 +166,11 @@ func storeNewKey(ks keyStore, rand io.Reader, auth string) (*Key, accounts.Accou
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}
-	//hezi 由common.Address转为base58编码后的string
+	//  由common.Address转为base58编码后的string
 	//key.ManAddress = base58.Encode([]byte(fmt.Sprintf("%x",key.Address)))
-	key.ManAddress = base58.Base58EncodeToString("MAN", key.Address)
+	//	key.ManAddress = base58.Base58EncodeToString("MAN", key.Address)
 	//log.Info("=========test","key.address:",fmt.Sprintf("%x",key.Address))
-	a := accounts.Account{Address: key.Address, ManAddress: key.ManAddress, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(MankeyFileName(key.ManAddress))}}
+	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(MankeyFileName(key.ManAddress()))}}
 	//a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(keyFileName(key.Address))}}
 	if err := ks.StoreKey(a.URL.Path, key, auth); err != nil {
 		zeroKey(key.PrivateKey)
@@ -204,7 +208,7 @@ func keyFileName(keyAddr common.Address) string {
 	return fmt.Sprintf("UTC--%s--%s", toISO8601(ts), hex.EncodeToString(keyAddr[:]))
 }
 
-//hezi
+//
 func MankeyFileName(keyAddr string) string {
 	ts := time.Now().UTC()
 	return fmt.Sprintf("UTC--%s--%s", toISO8601(ts), keyAddr)
