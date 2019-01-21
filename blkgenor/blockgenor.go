@@ -39,10 +39,7 @@ func New(man Backend) (*BlockGenor, error) {
 		log.Error("区块生成模块，传入的参数为空")
 		return nil, ParaNull
 	}
-	if nil == man.BlockChain().Engine() {
-		log.Error("区块生成模块，传入的共识引擎为空")
-		return nil, ParaNull
-	}
+
 	//if nil==manparams.ReElection(){
 	//	return nil,ParaNull
 	//}
