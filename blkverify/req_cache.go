@@ -10,59 +10,74 @@ import (
 	"github.com/matrix/go-matrix/mc"
 	"github.com/pkg/errors"
 
+	"github.com/matrix/go-matrix/core"
+	"github.com/matrix/go-matrix/log"
 	"sort"
 	"sync"
 )
 
-const otherReqCountMax = 20
+const reqCountMax = 5
+const fromCountLimit = 3
 
 var (
-	paramErr          = errors.New("param error")
-	leaderReqExistErr = errors.New("req from this leader already exist")
-	cantFindErr       = errors.New("can't find req in cache")
+	paramErr    = errors.New("param error")
+	reqExistErr = errors.New("req already exist")
+	cantFindErr = errors.New("can't find req in cache")
+)
+
+type reqType uint8
+
+const (
+	reqTypeLocalReq   reqType = iota // 本地的请求
+	reqTypeLeaderReq                 // leader = from 的请求
+	reqTypeOtherReq                  // leader != from 的请求
+	reqTypeUnknownReq                // 尚未验证from的req
+	reqTypeFromBadReq                // 无法获取A0账户的req
 )
 
 type reqData struct {
+	reqType           reqType
 	req               *mc.HD_BlkConsensusReqMsg
 	hash              common.Hash
 	originalTxs       types.SelfTransactions
 	finalTxs          types.SelfTransactions
 	receipts          []*types.Receipt
 	stateDB           *state.StateDB
-	localReq          bool
 	localVerifyResult verifyResult
 	posFinished       bool
 	votes             []*common.VerifiedSign
 }
 
-func newReqData(req *mc.HD_BlkConsensusReqMsg, isDBRecovery bool) *reqData {
+func newReqData(req *mc.HD_BlkConsensusReqMsg, isDBRecovery bool, reqType reqType) *reqData {
 	data := &reqData{
+		reqType:           reqType,
 		req:               req,
 		hash:              req.Header.HashNoSignsAndNonce(),
 		originalTxs:       nil,
 		finalTxs:          nil,
 		receipts:          nil,
 		stateDB:           nil,
-		localReq:          false,
 		localVerifyResult: localVerifyResultProcessing,
 		posFinished:       false,
 		votes:             make([]*common.VerifiedSign, 0),
 	}
 	if isDBRecovery {
 		data.localVerifyResult = localVerifyResultDBRecovery
+		data.reqType = reqTypeLeaderReq
 	}
+
 	return data
 }
 
 func newReqDataByLocalReq(localReq *mc.LocalBlockVerifyConsensusReq) *reqData {
 	return &reqData{
+		reqType:           reqTypeLocalReq,
 		req:               localReq.BlkVerifyConsensusReq,
 		hash:              localReq.BlkVerifyConsensusReq.Header.HashNoSignsAndNonce(),
 		originalTxs:       localReq.OriginalTxs,
 		finalTxs:          localReq.FinalTxs,
 		receipts:          localReq.Receipts,
 		stateDB:           localReq.State,
-		localReq:          true,
 		localVerifyResult: localVerifyResultProcessing,
 		posFinished:       false,
 		votes:             make([]*common.VerifiedSign, 0),
@@ -105,24 +120,31 @@ func (rd *reqData) clearVotes() {
 }
 
 type reqCache struct {
-	mu             sync.RWMutex
-	curTurn        mc.ConsensusTurnInfo
-	leaderReqCache map[common.Address]*reqData //from = leader 的req
-	otherReqCache  []*reqData                  //from != leader 的req
-	otherReqLimit  int
+	mu            sync.RWMutex
+	curTurn       mc.ConsensusTurnInfo
+	reqCache      []*reqData
+	reqCountLimit int
+	fromLimit     int
+	blkChain      *core.BlockChain
 }
 
-func newReqCache() *reqCache {
+func newReqCache(chain *core.BlockChain) *reqCache {
 	return &reqCache{
-		curTurn:        mc.ConsensusTurnInfo{0, 0},
-		leaderReqCache: make(map[common.Address]*reqData),
-		otherReqCache:  make([]*reqData, 0),
-		otherReqLimit:  otherReqCountMax,
+		curTurn:       mc.ConsensusTurnInfo{PreConsensusTurn: 0, UsedReelectTurn: 0},
+		reqCache:      make([]*reqData, 0),
+		reqCountLimit: reqCountMax,
+		fromLimit:     fromCountLimit,
+		blkChain:      chain,
 	}
 }
 
 func (rc *reqCache) AddReq(req *mc.HD_BlkConsensusReqMsg, isDBRecovery bool) (*reqData, error) {
-	if nil == req {
+	if nil == req || nil == req.Header {
+		return nil, paramErr
+	}
+
+	if req.From == (common.Address{}) {
+		log.Error("blk consensus req cache", "req from err", "is empty address")
 		return nil, paramErr
 	}
 
@@ -133,24 +155,42 @@ func (rc *reqCache) AddReq(req *mc.HD_BlkConsensusReqMsg, isDBRecovery bool) (*r
 		return nil, errors.Errorf("区块请求消息的轮次高低,消息轮次(%s) < 本地轮次(%s)", req.ConsensusTurn.String(), rc.curTurn.String())
 	}
 
-	if req.Header.Leader == req.From {
-		oldReq, exit := rc.leaderReqCache[req.From]
-		if exit && oldReq.req.ConsensusTurn.Cmp(req.ConsensusTurn) >= 0 {
-			return nil, leaderReqExistErr
+	count := len(rc.reqCache)
+	fromSize := 0
+	for i := 0; i < count; i++ {
+		if rc.reqCache[i].req.From == req.From &&
+			rc.reqCache[i].req.Header.Leader == req.Header.Leader &&
+			rc.reqCache[i].req.ConsensusTurn == req.ConsensusTurn {
+			return nil, reqExistErr
 		}
-		reqData := newReqData(req, isDBRecovery)
-		rc.leaderReqCache[req.From] = reqData
-		return reqData, nil
+		if rc.reqCache[i].req.From == req.From {
+			fromSize++
+		}
+	}
+	if fromSize >= rc.fromLimit {
+		return nil, errors.Errorf("req from[%s] is too many(%d)", req.From.Hex(), fromSize)
 	}
 
-	//other req
-	reqData := newReqData(req, isDBRecovery)
-	count := len(rc.otherReqCache)
-	if count >= rc.otherReqLimit {
-		rc.otherReqCache = append(rc.otherReqCache[1:], reqData)
-	} else {
-		rc.otherReqCache = append(rc.otherReqCache, reqData)
+	reqType := reqTypeUnknownReq
+	if preBlk := rc.blkChain.GetBlockByHash(req.Header.ParentHash); preBlk != nil {
+		a0Account, _, err := rc.blkChain.GetA0AccountFromAnyAccount(req.From, req.Header.ParentHash)
+		if err != nil {
+			return nil, errors.Errorf("req from[%s] find a0 account err: %v", req.From.Hex(), err)
+		}
+		if a0Account == req.Header.Leader {
+			reqType = reqTypeLeaderReq
+		} else {
+			reqType = reqTypeOtherReq
+		}
 	}
+
+	reqData := newReqData(req, isDBRecovery, reqType)
+	if count >= rc.reqCountLimit {
+		rc.reqCache = append(rc.reqCache[:rc.reqCountLimit-1], reqData)
+	} else {
+		rc.reqCache = append(rc.reqCache, reqData)
+	}
+	delBadReqAndSort(rc.reqCache, false)
 	return reqData, nil
 }
 
@@ -162,7 +202,8 @@ func (rc *reqCache) AddLocalReq(req *mc.LocalBlockVerifyConsensusReq) (*reqData,
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 	reqData := newReqDataByLocalReq(req)
-	rc.leaderReqCache[req.BlkVerifyConsensusReq.Header.Leader] = reqData
+	rc.reqCache = append(rc.reqCache, reqData)
+	delBadReqAndSort(rc.reqCache, false)
 	return reqData, nil
 }
 
@@ -175,25 +216,51 @@ func (rc *reqCache) SetCurTurn(consensusTurn mc.ConsensusTurnInfo) {
 	}
 
 	rc.curTurn = consensusTurn
-	//fix leader req cache
-	deleteList := make([]common.Address, 0)
-	for key, req := range rc.leaderReqCache {
-		if req.req.ConsensusTurn.Cmp(rc.curTurn) < 0 {
-			deleteList = append(deleteList, key)
-		}
-	}
-	for _, delKey := range deleteList {
-		delete(rc.leaderReqCache, delKey)
-	}
-
-	//fix other req cache
+	//fix req cache
 	newCache := make([]*reqData, 0)
-	for _, req := range rc.otherReqCache {
-		if req.req.ConsensusTurn.Cmp(rc.curTurn) >= 0 {
-			newCache = append(newCache, req)
+	count := len(rc.reqCache)
+	for i := 0; i < count; i++ {
+		if rc.reqCache[i].req.ConsensusTurn.Cmp(rc.curTurn) >= 0 {
+			newCache = append(newCache, rc.reqCache[i])
 		}
 	}
-	rc.otherReqCache = newCache
+	rc.reqCache = newCache
+}
+
+func (rc *reqCache) CheckUnknownReq() {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	count := len(rc.reqCache)
+	update := false
+	for i := 0; i < count; i++ {
+		if rc.reqCache[i].reqType != reqTypeUnknownReq {
+			continue
+		}
+
+		req := rc.reqCache[i].req
+		block := rc.blkChain.GetBlockByHash(req.Header.ParentHash)
+		if block == nil {
+			// 还没有父区块，无法验证
+			continue
+		}
+
+		a0Account, _, err := rc.blkChain.GetA0AccountFromAnyAccount(req.From, req.Header.ParentHash)
+		if err != nil {
+			log.Debug("blk consensus req cache", "获取from的抵押账户失败", err, "from", req.From.Hex())
+			rc.reqCache[i].reqType = reqTypeFromBadReq
+		} else {
+			if a0Account == req.Header.Leader {
+				rc.reqCache[i].reqType = reqTypeLeaderReq
+			} else {
+				rc.reqCache[i].reqType = reqTypeOtherReq
+			}
+		}
+		update = true
+	}
+	if update {
+		delBadReqAndSort(rc.reqCache, true)
+	}
 }
 
 func (rc *reqCache) GetLeaderReq(leader common.Address, consensusTurn mc.ConsensusTurnInfo) (*reqData, error) {
@@ -203,16 +270,19 @@ func (rc *reqCache) GetLeaderReq(leader common.Address, consensusTurn mc.Consens
 
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	req, OK := rc.leaderReqCache[leader]
-	if !OK {
-		return nil, cantFindErr
+	count := len(rc.reqCache)
+	for i := 0; i < count; i++ {
+		req := rc.reqCache[i]
+		if req.reqType != reqTypeLeaderReq && req.reqType != reqTypeLocalReq {
+			// 请求不是leader的请求,忽略
+			continue
+		}
+		if req.req.Header.Leader == leader &&
+			req.req.ConsensusTurn == consensusTurn {
+			return req, nil
+		}
 	}
-
-	if req.req.ConsensusTurn != consensusTurn {
-		return nil, errors.Errorf("请求轮次不匹配,缓存(%s) != 目标(%s)", req.req.ConsensusTurn.String(), consensusTurn.String())
-	}
-
-	return req, nil
+	return nil, cantFindErr
 }
 
 func (rc *reqCache) GetLeaderReqByHash(hash common.Hash) (*reqData, error) {
@@ -222,14 +292,10 @@ func (rc *reqCache) GetLeaderReqByHash(hash common.Hash) (*reqData, error) {
 
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	for _, req := range rc.leaderReqCache {
-		if req.hash == hash {
-			return req, nil
-		}
-	}
-	for _, req := range rc.otherReqCache {
-		if req.hash == hash {
-			return req, nil
+	count := len(rc.reqCache)
+	for i := 0; i < count; i++ {
+		if rc.reqCache[i].hash == hash {
+			return rc.reqCache[i], nil
 		}
 	}
 	return nil, cantFindErr
@@ -238,15 +304,35 @@ func (rc *reqCache) GetLeaderReqByHash(hash common.Hash) (*reqData, error) {
 func (rc *reqCache) GetAllReq() []*reqData {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	result := make([]*reqData, 0, len(rc.leaderReqCache)+cap(rc.otherReqCache))
-	for _, req := range rc.leaderReqCache {
-		result = append(result, req)
-	}
-	result = append(result, rc.otherReqCache...)
+	return rc.reqCache[:]
+}
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].req.Header.Time.Cmp(result[j].req.Header.Time) > 0
+func delBadReqAndSort(cache []*reqData, del bool) []*reqData {
+	if len(cache) == 0 {
+		return make([]*reqData, 0)
+	}
+	sort.Slice(cache, func(i, j int) bool {
+		if cache[i].reqType == cache[j].reqType {
+			return cache[i].req.Header.Time.Cmp(cache[j].req.Header.Time) > 0
+		} else {
+			return cache[i].reqType < cache[j].reqType
+		}
 	})
 
-	return result
+	if del == false {
+		return cache
+	}
+
+	if cache[0].reqType == reqTypeFromBadReq {
+		return make([]*reqData, 0)
+	}
+
+	count := len(cache)
+	pos := count - 1
+	for ; pos > 0; pos-- {
+		if cache[pos].reqType != reqTypeFromBadReq {
+			break
+		}
+	}
+	return cache[:pos+1]
 }
