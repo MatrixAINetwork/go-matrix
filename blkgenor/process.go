@@ -205,34 +205,8 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 	}
 
 	header := blkInsertMsg.Header
-	if bcInterval.IsBroadcastNumber(p.number) {
-		signAccount, _, err := crypto.VerifySignWithValidate(header.HashNoSignsAndNonce().Bytes(), header.Signatures[0].Bytes())
-		if err != nil {
-			log.ERROR(p.logExtraInfo(), "广播区块插入消息非法, 签名解析错误", err)
-			return
-		}
-
-		if signAccount != header.Leader {
-			log.WARN(p.logExtraInfo(), "广播区块插入消息非法, 签名不匹配，签名人", signAccount.Hex(), "Leader", header.Leader.Hex())
-			return
-		}
-
-		if role, _ := ca.GetAccountOriginalRole(signAccount, p.preBlockHash); common.RoleBroadcast != role {
-			log.WARN(p.logExtraInfo(), "广播区块插入消息非法，签名人不是广播身份, 角色", role.String())
-			return
-		}
-		log.Info(p.logExtraInfo(), "开始插入", "广播区块")
-	} else {
-		if err := p.dposEngine().VerifyBlock(p.blockChain(), header); err != nil {
-			log.ERROR(p.logExtraInfo(), "区块插入消息DPOS共识失败", err)
-			return
-		}
-
-		if err := p.engine().VerifySeal(p.blockChain(), header); err != nil {
-			log.ERROR(p.logExtraInfo(), "区块插入消息POW验证失败", err)
-			return
-		}
-		log.Info(p.logExtraInfo(), "开始插入", "普通区块")
+	if false == p.canInsertBlock(bcInterval, header) {
+		return
 	}
 
 	if _, err := p.insertAndBcBlock(false, header.Leader, header); err != nil {
@@ -241,6 +215,40 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 	}
 
 	p.saveInsertedBlockHash(blockHash)
+}
+
+func (p *Process) canInsertBlock(bcInterval *mc.BCIntervalInfo, header *types.Header) bool {
+	if bcInterval.IsBroadcastNumber(p.number) {
+		signAccount, _, err := crypto.VerifySignWithValidate(header.HashNoSignsAndNonce().Bytes(), header.Signatures[0].Bytes())
+		if err != nil {
+			log.ERROR(p.logExtraInfo(), "广播区块插入消息非法, 签名解析错误", err)
+			return false
+		}
+
+		if signAccount != header.Leader {
+			log.WARN(p.logExtraInfo(), "广播区块插入消息非法, 签名不匹配，签名人", signAccount.Hex(), "Leader", header.Leader.Hex())
+			return false
+		}
+
+		if role, _ := ca.GetAccountOriginalRole(signAccount, p.preBlockHash); common.RoleBroadcast != role {
+			log.WARN(p.logExtraInfo(), "广播区块插入消息非法，签名人不是广播身份, 角色", role.String())
+			return false
+		}
+		log.Info(p.logExtraInfo(), "开始插入", "广播区块")
+	} else {
+		if err := p.blockChain().DPOSEngine(header.Version).VerifyBlock(p.blockChain(), header); err != nil {
+			log.ERROR(p.logExtraInfo(), "区块插入消息DPOS共识失败", err)
+			return false
+		}
+
+		if err := p.blockChain().Engine(header.Version).VerifySeal(p.blockChain(), header); err != nil {
+			log.ERROR(p.logExtraInfo(), "区块插入消息POW验证失败", err)
+			return false
+		}
+
+		log.Info(p.logExtraInfo(), "开始插入", "普通区块")
+	}
+	return true
 }
 
 func (p *Process) startBcBlock() {
@@ -344,8 +352,8 @@ func (p *Process) canGenHeader() bool {
 			return false
 		}
 
-		if p.curLeader != ca.GetAddress() {
-			log.INFO(p.logExtraInfo(), "自己不是当前leader，进入挖矿结果验证阶段, 高度", p.number, "地址", ca.GetAddress().Hex(), "leader", p.curLeader.Hex())
+		if p.curLeader != ca.GetDepositAddress() {
+			log.INFO(p.logExtraInfo(), "自己不是当前leader，进入挖矿结果验证阶段, 高度", p.number, "地址", ca.GetDepositAddress().Hex(), "leader", p.curLeader.Hex())
 			p.state = StateMinerResultVerify
 			p.processMinerResultVerify(p.curLeader, true)
 			return false
@@ -405,10 +413,6 @@ func (p *Process) logExtraInfo() string {
 }
 
 func (p *Process) blockChain() *core.BlockChain { return p.pm.bc }
-
-func (p *Process) engine() consensus.Engine { return p.pm.engine }
-
-func (p *Process) dposEngine() consensus.DPOSEngine { return p.pm.dposEngine }
 
 func (p *Process) txPool() *core.TxPoolManager { return p.pm.txPool } //Y
 

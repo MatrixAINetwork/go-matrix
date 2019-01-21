@@ -103,12 +103,12 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 		return
 	}
 
-	if err := p.pm.engine.VerifyHeader(p.pm.bc, rsp.Header, true); err != nil {
+	if err := p.pm.bc.Engine(rsp.Header.Version).VerifyHeader(p.pm.bc, rsp.Header, true); err != nil {
 		log.ERROR(p.logExtraInfo(), "处理完整区块响应", "POW验证未通过", "err", err, "高度", p.number)
 		return
 	}
 
-	if err := p.pm.dposEngine.VerifyBlock(p.pm.bc, rsp.Header); err != nil {
+	if err := p.pm.bc.DPOSEngine(rsp.Header.Version).VerifyBlock(p.pm.bc, rsp.Header); err != nil {
 		log.ERROR(p.logExtraInfo(), "处理完整区块响应", "POS验证未通过", "err", err, "高度", p.number)
 		return
 	}
@@ -148,7 +148,7 @@ func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types
 	localHeader := types.CopyHeader(header)
 	localHeader.GasUsed = 0
 
-	work, err := matrixwork.NewWork(p.blockChain().Config(), p.blockChain(), nil, localHeader, p.pm.random)
+	work, err := matrixwork.NewWork(p.blockChain().Config(), p.blockChain(), nil, localHeader)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf("创建worker错误(%v)", err)
 	}
@@ -161,6 +161,10 @@ func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types
 	uptimeMap, err := p.blockChain().ProcessUpTime(work.State, localHeader)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf("执行uptime错误(%v)", err)
+	}
+	err = p.blockChain().ProcessBlockGProduceSlash(work.State, localHeader)
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("执行区块生产惩罚错误(%v)", err)
 	}
 	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, uptimeMap)
 	if err != nil {
@@ -176,7 +180,7 @@ func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types
 	}
 
 	// 运行完matrix state后，生成root
-	block, err := p.blockChain().Engine().Finalize(p.blockChain(), localBlock.Header(), work.State, finalTxs, nil, work.Receipts)
+	block, err := p.blockChain().Engine(localBlock.Header().Version).Finalize(p.blockChain(), localBlock.Header(), work.State, finalTxs, nil, work.Receipts)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf("Failed to finalize block (%v)", err)
 	}
@@ -307,36 +311,8 @@ func (p *Process) dealMinerResultVerifyCommon(leader common.Address) {
 }
 
 func (p *Process) processBlockInsert(blockLeader common.Address) {
-	if p.state < StateBlockInsert {
-		log.WARN(p.logExtraInfo(), "准备进行区块插入，状态错误", p.state.String(), "高度", p.number)
+	if false == p.canGenBlock() {
 		return
-	}
-
-	if p.bcInterval == nil {
-		log.WARN(p.logExtraInfo(), "准备进行区块插入", "广播周期信息为nil")
-		return
-	}
-
-	if p.bcInterval.IsBroadcastNumber(p.number + 1) {
-		if p.role != common.RoleBroadcast {
-			log.WARN(p.logExtraInfo(), "准备进行区块插入，广播区块前一个区块，由广播节点插入", p.role.String(), "高度", p.number)
-			return
-		}
-	} else {
-		if p.role != common.RoleValidator {
-			log.WARN(p.logExtraInfo(), "准备进行区块插入，身份错误", "当前身份不是验证者", "高度", p.number, "身份", p.role.String())
-			return
-		}
-
-		if (p.nextLeader == common.Address{}) {
-			log.WARN(p.logExtraInfo(), "准备进行区块插入", "下个区块leader为空", "需要等待leader的高度", p.number+1)
-			return
-		}
-
-		if p.nextLeader != ca.GetAddress() {
-			log.Debug(p.logExtraInfo(), "准备进行区块广播,自己不是下个区块leader,高度", p.number, "next leader", p.nextLeader.Hex(), "self", ca.GetAddress())
-			return
-		}
 	}
 
 	log.INFO(p.logExtraInfo(), "区块插入", "开始", "高度", p.number)
@@ -348,6 +324,39 @@ func (p *Process) processBlockInsert(blockLeader common.Address) {
 	log.Info(p.logExtraInfo(), "关键时间点", "leader挂块成功", "time", time.Now(), "块高", p.number)
 	log.Debug(p.logExtraInfo(), "区块插入", "完成", "高度", p.number, "插入区块hash", hash.TerminalString())
 	p.state = StateEnd
+}
+
+func (p *Process) canGenBlock() bool {
+	if p.state < StateBlockInsert {
+		log.WARN(p.logExtraInfo(), "准备进行区块插入，状态错误", p.state.String(), "高度", p.number)
+		return false
+	}
+	if p.bcInterval == nil {
+		log.WARN(p.logExtraInfo(), "准备进行区块插入", "广播周期信息为nil")
+		return false
+	}
+	if p.bcInterval.IsBroadcastNumber(p.number + 1) {
+		if p.role != common.RoleBroadcast {
+			log.WARN(p.logExtraInfo(), "准备进行区块插入，广播区块前一个区块，由广播节点插入", p.role.String(), "高度", p.number)
+			return false
+		}
+	} else {
+		if p.role != common.RoleValidator {
+			log.WARN(p.logExtraInfo(), "准备进行区块插入，身份错误", "当前身份不是验证者", "高度", p.number, "身份", p.role.String())
+			return false
+		}
+
+		if (p.nextLeader == common.Address{}) {
+			log.WARN(p.logExtraInfo(), "准备进行区块插入", "下个区块leader为空", "需要等待leader的高度", p.number+1)
+			return false
+		}
+
+		if p.nextLeader != ca.GetDepositAddress() {
+			log.Debug(p.logExtraInfo(), "准备进行区块广播,自己不是下个区块leader,高度", p.number, "next leader", p.nextLeader.Hex(), "self", ca.GetDepositAddress().Hex())
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Process) pickSatisfyMinerResults(header *types.Header, results []*mc.HD_MiningRspMsg, innerMinerPick bool) (*mc.HD_MiningRspMsg, error) {
@@ -379,13 +388,13 @@ func (p *Process) verifyOneResult(rawHeader *types.Header, result *mc.HD_MiningR
 		return MinerResultError
 	}
 
-	if err := p.dposEngine().VerifyBlock(p.blockChain(), header); err != nil {
+	if err := p.blockChain().DPOSEngine(header.Version).VerifyBlock(p.blockChain(), header); err != nil {
 		log.WARN(p.logExtraInfo(), "挖矿结果DPOS共识失败", err)
 		return err
 	}
 
 	//todo 不是原始难度的结果，需要修改POW seal验证过程
-	if err := p.engine().VerifySeal(p.blockChain(), header); err != nil {
+	if err := p.blockChain().Engine(header.Version).VerifySeal(p.blockChain(), header); err != nil {
 		log.WARN(p.logExtraInfo(), "挖矿结果POW验证失败", err)
 		return err
 	}
