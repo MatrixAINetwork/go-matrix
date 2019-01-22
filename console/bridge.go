@@ -117,32 +117,27 @@ func (b *bridge) OpenWallet(call otto.FunctionCall) (response otto.Value) {
 func (b *bridge) GetUserPassword(call otto.FunctionCall) otto.Value {
 	var passwd otto.Value
 
-	if call.Argument(2).IsUndefined() || call.Argument(2).IsNull() {
+	if call.Argument(1).IsUndefined() || call.Argument(1).IsNull() {
 		if input, err := b.prompter.PromptPassword("Passphrase: "); err != nil {
 			throwJSException(err.Error())
 		} else {
 			passwd, _ = otto.ToValue(input)
 		}
 	} else {
-		if !call.Argument(2).IsString() {
+		if !call.Argument(1).IsString() {
 			throwJSException("password must be a string")
 		}
-		passwd = call.Argument(2)
+		passwd = call.Argument(1)
 	}
 	return passwd
 }
 
 func (b *bridge) SetEntrustSignAccount(call otto.FunctionCall) (response otto.Value) {
+	log.Info("修改需求测试", "bridge.go", "SetEntrustSignAccount")
+
 	path := call.Argument(0)
 	passwd := b.GetUserPassword(call)
-	duration := otto.NullValue()
-	if call.Argument(1).IsDefined() && !call.Argument(1).IsNull() {
-		if !call.Argument(1).IsNumber() {
-			throwJSException("duration must be a number")
-		}
-		duration = call.Argument(1)
-	}
-	val, err := call.Otto.Call("jman.setEntrustSignAccount", nil, path, passwd, duration)
+	val, err := call.Otto.Call("jman.setEntrustSignAccount", nil, path, passwd)
 	if err != nil {
 		throwJSException(err.Error())
 	}
