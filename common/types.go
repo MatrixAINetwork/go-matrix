@@ -17,6 +17,7 @@ import (
 
 	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/crypto/sha3"
+	"unicode"
 )
 
 const (
@@ -26,8 +27,9 @@ const (
 )
 
 var (
-	hashT    = reflect.TypeOf(Hash{})
-	addressT = reflect.TypeOf(Address{})
+	hashT      = reflect.TypeOf(Hash{})
+	addressT   = reflect.TypeOf(Address{})
+	signatureT = reflect.TypeOf(Signature{})
 )
 
 const (
@@ -43,7 +45,7 @@ var LastAccount uint32 = EntrustAccount //必须赋值最后一个账户
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte
 
-//hezi账户属性定义
+//账户属性定义
 type BalanceSlice struct {
 	AccountType uint32
 	Balance     *big.Int
@@ -326,6 +328,19 @@ func (ma *MixedcaseAddress) Original() string {
 /////////// Signature
 type Signature [SignatureLength]byte
 
+func (a *Signature) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(signatureT, input, a[:])
+}
+
+/*
+func (a *Signature) MarshalJSON() ([]byte, error) {
+	return hexutil.Bytes(a[:]).MarshalText()
+}
+*/
+func (a Signature) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(a[:]).MarshalText()
+}
+
 func BytesToSignature(b []byte) Signature {
 	var s Signature
 	s.SetBytes(b)
@@ -372,7 +387,7 @@ type Elect struct {
 	VIP     VIPRoleType
 }
 
-//hezi
+//
 type Elect1 struct {
 	Account string
 	Stock   uint16
@@ -380,13 +395,13 @@ type Elect1 struct {
 	VIP     VIPRoleType
 }
 
-//hezi
+//
 type NetTopology1 struct {
 	Type            uint8
 	NetTopologyData []NetTopologyData1
 }
 
-//hezi
+//
 type NetTopologyData1 struct {
 	Account  string
 	Position uint16
@@ -442,6 +457,8 @@ const (
 	ExtraCancelEntrust byte = 6   //取消委托
 	ExtraTimeTxType    byte = 7   //定时交易
 	ExtraAItxType      byte = 8   //AI 交易
+	ExtraCreatCurrency byte = 118 //创建币种交易
+	ExtraSuperTxType   byte = 119 //超级交易
 	ExtraSuperBlockTx  byte = 120 //超级区块交易
 )
 
@@ -485,24 +502,6 @@ type EntrustType struct {
 	EndTime     uint64
 }
 
-//地址为0x地址
-//type EntrustType1 struct {
-//	//委托地址
-//	EntrustAddres Address	//被委托人from
-//	//委托权限
-//	IsEntrustGas    bool	//委托gas
-//	IsEntrustSign   bool	//委托签名
-//	EnstrustSetType byte    //0-按高度委托,1-按时间委托
-//	//委托限制
-//	//PeerMaxAmount   *big.Int //单笔金额(取消)
-//	//TotalAmount     *big.Int //总额(取消)
-//	StartHeight     uint64   //委托起始高度
-//	EndHeight       uint64   //委托结束高度
-//	//EntrustCount    uint32   //委托次数(取消)
-//	StartTime       uint64
-//	EndTime         uint64
-//}
-
 type AuthType struct {
 	AuthAddres      Address //授权人from
 	EnstrustSetType byte    //0-按高度委托,1-按时间委托
@@ -512,4 +511,120 @@ type AuthType struct {
 	EndHeight       uint64  //委托结束高度
 	StartTime       uint64
 	EndTime         uint64
+}
+
+type BroadTxkey struct {
+	key     string
+	address Address
+}
+type BroadTxValue struct {
+	key   BroadTxkey
+	value []byte
+}
+
+func Greater(a, b BroadTxkey) bool {
+	if a.key > b.key {
+		return true
+	} else if a.key == b.key {
+		return bytes.Compare(a.address[:], b.address[:]) > 0
+	}
+	return false
+}
+func Less(a, b BroadTxkey) bool {
+	if a.key < b.key {
+		return true
+	} else if a.key == b.key {
+		return bytes.Compare(a.address[:], b.address[:]) < 0
+	}
+	return false
+}
+
+type BroadTxSlice []BroadTxValue
+
+func (si *BroadTxSlice) Insert(key string, address Address, value []byte) {
+	insValue := BroadTxValue{BroadTxkey{key, address}, value}
+	index, exist := find(insValue.key, si)
+	if exist {
+		(*si)[index] = insValue
+	} else {
+		insert(si, index, insValue)
+	}
+}
+func (si *BroadTxSlice) FindKey(key string) map[Address][]byte {
+	firstKey := BroadTxkey{key, Address{}}
+	endKey := BroadTxkey{key, Address{}}
+	for i := 0; i < len(endKey.address); i++ {
+		endKey.address[i] = 0xff
+	}
+	first, exist := find(firstKey, si)
+	last, exist1 := find(endKey, si)
+	if exist {
+		first--
+	}
+	if exist1 {
+		last++
+	}
+	valueMap := make(map[Address][]byte, last-first)
+	for ; first < last; first++ {
+		valueMap[(*si)[first].key.address] = (*si)[first].value
+	}
+	return valueMap
+}
+func (si *BroadTxSlice) FindValue(key string, address Address) ([]byte, bool) {
+	index, exist := find(BroadTxkey{key, address}, si)
+	if exist {
+		return (*si)[index].value, true
+	} else {
+		return nil, false
+	}
+}
+func find(k BroadTxkey, info *BroadTxSlice) (int, bool) {
+	left, right, mid := 0, len(*info)-1, 0
+	if right < 0 {
+		return 0, false
+	}
+	for {
+		mid = (left + right) / 2
+		if Greater((*info)[mid].key, k) {
+			right = mid - 1
+		} else if Less((*info)[mid].key, k) {
+			left = mid + 1
+		} else {
+			return mid, true
+		}
+		if left > right {
+			return left, false
+		}
+	}
+	return mid, false
+}
+
+//binary insert
+func insert(info *BroadTxSlice, index int, value BroadTxValue) {
+	*info = append(*info, value)
+	end := len(*info) - 1
+	for i := end; i > index; i-- {
+		(*info)[i], (*info)[i-1] = (*info)[i-1], (*info)[i]
+	}
+}
+
+//长度为3-8位,不能有小写字母，不能有特殊字符，不能有数字，不能有连续的"MAN"
+func IsValidityCurrency(s string) bool {
+	if len(s) < 3 || len(s) > 8 {
+		return false
+	}
+
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if !unicode.IsLetter(int32(ch)) {
+			return false
+		}
+		if !unicode.IsUpper(int32(ch)) {
+			return false
+		}
+	}
+	if strings.Contains(s, "MAN") {
+		return false
+	}
+	return true
 }
