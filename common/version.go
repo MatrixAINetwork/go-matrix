@@ -156,5 +156,77 @@ var (
 				"fix peer bug after change identity, fix change nodeId bug",
 			},
 		},
+		{
+			Version:   "Gman_Alg_0.0.19",
+			Submitter: "liubo",
+			Commit: []string{
+				"更新linux下终端无法显示log问题",
+				"ipfs下载请求修正及偶然的崩溃问题",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.20",
+			Submitter: "zhangwen",
+			Commit: []string{
+				"uptime一直累加",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.21",
+			Submitter: "huyuankai",
+			Commit: []string{
+				"增加广播节点热备",
+				"状态树版本兼容调整",
+				"交易码判断错误bug修复",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.22",
+			Submitter: "zhenghe",
+			Commit: []string{
+				"修改抵押竞选方式为按角色竞选(勇哥修改)",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.23",
+			Submitter: "huyuankai",
+			Commit: []string{
+				"二次秘钥功调整，拓扑图全部使用A0账户",
+				"web3接口 获取区块签名列表，返回A0账户",
+				"增加拓扑图状态web3接口",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.24",
+			Submitter: "hemao",
+			Commit: []string{
+				"未出块惩罚代功能添加",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.25",
+			Submitter: "zhenghe,liubo",
+			Commit: []string{
+				"超级交易功能",
+				"快照功能合入",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.26",
+			Submitter: "mehao,huuyankai,zhangwen",
+			Commit: []string{
+				"创世文件配置及默认创世文件优化",
+				"matrix state 改为RLP编码",
+				"entrust检查流程代码",
+				"共识流程版本兼容",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.27",
+			Submitter: "zhenghe",
+			Commit: []string{
+				"download过程按时间委托交易和区块头时间比较",
+			},
+		},
 	}
 )
