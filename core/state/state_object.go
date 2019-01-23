@@ -117,7 +117,7 @@ type Account struct {
 func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	if data.Balance == nil {
 		//data.Balance = new(big.Int)
-		//hezi初始化账户
+		//初始化账户
 		data.Balance = make(common.BalanceType, 0)
 		tmp := new(common.BalanceSlice)
 		var i uint32
@@ -331,7 +331,11 @@ func (c *stateObject) SubBalance(accountType uint32, amount *big.Int) {
 
 func (self *stateObject) SetBalance(accountType uint32, amount *big.Int) {
 	tmpPrev := make(common.BalanceType, len(self.data.Balance))
-	copy(tmpPrev, self.data.Balance)
+	//copy(tmpPrev, self.data.Balance)
+	for i := 0; i < len(self.data.Balance); i++ {
+		tmpPrev[i].AccountType = self.data.Balance[i].AccountType
+		tmpPrev[i].Balance = new(big.Int).Set(self.data.Balance[i].Balance)
+	}
 	self.db.journal.append(balanceChange{
 		account: &self.address,
 		//prev:    new(big.Int).Set(self.data.Balance),
