@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/matrix/go-matrix/base58"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/common/math"
@@ -32,7 +31,6 @@ import (
 var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 var errGenGenesisBlockNoConfig = errors.New("no genesis cfg and no genesis block")
 var errGenesisLostChainCfg = errors.New("genesis block lost chaincfg")
-var errGenesisToBlockErr = errors.New("Genesis To Block Err")
 
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
@@ -67,154 +65,6 @@ type Genesis struct {
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
 type GenesisAlloc map[common.Address]GenesisAccount
-
-//**********************************************************//
-//hezi
-type Genesis1 struct {
-	Config            *params.ChainConfig `json:"config"`
-	Nonce             uint64              `json:"nonce"`
-	Timestamp         uint64              `json:"timestamp"`
-	ExtraData         []byte              `json:"extraData"`
-	Version           string              `json:"version"    gencodec:"required"`
-	VersionSignatures []common.Signature  `json:"versionSignatures"    gencodec:"required"`
-	VrfValue          []byte              `json:"vrfvalue"`
-	Leader            string              `json:"leader"`
-	NextElect         []common.Elect1     `json:"nextElect"    gencodec:"required"`
-	NetTopology       common.NetTopology1 `json:"nettopology"       gencodec:"required"`
-	Signatures        []common.Signature  `json:"signatures" gencodec:"required"`
-	GasLimit          uint64              `json:"gasLimit"   gencodec:"required"`
-	Difficulty        *big.Int            `json:"difficulty" gencodec:"required"`
-	Mixhash           common.Hash         `json:"mixHash"`
-	Coinbase          string              `json:"coinbase"`
-	Alloc             GenesisAlloc1       `json:"alloc"      gencodec:"required"`
-	MState            *GenesisMState1     `json:"mstate,omitempty"`
-	// These fields are used for consensus tests. Please don't use them
-	// in actual genesis blocks.
-	Number     uint64      `json:"number"`
-	GasUsed    uint64      `json:"gasUsed"`
-	ParentHash common.Hash `json:"parentHash"`
-	Root       common.Hash `json:"stateRoot,omitempty"`
-	TxHash     common.Hash `json:"transactionsRoot,omitempty"`
-}
-type GenesisAlloc1 map[string]GenesisAccount //hezi
-func ManGenesisToEthGensis(gensis1 *Genesis1, gensis *Genesis) {
-	gensis.Config = gensis1.Config
-	gensis.Nonce = gensis1.Nonce
-	gensis.Timestamp = gensis1.Timestamp
-	gensis.ExtraData = gensis1.ExtraData
-	gensis.Version = gensis1.Version
-	gensis.VersionSignatures = gensis1.VersionSignatures
-	gensis.VrfValue = gensis1.VrfValue
-	gensis.Signatures = gensis1.Signatures
-	gensis.Difficulty = gensis1.Difficulty
-	gensis.Mixhash = gensis1.Mixhash
-	gensis.Number = gensis1.Number
-	gensis.GasUsed = gensis1.GasUsed
-	gensis.ParentHash = gensis1.ParentHash
-	gensis.Leader = base58.Base58DecodeToAddress(gensis1.Leader)
-	gensis.Coinbase = base58.Base58DecodeToAddress(gensis1.Coinbase)
-	gensis.Root = gensis1.Root
-	gensis.TxHash = gensis1.TxHash
-	//nextElect
-	nextElect := make([]common.Elect, 0)
-	for _, elec := range gensis1.NextElect {
-		tmp := new(common.Elect)
-		tmp.Account = base58.Base58DecodeToAddress(elec.Account)
-		tmp.Stock = elec.Stock
-		tmp.Type = elec.Type
-		nextElect = append(nextElect, *tmp)
-	}
-	gensis.NextElect = nextElect
-
-	//NetTopology
-	sliceNetTopologyData := make([]common.NetTopologyData, 0)
-	for _, netTopology := range gensis1.NetTopology.NetTopologyData {
-		tmp := new(common.NetTopologyData)
-		tmp.Account = base58.Base58DecodeToAddress(netTopology.Account)
-		tmp.Position = netTopology.Position
-		sliceNetTopologyData = append(sliceNetTopologyData, *tmp)
-	}
-	gensis.NetTopology.NetTopologyData = sliceNetTopologyData
-	gensis.NetTopology.Type = gensis1.NetTopology.Type
-	//Alloc
-	gensis.Alloc = make(GenesisAlloc)
-	for kString, vGenesisAccount := range gensis1.Alloc {
-		tmpk := base58.Base58DecodeToAddress(kString)
-		gensis.Alloc[tmpk] = vGenesisAccount
-	}
-	if nil != gensis1.MState {
-		gensis.MState = new(GenesisMState)
-		if nil != gensis1.MState.Broadcast {
-			gensis.MState.Broadcast = new(common.Address)
-			*gensis.MState.Broadcast = base58.Base58DecodeToAddress(*gensis1.MState.Broadcast)
-		}
-		if nil != gensis1.MState.Foundation {
-			gensis.MState.Foundation = new(common.Address)
-			*gensis.MState.Foundation = base58.Base58DecodeToAddress(*gensis1.MState.Foundation)
-		}
-		if nil != gensis1.MState.VersionSuperAccounts {
-			versionSuperAccounts := make([]common.Address, 0)
-			for _, v := range *gensis1.MState.VersionSuperAccounts {
-				versionSuperAccounts = append(versionSuperAccounts, base58.Base58DecodeToAddress(v))
-			}
-			gensis.MState.VersionSuperAccounts = &versionSuperAccounts
-		}
-		if nil != gensis1.MState.BlockSuperAccounts {
-			blockSuperAccounts := make([]common.Address, 0)
-			for _, v := range *gensis1.MState.BlockSuperAccounts {
-				blockSuperAccounts = append(blockSuperAccounts, base58.Base58DecodeToAddress(v))
-			}
-			gensis.MState.BlockSuperAccounts = &blockSuperAccounts
-		}
-		if nil != gensis1.MState.InnerMiners {
-			innerMiners := make([]common.Address, 0)
-			for _, v := range *gensis1.MState.InnerMiners {
-				innerMiners = append(innerMiners, base58.Base58DecodeToAddress(v))
-			}
-			gensis.MState.InnerMiners = &innerMiners
-		}
-		if nil != gensis1.MState.ElectBlackListCfg {
-			blackList := make([]common.Address, 0)
-			for _, v := range *gensis1.MState.ElectBlackListCfg {
-				blackList = append(blackList, base58.Base58DecodeToAddress(v))
-			}
-			gensis.MState.ElectBlackListCfg = &blackList
-		}
-		if nil != gensis1.MState.ElectWhiteListCfg {
-			whiteList := make([]common.Address, 0)
-			for _, v := range *gensis1.MState.ElectWhiteListCfg {
-				whiteList = append(whiteList, base58.Base58DecodeToAddress(v))
-			}
-			gensis.MState.InnerMiners = &whiteList
-		}
-		gensis.MState.ElectMinerNumCfg = gensis1.MState.ElectMinerNumCfg
-		gensis.MState.BlkRewardCfg = gensis1.MState.BlkRewardCfg
-		gensis.MState.TxsRewardCfg = gensis1.MState.TxsRewardCfg
-		gensis.MState.InterestCfg = gensis1.MState.InterestCfg
-		gensis.MState.LotteryCfg = gensis1.MState.LotteryCfg
-		gensis.MState.SlashCfg = gensis1.MState.SlashCfg
-		gensis.MState.BCICfg = gensis1.MState.BCICfg
-		gensis.MState.VIPCfg = gensis1.MState.VIPCfg
-		gensis.MState.LeaderCfg = gensis1.MState.LeaderCfg
-		gensis.MState.EleTimeCfg = gensis1.MState.EleTimeCfg
-		gensis.MState.EleInfoCfg = gensis1.MState.EleInfoCfg
-		if nil != gensis1.MState.CurElect {
-			//curElect
-			curElect := make([]common.Elect, 0)
-			for _, elec := range *gensis1.MState.CurElect {
-				tmp := new(common.Elect)
-				tmp.Account = base58.Base58DecodeToAddress(elec.Account)
-				tmp.Stock = elec.Stock
-				tmp.Type = elec.Type
-				curElect = append(curElect, *tmp)
-			}
-			gensis.MState.CurElect = &curElect
-		}
-	}
-
-}
-
-//**********************************************************//
 
 func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 	m := make(map[common.UnprefixedAddress]GenesisAccount)
@@ -316,6 +166,9 @@ func SetupGenesisBlock(db mandb.Database, genesis *Genesis) (*params.ChainConfig
 
 		log.Info("Writing custom genesis block")
 		block, err := genesis.Commit(db)
+		if err != nil {
+			return nil, common.Hash{}, errGenGenesisBlockNoConfig
+		}
 		return genesis.Config, block.Hash(), err
 	}
 
@@ -323,7 +176,7 @@ func SetupGenesisBlock(db mandb.Database, genesis *Genesis) (*params.ChainConfig
 	if genesis != nil {
 		block, err := genesis.ToBlock(nil)
 		if err != nil {
-			return nil, common.Hash{}, errGenesisToBlockErr
+			return nil, common.Hash{}, err
 		}
 		if block.Hash() != stored {
 			return genesis.Config, block.Hash(), &GenesisMismatchError{stored, block.Hash()}
@@ -388,7 +241,7 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(common.MainAccount, addr, account.Balance)
 		///*******************************************************/
-		////hezi 应该是通过发特殊交易添加账户
+		////  应该是通过发特殊交易添加账户
 		//statedb.AddBalance(common.LockAccount,addr, account.Balance)
 		//statedb.AddBalance(common.EntrustAccount,addr, account.Balance)
 		//statedb.AddBalance(common.FreezeAccount,addr, account.Balance)
@@ -403,7 +256,7 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 		log.Error("genesis", "设置matrix状态树错误", "g.MState = nil")
 		return nil, errors.New("MState of genesis is nil")
 	}
-	if err := g.MState.setMatrixState(statedb, g.NetTopology, g.NextElect, g.Number); err != nil {
+	if err := g.MState.setMatrixState(statedb, g.NetTopology, g.NextElect, g.Version, g.Number); err != nil {
 		log.Error("genesis", "MState.setMatrixState err", err)
 		return nil, err
 	}
@@ -468,11 +321,10 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Dat
 		}
 	}
 	if nil != g.MState {
-		if err := g.MState.setMatrixState(stateDB, g.NetTopology, g.NextElect, g.Number); err != nil {
+		if err := g.MState.setMatrixState(stateDB, g.NetTopology, g.NextElect, g.Version, g.Number); err != nil {
 			log.Error("genesis super block", "设置matrix状态树错误", err)
 			return nil
 		}
-
 	}
 	if err := g.MState.SetSuperBlkToState(stateDB, g.ExtraData, g.Number); err != nil {
 		log.Error("genesis", "设置matrix状态树错误", err)
