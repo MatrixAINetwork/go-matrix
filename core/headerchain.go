@@ -51,15 +51,15 @@ type HeaderChain struct {
 	procInterrupt func() bool
 
 	rand       *mrand.Rand
-	engine     consensus.Engine
-	dposEngine consensus.DPOSEngine
+	engine     map[string]consensus.Engine
+	dposEngine map[string]consensus.DPOSEngine
 }
 
 // NewHeaderChain creates a new HeaderChain structure.
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine consensus.Engine, dposEngine consensus.DPOSEngine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -78,8 +78,8 @@ func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine c
 		numberCache:   numberCache,
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
-		engine:        engine,
-		dposEngine:    dposEngine,
+		engine:        make(map[string]consensus.Engine),
+		dposEngine:    make(map[string]consensus.DPOSEngine),
 	}
 
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
@@ -96,6 +96,14 @@ func NewHeaderChain(chainDb mandb.Database, config *params.ChainConfig, engine c
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
 
 	return hc, nil
+}
+
+func (hc *HeaderChain) SetEngine(version string, engine consensus.Engine) {
+	hc.engine[version] = engine
+}
+
+func (hc *HeaderChain) SetDposEngine(version string, engine consensus.DPOSEngine) {
+	hc.dposEngine[version] = engine
 }
 
 // GetBlockNumber retrieves the block number belonging to the given hash
@@ -454,7 +462,7 @@ func (hc *HeaderChain) SetGenesis(head *types.Header) {
 func (hc *HeaderChain) Config() *params.ChainConfig { return hc.config }
 
 // Engine retrieves the header chain's consensus engine.
-func (hc *HeaderChain) Engine() consensus.Engine { return hc.engine }
+func (hc *HeaderChain) Engine(version string) consensus.Engine { return hc.engine[version] }
 
 // GetBlock implements consensus.ChainReader, and returns nil for every input as
 // a header chain does not have blocks available for retrieval.

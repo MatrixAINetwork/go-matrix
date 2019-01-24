@@ -17,13 +17,13 @@ import (
 // current blockchain to be used during transaction processing.
 type ChainContext interface {
 	// Engine retrieves the chain's consensus engine.
-	Engine() consensus.Engine
+	Engine(version []byte) consensus.Engine
 
 	// GetHeader returns the hash corresponding to their hash.
 	GetHeader(common.Hash, uint64) *types.Header
 }
 
-//YYY =========================begin============================
+//Y =========================begin============================
 // NewEVMContext creates a new context for use in the EVM.
 //func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
 //	// If we don't have an explicit author (i.e. not mining), extract from the header
@@ -51,7 +51,7 @@ func NewEVMContext(sender common.Address, gasprice *big.Int, header *types.Heade
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	var beneficiary common.Address
 	if author == nil {
-		beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
+		beneficiary, _ = chain.Engine(header.Version).Author(header) // Ignore error, we're past header validation
 	} else {
 		beneficiary = *author
 	}
@@ -69,7 +69,7 @@ func NewEVMContext(sender common.Address, gasprice *big.Int, header *types.Heade
 	}
 }
 
-//YYY ====================================end================================
+//Y ====================================end================================
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
 func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
 	var cache map[uint64]common.Hash
