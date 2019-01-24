@@ -37,14 +37,31 @@ func (mp *MatrixProcessor) RegisterProducer(key string, producer ProduceMatrixSt
 	mp.producerMap[key] = producer
 }
 
+func (mp *MatrixProcessor) ProcessStateVersion(version []byte, state *state.StateDB) error {
+	if len(version) == 0 || state == nil {
+		return errors.New("param is nil")
+	}
+
+	curVersion := matrixstate.GetVersionInfo(state)
+	newVersion := string(version)
+	if curVersion != newVersion {
+		log.Info("MatrixProcessor", "版本号更新", "开始", "旧版本", curVersion, "新版本", newVersion)
+		curVersion = newVersion
+		if err := matrixstate.SetVersionInfo(state, curVersion); err != nil {
+			log.Error("MatrixProcessor", "版本号更新失败", err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, state *state.StateDB) error {
 	if block == nil || state == nil {
 		return errors.New("param is nil")
 	}
-	mp.mu.RLock()
-	defer mp.mu.RUnlock()
 
-	version := matrixstate.ReaderVersionInfo(state)
+	// 获取matrix状态树管理类
+	version := matrixstate.GetVersionInfo(state)
 	mgr := matrixstate.GetManager(version)
 	if mgr == nil {
 		return matrixstate.ErrFindManager
@@ -60,6 +77,9 @@ func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, state *state.S
 		}
 		return opt.GetValue(state)
 	}
+
+	mp.mu.RLock()
+	defer mp.mu.RUnlock()
 
 	dataMap := make(map[string]interface{})
 	for key := range mp.producerMap {
@@ -77,10 +97,10 @@ func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, state *state.S
 	for key := range dataMap {
 		opt, err := mgr.FindOperator(key)
 		if err != nil {
-			return errors.Errorf("key(%s) find operator err: %v", err)
+			return errors.Errorf("key(%s) find operator err: %v", key, err)
 		}
 		if err := opt.SetValue(state, dataMap[key]); err != nil {
-			return errors.Errorf("key(%s) set value err: %v", err)
+			return errors.Errorf("key(%s) set value err: %v", key, err)
 		}
 	}
 
