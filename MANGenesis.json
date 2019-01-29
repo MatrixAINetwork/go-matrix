@@ -1,142 +1,119 @@
 {
-  "config": {
-    "chainId": 1,
-    "homesteadBlock": 0,
-    "byzantiumBlock": 0,
-    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "eip155Block": 0,
-    "eip158Block": 0
-  },
-  "nonce": "0x50",
-  "timestamp": "0x5c39e68e",
-  "extraData": "0x0000000000000000",
-  "version": "1.0.0-stable",
-  "versionSignatures": [
-    "0xb508f61c76677f46901fbb1c470ea47185608da075ea7f05fef0927f27f7a1964bf3f8c0206e95f297c3e2a74adf87fae9ae6def65b19b81445cdade2dcfa57000"
-  ],
-  "vrfvalue": "0x",
-  "leader": "MAN.CrsnQSJJfGxpb2taGhChLuyZwZJo",
-  "nextElect": [],
-  "nettopology": {
-    "Type": 0,
-    "NetTopologyData": [
-      {
-        "Account": "MAN.44EuST4f2vLeEMw2bsMWmBYqLMBhi",
-        "Position": 8192
-      },
-      {
-        "Account": "MAN.3t9Ser2UjrXRT6erVKytjHtT4ohdX",
-        "Position": 8193
-      },
-      {
-        "Account": "MAN.2MSWsig8iv45CDTrPn1XMzvZnR52v",
-        "Position": 8194
-      },
-      {
-        "Account": "MAN.EXnVsEqjyPLHZySL9y53WgXjiFmN",
-        "Position": 8195
-      },
-      {
-        "Account": "MAN.2QR75feL9KBfaezJwhuM2VCPpqkyT",
-        "Position": 8196
-      },
-      {
-        "Account": "MAN.95Tro9wLULb6rNWNCT6QDwVBiDds",
-        "Position": 8197
-      },
-      {
-        "Account": "MAN.375qsgtLc25bJv2Cf9ffnEZPDhyvd",
-        "Position": 8198
-      },
-      {
-        "Account": "MAN.2RwBWjBykMiGRu7STzYdNzXUMyh8z",
-        "Position": 8199
-      },
-      {
-        "Account": "MAN.2zjKitA4uydg5kSZLjtSNHzDtx6k8",
-        "Position": 8200
-      },
-      {
-        "Account": "MAN.ksFr4mKPfZhm2PrFdEUSoLoDsKAZ",
-        "Position": 8201
-      },
-      {
-        "Account": "MAN.4kaowsz37i1WRrPrkg4g8qYQHtJ7",
-        "Position": 8202
-      },
-      {
-        "Account": "MAN.3B1wx2wo5anTTMjnyWXAA4FQL5opx",
-        "Position": 8203
-      },
-      {
-        "Account": "MAN.3pm3iXgrY9SYhhc9aS6DQCp4qj66t",
-        "Position": 8204
-      },
-      {
-        "Account": "MAN.4M8Svax1v6yGitwB4E2ueBtw2TesK",
-        "Position": 8205
-      },
-      {
-        "Account": "MAN.3abRtpG81TPY8YwenowwgmJ8SuLpy",
-        "Position": 8206
-      },
-      {
-        "Account": "MAN.2pqHNWtbpKKaLU71RY6TZeaQjjQnR",
-        "Position": 8207
-      },
-      {
-        "Account": "MAN.3Wf4yzVkbou1bFzkpbJUdu5rqq1se",
-        "Position": 8208
-      },
-      {
-        "Account": "MAN.U5mNRj4q7jQzbVE4tWcjsvSXTseS",
-        "Position": 8209
-      },
-      {
-        "Account": "MAN.2ZPbpaCyuEEf1WR3C6dCCFFqnH25J",
-        "Position": 8210
-      },
-      {
-        "Account": "MAN.3ByNBjw4E7gcxD3uGKtAZYLYUD5xi",
-        "Position": 0
-      },
-      {
-        "Account": "MAN.2tSj5kjwwaiTPt4XnHAaEWBYBo9gK",
-        "Position": 1
-      },
-      {
-        "Account": "MAN.4ZnJrUuM2bfFmdUaivrqGio28hZwd",
-        "Position": 2
-      },
-      {
-        "Account": "MAN.49fxdGyiWPQ3evpMCNChqvCq3qzMC",
-        "Position": 3
-      },
-      {
-        "Account": "MAN.3Ugik7ZsLoaNgX51kCJEWz1ZjxQgW",
-        "Position": 4
-      },
-      {
-        "Account": "MAN.kwPCJkajT2op7rVgYKDqcQu2KEQn",
-        "Position": 12288
-      },
-      {
-        "Account": "MAN.42bUyszBXL3feeDHztWMiUJCRzBRP",
-        "Position": 12289
-      },
-      {
-        "Account": "MAN.2NVAVDc7AJGNP3Ghwfv8dz59kUvjM",
-        "Position": 12290
-      }
-    ]
-  },
-  "signatures": null,
-  "gasLimit": "0x2fefd8",
-  "difficulty": "0x100",
-  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "coinbase": "MAN.1111111111111111111cs",
-  "alloc": {
-    "MAN.1111111111111111111B8": {
+    "netTopology": {
+        "Type": 0,
+        "NetTopologyData": [
+            {
+                "Account": "MAN.44EuST4f2vLeEMw2bsMWmBYqLMBhi",
+                "Position": 8192
+            },
+            {
+                "Account": "MAN.3t9Ser2UjrXRT6erVKytjHtT4ohdX",
+                "Position": 8193
+            },
+            {
+                "Account": "MAN.2MSWsig8iv45CDTrPn1XMzvZnR52v",
+                "Position": 8194
+            },
+            {
+                "Account": "MAN.EXnVsEqjyPLHZySL9y53WgXjiFmN",
+                "Position": 8195
+            },
+            {
+                "Account": "MAN.2QR75feL9KBfaezJwhuM2VCPpqkyT",
+                "Position": 8196
+            },
+            {
+                "Account": "MAN.95Tro9wLULb6rNWNCT6QDwVBiDds",
+                "Position": 8197
+            },
+            {
+                "Account": "MAN.375qsgtLc25bJv2Cf9ffnEZPDhyvd",
+                "Position": 8198
+            },
+            {
+                "Account": "MAN.2RwBWjBykMiGRu7STzYdNzXUMyh8z",
+                "Position": 8199
+            },
+            {
+                "Account": "MAN.2zjKitA4uydg5kSZLjtSNHzDtx6k8",
+                "Position": 8200
+            },
+            {
+                "Account": "MAN.ksFr4mKPfZhm2PrFdEUSoLoDsKAZ",
+                "Position": 8201
+            },
+            {
+                "Account": "MAN.4kaowsz37i1WRrPrkg4g8qYQHtJ7",
+                "Position": 8202
+            },
+            {
+                "Account": "MAN.3B1wx2wo5anTTMjnyWXAA4FQL5opx",
+                "Position": 8203
+            },
+            {
+                "Account": "MAN.3pm3iXgrY9SYhhc9aS6DQCp4qj66t",
+                "Position": 8204
+            },
+            {
+                "Account": "MAN.4M8Svax1v6yGitwB4E2ueBtw2TesK",
+                "Position": 8205
+            },
+            {
+                "Account": "MAN.3abRtpG81TPY8YwenowwgmJ8SuLpy",
+                "Position": 8206
+            },
+            {
+                "Account": "MAN.2pqHNWtbpKKaLU71RY6TZeaQjjQnR",
+                "Position": 8207
+            },
+            {
+                "Account": "MAN.3Wf4yzVkbou1bFzkpbJUdu5rqq1se",
+                "Position": 8208
+            },
+            {
+                "Account": "MAN.U5mNRj4q7jQzbVE4tWcjsvSXTseS",
+                "Position": 8209
+            },
+            {
+                "Account": "MAN.2ZPbpaCyuEEf1WR3C6dCCFFqnH25J",
+                "Position": 8210
+            },
+            {
+                "Account": "MAN.3ByNBjw4E7gcxD3uGKtAZYLYUD5xi",
+                "Position": 0
+            },
+            {
+                "Account": "MAN.2tSj5kjwwaiTPt4XnHAaEWBYBo9gK",
+                "Position": 1
+            },
+            {
+                "Account": "MAN.4ZnJrUuM2bfFmdUaivrqGio28hZwd",
+                "Position": 2
+            },
+            {
+                "Account": "MAN.49fxdGyiWPQ3evpMCNChqvCq3qzMC",
+                "Position": 3
+            },
+            {
+                "Account": "MAN.3Ugik7ZsLoaNgX51kCJEWz1ZjxQgW",
+                "Position": 4
+            },
+            {
+                "Account": "MAN.kwPCJkajT2op7rVgYKDqcQu2KEQn",
+                "Position": 12288
+            },
+            {
+                "Account": "MAN.42bUyszBXL3feeDHztWMiUJCRzBRP",
+                "Position": 12289
+            },
+            {
+                "Account": "MAN.2NVAVDc7AJGNP3Ghwfv8dz59kUvjM",
+                "Position": 12290
+            }
+        ]
+    },
+    "alloc": {
+        "MAN.1111111111111111111B8": {
       "storage": {
         "0x0000000000000000000000000000000000000000000000000000000a444e554d": "0x000000000000000000000000000000000000000000000000000000000000001b",
         "0x0000000000000000000000000000000000000000000a44490000000000000000": "0x000000000000000000000000db588e42d894ede75000860fc0f4d969393ac514",
@@ -166,59 +143,59 @@
         "0x0000000000000000000000000000000000000000000a44490000000000000018": "0x0000000000000000000000003660302d6614ef96578efc3301cc527054bc8919",
         "0x0000000000000000000000000000000000000000000a44490000000000000019": "0x000000000000000000000000d94f53f17a1d2b921b58f9bb1a3caae1075ff3b0",
         "0x0000000000000000000000000000000000000000000a4449000000000000001a": "0x000000000000000000000000625e61a2ec4ab70df50ccd6cc46b85db6aa001f0",
-        "0x000000000000000000000004a48442762386d1954895a3d1977457145e8ca744": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x000000000000000000000004a48442762386d1954895a3d1977457145e8ca744": "0x000000000000000000000000000000000000000000084595161401484a000000", 
         "0x000000000000000000000004a48442762386d1954895a3d1977457145e8ca752": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x000000000000000000000009feea325f03230969b02caec585256d1b26ca3044": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x000000000000000000000009feea325f03230969b02caec585256d1b26ca3044": "0x00000000000000000000000000000000000000000000d3c21bcecceda1000000", 
         "0x000000000000000000000009feea325f03230969b02caec585256d1b26ca3052": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x000000000000000000000010bec6cd8fef4393b072d1ddf853e753cd3d222c44": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x000000000000000000000010bec6cd8fef4393b072d1ddf853e753cd3d222c44": "0x00000000000000000000000000000000000000000000d3c21bcecceda1000000", 
         "0x000000000000000000000010bec6cd8fef4393b072d1ddf853e753cd3d222c52": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000218416320cc42b8fcd2a3700bc54d5ed668d6d0144": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x0000000000000000000000218416320cc42b8fcd2a3700bc54d5ed668d6d0144": "0x00000000000000000000000000000000000000000000be951906eba2aa800000", 
         "0x0000000000000000000000218416320cc42b8fcd2a3700bc54d5ed668d6d0152": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x00000000000000000000003649a589684ba446f119e7040c39ccd7ab9865c544": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x00000000000000000000003649a589684ba446f119e7040c39ccd7ab9865c544": "0x00000000000000000000000000000000000000000000a968163f0a57b4000000", 
         "0x00000000000000000000003649a589684ba446f119e7040c39ccd7ab9865c552": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x00000000000000000000003660302d6614ef96578efc3301cc527054bc891944": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x00000000000000000000003660302d6614ef96578efc3301cc527054bc891944": "0x00000000000000000000000000000000000000000000943b1377290cbd800000", 
         "0x00000000000000000000003660302d6614ef96578efc3301cc527054bc891952": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000611318f1430ad50c540677089053dd7123e3b9b144": "0x00000000000000000000000000000000000000000000d1a401ee0332eec00000",
+        "0x0000000000000000000000611318f1430ad50c540677089053dd7123e3b9b144": "0x000000000000000000000000000000000000000000007f0e10af47c1c7000000", 
         "0x0000000000000000000000611318f1430ad50c540677089053dd7123e3b9b152": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000625e61a2ec4ab70df50ccd6cc46b85db6aa001f044": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x0000000000000000000000625e61a2ec4ab70df50ccd6cc46b85db6aa001f044": "0x0000000000000000000000000000000000000000000069e10de76676d0800000", 
         "0x0000000000000000000000625e61a2ec4ab70df50ccd6cc46b85db6aa001f052": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x000000000000000000000064c1d85af78c82bf7a59030e87114025f76750ce44": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x000000000000000000000064c1d85af78c82bf7a59030e87114025f76750ce44": "0x000000000000000000000000000000000000000000001fc3842bd1f071c00000", 
         "0x000000000000000000000064c1d85af78c82bf7a59030e87114025f76750ce52": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x000000000000000000000066a2f34c7ce30a908f7ed9d5cae33e939404cc4744": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x000000000000000000000066a2f34c7ce30a908f7ed9d5cae33e939404cc4744": "0x000000000000000000000000000000000000000000001da56a4b0835bf800000", 
         "0x000000000000000000000066a2f34c7ce30a908f7ed9d5cae33e939404cc4752": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x00000000000000000000006fdcfade41750838f48f3ec1ffdfdb4a3a42f74644": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x00000000000000000000006fdcfade41750838f48f3ec1ffdfdb4a3a42f74644": "0x000000000000000000000000000000000000000000001b87506a3e7b0d400000", 
         "0x00000000000000000000006fdcfade41750838f48f3ec1ffdfdb4a3a42f74652": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x000000000000000000000082f984c3d66c4df8f2d68ceda0cd5f2d1897dd2b44": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x000000000000000000000082f984c3d66c4df8f2d68ceda0cd5f2d1897dd2b44": "0x000000000000000000000000000000000000000000001b87506a3e7b0d400000", 
         "0x000000000000000000000082f984c3d66c4df8f2d68ceda0cd5f2d1897dd2b52": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000877192db751fd2b63c4cf0078221b2d0daaa01ef44": "0x00000000000000000000000000000000000000000000043c33c1937564800000",
+        "0x0000000000000000000000877192db751fd2b63c4cf0078221b2d0daaa01ef44": "0x00000000000000000000000000000000000000000000d3c21bcecceda1000000", 
         "0x0000000000000000000000877192db751fd2b63c4cf0078221b2d0daaa01ef52": "0x0000000000000000000000000000000000000000000000000000000000000010",
-        "0x00000000000000000000008f3922bebddecb25d5513e393abbaa00c5dd5ee144": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x00000000000000000000008f3922bebddecb25d5513e393abbaa00c5dd5ee144": "0x000000000000000000000000000000000000000000001969368974c05b000000", 
         "0x00000000000000000000008f3922bebddecb25d5513e393abbaa00c5dd5ee152": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x000000000000000000000097161fe11dba5a5daa85d1647ea79d72a3cf738544": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x000000000000000000000097161fe11dba5a5daa85d1647ea79d72a3cf738544": "0x000000000000000000000000000000000000000000001969368974c05b000000", 
         "0x000000000000000000000097161fe11dba5a5daa85d1647ea79d72a3cf738552": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x00000000000000000000009bf41d7a8ab4c11a4d0c5c5f451c06bf191e159344": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x00000000000000000000009bf41d7a8ab4c11a4d0c5c5f451c06bf191e159344": "0x000000000000000000000000000000000000000000001969368974c05b000000", 
         "0x00000000000000000000009bf41d7a8ab4c11a4d0c5c5f451c06bf191e159352": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x00000000000000000000009d22d3dd44b0d7f073c78bce7c1352175fb7b99744": "0x00000000000000000000000000000000000000000000021e19e0c9bab2400000",
+        "0x00000000000000000000009d22d3dd44b0d7f073c78bce7c1352175fb7b99744": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000", 
         "0x00000000000000000000009d22d3dd44b0d7f073c78bce7c1352175fb7b99752": "0x0000000000000000000000000000000000000000000000000000000000000010",
-        "0x0000000000000000000000b1d1cad653d38b90b586f7755963711f5e37e46944": "0x000000000000000000000000000000000000000000000a968163f0a57b400000",
+        "0x0000000000000000000000b1d1cad653d38b90b586f7755963711f5e37e46944": "0x00000000000000000000000000000000000000000000021e19e0c9bab2400000", 
         "0x0000000000000000000000b1d1cad653d38b90b586f7755963711f5e37e46952": "0x0000000000000000000000000000000000000000000000000000000000000010",
-        "0x0000000000000000000000b442685e3730f1441ae712e4f9e27946b847190244": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x0000000000000000000000b442685e3730f1441ae712e4f9e27946b847190244": "0x00000000000000000000000000000000000000000000174b1ca8ab05a8c00000", 
         "0x0000000000000000000000b442685e3730f1441ae712e4f9e27946b847190252": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000b921cba7b3b0eeb811e462bd096f7432cdcd774544": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
-        "0x0000000000000000000000b921cba7b3b0eeb811e462bd096f7432cdcd774552": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000caa9c4afca7584462c1663dde671adac5532605f44": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x0000000000000000000000b921cba7b3b0eeb811e462bd096f7432cdcd774544": "0x00000000000000000000000000000000000000000000174b1ca8ab05a8c00000", 
+        "0x0000000000000000000000b921cba7b3b0eeb811e462bd096f7432cdcd774552": "0x0000000000000000000000000000000000000000000000000000000000000080", 
+        "0x0000000000000000000000caa9c4afca7584462c1663dde671adac5532605f44": "0x00000000000000000000000000000000000000000000174b1ca8ab05a8c00000", 
         "0x0000000000000000000000caa9c4afca7584462c1663dde671adac5532605f52": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000ceda8d254c1925a79fd4cde842a86e5273400ea444": "0x00000000000000000000000000000000000000000000d1a401ee0332eec00000",
+        "0x0000000000000000000000ceda8d254c1925a79fd4cde842a86e5273400ea444": "0x00000000000000000000000000000000000000000000174b1ca8ab05a8c00000", 
         "0x0000000000000000000000ceda8d254c1925a79fd4cde842a86e5273400ea452": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000d94f53f17a1d2b921b58f9bb1a3caae1075ff3b044": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x0000000000000000000000d94f53f17a1d2b921b58f9bb1a3caae1075ff3b044": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000", 
         "0x0000000000000000000000d94f53f17a1d2b921b58f9bb1a3caae1075ff3b052": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000db588e42d894ede75000860fc0f4d969393ac51444": "0x00000000000000000000000000000000000000000000d1a401ee0332eec00000",
+        "0x0000000000000000000000db588e42d894ede75000860fc0f4d969393ac51444": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000", 
         "0x0000000000000000000000db588e42d894ede75000860fc0f4d969393ac51452": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000e2117ff2836ed3f33b95bb8dbb4ace9b4db90e2e44": "0x000000000000000000000000000000000000000000000878678326eac9000000",
+        "0x0000000000000000000000e2117ff2836ed3f33b95bb8dbb4ace9b4db90e2e44": "0x00000000000000000000000000000000000000000000043c33c1937564800000", 
         "0x0000000000000000000000e2117ff2836ed3f33b95bb8dbb4ace9b4db90e2e52": "0x0000000000000000000000000000000000000000000000000000000000000010",
-        "0x0000000000000000000000f03f2c53784149f95535dbc707277363c6db45a444": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000",
+        "0x0000000000000000000000f03f2c53784149f95535dbc707277363c6db45a444": "0x00000000000000000000000000000000000000000000152d02c7e14af6800000", 
         "0x0000000000000000000000f03f2c53784149f95535dbc707277363c6db45a452": "0x0000000000000000000000000000000000000000000000000000000000000080",
-        "0x0000000000000000000000ffe7c96064d3b4c185b1e4b22d3e692a01ab2fbe44": "0x00000000000000000000000000000000000000000000065a4da25d3016c00000",
+        "0x0000000000000000000000ffe7c96064d3b4c185b1e4b22d3e692a01ab2fbe44": "0x00000000000000000000000000000000000000000000065a4da25d3016c00000", 
         "0x0000000000000000000000ffe7c96064d3b4c185b1e4b22d3e692a01ab2fbe52": "0x0000000000000000000000000000000000000000000000000000000000000010",
         "0x0000000000000000000004a48442762386d1954895a3d1977457145e8ca74e58": "0x000000000000000000000000e0d61d21054fd346ddb5bf17284b78c9424674fc",
         "0x0000000000000000000009feea325f03230969b02caec585256d1b26ca304e58": "0x0000000000000000000000002282dad4ce7fd000cc86dda69e2e3ceb7e8d0022",
@@ -275,319 +252,194 @@
         "0x00000000000000000000f55c45fbcac559963ee3378c2d1060d31cffb07f4e59": "0x0000000000000000000000008f3922bebddecb25d5513e393abbaa00c5dd5ee1",
         "0x00000000000000000000ffe7c96064d3b4c185b1e4b22d3e692a01ab2fbe4e58": "0x00000000000000000000000035f3fa10897f9416bbb79d0a3595dbb193f352af"
       },
-      "balance": "0x1f1a1c1592e61a0c00000"
+        "balance": "18310000000000000000000000"
+        },
+        "MAN.2nRsUetjWAaYUizRkgBxGETimfUTz": {
+            "balance": "16000000000000000000000000"
+        },
+        "MAN.2nRsUetjWAaYUizRkgBxGETimfUUs": {
+            "balance": "37000000000000000000000000"
+        },
+        "MAN.2nRsUetjWAaYUizRkgBxGETimfUXN": {
+            "balance": "8000000000000000000000000"
+        },
+        "MAN.4L95KmR3e8eUJvzwK2thft1eKaFYa": {
+            "balance": "250000000000000000000000000"
+        },
+        "MAN.2zXWsDtyt7vhVADGTz2yXD6h7WJnF": {
+            "balance": "31690000000000000000000000"
+        },
+		"MAN.YaMnyEHkBFsx9mMKweDFv6qc6PCc": {
+            "balance": "50000000000000000000000000"
+        },
+		"MAN.oD7HAYgDWaNuKh2pi2nBpPSwkBX1": {
+  		    "balance": "689000000000000000000000000"
+		}
     },
-    "MAN.2nRsUetjWAaYUizRkgBxGETimfUTz": {
-      "balance": "0x84595161401484a000000"
-    },
-    "MAN.2nRsUetjWAaYUizRkgBxGETimfUUs": {
-      "balance": "0x14adf4b7320334b9000000"
-    },
-    "MAN.2nRsUetjWAaYUizRkgBxGETimfUV2": {
-      "balance": "0x84595161401484a000000"
-    },
-    "MAN.2nRsUetjWAaYUizRkgBxGETimfUW7": {
-      "balance": "0x422ca8b0a00a425000000"
-    },
-    "MAN.2nRsUetjWAaYUizRkgBxGETimfUXN": {
-      "balance": "0x84595161401484a000000"
-    },
-    "MAN.2zXWsDtyt7vhVADGTz2yXD6h7WJnF": {
-      "balance": "0x48809c055add28f9400000"
-    },
-    "MAN.4739r322TyL3xCpbbdohS8NhBgGwi": {
-      "balance": "0xa56fa5b99019a5c8000000"
-    },
-    "MAN.4L95KmR3e8eUJvzwK2thft1eKaFYa": {
-      "balance": "0xf8277896582678ac000000"
-    }
-  },
-  "mstate": {
-    "Broadcasts": [
-      "MAN.2GMP7J2ihEzQdvZg6YAiWdjvdVALs",
-      "MAN.35wGGgkWUe1ajRBey886jJ6oZrpf2"
-    ],
-    "InnerMiners": [
-      "MAN.3SPbc3M7bK8zCT8VbvjMGW2eCaBgY"
-    ],
-    "Foundation": "MAN.2zXWsDtyt7vhVADGTz2yXD6h7WJnF",
-    "VersionSuperAccounts": [
-      "MAN.4739r322TyL3xCpbbdohS8NhBgGwi"
-    ],
-    "BlockSuperAccounts": [
-      "MAN.4L95KmR3e8eUJvzwK2thft1eKaFYa"
-    ],
-  	"TxsSuperAccounts":[
+    "mstate": {
+        "Broadcasts": [
+            "MAN.2GMP7J2ihEzQdvZg6YAiWdjvdVALs",
+            "MAN.35wGGgkWUe1ajRBey886jJ6oZrpf2"
+        ],
+        "Foundation": "MAN.2zXWsDtyt7vhVADGTz2yXD6h7WJnF",
+        "VersionSuperAccounts": [
+            "MAN.4739r322TyL3xCpbbdohS8NhBgGwi"
+        ],
+        "BlockSuperAccounts": [
+            "MAN.4L95KmR3e8eUJvzwK2thft1eKaFYa"
+        ],
+        "TxsSuperAccounts": [
             "MAN.3sJPZ6DzKntQCCQrR6q9U4d1bb48Q"
         ],
-        "MultiCoinSuperAccounts":[
+        "MultiCoinSuperAccounts": [
             "MAN.TayEvmr1kxdJx7Sd8WSZkRRxWZGC"
         ],
-        "SubChainSuperAccounts":[
+        "SubChainSuperAccounts": [
             "MAN.26AmeAbWrkGrgGhaYzTenUcz9n4WB"
         ],
-    "VIPCfg": [
-      {
-        "MinMoney": 0,
-        "InterestRate": 5,
-        "ElectUserNum": 0,
-        "StockScale": 1000
-      },
-      {
-        "MinMoney": 1000000,
-        "InterestRate": 10,
-        "ElectUserNum": 3,
-        "StockScale": 1600
-      },
-      {
-        "MinMoney": 10000000,
-        "InterestRate": 15,
-        "ElectUserNum": 5,
-        "StockScale": 2000
-      }
-    ],
-    "BroadcastInterval": {
-      "LastBCNumber": 0,
-      "LastReelectNumber": 0,
-      "BCInterval": 100,
-      "BackupEnableNumber": 0,
-      "BackupBCInterval": 0
+        "curElect": [
+            {
+                "Account": "MAN.44EuST4f2vLeEMw2bsMWmBYqLMBhi",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.3t9Ser2UjrXRT6erVKytjHtT4ohdX",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.2MSWsig8iv45CDTrPn1XMzvZnR52v",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.EXnVsEqjyPLHZySL9y53WgXjiFmN",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.2QR75feL9KBfaezJwhuM2VCPpqkyT",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.95Tro9wLULb6rNWNCT6QDwVBiDds",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.375qsgtLc25bJv2Cf9ffnEZPDhyvd",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.2RwBWjBykMiGRu7STzYdNzXUMyh8z",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.2zjKitA4uydg5kSZLjtSNHzDtx6k8",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.ksFr4mKPfZhm2PrFdEUSoLoDsKAZ",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.4kaowsz37i1WRrPrkg4g8qYQHtJ7",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.3B1wx2wo5anTTMjnyWXAA4FQL5opx",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.3pm3iXgrY9SYhhc9aS6DQCp4qj66t",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.4M8Svax1v6yGitwB4E2ueBtw2TesK",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.3abRtpG81TPY8YwenowwgmJ8SuLpy",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.2pqHNWtbpKKaLU71RY6TZeaQjjQnR",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.3Wf4yzVkbou1bFzkpbJUdu5rqq1se",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.U5mNRj4q7jQzbVE4tWcjsvSXTseS",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.2ZPbpaCyuEEf1WR3C6dCCFFqnH25J",
+                "Stock": 1,
+                "Type": 2
+            },
+            {
+                "Account": "MAN.3ByNBjw4E7gcxD3uGKtAZYLYUD5xi",
+                "Stock": 1,
+                "Type": 0
+            },
+            {
+                "Account": "MAN.2tSj5kjwwaiTPt4XnHAaEWBYBo9gK",
+                "Stock": 1,
+                "Type": 0
+            },
+            {
+                "Account": "MAN.4ZnJrUuM2bfFmdUaivrqGio28hZwd",
+                "Stock": 1,
+                "Type": 0
+            },
+            {
+                "Account": "MAN.49fxdGyiWPQ3evpMCNChqvCq3qzMC",
+                "Stock": 1,
+                "Type": 0
+            },
+            {
+                "Account": "MAN.3Ugik7ZsLoaNgX51kCJEWz1ZjxQgW",
+                "Stock": 1,
+                "Type": 0
+            },
+            {
+                "Account": "MAN.kwPCJkajT2op7rVgYKDqcQu2KEQn",
+                "Stock": 1,
+                "Type": 3
+            },
+            {
+                "Account": "MAN.42bUyszBXL3feeDHztWMiUJCRzBRP",
+                "Stock": 1,
+                "Type": 3
+            },
+            {
+                "Account": "MAN.2NVAVDc7AJGNP3Ghwfv8dz59kUvjM",
+                "Stock": 1,
+                "Type": 3
+            }
+        ]
     },
-    "LeaderCfg": {
-      "ParentMiningTime": 20,
-      "PosOutTime": 20,
-      "ReelectOutTime": 40,
-      "ReelectHandleInterval": 3
-    },
-    "BlkRewardCfg": {
-      "MinerMount": 3,
-      "MinerHalf": 5000000,
-      "ValidatorMount": 7,
-      "ValidatorHalf": 5000000,
-      "RewardRate": {
-        "MinerOutRate": 4000,
-        "ElectedMinerRate": 5000,
-        "FoundationMinerRate": 1000,
-        "LeaderRate": 4000,
-        "ElectedValidatorsRate": 5000,
-        "FoundationValidatorRate": 1000,
-        "OriginElectOfflineRate": 5000,
-        "BackupRewardRate": 5000
-      }
-    },
-    "TxsRewardCfg": {
-      "MinersRate": 0,
-      "ValidatorsRate": 10000,
-      "RewardRate": {
-        "MinerOutRate": 4000,
-        "ElectedMinerRate": 6000,
-        "FoundationMinerRate": 0,
-        "LeaderRate": 4000,
-        "ElectedValidatorsRate": 6000,
-        "FoundationValidatorRate": 0,
-        "OriginElectOfflineRate": 5000,
-        "BackupRewardRate": 5000
-      }
-    },
-    "LotteryCfg": {
-      "LotteryInfo": [
-        {
-          "PrizeLevel": 0,
-          "PrizeNum": 1,
-          "PrizeMoney": 6
-        }
-      ]
-    },
-    "InterestCfg": {
-      "CalcInterval": 100,
-      "PayInterval": 3600
-    },
-    "SlashCfg": {
-      "SlashRate": 7500
-    },
-    "EleTime": {
-      "MinerGen": 9,
-      "MinerNetChange": 5,
-      "ValidatorGen": 9,
-      "ValidatorNetChange": 3,
-      "VoteBeforeTime": 7
-    },
-    "EleInfo": {
-      "ValidatorNum": 19,
-      "BackValidator": 5,
-      "ElectPlug": "layerd"
-    },
-    "ElectMinerNum": {
-      "MinerNum": 21
-    },
-    "CurElect": [
-      {
-        "Account": "MAN.44EuST4f2vLeEMw2bsMWmBYqLMBhi",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.3t9Ser2UjrXRT6erVKytjHtT4ohdX",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2MSWsig8iv45CDTrPn1XMzvZnR52v",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.EXnVsEqjyPLHZySL9y53WgXjiFmN",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2QR75feL9KBfaezJwhuM2VCPpqkyT",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.95Tro9wLULb6rNWNCT6QDwVBiDds",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.375qsgtLc25bJv2Cf9ffnEZPDhyvd",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2RwBWjBykMiGRu7STzYdNzXUMyh8z",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2zjKitA4uydg5kSZLjtSNHzDtx6k8",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.ksFr4mKPfZhm2PrFdEUSoLoDsKAZ",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.4kaowsz37i1WRrPrkg4g8qYQHtJ7",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.3B1wx2wo5anTTMjnyWXAA4FQL5opx",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.3pm3iXgrY9SYhhc9aS6DQCp4qj66t",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.4M8Svax1v6yGitwB4E2ueBtw2TesK",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.3abRtpG81TPY8YwenowwgmJ8SuLpy",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2pqHNWtbpKKaLU71RY6TZeaQjjQnR",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.3Wf4yzVkbou1bFzkpbJUdu5rqq1se",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.U5mNRj4q7jQzbVE4tWcjsvSXTseS",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2ZPbpaCyuEEf1WR3C6dCCFFqnH25J",
-        "Stock": 1,
-        "Type": 2,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.3ByNBjw4E7gcxD3uGKtAZYLYUD5xi",
-        "Stock": 1,
-        "Type": 0,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2tSj5kjwwaiTPt4XnHAaEWBYBo9gK",
-        "Stock": 1,
-        "Type": 0,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.4ZnJrUuM2bfFmdUaivrqGio28hZwd",
-        "Stock": 1,
-        "Type": 0,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.49fxdGyiWPQ3evpMCNChqvCq3qzMC",
-        "Stock": 1,
-        "Type": 0,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.3Ugik7ZsLoaNgX51kCJEWz1ZjxQgW",
-        "Stock": 1,
-        "Type": 0,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.kwPCJkajT2op7rVgYKDqcQu2KEQn",
-        "Stock": 1,
-        "Type": 3,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.42bUyszBXL3feeDHztWMiUJCRzBRP",
-        "Stock": 1,
-        "Type": 3,
-        "VIP": 0
-      },
-      {
-        "Account": "MAN.2NVAVDc7AJGNP3Ghwfv8dz59kUvjM",
-        "Stock": 1,
-        "Type": 3,
-        "VIP": 0
-      }
-    ]
-  },
-  "number": "0x0",
-  "gasUsed": "0x0",
-  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "transactionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    "version": "1.0.0.0",
+	"versionSignatures": [
+	"0x276b3cabb75efb208488978b4874073eda1dffa898f973812693ac535dbeb7d766d79a4bd61532dbfebf5dd016587012327db4d0b54b67b06edad50af9fc947500"
+	],
+    "difficulty": "0x100",
+	"gasLimit": "0x2fefd8",
+    "timestamp": "1548665381"
 }
