@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package p2p
@@ -74,9 +74,8 @@ func UdpSend(data interface{}) {
 }
 
 func send(address common.Address, data []byte) {
-	node := ServerP2p.ntab.GetAllAddress()
-	n, ok := node[address]
-	if !ok {
+	n := ServerP2p.ntab.ResolveNode(address, EmptyNodeId)
+	if n == nil {
 		log.Error("can't send udp to", "addr", address)
 		return
 	}

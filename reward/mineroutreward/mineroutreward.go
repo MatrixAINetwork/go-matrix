@@ -1,13 +1,9 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mineroutreward
 
 import (
-	"github.com/pkg/errors"
 	"math/big"
 
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/pkg/errors"
 
 	"github.com/matrix/go-matrix/core/matrixstate"
 	"github.com/matrix/go-matrix/mc"
@@ -54,49 +50,44 @@ type ChainReader interface {
 }
 
 func (mr *MinerOutReward) GetPreMinerReward(state util.StateDB, rewardType uint8) (*big.Int, error) {
-	var key string
+	var currentReward *mc.MinerOutReward
+	var err error
 	if util.TxsReward == rewardType {
-		key = mc.MSKeyPreMinerTxsReward
+		currentReward, err = matrixstate.GetPreMinerTxsReward(state)
+		if err != nil {
+			log.Error(PackageName, "获取矿工交易奖励金额错误", err)
+			return nil, errors.New("获取矿工交易金额错误")
+		}
 	} else {
-		key = mc.MSKeyPreMinerBlkReward
+		currentReward, err = matrixstate.GetPreMinerBlkReward(state)
+		if err != nil {
+			log.Error(PackageName, "获取矿工区块奖励金额错误", err)
+			return nil, errors.New("获取矿工区块金额错误")
+		}
 	}
-	preMiner, err := matrixstate.GetDataByState(key, state)
-	if nil != err {
-		log.Error(PackageName, "获取矿工奖励金额错误", err, "key", key)
-		return nil, errors.New("获取矿工金额错误")
-	}
-	if preMiner == nil {
-		log.Error(PackageName, "反射失败", err, "key", key)
-		return nil, errors.New("反射失败")
-	}
-	currentReward, ok := preMiner.(*mc.MinerOutReward)
-	if !ok {
-		log.Error(PackageName, "类型转换失败", err, "key", key)
-		return nil, errors.New("类型转换失败")
-	}
-	log.INFO(PackageName, "获取前一个矿工奖励值为", currentReward.Reward, "key", key)
+	log.INFO(PackageName, "获取前一个矿工奖励值为", currentReward.Reward, "type", rewardType)
 	return &currentReward.Reward, nil
 
 }
 
 func (mr *MinerOutReward) SetPreMinerReward(state util.StateDB, reward *big.Int, rewardType uint8) {
-	var key string
-	if util.TxsReward == rewardType {
-		key = mc.MSKeyPreMinerTxsReward
-	} else {
-		key = mc.MSKeyPreMinerBlkReward
-	}
-	log.INFO(PackageName, "设置前矿工奖励值为", reward, "key", key)
+	//log.INFO(PackageName, "设置前矿工奖励值为", reward, "type", rewardType)
 	minerOutReward := &mc.MinerOutReward{Reward: *reward}
-	matrixstate.SetDataToState(key, minerOutReward, state)
+	var err error
+	if util.TxsReward == rewardType {
+		err = matrixstate.SetPreMinerTxsReward(state, minerOutReward)
+	} else {
+		err = matrixstate.SetPreMinerBlkReward(state, minerOutReward)
+	}
+	if err != nil {
+		log.Error(PackageName, "设置前矿工奖励值错误", err)
+	}
 	return
-
 }
 
 func (mr *MinerOutReward) SetMinerOutRewards(curReward *big.Int, state util.StateDB, num uint64, parentHash common.Hash, reader util.ChainReader, innerMiners []common.Address, rewardType uint8) map[common.Address]*big.Int {
 	//后一块给前一块的矿工发钱，广播区块不发钱， 广播区块下一块给广播区块前一块发钱
-
-	bcInterval, err := manparams.NewBCIntervalByHash(parentHash)
+	bcInterval, err := matrixstate.GetBroadcastInterval(state)
 	if err != nil {
 		log.Error(PackageName, "获取广播周期失败", err)
 		return nil
@@ -119,18 +110,18 @@ func (mr *MinerOutReward) SetMinerOutRewards(curReward *big.Int, state util.Stat
 
 	rewards := make(map[common.Address]*big.Int)
 	util.SetAccountRewards(rewards, coinBase, preReward)
-	log.Info(PackageName, "出块矿工账户：", coinBase.String(), "发放奖励高度", num, "奖励金额", preReward)
+	//log.Debug(PackageName, "出块矿工账户：", coinBase.String(), "发放奖励高度", num, "奖励金额", preReward)
 	return rewards
 }
 
-func (mr *MinerOutReward) canSetMinerOutRewards(num uint64, reward *big.Int, reader util.ChainReader, bcInterval *manparams.BCInterval, parentHash common.Hash, innerMiners []common.Address) (common.Address, error) {
+func (mr *MinerOutReward) canSetMinerOutRewards(num uint64, reward *big.Int, reader util.ChainReader, bcInterval *mc.BCIntervalInfo, parentHash common.Hash, innerMiners []common.Address) (common.Address, error) {
 	if num < 2 {
 		log.Debug(PackageName, "高度为小于2 不发放奖励：", "")
 		return common.Address{}, errors.New("高度为小于2 不发放奖励：")
 	}
 
 	if reward.Cmp(big.NewInt(0)) <= 0 {
-		log.WARN(PackageName, "奖励金额不合法", reward)
+		//log.WARN(PackageName, "奖励金额不合法", reward)
 		return common.Address{}, errors.New("奖励金额不合法")
 	}
 

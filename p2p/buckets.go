@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -73,6 +73,8 @@ func (b *Bucket) Start() {
 
 	b.log.Info("buckets start!")
 
+	timeoutTimer := time.NewTimer(time.Second * 60)
+
 	defer func() {
 		b.log.Info("buckets stop!")
 		b.sub.Unsubscribe()
@@ -86,11 +88,27 @@ func (b *Bucket) Start() {
 
 	for {
 		select {
+		case <-timeoutTimer.C:
+			b.maintainOuter()
+			if !timeoutTimer.Stop() && len(timeoutTimer.C) > 0 {
+				<-timeoutTimer.C
+			}
+			timeoutTimer.Reset(time.Second * 60)
 		case h := <-b.blockChain:
+			if !timeoutTimer.Stop() && len(timeoutTimer.C) > 0 {
+				<-timeoutTimer.C
+			}
+			timeoutTimer.Reset(time.Second * 60)
+
 			// only bottom nodes will into this buckets.
 			if h.Role > common.RoleBucket {
 				b.role = common.RoleNil
 				break
+			}
+
+			// down to default, disconnect all peers first
+			if b.role != h.Role && h.Role == common.RoleDefault {
+				b.disconnectPeers()
 			}
 
 			if b.role != h.Role {
@@ -187,10 +205,7 @@ func (b *Bucket) disconnectMiner() {
 }
 
 // disconnectPeers disconnect all peers
-func (b *Bucket) disconnectPeers(drops []common.Address) {
-	for _, peer := range drops {
-		ServerP2p.RemovePeerByAddress(peer)
-	}
+func (b *Bucket) disconnectPeers() {
 	for _, peer := range ServerP2p.Peers() {
 		ServerP2p.RemovePeer(discover.NewNode(peer.ID(), nil, 0, 0))
 	}
@@ -210,7 +225,7 @@ func (b *Bucket) maintainInner() {
 	next := (b.self + 1) % 4
 	for _, peer := range ServerP2p.Peers() {
 		signAddr := ServerP2p.ConvertIdToAddress(peer.ID())
-		if signAddr == emptyAddress {
+		if signAddr == EmptyAddress {
 			continue
 		}
 		pid, err := b.peerBucket(signAddr)
@@ -239,7 +254,7 @@ func (b *Bucket) maintainOuter() {
 	for _, peer := range ServerP2p.Peers() {
 		for _, miner := range miners {
 			id := ServerP2p.ConvertAddressToId(miner)
-			if id != emptyNodeId && peer.ID() == id {
+			if id != EmptyNodeId && peer.ID() == id {
 				count++
 				break
 			}
@@ -266,7 +281,7 @@ func (b *Bucket) peerBucket(addr common.Address) (int64, error) {
 		return m.Mod(MockHash(ServerP2p.Self().ID).Big(), big.NewInt(4)).Int64(), nil
 	}
 
-	if addr != emptyAddress {
+	if addr != EmptyAddress {
 		return m.Mod(common.BytesToHash(addr.Bytes()).Big(), big.NewInt(4)).Int64(), nil
 	}
 
@@ -286,7 +301,7 @@ func (b *Bucket) linkBucketPeer() {
 	count := 0
 	for _, peer := range ServerP2p.Peers() {
 		signAddr := ServerP2p.ConvertIdToAddress(peer.ID())
-		if signAddr == emptyAddress {
+		if signAddr == EmptyAddress {
 			b.log.Error("not found sign address", "id", peer.ID())
 			continue
 		}

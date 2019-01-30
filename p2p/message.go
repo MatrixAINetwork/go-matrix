@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -103,7 +103,7 @@ func SendToSingle(addr common.Address, msgCode uint64, data interface{}) error {
 		return nil
 	}
 	id := ServerP2p.ConvertAddressToId(addr)
-	if id == emptyNodeId {
+	if id == EmptyNodeId {
 		log.Error("send to single peer failed, id convert failed", "peer addr", addr)
 		return ErrCanNotConvert
 	}
@@ -126,7 +126,7 @@ func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{})
 			continue
 		}
 		id := ServerP2p.ConvertAddressToId(addr)
-		if id == emptyNodeId {
+		if id == EmptyNodeId {
 			log.Error("send to single peer failed, id convert failed", "peer addr", addr)
 			continue
 		}
@@ -149,7 +149,7 @@ func SendToGroupWithBackup(to common.RoleType, msgCode uint64, data interface{})
 func SendToGroup(to common.RoleType, msgCode uint64, data interface{}) error {
 	address := ca.GetRolesByGroup(to)
 	peers := ServerP2p.Peers()
-	log.Info("message.go", "查看所有的 ServerP2P peers Count", len(peers), "目标IDS数量", len(address), "role", to.String())
+	log.Trace("message.go", "查看所有的 ServerP2P peers Count", len(peers), "目标IDS数量", len(address), "role", to.String())
 	for _, addr := range address {
 		if addr == ServerP2p.ManAddress {
 			continue
@@ -157,7 +157,7 @@ func SendToGroup(to common.RoleType, msgCode uint64, data interface{}) error {
 		bSend := false
 
 		id := ServerP2p.ConvertAddressToId(addr)
-		if id == emptyNodeId {
+		if id == EmptyNodeId {
 			log.Error("send to single peer failed, id convert failed", "peer addr", addr)
 			continue
 		}
@@ -165,9 +165,9 @@ func SendToGroup(to common.RoleType, msgCode uint64, data interface{}) error {
 			if id == peer.ID() {
 				err := Send(peer.MsgReadWriter(), msgCode, data)
 				if err != nil {
-					log.Error("message.go", "发送消息失败, id", id, "err", err)
+					log.Trace("message.go", "发送消息失败, id", id, "addr", addr.Hex(), "err", err)
 				} else {
-					log.Info("message.go", "发送消息成功, id", id, "IP", peer.Info().Network.RemoteAddress)
+					log.Trace("message.go", "发送消息成功, id", id, "addr", addr.Hex(), "IP", peer.Info().Network.RemoteAddress)
 					bSend = true
 				}
 				break

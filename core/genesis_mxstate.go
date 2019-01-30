@@ -50,6 +50,7 @@ type GenesisMState struct {
 	EleInfoCfg                   *mc.ElectConfigInfo              `json:"EleInfo,omitempty" gencodec:"required"`
 	ElectMinerNumCfg             *mc.ElectMinerNumStruct          `json:"ElectMinerNum,omitempty" gencodec:"required"`
 	ElectBlackListCfg            *[]GenesisAddress                `json:"ElectBlackList,omitempty" gencodec:"required"`
+	ElectWhiteListSwitcherCfg    *mc.ElectWhiteListSwitcher       `json:"ElectWhiteListSwitcherCfg,omitempty" gencodec:"required"`
 	ElectWhiteListCfg            *[]GenesisAddress                `json:"ElectWhiteList,omitempty" gencodec:"required"`
 	CurElect                     *[]GenesisElect                  `json:"CurElect,omitempty"  gencodec:"required"`
 	BlockProduceSlashCfg         *mc.BlockProduceSlashCfg         `json:"BlkProduceSlashCfg,omitempty" gencodec:"required"`
@@ -58,8 +59,8 @@ type GenesisMState struct {
 	BlockProduceSlashStatsStatus *mc.BlockProduceSlashStatsStatus `json:"BlkProduceStatus,omitempty" gencodec:"required"`
 }
 
-func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common.NetTopology, nextElect []common.Elect, version string, num uint64) error {
-	if err := ms.setVersionInfo(state, num, version); err != nil {
+func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common.NetTopology, nextElect []common.Elect, newVersion string, oldVersion string, num uint64) error {
+	if err := ms.setVersionInfo(state, num, newVersion); err != nil {
 		return err
 	}
 
@@ -77,11 +78,15 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common
 	if err := ms.setElectBlackListInfo(state, num); err != nil {
 		return err
 	}
+	if err := ms.setElectWhiteListSwitcher(state, num); err != nil {
+		return err
+	}
+
 	if err := ms.setElectWhiteListInfo(state, num); err != nil {
 		return err
 	}
 
-	if err := ms.setTopologyToState(state, netTopology, num); err != nil {
+	if err := ms.setTopologyToState(state, netTopology, num, oldVersion); err != nil {
 		return err
 	}
 
@@ -111,6 +116,9 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common
 		return err
 	}
 	if err := ms.setSubChainSuperAccountsToState(state, num); err != nil {
+		return err
+	}
+	if err := ms.setBCIntervalToState(state, num, oldVersion); err != nil {
 		return err
 	}
 	if err := ms.setBlkCalcToState(state, num); err != nil {
@@ -149,7 +157,20 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common
 	if err := ms.setLeaderCfgToState(state, num); err != nil {
 		return err
 	}
-	if err := ms.setBCIntervalToState(state, num); err != nil {
+
+	if err := ms.setBlockProduceSlashStatsStatus(state, num); err != nil {
+		return err
+	}
+
+	if err := ms.setBlockProduceSlashBlkList(state, num); err != nil {
+		return err
+	}
+
+	if err := ms.setBlockProduceStats(state, num); err != nil {
+		return err
+	}
+
+	if err := ms.setBlockProduceSlashCfg(state, num); err != nil {
 		return err
 	}
 	return nil
@@ -212,6 +233,20 @@ func (g *GenesisMState) setElectMinerNumInfo(state *state.StateDB, num uint64) e
 	return matrixstate.SetElectMinerNum(state, g.ElectMinerNumCfg)
 }
 
+func (g *GenesisMState) setElectWhiteListSwitcher(state *state.StateDB, num uint64) error {
+	if num == 0 {
+		if g.ElectWhiteListSwitcherCfg == nil {
+			return errors.New("选举白名单开关配置信息为nil")
+		}
+	} else {
+		if g.ElectWhiteListSwitcherCfg == nil {
+			log.INFO("Geneis", "未修改选举白名单开关配置信息为", "")
+			return nil
+		}
+	}
+	log.Info("Geneis", "ElectWhiteListSwitcherCfg", g.ElectWhiteListSwitcherCfg)
+	return matrixstate.SetElectWhiteListSwitcher(state, g.ElectWhiteListSwitcherCfg.Switcher)
+}
 func (g *GenesisMState) setElectWhiteListInfo(state *state.StateDB, num uint64) error {
 	var whiteList []common.Address = nil
 	if g.ElectWhiteListCfg == nil || *g.ElectWhiteListCfg == nil {
@@ -240,7 +275,7 @@ func (g *GenesisMState) setElectBlackListInfo(state *state.StateDB, num uint64) 
 	return matrixstate.SetElectBlackList(state, blackList)
 }
 
-func (g *GenesisMState) setTopologyToState(state *state.StateDB, genesisNt common.NetTopology, num uint64) error {
+func (g *GenesisMState) setTopologyToState(state *state.StateDB, genesisNt common.NetTopology, num uint64, oldVersion string) error {
 	if num == 0 {
 		if genesisNt.Type != common.NetTopoTypeAll {
 			return errors.New("genesis net topology type is not all graph type！")
@@ -263,7 +298,7 @@ func (g *GenesisMState) setTopologyToState(state *state.StateDB, genesisNt commo
 			return err
 		}
 	} else {
-		preGraph, err := matrixstate.GetTopologyGraph(state)
+		preGraph, err := matrixstate.GetTopologyGraphByVersion(state, oldVersion)
 		if err != nil {
 			return errors.Errorf("get pre topology graph from state err: %v", err)
 		}
@@ -635,13 +670,6 @@ func (g *GenesisMState) setInterestCfgToState(state *state.StateDB, num uint64) 
 			return nil
 		}
 	}
-	StateCfg := g.InterestCfg
-
-	if StateCfg.PayInterval < StateCfg.CalcInterval {
-
-		return errors.Errorf("配置的发放周期小于计息周期")
-	}
-
 	log.Info("Geneis", "InterestCfg", g.InterestCfg)
 	return matrixstate.SetInterestCfg(state, g.InterestCfg)
 }
@@ -734,7 +762,7 @@ func (g *GenesisMState) SetSuperBlkToState(state *state.StateDB, extra []byte, n
 	return matrixstate.SetSuperBlockCfg(state, superBlkCfg)
 }
 
-func (g *GenesisMState) setBCIntervalToState(st *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBCIntervalToState(st *state.StateDB, num uint64, oldVersion string) error {
 	var interval *mc.BCIntervalInfo = nil
 	if num == 0 {
 		if nil == g.BCICfg {
@@ -763,7 +791,7 @@ func (g *GenesisMState) setBCIntervalToState(st *state.StateDB, num uint64) erro
 			return errors.Errorf("广播周期生效高度(%d)非法, < 当前高度(%d)", g.BCICfg.BackupEnableNumber, num)
 		}
 
-		bcInterval, err := matrixstate.GetBroadcastInterval(st)
+		bcInterval, err := matrixstate.GetBroadcastIntervalByVersion(st, oldVersion)
 		if err != nil || bcInterval == nil {
 			return errors.Errorf("获取前广播周期数据失败(%v)", err)
 		}
@@ -784,4 +812,60 @@ func (g *GenesisMState) setBCIntervalToState(st *state.StateDB, num uint64) erro
 		return matrixstate.SetBroadcastInterval(st, interval)
 	}
 	return nil
+}
+func (g *GenesisMState) setBlockProduceSlashCfg(state *state.StateDB, num uint64) error {
+	if num == 0 {
+		if g.BlockProduceSlashCfg == nil {
+			return errors.New("区块生产惩罚配置信息为nil")
+		}
+	} else {
+		if g.BlockProduceSlashCfg == nil {
+			log.INFO("Geneis", "未修改区块生产惩罚配置信息为", "")
+			return nil
+		}
+	}
+	log.Info("Geneis", "BlockProduceSlashCfg", g.BlockProduceSlashCfg)
+	return matrixstate.SetBlockProduceSlashCfg(state, g.BlockProduceSlashCfg)
+}
+func (g *GenesisMState) setBlockProduceStats(state *state.StateDB, num uint64) error {
+	if num == 0 {
+		if g.BlockProduceStats == nil {
+			return nil
+		}
+	} else {
+		if g.BlockProduceStats == nil {
+			log.INFO("Geneis", "未修改区块生产惩罚统计信息", "")
+			return nil
+		}
+	}
+	log.Info("Geneis", "BlockProduceStats", g.BlockProduceStats)
+	return matrixstate.SetBlockProduceStats(state, g.BlockProduceStats)
+}
+func (g *GenesisMState) setBlockProduceSlashBlkList(state *state.StateDB, num uint64) error {
+	if num == 0 {
+		if g.BlockProduceSlashBlackList == nil {
+			return nil
+		}
+	} else {
+		if g.BlockProduceSlashBlackList == nil {
+			log.INFO("Geneis", "未修改区块生产惩黑名单", "")
+			return nil
+		}
+	}
+	log.Info("Geneis", "BlockProduceBlackList", g.BlockProduceSlashBlackList)
+	return matrixstate.SetBlockProduceBlackList(state, g.BlockProduceSlashBlackList)
+}
+func (g *GenesisMState) setBlockProduceSlashStatsStatus(state *state.StateDB, num uint64) error {
+	if num == 0 {
+		if g.BlockProduceSlashStatsStatus == nil {
+			return errors.New("区块生产惩状态信息为nil")
+		}
+	} else {
+		if g.BlockProduceSlashStatsStatus == nil {
+			log.INFO("Geneis", "未修改区块生产状态信息", "")
+			return nil
+		}
+	}
+	log.Info("Geneis", "BlockProduceSlashStatsStatus", g.BlockProduceSlashStatsStatus)
+	return matrixstate.SetBlockProduceStatsStatus(state, g.BlockProduceSlashStatsStatus)
 }

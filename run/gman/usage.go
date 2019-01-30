@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -71,6 +71,12 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.LightKDFFlag,
 			utils.AesInputFlag,
 			utils.AesOutputFlag,
+			utils.SynSnapshootNumFlg,
+			utils.SynSnapshootHashFlg,
+			utils.SaveSnapStartFlg,
+			utils.SaveSnapPeriodFlg,
+			utils.SnapModeFlg,
+			utils.GetGenesisFlag,
 		},
 	},
 	/*	{Name: "DEVELOPER CHAIN",
@@ -104,15 +110,15 @@ var AppHelpFlagGroups = []flagGroup{
 		Name: "TRANSACTION POOL",
 		Flags: []cli.Flag{
 			utils.TxPoolNoLocalsFlag,
-			//utils.TxPoolJournalFlag,//YYY
+			//utils.TxPoolJournalFlag,//Y
 			//utils.TxPoolRejournalFlag,
 			utils.TxPoolPriceLimitFlag,
-			//utils.TxPoolPriceBumpFlag,//YYY
+			//utils.TxPoolPriceBumpFlag,//Y
 			utils.TxPoolAccountSlotsFlag,
 			utils.TxPoolGlobalSlotsFlag,
 			utils.TxPoolAccountQueueFlag,
 			utils.TxPoolGlobalQueueFlag,
-			//YYY utils.TxPoolLifetimeFlag,
+			//Y utils.TxPoolLifetimeFlag,
 		},
 	},
 	{

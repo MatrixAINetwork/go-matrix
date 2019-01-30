@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mtxdpos
@@ -12,7 +12,6 @@ import (
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 )
 
@@ -53,8 +52,6 @@ var (
 	errSuperBlockSignCount = errors.New("super block sign count err, not one")
 
 	errSuperBlockVerifySign = errors.New("super block sign is not from super super block account")
-
-	errVersionErr = errors.New("version is err")
 )
 
 type dposTarget struct {
@@ -73,14 +70,9 @@ func NewMtxDPOS() *MtxDPOS {
 	return &MtxDPOS{}
 }
 
-func (md *MtxDPOS) VerifyVersion(reader consensus.StateReader, header *types.Header) error {
+func (md *MtxDPOS) VerifyVersionSigns(reader consensus.StateReader, header *types.Header) error {
 	var blockHash common.Hash
 	number := header.Number.Uint64()
-	// 验证版本号
-	if manparams.IsCorrectVersion(header.Version) == false {
-		return errVersionErr
-	}
-
 	if 0 == number {
 		blockHash = header.Hash()
 	} else {
@@ -99,9 +91,9 @@ func (md *MtxDPOS) VerifyVersion(reader consensus.StateReader, header *types.Hea
 	}
 
 	verifiedVersion := md.verifyHashWithSuperNodes(common.BytesToHash([]byte(header.Version)), header.VersionSignatures, accounts)
-	log.INFO("共识引擎", "版本", string(header.Version), "签名", header.VersionSignatures[0].Bytes(), "版本节点", accounts[0].String())
+	//log.Debug("共识引擎", "版本", string(header.Version))
 	if len(verifiedVersion) < targetCount {
-		log.ERROR("共识引擎", "验证版本,验证后的签名数量不足 size", len(verifiedVersion), "target", targetCount)
+		log.ERROR("共识引擎", "验证版本号签名,验证后的签名数量不足 size", len(verifiedVersion), "target", targetCount)
 		return errVersionVerifySign
 	}
 	return nil
@@ -167,8 +159,8 @@ func (md *MtxDPOS) VerifyBlock(reader consensus.StateReader, header *types.Heade
 	if nil == header {
 		return errors.New("header is nil")
 	}
-	if err := md.VerifyVersion(reader, header); err != nil {
-		log.INFO("MtxDPOS", "验证区块阶段 ", "验证版本", "版本号不正确 err", "err")
+	if err := md.VerifyVersionSigns(reader, header); err != nil {
+		log.INFO("共识引擎", "验证版本号签名失败", "err", err)
 		return err
 	}
 
@@ -192,7 +184,7 @@ func (md *MtxDPOS) VerifyBlock(reader consensus.StateReader, header *types.Heade
 	}
 
 	hash := header.HashNoSignsAndNonce()
-	log.INFO("共识引擎", "VerifyBlock, 签名总数", len(header.Signatures), "hash", hash, "txhash:", header.TxHash.TerminalString())
+	log.Trace("共识引擎", "VerifyBlock, 签名总数", len(header.Signatures), "hash", hash, "txhash:", header.TxHash.TerminalString())
 
 	_, err = md.VerifyHashWithStocks(reader, hash, header.Signatures, stocks, header.ParentHash)
 	return err
@@ -429,8 +421,6 @@ func (md *MtxDPOS) getValidatorStocks(reader consensus.StateReader, hash common.
 
 func (md *MtxDPOS) graph2ValidatorStocks(topologyInfo *mc.TopologyGraph, electInfo *mc.ElectGraph) map[common.Address]uint16 {
 	stocks := make(map[common.Address]uint16)
-	log.Info("测试测试测试", "拓扑图", topologyInfo.NodeList)
-	log.Info("测试测试测试", "选举", electInfo.ElectList)
 	for _, node := range topologyInfo.NodeList {
 		if node.Type != common.RoleValidator {
 			continue

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
@@ -8,16 +8,17 @@ import (
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/matrixstate"
 	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/depoistInfo"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 )
 
 type cdc struct {
 	state            stateDef
 	number           uint64
-	selfAddr         common.Address
+	selfAddr         common.Address // 自己的抵押账户A0
+	selfNodeAddr     common.Address // 自己的实际node账户
 	role             common.RoleType
 	curConsensusTurn mc.ConsensusTurnInfo
 	consensusLeader  common.Address
@@ -25,7 +26,7 @@ type cdc struct {
 	reelectMaster    common.Address
 	isMaster         bool
 	leaderCal        *leaderCalculator
-	bcInterval       *manparams.BCInterval
+	bcInterval       *mc.BCIntervalInfo
 	parentState      StateReader
 	turnTime         *turnTimes
 	chain            *core.BlockChain
@@ -37,6 +38,7 @@ func newCDC(number uint64, chain *core.BlockChain, logInfo string) *cdc {
 		state:            stIdle,
 		number:           number,
 		selfAddr:         common.Address{},
+		selfNodeAddr:     common.Address{},
 		role:             common.RoleNil,
 		curConsensusTurn: mc.ConsensusTurnInfo{},
 		consensusLeader:  common.Address{},
@@ -54,11 +56,7 @@ func newCDC(number uint64, chain *core.BlockChain, logInfo string) *cdc {
 	return dc
 }
 
-func (dc *cdc) SetSelfAddress(addr common.Address) {
-	dc.selfAddr = addr
-}
-
-func (dc *cdc) AnalysisState(parentHeader *types.Header, preIsSupper bool, parentState StateReader) error {
+func (dc *cdc) AnalysisState(parentHeader *types.Header, parentState StateReader) error {
 	if parentState == nil || parentHeader == nil {
 		return errors.New("parent state or parentHeader is nil")
 	}
@@ -80,7 +78,7 @@ func (dc *cdc) AnalysisState(parentHeader *types.Header, preIsSupper bool, paren
 		return err
 	}
 
-	if err := dc.leaderCal.SetValidatorsAndSpecials(parentHeader, preIsSupper, validators, specials, bcInterval); err != nil {
+	if err := dc.leaderCal.SetValidatorsAndSpecials(parentHeader, validators, specials, bcInterval); err != nil {
 		return err
 	}
 
@@ -141,7 +139,7 @@ func (dc *cdc) SetReelectTurn(reelectTurn uint32) error {
 	return nil
 }
 
-func (dc *cdc) GetLeader(turn uint32, bcInterval *manparams.BCInterval) (common.Address, error) {
+func (dc *cdc) GetLeader(turn uint32, bcInterval *mc.BCIntervalInfo) (common.Address, error) {
 	leaders, err := dc.leaderCal.GetLeader(turn, bcInterval)
 	if err != nil {
 		return common.Address{}, err
@@ -177,14 +175,12 @@ func (dc *cdc) PrepareLeaderMsg() (*mc.LeaderChangeNotify, error) {
 }
 
 func (dc *cdc) readValidatorsAndRoleFromState(state StateReader) ([]mc.TopologyNodeInfo, common.RoleType, error) {
-	graphData, err := matrixstate.GetDataByState(mc.MSKeyTopologyGraph, state)
+	topology, err := matrixstate.GetTopologyGraph(state)
 	if err != nil {
 		return nil, common.RoleNil, err
 	}
-
-	topology, OK := graphData.(*mc.TopologyGraph)
-	if OK == false || topology == nil {
-		return nil, common.RoleNil, errors.New("reflect topology data failed")
+	if topology == nil {
+		return nil, common.RoleNil, errors.New("topology data is nil")
 	}
 
 	role := dc.getRoleFromTopology(topology)
@@ -208,48 +204,32 @@ func (dc *cdc) getRoleFromTopology(TopologyGraph *mc.TopologyGraph) common.RoleT
 }
 
 func (dc *cdc) readSpecialAccountsFromState(state StateReader) (*specialAccounts, error) {
-	bcData, err := matrixstate.GetDataByState(mc.MSKeyAccountBroadcast, state)
+	broadcasts, err := matrixstate.GetBroadcastAccounts(state)
 	if err != nil {
 		return nil, err
-	}
-	broadcast, OK := bcData.(common.Address)
-	if OK == false {
-		return nil, errors.New("reflect broadcast account failed")
 	}
 
-	vsData, err := matrixstate.GetDataByState(mc.MSKeyAccountVersionSupers, state)
+	versionSupers, err := matrixstate.GetVersionSuperAccounts(state)
 	if err != nil {
 		return nil, err
-	}
-	versionSupers, OK := vsData.([]common.Address)
-	if OK == false {
-		return nil, errors.New("reflect version super accounts failed")
 	}
 
-	bsData, err := matrixstate.GetDataByState(mc.MSKeyAccountBlockSupers, state)
+	blockSupers, err := matrixstate.GetBlockSuperAccounts(state)
 	if err != nil {
 		return nil, err
-	}
-	blockSupers, OK := bsData.([]common.Address)
-	if OK == false {
-		return nil, errors.New("reflect block super accounts failed")
 	}
 
 	return &specialAccounts{
-		broadcast:     broadcast,
+		broadcasts:    broadcasts,
 		versionSupers: versionSupers,
 		blockSupers:   blockSupers,
 	}, nil
 }
 
 func (dc *cdc) readLeaderConfigFromState(state StateReader) (*mc.LeaderConfig, error) {
-	data, err := matrixstate.GetDataByState(mc.MSKeyLeaderConfig, state)
+	config, err := matrixstate.GetLeaderConfig(state)
 	if err != nil {
 		return nil, err
-	}
-	config, OK := data.(*mc.LeaderConfig)
-	if OK == false {
-		return nil, errors.New("reflect LeaderConfig failed")
 	}
 	if config == nil {
 		return nil, errors.New("LeaderConfig == nil")
@@ -257,12 +237,15 @@ func (dc *cdc) readLeaderConfigFromState(state StateReader) (*mc.LeaderConfig, e
 	return config, nil
 }
 
-func (dc *cdc) readBroadCastIntervalFromState(state StateReader) (*manparams.BCInterval, error) {
-	data, err := matrixstate.GetDataByState(mc.MSKeyBroadcastInterval, state)
+func (dc *cdc) readBroadCastIntervalFromState(state StateReader) (*mc.BCIntervalInfo, error) {
+	interval, err := matrixstate.GetBroadcastInterval(state)
 	if err != nil {
 		return nil, err
 	}
-	return manparams.NewBCIntervalWithInterval(data)
+	if interval == nil {
+		return nil, errors.New("broadcast interval is nil")
+	}
+	return interval, nil
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -281,14 +264,14 @@ func (dc *cdc) GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGra
 	return dc.chain.GetGraphByHash(hash)
 }
 
-func (dc *cdc) GetBroadcastAccount(blockHash common.Hash) (common.Address, error) {
+func (dc *cdc) GetBroadcastAccounts(blockHash common.Hash) ([]common.Address, error) {
 	if (blockHash == common.Hash{}) {
-		return common.Address{}, errors.New("输入hash为空")
+		return nil, errors.New("输入hash为空")
 	}
 	if blockHash == dc.leaderCal.preHash {
-		return dc.leaderCal.specialAccounts.broadcast, nil
+		return dc.leaderCal.specialAccounts.broadcasts, nil
 	}
-	return dc.chain.GetBroadcastAccount(blockHash)
+	return dc.chain.GetBroadcastAccounts(blockHash)
 }
 
 func (dc *cdc) GetVersionSuperAccounts(blockHash common.Hash) ([]common.Address, error) {
@@ -311,7 +294,7 @@ func (dc *cdc) GetBlockSuperAccounts(blockHash common.Hash) ([]common.Address, e
 	return dc.chain.GetBlockSuperAccounts(blockHash)
 }
 
-func (dc *cdc) GetBroadcastInterval(blockHash common.Hash) (*mc.BCIntervalInfo, error) {
+func (dc *cdc) GetBroadcastIntervalByHash(blockHash common.Hash) (*mc.BCIntervalInfo, error) {
 	if (blockHash == common.Hash{}) {
 		return nil, errors.New("输入hash为空")
 	}
@@ -319,65 +302,120 @@ func (dc *cdc) GetBroadcastInterval(blockHash common.Hash) (*mc.BCIntervalInfo, 
 		if dc.bcInterval == nil {
 			return nil, errors.New("缓存中不存在广播周期信息")
 		}
-		return dc.bcInterval.ToInfoStu(), nil
+		return dc.bcInterval, nil
 	}
-	return dc.chain.GetBroadcastInterval(blockHash)
+	return dc.chain.GetBroadcastIntervalByHash(blockHash)
 }
 
 func (dc *cdc) GetSignAccountPassword(signAccounts []common.Address) (common.Address, string, error) {
 	return dc.chain.GetSignAccountPassword(signAccounts)
 }
-func (dc *cdc) GetSignAccounts(authFrom common.Address, blockHash common.Hash) ([]common.Address, error) {
+
+func (dc *cdc) GetA2AccountsFromA0Account(a0Account common.Address, blockHash common.Hash) ([]common.Address, error) {
 	if blockHash.Equal(common.Hash{}) {
-		log.Error(common.SignLog, "获取签名账户阶段", "cdc 最终结果", "输入数据err", "区块hash为空")
+		log.Error(common.SignLog, "cdc获取A2账户", "输入数据区块hash为空")
 		return nil, errors.New("cdc:输入hash为空")
 	}
 
 	if blockHash != dc.leaderCal.preHash {
-		log.Info(common.SignLog, "获取签名账户阶段", "cdc 最终结果", "调blockchain接口", "")
-		return dc.chain.GetSignAccounts(authFrom, blockHash)
+		log.Info(common.SignLog, "cdc获取A2账户", "调blockchain接口")
+		return dc.chain.GetA2AccountsFromA0Account(a0Account, blockHash)
 	}
 
-	if common.TopAccountType == common.TopAccountA0 {
-		//TODO 暂定根据ca提供的接口获取委托账户
+	return dc.getA2Accounts(a0Account, blockHash, dc.number-1)
+}
+
+func (dc *cdc) GetA0AccountFromAnyAccount(account common.Address, blockHash common.Hash) (common.Address, common.Address, error) {
+	if blockHash == (common.Hash{}) {
+		log.ERROR(common.SignLog, "CDC获取A0账户", "输入的hash为空")
+		return common.Address{}, common.Address{}, errors.New("cdc: 输入hash为空")
+	}
+	if blockHash != dc.leaderCal.preHash {
+		log.Warn(common.SignLog, "CDC获取A0账户", "采用blockchain的接口")
+		return dc.chain.GetA0AccountFromAnyAccount(account, blockHash)
 	}
 
+	return dc.getA0Account(account, blockHash, dc.number-1)
+}
+
+func (dc *cdc) GetA2AccountsFromA0AccountAtSignHeight(a0Account common.Address, blockHash common.Hash, signHeight uint64) ([]common.Address, error) {
+	if blockHash.Equal(common.Hash{}) {
+		log.Error(common.SignLog, "cdc获取A2账户", "输入数据区块hash为空")
+		return nil, errors.New("cdc:输入hash为空")
+	}
+
+	if blockHash != dc.leaderCal.preHash {
+		log.Info(common.SignLog, "cdc获取A2账户", "调blockchain接口")
+		return dc.chain.GetA2AccountsFromA0AccountAtSignHeight(a0Account, blockHash, signHeight)
+	}
+
+	return dc.getA2Accounts(a0Account, blockHash, signHeight)
+}
+
+func (dc *cdc) GetA0AccountFromAnyAccountAtSignHeight(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error) {
+	if blockHash == (common.Hash{}) {
+		log.ERROR(common.SignLog, "CDC获取A0账户", "输入的hash为空")
+		return common.Address{}, common.Address{}, errors.New("cdc: 输入hash为空")
+	}
+	if blockHash != dc.leaderCal.preHash {
+		log.Warn(common.SignLog, "CDC获取A0账户", "采用blockchain的接口")
+		return dc.chain.GetA0AccountFromAnyAccountAtSignHeight(account, blockHash, signHeight)
+	}
+	return dc.getA0Account(account, blockHash, signHeight)
+}
+
+func (dc *cdc) getA2Accounts(a0Account common.Address, blockHash common.Hash, signHeight uint64) ([]common.Address, error) {
 	if nil == dc.parentState {
-		log.Info(common.SignLog, "获取签名账户阶段", "cdc 最终结果", "err", "dc.parentState是空")
+		log.Info(common.SignLog, "cdc获取A2账户", "dc.parentState是空")
 		return nil, errors.New("cdc: parent stateDB is nil, can't reader data")
 	}
 
-	height := dc.number - 1
-	ans := dc.parentState.GetEntrustFrom(authFrom, height)
-	if len(ans) == 0 {
-		ans = append(ans, authFrom)
+	a1Account := depoistInfo.GetAuthAccount(dc.parentState, a0Account)
+	if a1Account == (common.Address{}) {
+		log.Error(common.SignLog, "cdc获取A2账户", " 不存在A1账户", " a0Account", a0Account.Hex())
+		return nil, errors.New("不存在A1账户")
 	}
-	return ans, nil
+
+	a2Accounts := dc.parentState.GetEntrustFrom(a1Account, signHeight)
+	if len(a2Accounts) == 0 {
+		log.INFO(common.SignLog, "cdc获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
+	} else {
+		log.Info(common.SignLog, "cdc获得A2账户", "成功", "账户数量", len(a2Accounts), "签名高度", signHeight)
+		for i, account := range a2Accounts {
+			log.Info(common.SignLog, "A2账户", i, "account", account.Hex(), "签名高度", signHeight)
+		}
+	}
+	a2Accounts = append(a2Accounts, a1Account)
+	return a2Accounts, nil
 }
 
-func (dc *cdc) GetAuthAccount(signAccount common.Address, hash common.Hash) (common.Address, error) {
-	if hash.Equal(common.Hash{}) {
-		log.ERROR(common.SignLog, "获取委托账户阶段", "cdc 最终结果", "输入的hash err", "hash为空")
-		return common.Address{}, errors.New("cdc: 输入hash为空")
+func (dc *cdc) getA0Account(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error) {
+	if nil == dc.parentState {
+		log.ERROR(common.SignLog, "CDC获取A0账户", "dc.parentState is nil")
+		return common.Address{}, common.Address{}, errors.New("cdc: parent stateDB is nil, can't reader data")
 	}
-	if hash == dc.leaderCal.preHash {
-		if nil == dc.parentState {
-			log.ERROR(common.SignLog, "获取委托账户阶段", "cdc 最终结果", "dc.parentState err", "preentState is nil")
-			return common.Address{}, errors.New("cdc: parent stateDB is nil, can't reader data")
-		}
 
-		preHeight := dc.number - 1
-		addr := dc.parentState.GetAuthFrom(signAccount, preHeight)
-		if addr.Equal(common.Address{}) {
-			addr = signAccount
-		}
-		if common.TopAccountType == common.TopAccountA0 {
-			//TODO 利用CA接口将A1转换为A0
-		}
-
-		log.Info(common.SignLog, "获取委托账户阶段", "cdc 最终结果", "高度", preHeight, "签名账户", signAccount, "真实账户", addr)
-		return addr, nil
+	//假设传入的account为A1账户, 获取A1账户
+	a0Account := depoistInfo.GetDepositAccount(dc.parentState, account)
+	if a0Account != (common.Address{}) {
+		log.Debug(common.SignLog, "CDC获取A0账户", "成功", "输入A1", account.Hex(), "输出A0", a0Account.Hex())
+		return a0Account, account, nil
 	}
-	log.Warn(common.SignLog, "获取委托账户阶段", "cdc 最终结果", "采用blockchain的接口 hash", hash.String())
-	return dc.chain.GetAuthAccount(signAccount, hash)
+
+	//账户为A2账户，获取A1
+	a1Account := dc.parentState.GetAuthFrom(account, signHeight)
+	if a1Account == (common.Address{}) {
+		log.Error(common.SignLog, "CDC获取A0账户", "账户不是A1也不是A2账户", "Account", account.Hex())
+		return common.Address{}, common.Address{}, errors.New("账户不是A1也不是A2账户")
+	}
+
+	// 根据A1获取A0
+	a0Account = depoistInfo.GetDepositAccount(dc.parentState, a1Account)
+	if a0Account != (common.Address{}) {
+		log.Debug(common.SignLog, "CDC获取A0账户", "成功", "输入A1", a1Account.Hex(), "输出A0", a0Account.Hex())
+		return a0Account, a1Account, nil
+	} else {
+		log.Error(common.SignLog, "CDC获取A0账户", "A1账户获取A0账户失败", "A1Account", a1Account.Hex())
+		return common.Address{}, common.Address{}, errors.New("获取A0账户失败")
+	}
 }

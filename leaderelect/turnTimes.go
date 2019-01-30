@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
@@ -35,10 +35,10 @@ func (tt *turnTimes) SetTimeConfig(config *mc.LeaderConfig) error {
 		return ErrParamsIsNil
 	}
 
-	tt.parentMiningTime = config.ParentMiningTime
-	tt.posOutTime = config.PosOutTime
-	tt.reelectOutTime = config.ReelectOutTime
-	tt.reelectHandleInterval = config.ReelectHandleInterval
+	tt.parentMiningTime = int64(config.ParentMiningTime)
+	tt.posOutTime = int64(config.PosOutTime)
+	tt.reelectOutTime = int64(config.ReelectOutTime)
+	tt.reelectHandleInterval = int64(config.ReelectHandleInterval)
 	return nil
 }
 

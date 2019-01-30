@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -116,7 +116,7 @@ func Sender(signer Signer, tx SelfTransaction) (common.Address, error) {
 	//return addr, nil
 }
 
-//YY
+//
 func Sender_self(signer Signer, tx SelfTransaction, waitg *sync.WaitGroup) (common.Address, error) {
 	defer waitg.Done()
 	if sc := tx.GetFromLoad(); sc != nil {
@@ -193,7 +193,7 @@ func (s EIP155Signer) Sender(tx SelfTransaction) (common.Address, error) {
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
-	//YY=====begin======
+	//=====begin======
 	V := new(big.Int).Set(tx.GetTxV())
 	//if V.Cmp(big.NewInt(128)) > 0 {
 	//	V.Sub(V, big.NewInt(128))
@@ -208,7 +208,7 @@ func (s EIP155Signer) Sender(tx SelfTransaction) (common.Address, error) {
 	//if tx.ChainId().Cmp(s.chainId) != 0 {
 	//	return common.Address{}, ErrInvalidChainId
 	//}
-	////YY=====begin======
+	////=====begin======
 	//V := new(big.Int).Set(tx.data.V)
 	//if V.Cmp(big.NewInt(128)) > 0 {
 	//	V.Sub(V, big.NewInt(128))
@@ -264,21 +264,6 @@ func (s EIP155Signer) Hash(txer SelfTransaction) common.Hash {
 			data1.CommitTime,
 			data1.Extra,
 		})
-		//}else{
-		//		return rlpHash([]interface{}{
-		//			tx.data.AccountNonce,
-		//			tx.data.Price,
-		//			tx.data.GasLimit,
-		//			tx.data.Recipient,
-		//			tx.data.Amount,
-		//			tx.data.Payload,
-		//			s.chainId, uint(0), uint(0),
-		//			tx.data.TxEnterType,
-		//			tx.data.IsEntrustTx,
-		//			tx.data.CommitTime,
-		//			tx.data.Extra,
-		//		})
-		//}
 	case BroadCastTxIndex:
 		tx, ok := txer.(*TransactionBroad)
 		if !ok {
@@ -297,7 +282,6 @@ func (s EIP155Signer) Hash(txer SelfTransaction) common.Hash {
 	default:
 		return common.Hash{}
 	}
-
 }
 
 // HomesteadTransaction implements TransactionInterface using the
@@ -382,7 +366,7 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	return addr, nil
 }
 
-//YY 将原来的deriveChainId方法改为deriveChainId1，然后重写deriveChainId方法
+// 将原来的deriveChainId方法改为deriveChainId1，然后重写deriveChainId方法
 func deriveChainId(v *big.Int) *big.Int {
 	v1 := new(big.Int).Set(v)
 	//tmp := big.NewInt(128)

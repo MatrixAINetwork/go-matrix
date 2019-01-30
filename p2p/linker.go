@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package p2p
@@ -15,7 +15,6 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
 type Linker struct {
@@ -59,8 +58,8 @@ var Link = &Linker{
 }
 
 var (
-	emptyNodeId  = discover.NodeID{}
-	emptyAddress = common.Address{}
+	EmptyNodeId  = discover.NodeID{}
+	EmptyAddress = common.Address{}
 )
 
 func (l *Linker) Start() {
@@ -82,11 +81,11 @@ func (l *Linker) Start() {
 		case r := <-l.roleChan:
 			{
 				height := r.Height.Uint64()
-				bcInterval, err := manparams.NewBCIntervalWithInterval(r.BroadCastInterval)
-				if err != nil {
-					log.Error("p2p link", "broadcast interval err", err)
+				if r.BroadCastInterval == nil {
+					log.Error("p2p link", "broadcast interval err", "is nil")
 					continue
 				}
+
 				if r.Role <= common.RoleBucket {
 					l.role = common.RoleNil
 					break
@@ -99,13 +98,11 @@ func (l *Linker) Start() {
 
 				l.maintainPeer()
 
-				if bcInterval.IsReElectionNumber(height) {
+				if r.BroadCastInterval.IsReElectionNumber(height) {
 					l.topNodeCache = l.topNode
-					l.topNode = make(map[common.RoleType]map[common.Address][]uint8)
 					l.initTopNodeMap()
 				}
-				if bcInterval.IsReElectionNumber(height - 10) {
-					l.topNodeCache = make(map[common.RoleType]map[common.Address][]uint8)
+				if r.BroadCastInterval.IsReElectionNumber(height - 10) {
 					l.initTopNodeMapCache()
 				}
 
@@ -121,11 +118,11 @@ func (l *Linker) Start() {
 				}
 
 				switch {
-				case bcInterval.IsBroadcastNumber(height):
+				case r.BroadCastInterval.IsBroadcastNumber(height):
 					l.ToLink()
 					l.broadcastActive = true
 
-				case bcInterval.IsBroadcastNumber(height + 2):
+				case r.BroadCastInterval.IsBroadcastNumber(height + 2):
 					if len(l.linkMap) <= 0 {
 						break
 					}
@@ -135,7 +132,7 @@ func (l *Linker) Start() {
 						break
 					}
 					mc.PublishEvent(mc.SendBroadCastTx, mc.BroadCastEvent{Txtyps: mc.CallTheRoll, Height: big.NewInt(r.Height.Int64() + 2), Data: bytes})
-				case bcInterval.IsBroadcastNumber(height + 1):
+				case r.BroadCastInterval.IsBroadcastNumber(height + 1):
 					break
 				default:
 					l.sendToAllPeersPing()
@@ -161,6 +158,7 @@ func (l *Linker) Stop() {
 
 func (l *Linker) initTopNodeMap() {
 	l.topMu.Lock()
+	l.topNode = make(map[common.RoleType]map[common.Address][]uint8)
 	for i := int(common.RoleBackupMiner); i <= int(common.RoleValidator); i = i << 1 {
 		l.topNode[common.RoleType(i)] = make(map[common.Address][]uint8)
 	}
@@ -169,6 +167,7 @@ func (l *Linker) initTopNodeMap() {
 
 func (l *Linker) initTopNodeMapCache() {
 	l.topMu.Lock()
+	l.topNodeCache = make(map[common.RoleType]map[common.Address][]uint8)
 	for i := int(common.RoleBackupMiner); i <= int(common.RoleValidator); i = i << 1 {
 		l.topNodeCache[common.RoleType(i)] = make(map[common.Address][]uint8)
 	}
@@ -253,7 +252,7 @@ func (l *Linker) recordTopNodeActiveInfo() {
 			ok := false
 			for _, peer := range ServerP2p.Peers() {
 				id := ServerP2p.ConvertAddressToId(key)
-				if id != emptyNodeId && peer.ID() == id {
+				if id != EmptyNodeId && peer.ID() == id {
 					ok = true
 				}
 			}
@@ -320,7 +319,7 @@ func Record(id discover.NodeID) error {
 	defer Link.mu.Unlock()
 
 	signAddr := ServerP2p.ConvertIdToAddress(id)
-	if signAddr == emptyAddress {
+	if signAddr == EmptyAddress {
 		return nil
 	}
 

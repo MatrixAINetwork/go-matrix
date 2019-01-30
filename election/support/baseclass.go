@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package support
@@ -57,10 +57,11 @@ type Electoion struct {
 
 	EleCfg mc.ElectConfigInfo_All
 
-	ChosedNum     int
-	NeedNum       int
-	HasChosedNode [][]Strallyint
-	MapMoney      map[common.Address]uint64
+	ChosedNum                  int
+	NeedNum                    int
+	HasChosedNode              [][]Strallyint
+	MapMoney                   map[common.Address]uint64
+	BlockProduceSlashBlackList []common.Address
 }
 
 func (node *Node) SetUsable(status bool) {
@@ -134,7 +135,16 @@ func NewElelection(VipLevelCfg []mc.VIPConfig, vm []vm.DepositDetail, EleCfg mc.
 	}
 	return &vip
 }
+func (vip *Electoion) GetAvailableNodeNum() int {
+	var availableNodeNum = 0
 
+	for i := 0; i < len(vip.NodeList); i++ {
+		if vip.NodeList[i].Usable {
+			availableNodeNum++
+		}
+	}
+	return availableNodeNum
+}
 func FindAddress(addr common.Address, addrList []common.Address) bool {
 	for _, v := range addrList {
 		if v.Equal(addr) == true {
@@ -202,17 +212,19 @@ func (vip *Electoion) GetVipStock(addr common.Address) int {
 
 }
 func (vip *Electoion) ProcessWhiteNode() {
-	/*
 		for k, v := range vip.NodeList {
-			if v.Usable == false {
-				continue
-			}
-			if FindAddress(v.Address, vip.EleCfg.WhiteList) {
-				vip.WhiteNodeInfo = append(vip.WhiteNodeInfo, Strallyint{Addr: v.Address, Value: DefaultStock})
+			if !FindAddress(v.Address, vip.EleCfg.WhiteList) {
 				vip.NodeList[k].SetUsable(false)
 			}
 		}
-	*/
+}
+func (vip *Electoion) GetNodeByAccount(address common.Address) (int, bool) {
+	for k, v := range vip.NodeList {
+		if v.Address.Equal(address) {
+			return k, true
+		}
+	}
+	return 0, false
 }
 func (vip *Electoion) GetNodeByLevel(level common.VIPRoleType) []Node {
 	specialNode := make([]Node, 0)

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -8,7 +8,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/matrix/go-matrix/base58"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,16 +15,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/matrix/go-matrix/base58"
+
 	"encoding/json"
 
 	"github.com/matrix/go-matrix/accounts"
 	"github.com/matrix/go-matrix/accounts/keystore"
-	//"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/fdlimit"
 	"github.com/matrix/go-matrix/consensus"
 	"github.com/matrix/go-matrix/consensus/clique"
 	"github.com/matrix/go-matrix/consensus/manash"
+	"github.com/matrix/go-matrix/console"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/vm"
@@ -152,6 +153,10 @@ var (
 		Name:  "light",
 		Usage: "Enable light client mode (replaced by --syncmode)",
 	}
+	GetGenesisFlag = cli.StringFlag{
+		Name:  "getGenesis",
+		Usage: "Output the actual configuration used",
+	}
 	defaultSyncMode = man.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
 		Name:  "syncmode",
@@ -240,7 +245,7 @@ var (
 		Name:  "txpool.nolocals",
 		Usage: "Disables price exemptions for locally submitted transactions",
 	}
-	//TxPoolJournalFlag = cli.StringFlag{ //YYY
+	//TxPoolJournalFlag = cli.StringFlag{ //Y
 	//	Name:  "txpool.journal",
 	//	Usage: "Disk journal for local transaction to survive node restarts",
 	//	Value: core.DefaultTxPoolConfig.Journal,
@@ -255,7 +260,7 @@ var (
 		Usage: "Minimum gas price limit to enforce for acceptance into the pool",
 		Value: man.DefaultConfig.TxPool.PriceLimit,
 	}
-	//TxPoolPriceBumpFlag = cli.Uint64Flag{ //YYY
+	//TxPoolPriceBumpFlag = cli.Uint64Flag{ //Y
 	//	Name:  "txpool.pricebump",
 	//	Usage: "Price bump percentage to replace an already existing transaction",
 	//	Value: eth.DefaultConfig.TxPool.PriceBump,
@@ -280,7 +285,7 @@ var (
 		Usage: "Maximum number of non-executable transaction slots for all accounts",
 		Value: man.DefaultConfig.TxPool.GlobalQueue,
 	}
-	//TxPoolLifetimeFlag = cli.DurationFlag{ //YYY
+	//TxPoolLifetimeFlag = cli.DurationFlag{ //Y
 	//	Name:  "txpool.lifetime",
 	//	Usage: "Maximum amount of time non-executable transaction are queued",
 	//	Value: eth.DefaultConfig.TxPool.Lifetime,
@@ -339,9 +344,9 @@ var (
 		Name:  "testlocalmining",
 		Usage: "print a string",
 	}
-	TestHeaderGenFlag = cli.StringFlag{
-		Name:  "testheadergen",
-		Usage: "zhangwen header gen",
+	SuperBlockElectGenFlag = cli.BoolFlag{
+		Name:  "electflag",
+		Usage: " super block elect gen",
 	}
 	TestChangeRoleFlag = cli.StringFlag{
 		Name:  "testchangerole",
@@ -374,7 +379,7 @@ var (
 	}
 	TestEntrustFlag = cli.StringFlag{
 		Name:  "testmode",
-		Usage: "默认使用2222222222222222解密",
+		Usage: "",
 		Value: "",
 	}
 	VMEnableDebugFlag = cli.BoolFlag{
@@ -543,6 +548,31 @@ var (
 		Name:  "gpopercentile",
 		Usage: "Suggested gas price is the given percentile of a set of recent transaction gas prices",
 		Value: man.DefaultConfig.GPO.Percentile,
+	}
+	SynSnapshootNumFlg = cli.Uint64Flag{
+		Name:  "snapnumber",
+		Usage: "snapshoot sync block number",
+		Value: man.SnapshootNumber,
+	}
+	SynSnapshootHashFlg = cli.StringFlag{
+		Name:  "snaphash",
+		Usage: "snapshoot sync block hash",
+		Value: man.SnapshootHash,
+	}
+	SnapModeFlg = cli.IntFlag{
+		Name:  "snapFlag",
+		Usage: "snapFlag 0:from broadcast, 1:local",
+		Value: man.SnaploadFromLocal,
+	}
+	SaveSnapStartFlg = cli.Uint64Flag{
+		Name:  "snapstart",
+		Usage: "snapshoot start switch",
+		Value: man.SaveSnapStart,
+	}
+	SaveSnapPeriodFlg = cli.Uint64Flag{
+		Name:  "snapperiod",
+		Usage: "snapshoot save period,default 300",
+		Value: man.SaveSnapPeriod,
 	}
 )
 
@@ -838,6 +868,100 @@ func MakePasswordList(ctx *cli.Context) []string {
 	return lines
 }
 
+// GetSignPassword returns password specified by the global --testmode flag.
+func GetSignPassword(ctx *cli.Context) ([]string, error) {
+	var password string
+	if password = ctx.GlobalString(TestEntrustFlag.Name); password != "" {
+		return []string{password}, nil
+	}
+	var err error
+	password, err = GetPassword(Once)
+	if err != nil {
+		return nil, err
+	}
+	return []string{password}, nil
+}
+
+const (
+	Once = iota
+	Twice
+)
+
+func GetPassword(inputTimes int) (string, error) {
+	password, err := console.Stdin.PromptPassword("Passphrase: ")
+	if err != nil {
+		return "", fmt.Errorf("Failed to read passphrase: %v", err)
+	}
+	if inputTimes == Once {
+		return password, nil
+	}
+	confirm, err := console.Stdin.PromptPassword("Repeat passphrase: ")
+	if err != nil {
+		return "", fmt.Errorf("Failed to read passphrase confirmation: %v", err)
+	}
+	if password != confirm {
+		return "", fmt.Errorf("Passphrases do not match")
+	}
+	return password, nil
+}
+
+func IsValidChar(aim byte) bool {
+	if aim >= 33 && aim <= 126 {
+		return true
+	}
+	return false
+}
+func CheckPassword(password string) bool {
+	flagLowerChar := false
+	flagUpperChar := false
+	flagNum := false
+	flagSpecialChar := false
+	for _, v := range password {
+		if IsValidChar(byte(v)) == false {
+			fmt.Println("There are unsupported characters in your password. Please try again")
+			return false
+		}
+		switch {
+		case v >= 'a' && v <= 'z':
+			flagLowerChar = true
+		case v >= 'A' && v <= 'Z':
+			flagUpperChar = true
+		case v >= '0' && v <= '9':
+			flagNum = true
+		default:
+			flagSpecialChar = true
+		}
+
+	}
+
+	if flagSpecialChar == false {
+		fmt.Println("Your password doesn't contain special characters. Please try again")
+		return false
+	}
+	if flagNum == false {
+		fmt.Println("Your password doesn't contain numbers. Please try again")
+		return false
+	}
+	if flagUpperChar == false {
+		fmt.Println("Your password doesn't contain uppercase letters. Please try again")
+		return false
+	}
+	if flagLowerChar == false {
+		fmt.Println("Your password doesn't contain lowercase letters. Please try again")
+		return false
+	}
+
+	if len(password) > 16 {
+		fmt.Println("Your password's length exceeds 16 characters. Please try again")
+		return false
+	}
+	if len(password) < 8 {
+		fmt.Println("Your password's length is less than 8 characters. Please try again")
+		return false
+	}
+	return true
+}
+
 func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNodeKey(ctx, cfg)
 	setNAT(ctx, cfg)
@@ -881,9 +1005,10 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.NoDiscovery = true
 	}
 	if manAddr := ctx.GlobalString(ManAddressFlag.Name); manAddr != "" {
-		innerAddr := base58.Base58DecodeToAddress(manAddr)
-		cfg.ManAddress = innerAddr
-		cfg.ManAddrStr = manAddr
+		innerAddr, err := base58.Base58DecodeToAddress(manAddr)
+		if err == nil {
+			cfg.ManAddress = innerAddr
+		}
 	}
 
 	// if we're running a light client or server, force enable the v5 peer discovery
@@ -941,6 +1066,12 @@ func SetNodeConfig(ctx *cli.Context, cfg *pod.Config) {
 	if ctx.GlobalIsSet(NoUSBFlag.Name) {
 		cfg.NoUSB = ctx.GlobalBool(NoUSBFlag.Name)
 	}
+
+	man.SnapshootNumber = ctx.GlobalUint64(SynSnapshootNumFlg.Name)
+	man.SnapshootHash = ctx.GlobalString(SynSnapshootHashFlg.Name)
+	man.SaveSnapStart = ctx.GlobalUint64(SaveSnapStartFlg.Name)
+	man.SaveSnapPeriod = ctx.GlobalUint64(SaveSnapPeriodFlg.Name)
+	man.SnaploadFromLocal = ctx.GlobalInt(SnapModeFlg.Name)
 }
 
 func setGPO(ctx *cli.Context, cfg *gasprice.Config) {
@@ -953,7 +1084,7 @@ func setGPO(ctx *cli.Context, cfg *gasprice.Config) {
 }
 
 func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
-	//if ctx.GlobalIsSet(TxPoolNoLocalsFlag.Name) { //YYY
+	//if ctx.GlobalIsSet(TxPoolNoLocalsFlag.Name) { //Y
 	//	cfg.NoLocals = ctx.GlobalBool(TxPoolNoLocalsFlag.Name)
 	//}
 	//if ctx.GlobalIsSet(TxPoolJournalFlag.Name) {
@@ -965,7 +1096,7 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	if ctx.GlobalIsSet(TxPoolPriceLimitFlag.Name) {
 		cfg.PriceLimit = ctx.GlobalUint64(TxPoolPriceLimitFlag.Name)
 	}
-	//if ctx.GlobalIsSet(TxPoolPriceBumpFlag.Name) {//YYY
+	//if ctx.GlobalIsSet(TxPoolPriceBumpFlag.Name) {//Y
 	//	cfg.PriceBump = ctx.GlobalUint64(TxPoolPriceBumpFlag.Name)
 	//}
 	if ctx.GlobalIsSet(TxPoolAccountSlotsFlag.Name) {
@@ -980,7 +1111,7 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	if ctx.GlobalIsSet(TxPoolGlobalQueueFlag.Name) {
 		cfg.GlobalQueue = ctx.GlobalUint64(TxPoolGlobalQueueFlag.Name)
 	}
-	//if ctx.GlobalIsSet(TxPoolLifetimeFlag.Name) {//YYY
+	//if ctx.GlobalIsSet(TxPoolLifetimeFlag.Name) {//Y
 	//	cfg.Lifetime = ctx.GlobalDuration(TxPoolLifetimeFlag.Name)
 	//}
 }

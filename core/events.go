@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -15,7 +15,7 @@ type NewTxsEvent struct {
 	poolType byte
 }
 
-//type NewSNEvent struct{ SN map[*big.Int]uint32 } //by hezi
+//type NewSNEvent struct{ SN map[*big.Int]uint32 } //by
 
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {

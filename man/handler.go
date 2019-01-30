@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -247,6 +247,10 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.syncer()
 	go pm.txsyncLoop()
 	//	MyPm = pm
+
+	//saveSnapshotPeriod ,allowSnapshotPoint 现在先定死 300 and 0  广播节点才能调用ipfs 上传接口
+	//go pm.saveSnapshot(300, 0)
+
 }
 
 func (pm *ProtocolManager) Stop() {
@@ -328,7 +332,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	}
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
-	//pm.syncTransactions(p) //YY 2018-08-29 新节点连接时不去要其他的交易
+	//pm.syncTransactions(p) // 2018-08-29 新节点连接时不去要其他的交易
 
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
@@ -713,8 +717,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		)
 		// Update the peers total difficulty if better than the previous
 		_, td, sbs, _ := p.Head()
-		log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS)
+		log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs)
 		if trueSBS < sbs {
+			//todo:日志
 			break
 		}
 
@@ -730,7 +735,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Error("td is nil", "peer", p.id)
 				break
 			}
-			if trueTD.Cmp(td) > 0 {
+			sbs, err := pm.blockchain.GetSuperBlockSeq()
+			if nil != err {
+				log.Error("get super seq error")
+				break
+			}
+
+			if trueSBS > sbs || trueTD.Cmp(td) > 0 {
+				log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs, "远程td", trueTD, "本地td", td)
 				go pm.synchronise(p)
 			}
 		}
@@ -752,12 +764,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if tx == nil {
 				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
-			p.MarkTransaction(tx.Hash())
 			if nc := tx.Nonce(); nc < params.NonceAddOne {
 				nc = nc | params.NonceAddOne
 				tx.SetNonce(nc)
 			}
+			hash := tx.Hash()
+			p.MarkTransaction(hash)
+			log.INFO("==tcp tx hash","from",tx.From().String(),"tx.Nonce",tx.Nonce(),"hash",hash.String())
 		}
+
 		pm.txpool.AddRemotes(txs)
 	case msg.Code == common.NetworkMsg:
 		var m []*core.MsgStruct
@@ -777,7 +792,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		addr := p2p.ServerP2p.ConvertIdToAddress(p.ID())
-
+		if addr == p2p.EmptyAddress {
+			log.Error("algorithm message", "addr", "is empty address", "node id", p.ID().TerminalString())
+		}
 		return mc.PublishEvent(mc.P2P_HDMSG, &msgsend.AlgorithmMsg{Account: addr, Data: m})
 
 	case msg.Code == common.BroadcastReqMsg:
@@ -964,8 +981,9 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.SelfTransactions) {
 		}
 		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
-	// udp send
-	SendUdpTransactions(txs)
+	if ca.GetRole() == common.RoleDefault {
+		SendUdpTransactions(txs)
+	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
 		peer.AsyncSendTransactions(txs)

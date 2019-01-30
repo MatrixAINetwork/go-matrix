@@ -1,10 +1,15 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 package miner
 
 import (
+	"math/big"
+	"sync"
+
+	"github.com/matrix/go-matrix/mc"
+
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
@@ -12,8 +17,6 @@ import (
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
-	"math/big"
-	"sync"
 )
 
 type mineReqData struct {
@@ -57,21 +60,21 @@ type mineReqCtrl struct {
 	curNumber       uint64
 	currentMineReq  *mineReqData
 	role            common.RoleType
-	bcInterval      *manparams.BCInterval
-	posEngine       consensus.DPOSEngine
+	bcInterval      *mc.BCIntervalInfo
+	bc              ChainReader
 	validatorReader consensus.StateReader
 	reqCache        map[common.Hash]*mineReqData
 	futureReq       map[uint64][]*mineReqData //todo 考虑作恶，可以加入限长
 }
 
-func newMinReqCtrl(posEngine consensus.DPOSEngine, validatorReader consensus.StateReader) *mineReqCtrl {
+func newMinReqCtrl(bc ChainReader) *mineReqCtrl {
 	return &mineReqCtrl{
 		curNumber:       0,
 		currentMineReq:  nil,
 		role:            common.RoleNil,
 		bcInterval:      nil,
-		validatorReader: validatorReader,
-		posEngine:       posEngine,
+		validatorReader: bc,
+		bc:              bc,
 		reqCache:        make(map[common.Hash]*mineReqData),
 		futureReq:       make(map[uint64][]*mineReqData),
 	}
@@ -93,7 +96,7 @@ func (ctrl *mineReqCtrl) SetNewNumber(number uint64, role common.RoleType) {
 	}
 
 	ctrl.role = role
-	bcInterval, err := manparams.NewBCIntervalByNumber(number - 1)
+	bcInterval, err := manparams.GetBCIntervalInfoByNumber(number - 1)
 	if err != nil {
 		log.ERROR("miner ctrl", "获取广播周期失败", err)
 	} else {
@@ -208,7 +211,7 @@ func (ctrl *mineReqCtrl) SetMiningResult(result *types.Header) (*mineReqData, er
 	req.mineDiff = result.Difficulty
 
 	if req.isBroadcastReq {
-		req.header.Coinbase = ca.GetAddress()
+		req.header.Coinbase = ca.GetDepositAddress()
 	} else {
 		req.header.Nonce = result.Nonce
 		req.header.Coinbase = result.Coinbase
@@ -228,7 +231,8 @@ func (ctrl *mineReqCtrl) checkMineReq(header *types.Header) error {
 	if header.Difficulty.Uint64() == 0 {
 		return difficultyIsZero
 	}
-	err := ctrl.posEngine.VerifyBlock(ctrl.validatorReader, header)
+
+	err := ctrl.bc.DPOSEngine(header.Version).VerifyBlock(ctrl.validatorReader, header)
 	if err != nil {
 		return errors.Errorf("挖矿请求POS验证失败(%v)", err)
 	}

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -113,6 +113,7 @@ type MasterValidatorReElectionReqMsg struct {
 	FoundationValidatorList []vm.DepositDetail
 	ElectConfig             ElectConfigInfo_All
 	VIPList                 []VIPConfig
+	BlockProduceBlackList   BlockProduceSlashBlackList
 }
 
 //矿工主节点生成响应
@@ -324,9 +325,10 @@ const (
 )
 
 type RecoveryStateMsg struct {
-	Type   RecoveryType
-	Header *types.Header
-	From   common.Address
+	Type        RecoveryType
+	IsBroadcast bool
+	Header      *types.Header
+	From        common.Address
 }
 
 type HD_FullBlockReqMsg struct {

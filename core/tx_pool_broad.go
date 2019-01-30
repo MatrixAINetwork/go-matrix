@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package core
 
 import (
@@ -35,6 +32,7 @@ type blockChainBroadCast interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
+	GetA0AccountFromAnyAccountAtSignHeight(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error)
 }
 
 func NewBroadTxPool(chainconfig *params.ChainConfig, chain blockChainBroadCast, path string) *BroadCastTxPool {
@@ -63,7 +61,7 @@ func (bPool *BroadCastTxPool) checkTxFrom(tx types.SelfTransaction) (common.Addr
 	return common.Address{}, ErrInvalidSender
 }
 
-func ProduceMatrixStateData(block *types.Block, readFn matrixstate.PreStateReadFn) (interface{}, error) {
+func ProduceMatrixStateData(block *types.Block, readFn PreStateReadFn) (interface{}, error) {
 	if manparams.IsBroadcastNumberByHash(block.Number().Uint64(), block.ParentHash()) == false {
 		return nil, nil
 	}
@@ -107,7 +105,14 @@ func ProduceMatrixStateData(block *types.Block, readFn matrixstate.PreStateReadF
 	}
 	if len(tempMap) > 0 {
 		log.INFO("ProduceMatrixStateData", "tempMap", tempMap)
-		return tempMap, nil
+		//这里需把map转成slice存储在状态树上
+		var broadtxSlice common.BroadTxSlice
+		for keystring, valmap := range tempMap {
+			for keyaddr, valbyte := range valmap {
+				broadtxSlice.Insert(keystring, keyaddr, valbyte)
+			}
+		}
+		return broadtxSlice, nil
 	}
 	return nil, errors.New("without broadcatTxs")
 }
@@ -123,16 +128,15 @@ func GetBroadcastTxMap(bc ChainReader, root common.Hash, txtype string) (reqVal 
 		return nil, err
 	}
 
-	broadInterface, err := matrixstate.GetDataByState(mc.MSKeyBroadcastTx, state)
+	mapdata, err := matrixstate.GetBroadcastTxs(state)
 	if err != nil {
 		log.Error("GetBroadcastTxMap GetDataByState err")
 		return nil, err
 	}
-	mapdata := broadInterface.(map[string]map[common.Address][]byte)
-	for typekey, mapVal := range mapdata {
-		if txtype == typekey {
-			return mapVal, nil
-		}
+	//此处需将返回的common.BroadTxSlice转为map[]map[]
+	reqVal = mapdata.FindKey(txtype)
+	if reqVal != nil {
+		return reqVal, nil
 	}
 	log.Error("GetBroadcastTxMap get broadcast map is nil")
 	return nil, errors.New("GetBroadcastTxMap is nil")
@@ -186,7 +190,7 @@ func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (reerr error) 
 	//TODO 过滤交易（白名单）
 	//for _, tx := range txs {
 	if uint64(tx.Size()) > params.TxSize {
-		log.Error("add broadcast tx pool", "tx`s size is too big", tx.Size())
+		log.Error("add broadcast tx pool", "tx size is too big", tx.Size())
 		return reerr
 	}
 	if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
@@ -238,7 +242,7 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 			4、广播交易的类型必须是已知的如果是未知的则丢弃。（心跳、点名、公钥、私钥）
 	*/
 
-	bcInterval := manparams.NewBCInterval()
+	bcInterval := manparams.GetBCIntervalInfo()
 
 	height := bPool.chain.CurrentBlock().Number()
 	blockHash := bPool.chain.CurrentBlock().Hash()
@@ -278,14 +282,20 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 		log.Error("unknown broadcast Address. error (func filter()  BroadCastTxPool) ")
 		return false
 	case mc.Heartbeat:
+		fromDepositAccount, _, err := bPool.chain.GetA0AccountFromAnyAccountAtSignHeight(from, blockHash, bcInterval.GetNextBroadcastNumber(height.Uint64()))
+		if err != nil {
+			log.Error("BroadCastTxPool", "convert from account to deposit account err", err, "from", from.Hex())
+			return false
+		}
+
 		nodelist, err := ca.GetElectedByHeight(height)
 		if err != nil {
 			log.Error("getElected error (func filter()   BroadCastTxPool)", "error", err)
 			return false
 		}
 		for _, node := range nodelist {
-			if from == node.Address {
-				currentAcc := from.Big()
+			if fromDepositAccount == node.Address {
+				currentAcc := fromDepositAccount.Big()
 				ret := new(big.Int).Rem(currentAcc, big.NewInt(int64(bcInterval.GetBroadcastInterval())-1))
 				broadcastBlock := blockHash.Big()
 				val := new(big.Int).Rem(broadcastBlock, big.NewInt(int64(bcInterval.GetBroadcastInterval())-1))
@@ -297,20 +307,25 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 		log.WARN("Unknown account information (func filter()   BroadCastTxPool),mc.Heartbeat")
 		return false
 	case mc.Privatekey, mc.Publickey:
+		fromDepositAccount, _, err := bPool.chain.GetA0AccountFromAnyAccountAtSignHeight(from, blockHash, bcInterval.GetNextBroadcastNumber(height.Uint64()))
+		if err != nil {
+			log.Error("BroadCastTxPool", "convert from account to deposit account err", err, "from", from.Hex())
+			return false
+		}
 		nodelist, err := ca.GetElectedByHeightAndRole(height, common.RoleValidator)
 		if err != nil {
-			log.Error("getElected error (func filter()   BroadCastTxPool)", "error", err)
+			log.Error("broadCastTxPool filter getElected error", "error", err)
 			return false
 		}
 		for _, node := range nodelist {
-			if from == node.Address {
+			if fromDepositAccount == node.Address {
 				return true
 			}
 		}
-		log.WARN("Unknown account information (func filter()   BroadCastTxPool),mc.Privatekey,mc.Publickey")
+		log.WARN("Unknown account information ,mc.Privatekey,mc.Publickey")
 		return false
 	default:
-		log.WARN("Broadcast transaction type unknown (func filter()  BroadCastTxPool),default")
+		log.WARN("Broadcast transaction type unknown")
 		return false
 	}
 }
@@ -325,17 +340,17 @@ func (bPool *BroadCastTxPool) GetAllSpecialTxs() map[common.Address][]types.Self
 	bPool.mu.Lock()
 	defer bPool.mu.Unlock()
 	reqVal := make(map[common.Address][]types.SelfTransaction, 0)
-	log.Info("File tx_pool_broad", "func GetAllSpecialTxs:len(bPool.special)", len(bPool.special))
+	log.Info("BroadCastTxPool getAllSpecialTxs", "len(bPool.special)", len(bPool.special))
 	for _, tx := range bPool.special {
 		from, err := bPool.checkTxFrom(tx)
 		if err != nil {
-			log.Error("BroadCastTxPool", "GetAllSpecialTxs", err)
+			log.Error("BroadCastTxPool", "GetAllSpecialTxs err", err)
 			continue
 		}
 		reqVal[from] = append(reqVal[from], tx)
 	}
 	bPool.special = make(map[common.Hash]types.SelfTransaction, 0)
-	log.Info("File tx_pool_broad", "func GetAllSpecialTxs::len(reqVal)", len(reqVal))
+	log.Info("BroadCastTxPool getAllSpecialTxs", "len(reqVal)", len(reqVal))
 	return reqVal
 }
 func (bPool *BroadCastTxPool) ReturnAllTxsByN(listN []uint32, resqe byte, addr common.Address, retch chan *RetChan_txpool) {

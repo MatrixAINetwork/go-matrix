@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package olconsensus
@@ -39,7 +39,8 @@ type MessageCenterInterface interface {
 }
 
 type StateReaderInterface interface {
-	GetMatrixStateDataByHash(key string, hash common.Hash) (interface{}, error)
+	GetTopologyGraphByHash(blockHash common.Hash) (*mc.TopologyGraph, error)
+	GetElectOnlineStateByHash(blockHash common.Hash) (*mc.ElectOnlineStatus, error)
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -60,13 +61,18 @@ func (self *TopNodeInstance) GetTopNodeOnlineState() []NodeOnLineInfo {
 	//调用p2p的接口获取节点在线状态
 	result := p2p.GetTopNodeAliveInfo(common.RoleValidator | common.RoleBackupValidator)
 	for _, value := range result {
+		account, err := ca.ConvertSignToDepositAddress(value.Account)
+		if err != nil {
+			log.Debug("共识节点状态", "node转换A0账户失败", value.Account.Hex(), "err", err)
+			continue
+		}
 		state := NodeOnLineInfo{
-			Address:     value.Account,
+			Address:     account,
 			Role:        value.Type,
 			OnlineState: value.Heartbeats,
 		}
 		onlineStat = append(onlineStat, state)
-		log.Debug("共识节点状态", "获取在线状态, node", value.Account, "心跳", value.Heartbeats)
+		log.Debug("共识节点状态", "获取在线状态, node", account.Hex(), "心跳", value.Heartbeats)
 	}
 
 	return onlineStat
@@ -77,12 +83,12 @@ func (self *TopNodeInstance) SignWithValidate(hash []byte, validate bool, blkhas
 }
 
 func (self *TopNodeInstance) IsSelfAddress(addr common.Address) bool {
-	return ca.GetAddress() == addr
+	return ca.GetDepositAddress() == addr
 }
 
 func (self *TopNodeInstance) SendNodeMsg(subCode mc.EventCode, msg interface{}, Roles common.RoleType, address []common.Address) {
 	self.hd.SendNodeMsg(subCode, msg, Roles, address)
-	log.Info("共识节点状态", "发送消息完成", "")
+	//log.Info("共识节点状态", "发送消息完成", "")
 }
 
 func (self *TopNodeInstance) SubscribeEvent(aim mc.EventCode, ch interface{}) (event.Subscription, error) {

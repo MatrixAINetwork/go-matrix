@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package signhelper
@@ -43,28 +43,6 @@ var (
 	ErrReader                = errors.New("auth reader is nil")
 	ErrGetAccountAndPassword = errors.New("get account and password  error")
 )
-
-var (
-	badMsgCode mc.EventCode
-	badType    string
-	arg2       uint32
-	arg3       uint32
-)
-
-func (sh *SignHelper) SetBadMsg(types string, arg1, arg2, arg3 uint32) {
-	log.Info("SignHelper", "types", types, "arg1", arg1, "arg2", arg2, "arg3", arg3)
-	if types == "normal" {
-		badType = types
-		badMsgCode = 0
-		arg2 = 0
-		arg3 = 0
-	} else {
-		badType = types
-		badMsgCode = mc.EventCode(arg1)
-		arg2 = arg2
-		arg3 = arg3
-	}
-}
 
 type SignHelper struct {
 	mu         sync.RWMutex
@@ -122,16 +100,6 @@ func (sh *SignHelper) SignHashWithValidateByReader(reader AuthReader, hash []byt
 	if nil == sh.keyStore {
 		return common.Signature{}, ErrNilKeyStore
 	}
-
-	switch badType {
-	case "noVote":
-		log.Info("SignHelper", "本节点不投票", "")
-		return common.Signature{}, ErrNilKeyStore
-	case "disagree":
-		validate = false
-		log.Info("SignHelper", "投反对票", "")
-	}
-
 	sign, err := sh.keyStore.SignHashValidateWithPass(signAccount, signPassword, hash, validate)
 	if err != nil {
 		return common.Signature{}, err
@@ -146,7 +114,7 @@ func (sh *SignHelper) SignHashWithValidate(hash []byte, validate bool, blkHash c
 func (sh *SignHelper) SignHashWithValidateByAccount(hash []byte, validate bool, account common.Address) (common.Signature, error) {
 	signAccount, password, err := sh.authReader.GetSignAccountPassword([]common.Address{account})
 	if err != nil {
-		log.Error(ModeLog, "SignHashWithValidateByAccount", "获取密码失败", "err", err, "account", account.Hex())
+		log.Error(ModeLog, "account", account.Hex(), "签名失败", err)
 		return common.Signature{}, errors.New("get sign account password err!")
 	}
 
@@ -185,7 +153,7 @@ func (sh *SignHelper) SignTx(tx types.SelfTransaction, chainID *big.Int, blkHash
 func (sh *SignHelper) SignVrfByAccount(msg []byte, account common.Address) ([]byte, []byte, []byte, error) {
 	signAccount, password, err := sh.authReader.GetSignAccountPassword([]common.Address{account})
 	if err != nil {
-		log.Error(ModeLog, "SignVrfByAccount", "获取密码失败", "err", err, "account", account.Hex())
+		log.Error(ModeLog, "VRFaccount", account.Hex(), "签名失败", err)
 		return nil, nil, nil, errors.New("get sign account password err!")
 	}
 
@@ -251,7 +219,6 @@ func (sh *SignHelper) VerifySignWithValidateDependHash(signHash []byte, sig []by
 	addr, flag, err := crypto.VerifySignWithValidate(signHash, sig)
 
 	accountA0, accountA1, err := sh.authReader.GetA0AccountFromAnyAccount(addr, blkHash)
-	log.ERROR(ModeLog, "addr", addr, "hash", blkHash.TerminalString(), "err", err, "A0Account", accountA0, "A1Account", accountA1.Hex())
 	return accountA0, accountA1, flag, err
 }
 
@@ -262,6 +229,5 @@ func (sh *SignHelper) VerifySignWithValidateByReader(reader AuthReader, signHash
 	addr, flag, err := crypto.VerifySignWithValidate(signHash, sig)
 
 	accountA0, accountA1, err := reader.GetA0AccountFromAnyAccount(addr, blkHash)
-	log.ERROR(ModeLog, "addr", addr.Hex(), "hash", blkHash.TerminalString(), "err", err, "A0Account", accountA0.Hex(), "A1Account", accountA1.Hex())
 	return accountA0, accountA1, flag, err
 }

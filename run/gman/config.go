@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -8,28 +8,30 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/matrix/go-matrix/log"
 	"io"
 	"os"
 	"reflect"
 	"unicode"
 
+	"github.com/matrix/go-matrix/params/manparams"
+
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
+
 	"github.com/matrix/go-matrix/base58"
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/console"
 	"github.com/matrix/go-matrix/crypto/aes"
 	"github.com/matrix/go-matrix/dashboard"
 	"github.com/matrix/go-matrix/man"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/matrix/go-matrix/params/enstrust"
 	"github.com/matrix/go-matrix/pod"
 	"github.com/matrix/go-matrix/run/utils"
 	"github.com/naoina/toml"
 	"gopkg.in/urfave/cli.v1"
-	"io/ioutil"
 )
 
 var (
@@ -95,7 +97,7 @@ func loadConfig(file string, cfg *gmanConfig) error {
 func defaultNodeConfig() pod.Config {
 	cfg := pod.DefaultConfig
 	cfg.Name = clientIdentifier
-	cfg.Version = params.VersionWithCommit(gitCommit)
+	cfg.Version = manparams.VersionAlpha + "_" + gitCommit
 	cfg.HTTPModules = append(cfg.HTTPModules, "man", "eth", "shh")
 	cfg.WSModules = append(cfg.WSModules, "man", "eth", "shh")
 	cfg.IPCPath = "gman.ipc"
@@ -138,7 +140,7 @@ func makeFullNode(ctx *cli.Context) *pod.Node {
 	stack, cfg := makeConfigNode(ctx)
 	err := CheckEntrust(ctx)
 	if err != nil {
-		fmt.Println("检查委托交易失败 err", err)
+		log.ERROR("Init", "Entrust File Err", err)
 		os.Exit(1)
 	}
 	utils.RegisterManService(stack, &cfg.Man)
@@ -171,47 +173,56 @@ func dumpConfig(ctx *cli.Context) error {
 	os.Stdout.Write(out)
 	return nil
 }
+
 func CheckEntrust(ctx *cli.Context) error {
 	path := ctx.GlobalString(utils.AccountPasswordFileFlag.Name)
 	if path == "" {
 		return nil
 	}
-
-	password, err := ReadDecryptPassword(ctx)
+	fmt.Println("Please enter the password. Your password's length must be between 8 and 16 characters, and should contain numbers, uppercase letters (A-Z), lowercase letters (a-z) and special characters")
+	password, err := ReadDecryptPassword(utils.Once, ctx)
 	f, err := os.Open(path)
 	if err != nil {
-		fmt.Println("文件失败", err, "path", path)
+		fmt.Println("Failed to open the file", err, "path", path)
 		return err
 	}
 
 	b, err := ioutil.ReadAll(f)
 	bytesPass, err := base64.StdEncoding.DecodeString(string(b))
 	if err != nil {
-		fmt.Println("解密失败", err)
+		fmt.Println("Error in file contents", err)
 		return err
 	}
 	tpass, err := aes.AesDecrypt(bytesPass, []byte(password))
 	if err != nil {
-		fmt.Println("AedDecrypt失败")
+		fmt.Println(err)
 		return err
 	}
 
 	var anss []mc.EntrustInfo
 	err = json.Unmarshal(tpass, &anss)
 	if err != nil {
-		fmt.Println("加密文件解码失败 密码不正确")
+		fmt.Println("Decrypt Failed. Password is wrong", err)
 		return err
 	}
 
 	entrustValue := make(map[common.Address]string, 0)
 	for _, v := range anss {
-		entrustValue[base58.Base58DecodeToAddress(v.Address)] = v.Password
+		addr ,err := base58.Base58DecodeToAddress(v.Address)
+		if err != nil{
+			return err
+		}
+		entrustValue[addr] = v.Password
 	}
-	manparams.EntrustAccountValue.SetEntrustValue(entrustValue)
+	err = entrust.EntrustAccountValue.SetEntrustValue(entrustValue)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
 	return nil
 }
 
-func ReadDecryptPassword(ctx *cli.Context) ([]byte, error) {
+func ReadDecryptPassword(inputTimes int, ctx *cli.Context) ([]byte, error) {
 	if password := ctx.GlobalString(utils.TestEntrustFlag.Name); password != "" {
 		h := sha256.New()
 		h.Write([]byte(password))
@@ -224,34 +235,19 @@ func ReadDecryptPassword(ctx *cli.Context) ([]byte, error) {
 	for true {
 		InputCount++
 		if InputCount > 3 {
-			return []byte{}, errors.New("多次输入密码错误")
+			return []byte{}, errors.New("You entered wrong passwords for many times")
 		}
-		fmt.Printf("第 %d次密码输入 \n", InputCount)
-		passphrase, err = GetPassword()
+		fmt.Printf("This is the %d time you enter the password \n", InputCount)
+		passphrase, err = utils.GetPassword(inputTimes)
 		if err != nil {
-			fmt.Println("获取密码错误", err)
+			fmt.Println("Unable to detect your password. Please enter it again", err)
 			continue
 		}
-		if CheckPassword(passphrase) {
+		if utils.CheckPassword(passphrase) {
 			break
 		}
 	}
 	h := sha256.New()
 	h.Write([]byte(passphrase))
 	return h.Sum(nil), nil
-}
-
-func GetPassword() (string, error) {
-	password, err := console.Stdin.PromptPassword("Passphrase: ")
-	if err != nil {
-		return "", fmt.Errorf("Failed to read passphrase: %v", err)
-	}
-	confirm, err := console.Stdin.PromptPassword("Repeat passphrase: ")
-	if err != nil {
-		return "", fmt.Errorf("Failed to read passphrase confirmation: %v", err)
-	}
-	if password != confirm {
-		return "", fmt.Errorf("Passphrases do not match")
-	}
-	return password, nil
 }

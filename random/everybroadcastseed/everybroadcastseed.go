@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package everybroadcastseed
@@ -8,7 +8,6 @@ import (
 
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/params/manparams"
 )
 
@@ -42,7 +41,6 @@ type preBroadcastSeed struct {
 func (self *preBroadcastSeed) SetValue(plug string, support baseinterface.RandomChainSupport) error {
 	self.plug = plug
 	self.support = support
-	log.INFO(ModuleEveryBroadcastSeed, "每个广播区块种子 赋值阶段", "", "使用的插件名", plug)
 	return nil
 }
 

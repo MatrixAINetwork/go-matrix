@@ -1,12 +1,10 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package aes
 
 import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"errors"
 )
 
 func PKCS5Padding(ciphertext []byte, blockSize int) []byte {
@@ -14,10 +12,13 @@ func PKCS5Padding(ciphertext []byte, blockSize int) []byte {
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
-func PKCS5UnPadding(origData []byte) []byte {
+func PKCS5UnPadding(origData []byte) ([]byte,error) {
 	length := len(origData)
 	unpadding := int(origData[length-1])
-	return origData[:(length - unpadding)]
+	if length <= unpadding{
+		return nil,errors.New("Please check your entrust file")
+	}
+	return origData[:(length - unpadding)],nil
 }
 func AesEncrypt(origData []byte, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
@@ -40,6 +41,9 @@ func AesDecrypt(crypted []byte, key []byte) ([]byte, error) {
 	blockMode := cipher.NewCBCDecrypter(block, key[:blockSize])
 	origData := make([]byte, len(crypted))
 	blockMode.CryptBlocks(origData, crypted)
-	origData = PKCS5UnPadding(origData)
+	origData,err = PKCS5UnPadding(origData)
+	if err != nil{
+		return nil,err
+	}
 	return origData, nil
 }

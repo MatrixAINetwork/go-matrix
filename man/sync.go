@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -7,6 +7,9 @@ package man
 import (
 	"fmt"
 	"math/rand"
+	"os"
+	"path"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +19,7 @@ import (
 	"github.com/matrix/go-matrix/man/downloader"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/p2p/discover"
+	"github.com/matrix/go-matrix/snapshot"
 )
 
 const (
@@ -25,6 +29,14 @@ const (
 	// This is the target size for the packs of transactions sent by txsyncLoop.
 	// A pack can get larger than this if a single transactions exceeds this size.
 	txsyncPackSize = 100 * 1024
+)
+
+var (
+	SnapshootNumber   uint64
+	SnapshootHash     string
+	SaveSnapStart     uint64
+	SaveSnapPeriod    uint64 = 300
+	SnaploadFromLocal int    = 0
 )
 
 type txsync struct {
@@ -133,6 +145,7 @@ func (pm *ProtocolManager) WaitForDownLoadMode() {
 			fmt.Println("download sync.go syncer wait role is Broadcast")
 			pm.downloader.SetbStoreSendIpfsFlg(true)
 			go pm.downloader.SynBlockFormBlockchain()
+			//go pm.downloader.StatusSnapshootDeal()
 			//return
 		} else {
 			log.Warn("download sync.go syncer wait role is generaler")
@@ -159,12 +172,43 @@ func (pm *ProtocolManager) syncer() {
 	log.WARN("syncer", "syncer IpfsDownloadflg", pm.downloader.IpfsMode)
 	if pm.downloader.IpfsMode {
 		pm.WaitForDownLoadMode()
+	}
+	pm.blockchain.SetSnapshotParam(SaveSnapPeriod, SaveSnapStart)
 
+	//快照下载 SnaploadFromLoacl
+	if SnapshootNumber != 0 {
+		if SnaploadFromLocal == 0 {
+			pm.downloader.SetSnapshootNum(SnapshootNumber)
+			log.Warn("download  Snapshoot status will begin", "number", SnapshootNumber, "shash", SnapshootHash)
+			time.Sleep(10 * time.Second)
+			err := pm.downloader.ProcessSnapshoot(uint64(SnapshootNumber), SnapshootHash)
+			if err != nil {
+				log.Debug(" ipfs download snapshoot  error ", "err", err)
+				os.Exit(1)
+			}
+			res := <-pm.downloader.WaitSnapshoot
+			log.Debug(" ipfs download DownloadBatchBlock get status MPT over")
+			if res == 0 {
+				log.Debug(" ipfs download snapshoot or deal error and exit,please check")
+				os.Exit(1)
+			}
+		} else {
+			pm.downloader.SetSnapshootNum(SnapshootNumber)
+			filePath := path.Join(snapshot.SNAPDIR, "/TrieData"+strconv.Itoa(int(SnapshootNumber)))
+			if pm.blockchain.SynSnapshot(SnapshootNumber, "", filePath) == false {
+				log.Debug(" ipfs local snapshoot deal error and exit,please check")
+				os.Exit(1)
+			}
+		}
+		if SnapshootNumber != pm.blockchain.CurrentBlock().NumberU64() {
+			log.Debug(" snapshoot deal over,but block Num is illegal", "SnapshootNumber", SnapshootNumber, "current block", pm.blockchain.CurrentBlock().NumberU64())
+			os.Exit(1)
+		}
 	}
 	// Wait for different events to fire synchronisation operations
 	forceSync := time.NewTicker(forceSyncCycle)
 	defer forceSync.Stop()
-	log.Warn("download  syncer will running")
+	log.Warn("download  syncer will begin running")
 	for {
 		select {
 		case <-pm.newPeerCh:
@@ -243,6 +287,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 			return
 		}
 		if sbs == pSbs {
+			//todo:fast模式
 			if pm.blockchain.GetTdByHash(pm.blockchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 				return
 			}

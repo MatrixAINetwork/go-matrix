@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -99,12 +99,12 @@ var (
 )
 
 func init() {
-	usecolor := term.IsTty(os.Stderr.Fd()) && os.Getenv("TERM") != "dumb"
+	usecolor := term.IsTty(os.Stdout.Fd()) && os.Getenv("TERM") != "dumb"
 
-	output := io.Writer(os.Stderr)
+	output := io.Writer(os.Stdout)
 
 	if usecolor {
-		output = colorable.NewColorableStderr()
+		output = colorable.NewColorableStdout()
 	}
 	ostream = log.StreamHandler(output, log.TerminalFormat(usecolor))
 	glogger = log.NewGlogHandler(ostream)

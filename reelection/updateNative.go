@@ -1,16 +1,15 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package reelection
 
 import (
-	"encoding/json"
-	"errors"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/matrixstate"
 	"github.com/matrix/go-matrix/election/support"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/pkg/errors"
 )
 
 func GetAllNativeDataForUpdate(electstate mc.ElectGraph, electonline mc.ElectOnlineStatus, top *mc.TopologyGraph) support.AllNative {
@@ -99,15 +98,15 @@ func (self *ReElection) TopoUpdate(allNative support.AllNative, top *mc.Topology
 		return []mc.Alternative{}, err
 	}
 
-	data, err := self.bc.GetMatrixStateDataByNumber(mc.MSKeyElectConfigInfo, height)
+	st, err := self.bc.StateAtNumber(height)
 	if err != nil {
-		log.ERROR("GetElectInfo", "获取选举基础信息失败 err", err)
+		log.Error(Module, "get state by height err", err, "height", height)
 		return nil, err
 	}
-	electInfo, OK := data.(*mc.ElectConfigInfo)
-	if OK == false || electInfo == nil {
-		log.ERROR("ElectConfigInfo", "ElectConfigInfo ", "反射失败", "高度", height)
-		return nil, errors.New("反射失败")
+	electInfo, err := matrixstate.GetElectConfigInfo(st)
+	if err != nil || electInfo == nil {
+		log.ERROR("GetElectInfo", "获取选举基础信息失败 err", err)
+		return nil, err
 	}
 	allNative.ElectInfo = electInfo
 	return elect.ToPoUpdate(allNative, top), nil
@@ -137,46 +136,28 @@ func (self *ReElection) LastMinerGenTimeStamp(height uint64, types common.RoleTy
 
 }
 
-func (self *ReElection) GetTopNodeInfo(hash common.Hash, types common.RoleType) ([]mc.ElectNodeInfo, []mc.ElectNodeInfo, []mc.ElectNodeInfo, error) {
-	height, err := self.GetNumberByHash(hash)
-	if err != nil {
-		log.ERROR(Module, "根据hash获取高度失败 err", err)
-		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
-	}
-	heightPos, err := self.LastMinerGenTimeStamp(height, types, hash)
-	if err != nil {
-		log.ERROR(Module, "根据生成点高度失败", height, "types", types)
-		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
+func (self *ReElection) GetNextElectNodeInfo(electGraph *mc.ElectGraph, types common.RoleType) (master []mc.ElectNodeInfo, backup []mc.ElectNodeInfo, cand []mc.ElectNodeInfo, err error) {
+	if electGraph == nil {
+		err = errors.New("param elect graph is nil")
+		return
 	}
 
-	hashPos, err := self.GetHeaderHashByNumber(hash, heightPos)
-	log.INFO(Module, "GetTopNodeInfo pos", heightPos)
-	if err != nil {
-		log.ERROR(Module, "根据hash算父header失败 hash", hashPos)
-		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
-	}
-	headerPos := self.bc.GetHeaderByHash(hashPos)
-	stateDB, err := self.bc.StateAt(headerPos.Root)
-	ElectGraphBytes := stateDB.GetMatrixData(matrixstate.GetKeyHash(mc.MSKeyElectGraph))
-	var electState mc.ElectGraph
-	if err := json.Unmarshal(ElectGraphBytes, &electState); err != nil {
-		log.ERROR(Module, "GetElection Unmarshal err", err)
-		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
-	}
-	master := []mc.ElectNodeInfo{}
-	backup := []mc.ElectNodeInfo{}
-	cand := []mc.ElectNodeInfo{}
+	master = []mc.ElectNodeInfo{}
+	backup = []mc.ElectNodeInfo{}
+	cand = []mc.ElectNodeInfo{}
 
 	switch types {
 	case common.RoleMiner:
-		for _, v := range electState.NextMinerElect {
-			switch v.Type {
-			case common.RoleMiner:
-				master = append(master, v)
+		size := len(electGraph.NextMinerElect)
+		if size != 0 {
+			master = make([]mc.ElectNodeInfo, size, size)
+			if copy(master, electGraph.NextMinerElect) != size {
+				err = errors.New("copy next miner graph err")
+				return
 			}
 		}
 	case common.RoleValidator:
-		for _, v := range electState.NextValidatorElect {
+		for _, v := range electGraph.NextValidatorElect {
 			switch v.Type {
 			case common.RoleValidator:
 				master = append(master, v)
@@ -184,7 +165,6 @@ func (self *ReElection) GetTopNodeInfo(hash common.Hash, types common.RoleType) 
 				backup = append(backup, v)
 			case common.RoleCandidateValidator:
 				cand = append(cand, v)
-
 			}
 		}
 	}

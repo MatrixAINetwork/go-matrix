@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -200,7 +200,7 @@ func TestTransactionJSON(t *testing.T) {
 		case 1:
 			tx = NewContractCreation(i, common.Big0, 1, common.Big2, []byte("abcdef"))
 		}
-		//YY add test==========
+		// add test==========
 		//aa := make(map[*big.Int]*Transaction)
 		//if _,ok:=aa[tx.GetTxS()];!ok{
 		//	tt:=new(Transaction)

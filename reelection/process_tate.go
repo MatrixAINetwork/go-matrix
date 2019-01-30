@@ -3,14 +3,13 @@ package reelection
 import (
 	"errors"
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/matrixstate"
+	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
 )
 
-func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn matrixstate.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
 	log.INFO(Module, "ProduceElectGraphData", "start", "height", block.Header().Number.Uint64())
 	defer log.INFO(Module, "ProduceElectGraphData", "end", "height", block.Header().Number.Uint64())
 	if err := CheckBlock(block); err != nil {
@@ -18,7 +17,6 @@ func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn matrixs
 		return nil, err
 	}
 	data, err := readFn(mc.MSKeyElectGraph)
-	log.DEBUG(Module, "data", data, "err", err, "高度", block.Header().Number.Uint64())
 	if err != nil {
 		log.ERROR(Module, "readFn 失败 key", mc.MSKeyElectGraph, "err", err)
 		return nil, err
@@ -50,9 +48,9 @@ func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn matrixs
 		log.Error(Module, "ProducePreAllTopData read broadcast interval err", err)
 		return nil, err
 	}
-	bcInterval, err := manparams.NewBCIntervalWithInterval(bciData)
+	bcInterval, OK := bciData.(*mc.BCIntervalInfo)
 	if err != nil {
-		log.Error(Module, "ProducePreAllTopData create broadcast interval err", err)
+		log.Error(Module, "ProducePreAllTopData broadcast interval reflect err", err)
 	}
 	if bcInterval.IsReElectionNumber(block.NumberU64() + 1) {
 		nextElect := electStates.NextMinerElect
@@ -70,37 +68,50 @@ func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn matrixs
 				electList = append(electList, v)
 			}
 		}
-		electStates.ElectList = []mc.ElectNodeInfo{}
-		electStates.ElectList = append(electStates.ElectList, electList...)
+		electStates.ElectList = append([]mc.ElectNodeInfo{}, electList...)
+		electStates.NextMinerElect = []mc.ElectNodeInfo{}
+		electStates.NextValidatorElect = []mc.ElectNodeInfo{}
 	}
-	log.DEBUG(Module, "高度", block.Number().Uint64(), "ProduceElectGraphData data", electStates)
+	//log.DEBUG(Module, "高度", block.Number().Uint64(), "ProduceElectGraphData data", electStates)
 	return electStates, nil
 }
 
-func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, readFn matrixstate.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
 		log.ERROR(Module, "ProduceElectGraphData CheckBlock err ", err)
-		return []byte{}, err
+		return nil, err
 	}
-	log.INFO(Module, "ProduceElectOnlineStateData", "start", "height", block.Header().Number.Uint64())
-	defer log.INFO(Module, "ProduceElectOnlineStateData", "end", "height", block.Header().Number.Uint64())
+	log.Trace(Module, "ProduceElectOnlineStateData", "start", "height", block.Header().Number.Uint64())
+	defer log.Trace(Module, "ProduceElectOnlineStateData", "end", "height", block.Header().Number.Uint64())
 	height := block.Header().Number.Uint64()
 
 	bciData, err := readFn(mc.MSKeyBroadcastInterval)
 	if err != nil {
-		log.Error(Module, "ProducePreAllTopData read broadcast interval err", err)
+		log.Error(Module, "ProduceElectOnlineStateData read broadcast interval err", err)
 		return nil, err
 	}
-	bcInterval, err := manparams.NewBCIntervalWithInterval(bciData)
-	if err != nil {
-		log.Error(Module, "ProducePreAllTopData create broadcast interval err", err)
+	bcInterval, OK := bciData.(*mc.BCIntervalInfo)
+	if OK == false {
+		log.Error(Module, "ProduceElectOnlineStateData broadcast interval reflect err", err)
+		return nil, errors.New("broadcast interval reflect failed")
 	}
 
 	if bcInterval.IsReElectionNumber(height + 1) {
-		electOnline := mc.ElectOnlineStatus{
+		electOnline := &mc.ElectOnlineStatus{
 			Number: height,
 		}
-		masterV, backupV, CandV, err := self.GetTopNodeInfo(block.Header().ParentHash, common.RoleValidator)
+
+		electData, err := readFn(mc.MSKeyElectGraph)
+		if err != nil {
+			log.Error(Module, "ProduceElectOnlineStateData read preElectGraph err", err)
+			return nil, err
+		}
+		electGraph, OK := electData.(*mc.ElectGraph)
+		if OK == false {
+			log.Error(Module, "ProduceElectOnlineStateData preElectGraph reflect failed", err)
+			return nil, errors.New("preElectGraph reflect failed")
+		}
+		masterV, backupV, CandV, err := self.GetNextElectNodeInfo(electGraph, common.RoleValidator)
 		if err != nil {
 			log.ERROR(Module, "获取验证者全拓扑图失败 err", err)
 			return nil, err
@@ -120,7 +131,7 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, readFn m
 			tt.Position = common.PosOnline
 			electOnline.ElectOnline = append(electOnline.ElectOnline, tt)
 		}
-		log.INFO(Module, "高度", block.Number().Uint64(), "ProduceElectOnlineStateData data", electOnline)
+		log.DEBUG(Module, "高度", block.Number().Uint64(), "ProduceElectOnlineStateData data", electOnline)
 		return electOnline, nil
 	}
 
@@ -129,12 +140,12 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, readFn m
 	//log.INFO(Module, "data", data, "err", err)
 	if err != nil {
 		log.ERROR(Module, "readFn 失败 key", mc.MSKeyElectOnlineState, "err", err)
-		return []byte{}, err
+		return nil, err
 	}
 	electStates, OK := data.(*mc.ElectOnlineStatus)
 	if OK == false || electStates == nil {
 		log.ERROR(Module, "ElectStates 非法", "反射失败")
-		return []byte{}, err
+		return nil, err
 	}
 	mappStatus := make(map[common.Address]uint16)
 	for _, v := range header.NetTopology.NetTopologyData {
@@ -156,19 +167,19 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, readFn m
 	return electStates, nil
 }
 
-func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, readFn matrixstate.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
 		log.ERROR(Module, "ProducePreBroadcastStateData CheckBlock err ", err)
 		return []byte{}, err
 	}
 	bciData, err := readFn(mc.MSKeyBroadcastInterval)
 	if err != nil {
-		log.Error(Module, "ProducePreAllTopData read broadcast interval err", err)
+		log.Error(Module, "ProducePreBroadcastStateData read broadcast interval err", err)
 		return nil, err
 	}
-	bcInterval, err := manparams.NewBCIntervalWithInterval(bciData)
+	bcInterval, OK := bciData.(*mc.BCIntervalInfo)
 	if err != nil {
-		log.Error(Module, "ProducePreAllTopData create broadcast interval err", err)
+		log.Error(Module, "ProducePreBroadcastStateData broadcast interval reflect err", err)
 	}
 	height := block.Header().Number.Uint64()
 	if height == 1 {
@@ -200,11 +211,11 @@ func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, readFn 
 
 	preBroadcast.BeforeLastStateRoot = preBroadcast.LastStateRoot
 	preBroadcast.LastStateRoot = header.Root
-	log.INFO(Module, "高度", block.Number().Uint64(), "ProducePreBroadcastStateData beforelast", preBroadcast.BeforeLastStateRoot.String(), "last", preBroadcast.LastStateRoot.String())
+	//log.INFO(Module, "高度", block.Number().Uint64(), "ProducePreBroadcastStateData beforelast", preBroadcast.BeforeLastStateRoot.String(), "last", preBroadcast.LastStateRoot.String())
 	return preBroadcast, nil
 
 }
-func (self *ReElection) ProduceMinHashData(block *types.Block, readFn matrixstate.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProduceMinHashData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
 		log.ERROR(Module, "ProduceMinHashData CheckBlock err ", err)
 		return []byte{}, err
@@ -214,10 +225,9 @@ func (self *ReElection) ProduceMinHashData(block *types.Block, readFn matrixstat
 		log.Error(Module, "ProduceMinHashData read broadcast interval err", err)
 		return nil, err
 	}
-	bcInterval, err := manparams.NewBCIntervalWithInterval(bciData)
+	bcInterval, OK := bciData.(*mc.BCIntervalInfo)
 	if err != nil {
-		log.Error(Module, "ProduceMinHashData create broadcast interval err", err)
-		return nil, err
+		log.Error(Module, "ProduceMinHashData broadcast interval reflect err", err)
 	}
 	height := block.Number().Uint64()
 	preHeader := self.bc.GetHeaderByHash(block.ParentHash())
@@ -226,8 +236,8 @@ func (self *ReElection) ProduceMinHashData(block *types.Block, readFn matrixstat
 		return nil, errors.New("header is nil")
 	}
 	if bcInterval.IsBroadcastNumber(height - 1) {
-		log.ERROR(Module, "ProduceMinHashData", "", "是广播区块后一块", height)
-		return mc.RandomInfoStruct{MinHash: block.ParentHash(), MaxNonce: preHeader.Nonce.Uint64()}, nil
+		log.Info(Module, "ProduceMinHashData", "是广播区块后一块", "高度", height)
+		return &mc.RandomInfoStruct{MinHash: block.ParentHash(), MaxNonce: preHeader.Nonce.Uint64()}, nil
 	}
 	data, err := readFn(mc.MSKeyMinHash)
 	if err != nil {
@@ -247,11 +257,11 @@ func (self *ReElection) ProduceMinHashData(block *types.Block, readFn matrixstat
 	if preHeader.Nonce.Uint64() > randomInfo.MaxNonce {
 		randomInfo.MaxNonce = preHeader.Nonce.Uint64()
 	}
-	log.INFO(Module, "高度", block.Number().Uint64(), "ProduceMinHashData", randomInfo.MinHash.String())
+	//log.INFO(Module, "高度", block.Number().Uint64(), "ProduceMinHashData", randomInfo.MinHash.String())
 	return randomInfo, nil
 }
 
-func (self *ReElection) ProducePreAllTopData(block *types.Block, readFn matrixstate.PreStateReadFn) (interface{}, error) {
+/*func (self *ReElection) ProducePreAllTopData(block *types.Block, readFn matrixstate.PreStateReadFn) (interface{}, error) {
 
 	if err := CheckBlock(block); err != nil {
 		log.ERROR(Module, "ProducePreAllTopData CheckBlock err ", err)
@@ -283,3 +293,4 @@ func (self *ReElection) ProducePreAllTopData(block *types.Block, readFn matrixst
 	log.INFO("高度", block.Number().Uint64(), "ProducePreAllTopData", "preAllTop.PreAllTopRoot", preAllTop.PreAllTopRoot.String())
 	return preAllTop, nil
 }
+*/

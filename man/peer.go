@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -77,11 +77,11 @@ type peer struct {
 	version  int         // Protocol version negotiated
 	forkDrop *time.Timer // Timed connection dropper if forks aren't validated in time
 
-	head   common.Hash
-	sbHash uint64
-	td     *big.Int
-	sbs    uint64
-	lock   sync.RWMutex
+	head common.Hash
+	sbn  uint64
+	td   *big.Int
+	sbs  uint64
+	lock sync.RWMutex
 
 	knownTxs    *set.Set                     // Set of transaction hashes known to be known by this peer
 	knownBlocks *set.Set                     // Set of block hashes known to be known by this peer
@@ -163,18 +163,18 @@ func (p *peer) Head() (hash common.Hash, td *big.Int, sbs uint64, sbHash uint64)
 	defer p.lock.RUnlock()
 
 	copy(hash[:], p.head[:])
-	return hash, new(big.Int).Set(p.td), p.sbs, p.sbHash
+	return hash, new(big.Int).Set(p.td), p.sbs, p.sbn
 }
 
 // SetHead updates the head hash and total difficulty of the peer.
-func (p *peer) SetHead(hash common.Hash, td *big.Int, sbs uint64, sbHash uint64) {
+func (p *peer) SetHead(hash common.Hash, td *big.Int, sbs uint64, sbn uint64) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
 	copy(p.head[:], hash[:])
 	p.td.Set(td)
 	p.sbs = sbs
-	p.sbHash = sbHash
+	p.sbn = sbn
 }
 
 // MarkBlock marks a block as known for the peer, ensuring that the block will
@@ -417,7 +417,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, sbs uint
 			return p2p.DiscReadTimeout
 		}
 	}
-	p.td, p.head, p.sbs, p.sbHash = status.TD, status.CurrentBlock, status.SBS, status.SBH
+	p.td, p.head, p.sbs, p.sbn = status.TD, status.CurrentBlock, status.SBS, status.SBH
 	return nil
 }
 
@@ -566,6 +566,7 @@ func (ps *peerSet) BestPeer() *peer {
 		if sb < bestBs {
 			continue
 		}
+		//todo:bestTd
 		if bestPeer == nil || sb > bestBs || td.Cmp(bestTd) > 0 {
 			bestPeer, bestBs, bestTd = p, sb, td
 		}

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -187,9 +187,11 @@ func checkNumber(input string) (raw string, err error) {
 	if len(input) == 0 {
 		return "", ErrEmptyNumber
 	}
+	/*
 	if len(input) > 1 && input[0] == '0' {
 		return "", ErrLeadingZero
 	}
+	*/
 	return input, nil
 }
 

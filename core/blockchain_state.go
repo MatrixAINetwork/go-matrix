@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package core
 
 import (
@@ -43,12 +40,12 @@ func (bc *BlockChain) RegisterMatrixStateDataProducer(key string, producer Produ
 	bc.matrixProcessor.RegisterProducer(key, producer)
 }
 
-func (bc *BlockChain) ProcessStateVersion(version []byte, state *state.StateDB) error {
-	return bc.matrixProcessor.ProcessStateVersion(version, state)
+func (bc *BlockChain) ProcessStateVersion(version []byte, st *state.StateDB) error {
+	return bc.matrixProcessor.ProcessStateVersion(version, st)
 }
 
-func (bc *BlockChain) ProcessMatrixState(block *types.Block, state *state.StateDB) error {
-	return bc.matrixProcessor.ProcessMatrixState(block, state)
+func (bc *BlockChain) ProcessMatrixState(block *types.Block, preVersion string, state *state.StateDB) error {
+	return bc.matrixProcessor.ProcessMatrixState(block, preVersion, state)
 }
 
 func (bc *BlockChain) GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGraph, error) {
@@ -194,7 +191,7 @@ func (bc *BlockChain) GetSuperBlockInfo() (*mc.SuperBlkCfg, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.INFO("blockChain", "超级区块高度", superBlkCfg.Num, "超级区块序号", superBlkCfg.Seq)
+	log.Trace("blockChain", "超级区块高度", superBlkCfg.Num, "超级区块序号", superBlkCfg.Seq)
 	return superBlkCfg, nil
 }
 

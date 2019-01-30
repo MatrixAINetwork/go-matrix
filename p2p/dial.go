@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -81,6 +81,7 @@ type discoverTable interface {
 	ReadRandomNodes([]*discover.Node) int
 	GetNodeByAddress(target common.Address) *discover.Node
 	GetAllAddress() map[common.Address]*discover.Node
+	ResolveNode(addr common.Address, id discover.NodeID) *discover.Node
 }
 
 // the dial history remembers recent dials.

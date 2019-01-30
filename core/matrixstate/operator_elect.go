@@ -1,15 +1,12 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package matrixstate
 
 import (
-	"encoding/json"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/rlp"
+	"reflect"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -24,6 +21,10 @@ func newTopologyGraphOpt() *operatorTopologyGraph {
 	}
 }
 
+func (opt *operatorTopologyGraph) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorTopologyGraph) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -35,8 +36,8 @@ func (opt *operatorTopologyGraph) GetValue(st StateDB) (interface{}, error) {
 		return nil, ErrDataEmpty
 	}
 	value := new(mc.TopologyGraph)
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "topologyGraph unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "topologyGraph rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -47,18 +48,9 @@ func (opt *operatorTopologyGraph) SetValue(st StateDB, value interface{}) error 
 		return err
 	}
 
-	graph, OK := value.(*mc.TopologyGraph)
-	if !OK {
-		log.Error(logInfo, "input param(topologyGraph) err", "reflect failed")
-		return ErrParamReflect
-	}
-	if graph == nil {
-		log.Error(logInfo, "input param(topologyGraph) err", "is nil")
-		return ErrParamNil
-	}
-	data, err := json.Marshal(graph)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "topologyGraph marshal failed", err)
+		log.Error(logInfo, "topologyGraph rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -77,6 +69,10 @@ func newELectGraphOpt() *operatorElectGraph {
 	}
 }
 
+func (opt *operatorElectGraph) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorElectGraph) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -88,8 +84,8 @@ func (opt *operatorElectGraph) GetValue(st StateDB) (interface{}, error) {
 		return nil, ErrDataEmpty
 	}
 	value := new(mc.ElectGraph)
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "electGraph unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "electGraph rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -100,18 +96,9 @@ func (opt *operatorElectGraph) SetValue(st StateDB, value interface{}) error {
 		return err
 	}
 
-	graph, OK := value.(*mc.ElectGraph)
-	if !OK {
-		log.Error(logInfo, "input param(electGraph) err", "reflect failed")
-		return ErrParamReflect
-	}
-	if graph == nil {
-		log.Error(logInfo, "input param(electGraph) err", "is nil")
-		return ErrParamNil
-	}
-	data, err := json.Marshal(graph)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "electGraph marshal failed", err)
+		log.Error(logInfo, "electGraph rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -130,6 +117,10 @@ func newELectOnlineStateOpt() *operatorElectOnlineState {
 	}
 }
 
+func (opt *operatorElectOnlineState) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorElectOnlineState) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -141,8 +132,8 @@ func (opt *operatorElectOnlineState) GetValue(st StateDB) (interface{}, error) {
 		return nil, ErrDataEmpty
 	}
 	value := new(mc.ElectOnlineStatus)
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "electOnlineStatus unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "electOnlineStatus rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -152,19 +143,9 @@ func (opt *operatorElectOnlineState) SetValue(st StateDB, value interface{}) err
 	if err := checkStateDB(st); err != nil {
 		return err
 	}
-
-	status, OK := value.(*mc.ElectOnlineStatus)
-	if !OK {
-		log.Error(logInfo, "input param(electOnlineStatus) err", "reflect failed")
-		return ErrParamReflect
-	}
-	if status == nil {
-		log.Error(logInfo, "input param(electOnlineStatus) err", "is nil")
-		return ErrParamNil
-	}
-	data, err := json.Marshal(status)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "electOnlineStatus marshal failed", err)
+		log.Error(logInfo, "electOnlineStatus rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -183,6 +164,10 @@ func newElectGenTimeOpt() *operatorElectGenTime {
 	}
 }
 
+func (opt *operatorElectGenTime) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorElectGenTime) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -194,8 +179,8 @@ func (opt *operatorElectGenTime) GetValue(st StateDB) (interface{}, error) {
 		return nil, ErrDataEmpty
 	}
 	value := new(mc.ElectGenTimeStruct)
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "electGenTime unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "electGenTime rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -206,18 +191,9 @@ func (opt *operatorElectGenTime) SetValue(st StateDB, value interface{}) error {
 		return err
 	}
 
-	genTime, OK := value.(*mc.ElectGenTimeStruct)
-	if !OK {
-		log.Error(logInfo, "input param(electGenTime) err", "reflect failed")
-		return ErrParamReflect
-	}
-	if genTime == nil {
-		log.Error(logInfo, "input param(electGenTime) err", "is nil")
-		return ErrParamNil
-	}
-	data, err := json.Marshal(genTime)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "electGenTime marshal failed", err)
+		log.Error(logInfo, "electGenTime rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -236,6 +212,10 @@ func newElectMinerNumOpt() *operatorElectMinerNum {
 	}
 }
 
+func (opt *operatorElectMinerNum) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorElectMinerNum) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -247,8 +227,8 @@ func (opt *operatorElectMinerNum) GetValue(st StateDB) (interface{}, error) {
 		return nil, ErrDataEmpty
 	}
 	value := new(mc.ElectMinerNumStruct)
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "electMinerNum unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "electMinerNum rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -259,18 +239,9 @@ func (opt *operatorElectMinerNum) SetValue(st StateDB, value interface{}) error 
 		return err
 	}
 
-	info, OK := value.(*mc.ElectMinerNumStruct)
-	if !OK {
-		log.Error(logInfo, "input param(electMinerNum) err", "reflect failed")
-		return ErrParamReflect
-	}
-	if info == nil {
-		log.Error(logInfo, "input param(electMinerNum) err", "is nil")
-		return ErrParamNil
-	}
-	data, err := json.Marshal(info)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "electMinerNum marshal failed", err)
+		log.Error(logInfo, "electMinerNum rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -289,6 +260,10 @@ func newElectConfigInfoOpt() *operatorElectConfigInfo {
 	}
 }
 
+func (opt *operatorElectConfigInfo) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorElectConfigInfo) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -300,8 +275,8 @@ func (opt *operatorElectConfigInfo) GetValue(st StateDB) (interface{}, error) {
 		return nil, ErrDataEmpty
 	}
 	value := new(mc.ElectConfigInfo)
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "electConfigInfo unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "electConfigInfo rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -321,9 +296,9 @@ func (opt *operatorElectConfigInfo) SetValue(st StateDB, value interface{}) erro
 		log.Error(logInfo, "input param(electConfigInfo) err", "is nil")
 		return ErrParamNil
 	}
-	data, err := json.Marshal(info)
+	data, err := rlp.EncodeToBytes(info)
 	if err != nil {
-		log.Error(logInfo, "electConfigInfo marshal failed", err)
+		log.Error(logInfo, "electConfigInfo rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -340,6 +315,10 @@ func newElectBlackListOpt() *operatorElectBlackList {
 	return &operatorElectBlackList{
 		key: types.RlpHash(matrixStatePrefix + mc.MSKeyElectBlackList),
 	}
+}
+
+func (opt *operatorElectBlackList) KeyHash() common.Hash {
+	return opt.key
 }
 
 func (opt *operatorElectBlackList) GetValue(st StateDB) (interface{}, error) {
@@ -363,7 +342,12 @@ func (opt *operatorElectBlackList) SetValue(st StateDB, value interface{}) error
 	if err := checkStateDB(st); err != nil {
 		return err
 	}
-
+	v1 := reflect.ValueOf(value)
+	if v1.Kind() == reflect.Slice && v1.Len() == 0 {
+		nilSlice := make([]byte, 0)
+		st.SetMatrixData(opt.key, nilSlice)
+		return nil
+	}
 	accounts, OK := value.([]common.Address)
 	if !OK {
 		log.Error(logInfo, "input param(electBlackList) err", "reflect failed")
@@ -390,6 +374,10 @@ func newElectWhiteListOpt() *operatorElectWhiteList {
 	}
 }
 
+func (opt *operatorElectWhiteList) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorElectWhiteList) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -411,7 +399,12 @@ func (opt *operatorElectWhiteList) SetValue(st StateDB, value interface{}) error
 	if err := checkStateDB(st); err != nil {
 		return err
 	}
-
+	v1 := reflect.ValueOf(value)
+	if v1.Kind() == reflect.Slice && v1.Len() == 0 {
+		nilSlice := make([]byte, 0)
+		st.SetMatrixData(opt.key, nilSlice)
+		return nil
+	}
 	accounts, OK := value.([]common.Address)
 	if !OK {
 		log.Error(logInfo, "input param(electWhiteList) err", "reflect failed")
@@ -420,6 +413,52 @@ func (opt *operatorElectWhiteList) SetValue(st StateDB, value interface{}) error
 	data, err := encodeAccounts(accounts)
 	if err != nil {
 		log.Error(logInfo, "electWhiteList encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 选举白名单
+type operatorElectWhiteListSwitcher struct {
+	key common.Hash
+}
+
+func newElectWhiteListSwitcherOpt() *operatorElectWhiteListSwitcher {
+	return &operatorElectWhiteListSwitcher{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyElectWhiteListSwitcher),
+	}
+}
+
+func (opt *operatorElectWhiteListSwitcher) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorElectWhiteListSwitcher) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return &mc.ElectWhiteListSwitcher{Switcher: false}, ErrDataEmpty
+	}
+	value := new(mc.ElectWhiteListSwitcher)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "electWhiteListSwitcher rlp decode failed", err)
+		return nil, err
+	}
+	return value, nil
+}
+
+func (opt *operatorElectWhiteListSwitcher) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+	data, err := rlp.EncodeToBytes(value)
+	if err != nil {
+		log.Error(logInfo, "electWhiteListSwitcher rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -438,6 +477,10 @@ func newVIPConfigOpt() *operatorVIPConfig {
 	}
 }
 
+func (opt *operatorVIPConfig) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorVIPConfig) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -449,9 +492,9 @@ func (opt *operatorVIPConfig) GetValue(st StateDB) (interface{}, error) {
 		return value, nil
 	}
 
-	err := json.Unmarshal(data, &value)
+	err := rlp.DecodeBytes(data, &value)
 	if err != nil {
-		log.Error(logInfo, "electGraph unmarshal failed", err)
+		log.Error(logInfo, "electGraph rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -467,9 +510,9 @@ func (opt *operatorVIPConfig) SetValue(st StateDB, value interface{}) error {
 		log.Error(logInfo, "input param(vipConfig) err", "reflect failed")
 		return ErrParamReflect
 	}
-	data, err := json.Marshal(config)
+	data, err := rlp.EncodeToBytes(config)
 	if err != nil {
-		log.Error(logInfo, "vipConfig marshal failed", err)
+		log.Error(logInfo, "vipConfig rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)

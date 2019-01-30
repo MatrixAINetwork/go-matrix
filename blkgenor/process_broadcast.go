@@ -1,13 +1,11 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/matrix/go-matrix/consensus/blkmanage"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
 )
 
@@ -21,7 +19,7 @@ func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
 		return
 	}
 	if p.preVerifyBroadcastMinerResult(result.BlockMainData) == false {
-		log.WARN(p.logExtraInfo(), "广播区块挖矿结果", "预验证事变, 抛弃该消息")
+		log.WARN(p.logExtraInfo(), "广播区块挖矿结果", "预验证失败, 抛弃该消息")
 		return
 	}
 
@@ -35,16 +33,17 @@ func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
 }
 
 func (p *Process) preVerifyBroadcastMinerResult(result *mc.BlockData) bool {
-	if p.bcInterval == nil {
-		log.WARN(p.logExtraInfo(), "验证广播挖矿结果", "广播周期信息为nil")
-		return false
+	bcInterval := p.bcInterval
+	if bcInterval == nil {
+		var err error
+		bcInterval, err = p.blockChain().GetBroadcastInterval()
+		if err != nil {
+			log.Error(p.logExtraInfo(), "预验证广播挖矿结果", "获取当前广播周期失败", "err", err)
+			return false
+		}
 	}
-	if false == p.bcInterval.IsBroadcastNumber(result.Header.Number.Uint64()) {
-		log.WARN(p.logExtraInfo(), "验证广播挖矿结果", "高度不是广播区块高度", "高度", result.Header.Number.Uint64())
-		return false
-	}
-	if err := p.blockChain().DPOSEngine(result.Header.Version).VerifyBlock(p.blockChain(), result.Header); err != nil {
-		log.WARN(p.logExtraInfo(), "验证广播挖矿结果", "结果异常", "err", err)
+	if false == bcInterval.IsBroadcastNumber(result.Header.Number.Uint64()) {
+		log.WARN(p.logExtraInfo(), "预验证广播挖矿结果", "高度不是广播区块高度", "高度", result.Header.Number.Uint64())
 		return false
 	}
 	return true
@@ -53,16 +52,22 @@ func (p *Process) preVerifyBroadcastMinerResult(result *mc.BlockData) bool {
 func (p *Process) dealMinerResultVerifyBroadcast() {
 	log.INFO(p.logExtraInfo(), "当前高度为广播区块, 进行广播挖矿结果验证, 高度", p.number)
 	for _, result := range p.broadcastRstCache {
-		state, retTxs, receipsts, _, err := p.pm.manblk.VerifyTxsAndState(blkmanage.BroadcastBlk, string(result.Header.Version), result.Header, result.Txs)
+		if err := p.blockChain().DPOSEngine(result.Header.Version).VerifyBlock(p.blockChain(), result.Header); err != nil {
+			log.WARN(p.logExtraInfo(), "广播挖矿结果处理", "结果异常", "err", err)
+			continue
+		}
+
+		state, retTxs, receipts, _, err := p.pm.manblk.VerifyTxsAndState(blkmanage.BroadcastBlk, string(result.Header.Version), result.Header, result.Txs)
 		if nil != err {
+			log.WARN(p.logExtraInfo(), "广播挖矿结果处理", "状态异常", "err", err)
 			continue
 		}
 		p.blockCache.SaveReadyBlock(&mc.BlockLocalVerifyOK{
 			Header:      result.Header,
-			BlockHash:   common.Hash{},
-			OriginalTxs: retTxs,
+			BlockHash:   result.Header.HashNoSignsAndNonce(),
+			OriginalTxs: result.Txs,
 			FinalTxs:    retTxs,
-			Receipts:    receipsts,
+			Receipts:    receipts,
 			State:       state,
 		})
 

@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkmanage
 
 import (
@@ -63,7 +60,6 @@ type ChainReader interface {
 
 	ProcessUpTime(state *state.StateDB, header *types.Header) (map[common.Address]uint64, error)
 	StateAt(root common.Hash) (*state.StateDB, error)
-	ProcessMatrixState(block *types.Block, state *state.StateDB) error
 	Engine(version []byte) consensus.Engine
 	DPOSEngine(version []byte) consensus.DPOSEngine
 	Processor(version []byte) core.Processor
@@ -73,10 +69,10 @@ type ChainReader interface {
 type MANBLKPlUGS interface {
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	Prepare(support BlKSupport, interval *mc.BCIntervalInfo, num uint64, args interface{}) (*types.Header, interface{}, error)
+	Prepare(version string, support BlKSupport, interval *mc.BCIntervalInfo, num uint64, args interface{}) (*types.Header, interface{}, error)
 	ProcessState(support BlKSupport, header *types.Header, args interface{}) ([]*common.RetCallTxN, *state.StateDB, []*types.Receipt, []types.SelfTransaction, []types.SelfTransaction, interface{}, error)
 	Finalize(support BlKSupport, header *types.Header, state *state.StateDB, txs []types.SelfTransaction, uncles []*types.Header, receipts []*types.Receipt, args interface{}) (*types.Block, interface{}, error)
-	VerifyHeader(support BlKSupport, header *types.Header, args interface{}) (interface{}, error)
+	VerifyHeader(version string, support BlKSupport, header *types.Header, args interface{}) (interface{}, error)
 	VerifyTxsAndState(support BlKSupport, header *types.Header, Txs types.SelfTransactions, args interface{}) (*state.StateDB, types.SelfTransactions, []*types.Receipt, interface{}, error)
 }
 
@@ -153,13 +149,33 @@ func (bd *ManBlkManage) RegisterManBLkPlugs(types string, version string, plug M
 	bd.mapManBlkPlugs[types+version] = plug
 }
 
+func (bd *ManBlkManage) ProduceBlockVersion(num uint64, preVersion string) string {
+	//if num == manparams.VersionNumBeta {
+	//	return manparams.VersionBeta
+	//}
+	return preVersion
+}
+
+func (bd *ManBlkManage) VerifyBlockVersion(num uint64, curVersion string, preVersion string) error {
+/*if num == manparams.VersionNumBeta {
+		if curVersion != manparams.VersionBeta {
+			return errors.New("版本号异常")
+		} else {
+			return nil
+		}
+	} else*/ if curVersion != preVersion {
+		return errors.New("版本号异常,不等于父区块版本号")
+	}
+	return nil
+}
+
 func (bd *ManBlkManage) Prepare(types string, version string, num uint64, interval *mc.BCIntervalInfo, args ...interface{}) (*types.Header, interface{}, error) {
 	plug, ok := bd.mapManBlkPlugs[types+version]
 	if !ok {
 		log.ERROR(LogManBlk, "获取插件失败", "")
 		return nil, nil, errors.New("获取插件失败")
 	}
-	return plug.Prepare(bd.support, interval, num, args)
+	return plug.Prepare(version, bd.support, interval, num, args)
 }
 
 func (bd *ManBlkManage) ProcessState(types string, version string, header *types.Header, args ...interface{}) ([]*common.RetCallTxN, *state.StateDB, []*types.Receipt, []types.SelfTransaction, []types.SelfTransaction, interface{}, error) {
@@ -186,7 +202,7 @@ func (bd *ManBlkManage) VerifyHeader(types string, version string, header *types
 		log.ERROR(LogManBlk, "获取插件失败", "")
 		return nil, errors.New("获取插件失败")
 	}
-	return plug.VerifyHeader(bd.support, header, args)
+	return plug.VerifyHeader(version, bd.support, header, args)
 }
 
 func (bd *ManBlkManage) VerifyTxsAndState(types string, version string, header *types.Header, Txs types.SelfTransactions, args ...interface{}) (*state.StateDB, types.SelfTransactions, []*types.Receipt, interface{}, error) {

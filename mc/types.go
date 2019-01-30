@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -9,7 +9,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 )
 
-//by hezi //YY 2018-08-18由tx_pool.go转移到此
+//by   // 2018-08-18由tx_pool.go转移到此
 const (
 	Heartbeat   = "Heartbeat"   // 心跳交易（广播区块Hash对99取余）
 	Publickey   = "SeedProof"   // 公钥交易

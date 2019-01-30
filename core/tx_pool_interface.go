@@ -1,7 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package core
 
 import (
@@ -14,12 +10,12 @@ import (
 
 //消息类型
 const (
-	tmpEmpty = iota //YY
+	tmpEmpty = iota //
 	SendFloodSN
 	GetTxbyN
-	RecvTxbyN //YY
-	RecvErrTx //YY
-	BroadCast //YY
+	RecvTxbyN //
+	RecvErrTx //
+	BroadCast //
 	GetConsensusTxbyN
 	RecvConsensusTxbyN
 )
@@ -46,13 +42,13 @@ type RetCallTx struct {
 	Txser []types.SelfTransaction
 }
 
-// hezi
+//
 type NetworkMsgData struct {
 	SendAddress common.Address
 	Data        []*MsgStruct
 }
 
-// hezi
+//
 type MsgStruct struct {
 	Msgtype    uint32
 	SendAddr   common.Address

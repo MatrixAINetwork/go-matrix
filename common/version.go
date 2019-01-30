@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -226,6 +226,60 @@ var (
 			Submitter: "zhenghe",
 			Commit: []string{
 				"download过程按时间委托交易和区块头时间比较",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.28",
+			Submitter: "zhangwen",
+			Commit: []string{
+				"解决通过收据获取不到交易的问题",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.29",
+			Submitter: "zhenghe",
+			Commit: []string{
+				"修改sendrawtransaction发送方式",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.30",
+			Submitter: "zhenghe",
+			Commit: []string{
+				"修改超级交易这是错误类型的币种时panic问题",
+				"修改交易相关的日志打印格式",
+				"用协程生成快照(yeting)",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.31",
+			Submitter: "zhangwen",
+			Commit: []string{
+				"公私钥增加打印",
+				"矿工和验证者生成时间点修改支持合约及时生效",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.32",
+			Submitter: "liubo",
+			Commit: []string{
+				"ipfs 缓存大小改为设计的年月日约占大小",
+				"错误过多时退出ipfs模式",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.33",
+			Submitter: "zhenghe",
+			Commit: []string{
+				"修改tcp,udp交易hash不一致问题",
+				"修改委托交易失效后不用取消也可以重复委托",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.34",
+			Submitter: "zhangwen",
+			Commit: []string{
+				"修复初始交易费奖励账户为0，普通交易gas费不发放奖励的问题",
 			},
 		},
 	}

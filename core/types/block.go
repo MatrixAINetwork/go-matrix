@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -26,6 +26,13 @@ var (
 	EmptyRootHash  = DeriveSha(SelfTransactions{})
 	EmptyUncleHash = CalcUncleHash(nil)
 )
+
+type SnapSaveInfo struct {
+	Flg       int
+	BlockNum  uint64
+	BlockHash string
+	SnapPath  string
+}
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
@@ -205,6 +212,9 @@ func (h *Header) IsSuperHeader() bool {
 }
 
 func (h *Header) SuperBlockSeq() uint64 {
+	if h.Number.Uint64() == 0 {
+		return 0
+	}
 	if len(h.Extra) < 8 {
 		return 0
 	}
@@ -454,19 +464,20 @@ func (b *Block) GasUsed() uint64      { return b.header.GasUsed }
 func (b *Block) Difficulty() *big.Int { return new(big.Int).Set(b.header.Difficulty) }
 func (b *Block) Time() *big.Int       { return new(big.Int).Set(b.header.Time) }
 
-func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
-func (b *Block) MixDigest() common.Hash   { return b.header.MixDigest }
-func (b *Block) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
-func (b *Block) Bloom() Bloom             { return b.header.Bloom }
-func (b *Block) Coinbase() common.Address { return b.header.Coinbase }
-func (b *Block) Root() common.Hash        { return b.header.Root }
-func (b *Block) ParentHash() common.Hash  { return b.header.ParentHash }
-func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
-func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
-func (b *Block) UncleHash() common.Hash   { return b.header.UncleHash }
-func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
-
-func (b *Block) Header() *Header { return CopyHeader(b.header) }
+func (b *Block) NumberU64() uint64                    { return b.header.Number.Uint64() }
+func (b *Block) MixDigest() common.Hash               { return b.header.MixDigest }
+func (b *Block) Nonce() uint64                        { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
+func (b *Block) Bloom() Bloom                         { return b.header.Bloom }
+func (b *Block) Coinbase() common.Address             { return b.header.Coinbase }
+func (b *Block) Root() common.Hash                    { return b.header.Root }
+func (b *Block) ParentHash() common.Hash              { return b.header.ParentHash }
+func (b *Block) TxHash() common.Hash                  { return b.header.TxHash }
+func (b *Block) ReceiptHash() common.Hash             { return b.header.ReceiptHash }
+func (b *Block) UncleHash() common.Hash               { return b.header.UncleHash }
+func (b *Block) Extra() []byte                        { return common.CopyBytes(b.header.Extra) }
+func (b *Block) Version() []byte                      { return b.header.Version }
+func (b *Block) VersionSignature() []common.Signature { return b.header.VersionSignatures }
+func (b *Block) Header() *Header                      { return CopyHeader(b.header) }
 
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
@@ -477,6 +488,10 @@ func (b *Block) HashNoNonce() common.Hash {
 
 func (b *Block) HashNoSigns() common.Hash {
 	return b.header.HashNoSigns()
+}
+
+func (b *Block) HashNoSignsAndNonce() common.Hash {
+	return b.header.HashNoSignsAndNonce()
 }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
@@ -537,6 +552,11 @@ func (b *Block) Hash() common.Hash {
 	v := b.header.Hash()
 	b.hash.Store(v)
 	return v
+}
+
+//will change header num!!
+func (b *Block) SetHeadNum(num int64) {
+	b.header.Number.SetInt64(num)
 }
 
 type Blocks []*Block

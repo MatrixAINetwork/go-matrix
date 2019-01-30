@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
@@ -142,9 +142,8 @@ func (self *LeaderIdentity) newBlockReadyBCHandle(msg *mc.NewBlockReadyMsg) {
 	log.Debug(self.extraInfo, "NewBlockReady消息处理", "开始", "高度", curNumber)
 
 	startMsg := &startControllerMsg{
-		parentIsSupper: msg.Header.IsSuperHeader(),
-		parentHeader:   msg.Header,
-		parentStateDB:  msg.State,
+		parentHeader:  msg.Header,
+		parentStateDB: msg.State,
 	}
 	self.ctrlManager.StartController(curNumber+1, startMsg)
 }
@@ -179,9 +178,8 @@ func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
 	}
 
 	startMsg := &startControllerMsg{
-		parentIsSupper: msg.IsSuperBlock,
-		parentHeader:   header,
-		parentStateDB:  parentState,
+		parentHeader:  header,
+		parentStateDB: parentState,
 	}
 	self.ctrlManager.StartController(msg.BlockNum+1, startMsg)
 }

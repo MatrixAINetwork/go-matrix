@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -289,7 +289,7 @@ func (api *PrivateMinerAPI) TestHeaderGen(kind string, s string) {
 			log.Error("num is error", "current num:", currentNum)
 
 		}
-		w.MakeSuperGenesis(api.e.BlockChain(), api.e.chainDb, num)
+		w.MakeSuperGenesis(api.e.BlockChain(), api.e.chainDb, num, false)
 		//mc.PublicEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: common.RoleValidator, BlockNum: 1})
 		//mc.PublicEvent(mc.BlkVerify_VerifyConsensusOK, &mc.BlockVerifyConsensusOK{testHeader, nil, nil, nil})
 		log.INFO("successfully gen superGenesis ", "MANSuperGenesis.", "nil")
@@ -324,7 +324,7 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.gasPrice = (*big.Int)(&gasPrice)
 	api.e.lock.Unlock()
 
-	//api.e.txPool.SetGasPrice((*big.Int)(&gasPrice)) //YYY
+	//api.e.txPool.SetGasPrice((*big.Int)(&gasPrice)) //Y
 	return true
 }
 

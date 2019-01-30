@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -10,7 +10,6 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 )
 
@@ -18,7 +17,6 @@ type leaderCalculator struct {
 	number          uint64
 	preLeader       common.Address
 	preHash         common.Hash
-	preIsSupper     bool
 	leaderList      map[uint32]common.Address
 	validators      []mc.TopologyNodeInfo
 	specialAccounts specialAccounts
@@ -31,7 +29,6 @@ func newLeaderCalculator(chain *core.BlockChain, number uint64, logInfo string) 
 		number:          number,
 		preLeader:       common.Address{},
 		preHash:         common.Hash{},
-		preIsSupper:     false,
 		leaderList:      make(map[uint32]common.Address),
 		validators:      nil,
 		specialAccounts: specialAccounts{},
@@ -40,26 +37,40 @@ func newLeaderCalculator(chain *core.BlockChain, number uint64, logInfo string) 
 	}
 }
 
-func (self *leaderCalculator) SetValidatorsAndSpecials(preHeader *types.Header, preIsSupper bool, validators []mc.TopologyNodeInfo, specials *specialAccounts, bcInterval *manparams.BCInterval) error {
+func (self *leaderCalculator) getRealPreLeader(preHeader *types.Header, bcInterval *mc.BCIntervalInfo) (common.Address, bool, error) {
+	header := preHeader
+	number := preHeader.Number.Uint64()
+	preAppearSuper := header.IsSuperHeader()
+
+	for header.IsSuperHeader() || bcInterval.IsBroadcastNumber(number) {
+		if header.IsSuperHeader() {
+			preAppearSuper = true
+		}
+
+		if number == 0 {
+			return header.Leader, preAppearSuper, nil
+		}
+		header = self.chain.GetHeader(header.ParentHash, number-1)
+		if header == nil {
+			return common.Address{}, preAppearSuper, errors.Errorf("获取父区块(%d, %s)失败, header is nil! ", number-1, header.ParentHash.TerminalString())
+		}
+		number = header.Number.Uint64()
+	}
+	return header.Leader, preAppearSuper, nil
+}
+
+func (self *leaderCalculator) SetValidatorsAndSpecials(preHeader *types.Header, validators []mc.TopologyNodeInfo, specials *specialAccounts, bcInterval *mc.BCIntervalInfo) error {
 	if preHeader == nil || validators == nil || specials == nil || bcInterval == nil {
 		return ErrValidatorsIsNil
 	}
 
-	preNumber := self.number - 1
-	preLeader := preHeader.Leader
-	if preIsSupper == false && bcInterval.IsBroadcastNumber(preNumber) && preNumber != 0 {
-		headerHash, err := self.chain.GetAncestorHash(preHeader.ParentHash, preNumber-1)
-		if err != nil {
-			return errors.Errorf("获取广播区块OR超级区块前一区块(%d)错误! err = %v", preNumber-1, err)
-		}
-		header := self.chain.GetHeaderByHash(headerHash)
-		if header == nil {
-			return errors.Errorf("获取广播区块OR超级区块前一区块(%s)错误!", headerHash.TerminalString())
-		}
-		preLeader = header.Leader
+	realPreLeader, preAppearSuper, err := self.getRealPreLeader(preHeader, bcInterval)
+	if err != nil {
+		log.Error(self.logInfo, "计算leader列表", "获取真实的preLeader失败", "err", err)
+		return err
 	}
-	log.INFO(self.logInfo, "计算leader列表", "开始", "preLeader", preLeader.Hex(), "前一个区块是否为超级区块", preIsSupper)
-	leaderList, err := calLeaderList(preLeader, preNumber, preIsSupper, validators, bcInterval)
+	log.Trace(self.logInfo, "计算leader列表", "开始", "preLeader", realPreLeader.Hex(), "前区块中出现超级区块", preAppearSuper, "高度", self.number)
+	leaderList, err := calLeaderList(realPreLeader, self.number, preAppearSuper, validators, bcInterval)
 	if err != nil {
 		return err
 	}
@@ -67,8 +78,7 @@ func (self *leaderCalculator) SetValidatorsAndSpecials(preHeader *types.Header, 
 	self.preLeader.Set(preHeader.Leader)
 	self.preHash.Set(preHeader.Hash())
 	self.validators = validators
-	self.preIsSupper = preIsSupper
-	self.specialAccounts.broadcast = specials.broadcast
+	self.specialAccounts.broadcasts = specials.broadcasts
 	self.specialAccounts.versionSupers = specials.versionSupers
 	self.specialAccounts.blockSupers = specials.blockSupers
 
@@ -86,7 +96,7 @@ func (self *leaderCalculator) GetValidators() (*mc.TopologyGraph, error) {
 	return rlt, nil
 }
 
-func (self *leaderCalculator) GetLeader(turn uint32, bcInterval *manparams.BCInterval) (*leaderData, error) {
+func (self *leaderCalculator) GetLeader(turn uint32, bcInterval *mc.BCIntervalInfo) (*leaderData, error) {
 	if bcInterval == nil {
 		return nil, errors.New("leader calculator: param bcInterval is nil")
 	}
@@ -94,37 +104,34 @@ func (self *leaderCalculator) GetLeader(turn uint32, bcInterval *manparams.BCInt
 	if leaderCount == 0 {
 		return nil, ErrValidatorsIsNil
 	}
-	if self.specialAccounts.broadcast == (common.Address{}) {
-		return nil, ErrSepcialsIsNil
-	}
 
 	leaders := &leaderData{}
 	number := self.number
 	if bcInterval.IsReElectionNumber(number) {
-		leaders.leader.Set(self.specialAccounts.broadcast)
+		leaders.leader = common.Address{}
 		leaders.nextLeader.Set(self.leaderList[turn%leaderCount])
 		return leaders, nil
 	}
 
 	if bcInterval.IsBroadcastNumber(number) {
-		leaders.leader.Set(self.specialAccounts.broadcast)
+		leaders.leader = common.Address{}
 		leaders.nextLeader.Set(self.leaderList[(turn)%leaderCount])
 		return leaders, nil
 	}
 
 	leaders.leader.Set(self.leaderList[turn%leaderCount])
 	if bcInterval.IsBroadcastNumber(number + 1) {
-		leaders.nextLeader.Set(self.specialAccounts.broadcast)
+		leaders.nextLeader = common.Address{}
 	} else {
 		leaders.nextLeader.Set(self.leaderList[(turn+1)%leaderCount])
 	}
 	return leaders, nil
 }
 
-func calLeaderList(preLeader common.Address, preNumber uint64, preIsSupper bool, validators []mc.TopologyNodeInfo, bcInterval *manparams.BCInterval) (map[uint32]common.Address, error) {
+func calLeaderList(preLeader common.Address, curNumber uint64, preIsSupper bool, validators []mc.TopologyNodeInfo, bcInterval *mc.BCIntervalInfo) (map[uint32]common.Address, error) {
 	ValidatorNum := len(validators)
 	var startPos = 0
-	if preIsSupper || bcInterval.IsReElectionNumber(preNumber) || bcInterval.IsReElectionNumber(preNumber+1) {
+	if preIsSupper || bcInterval.IsReElectionNumber(curNumber-1) || bcInterval.IsReElectionNumber(curNumber) {
 		startPos = 0
 	} else {
 		preIndex, err := findLeaderIndex(preLeader, validators)

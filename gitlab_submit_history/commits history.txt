@@ -1,1 +1,0 @@
-We just reflected our commit info on internal gitlab here

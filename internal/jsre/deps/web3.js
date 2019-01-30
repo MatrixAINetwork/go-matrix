@@ -545,6 +545,9 @@ module.exports = SolidityTypeAddress;
 var f = require('./formatters');
 var SolidityType = require('./type');
 
+
+
+
 /**
  * SolidityTypeBool is a prootype that represents bool type
  * It matches:
@@ -915,7 +918,6 @@ var utils = require('../utils/utils');
 var c = require('../utils/config');
 var SolidityParam = require('./param');
 
-
 /**
  * Formats input value to byte representation of int
  * If value is negative, return it's two's complement
@@ -925,11 +927,168 @@ var SolidityParam = require('./param');
  * @param {String|Number|BigNumber} value that needs to be formatted
  * @returns {SolidityParam}
  */
-var formatInputInt = function (value) {
+
+var formatInputInt = function (value,name) {
+    if (name == "address" &&  value.indexOf('.') > -1){
+        value = '0x' + Bytes2HexString(decode(value.split('.')[1].substring(0, value.split('.')[1].length-1)))
+    }
     BigNumber.config(c.ETH_BIGNUMBER_ROUNDING_MODE);
     var result = utils.padLeft(utils.toTwosComplement(value).toString(16), 64);
     return new SolidityParam(result);
 };
+
+ //   base58 编码解码
+var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+var ALPHABET_MAP = {}
+var BASE = 58
+for (var i = 0; i < ALPHABET.length; i++) {
+    ALPHABET_MAP[ALPHABET.charAt(i)] = i
+}
+
+function decode(string) {
+    if (string.length === 0) return []
+    var i,
+        j,
+        bytes = [0]
+    for (i = 0; i < string.length; i++) {
+        var c = string[i]
+        // c是不是ALPHABET_MAP的key
+        if (!(c in ALPHABET_MAP)) throw new Error('Non-base58 character')
+        for (j = 0; j < bytes.length; j++) bytes[j] *= BASE
+        bytes[0] += ALPHABET_MAP[c]
+        var carry = 0
+        for (j = 0; j < bytes.length; ++j) {
+            bytes[j] += carry
+            carry = bytes[j] >> 8
+            // 0xff --> 11111111
+            bytes[j] &= 0xff
+        }
+        while (carry) {
+            bytes.push(carry & 0xff)
+            carry >>= 8
+        }
+    }
+    // deal with leading zeros
+    for (i = 0; string[i] === '1' && i < string.length - 1; i++) bytes.push(0)
+    return bytes.reverse()
+}
+// 字符串转utf8格式的字节数组（英文和数字直接返回的acsii码，中文转%xx之后打断当成16进制转10进制）
+function ToUTF8(hex) {
+    var str = [];
+    var i = 0, l = hex.length;
+    if (hex.substring(0, 2) === '0x') {
+        i = 2;
+    }
+    for (; i < l; i+=2) {
+        str.push(parseInt(hex.substr(i, 2), 16));
+    }
+    return str;
+}
+
+// 传进已经转成字节的数组 -->buffer(utf8格式)
+function encode(buffer) {
+  if (buffer.length === 0) return '';
+  var i,
+      j,
+      digits = [0];
+  for (i = 0; i < buffer.length; i++) {
+      for (j = 0; j < digits.length; j++){
+          // 将数据转为二进制，再位运算右边添8个0，得到的数转二进制
+          // 位运算-->相当于 digits[j].toString(2);parseInt(10011100000000,2)
+          digits[j] <<= 8;
+      }
+      digits[0] += buffer[i];
+      var carry = 0;
+      for (j = 0; j < digits.length; ++j) {
+          digits[j] += carry;
+          carry = (digits[j] / BASE) | 0;
+          digits[j] %= BASE;
+      }
+      while (carry) {
+          digits.push(carry % BASE);
+          carry = (carry / BASE) | 0;
+      }
+  }
+  // deal with leading zeros
+  for (i = 0; buffer[i] === 0 && i < buffer.length - 1; i++) digits.push(0);
+  return digits
+      .reverse()
+      .map(function(digit) {
+          return ALPHABET[digit];
+      })
+      .join('');
+}
+
+
+function Bytes2HexString(arrBytes) {
+    var str = ''
+    for (var i = 0; i < arrBytes.length; i++) {
+        var tmp
+        var num = arrBytes[i]
+        if (num < 0) {
+            //此处填坑，当byte因为符合位导致数值为负时候，需要对数据进行处理
+            tmp = (255 + num + 1).toString(16)
+        } else {
+            tmp = num.toString(16)
+        }
+        if (tmp.length == 1) {
+            tmp = '0' + tmp
+        }
+        str += tmp
+    }
+    return str
+}
+ //   base58 编码解码
+
+// crc 8检验
+// "Class" for calculating CRC8 checksums...
+function CRC8(polynomial) { // constructor takes an optional polynomial type from CRC8.POLY
+    if (polynomial == null) polynomial = CRC8.POLY.CRC8_CCITT
+    this.table = CRC8.generateTable(polynomial);
+}
+
+// Returns the 8-bit checksum given an array of byte-sized numbers
+CRC8.prototype.checksum = function(byte_array) {
+    var c = 0
+
+    for (var i = 0; i < byte_array.length; i++ )
+        c = this.table[(c ^ byte_array[i]) % 256]
+
+    return c;
+}
+
+// returns a lookup table byte array given one of the values from CRC8.POLY
+CRC8.generateTable =function(polynomial)
+{
+    var csTable = [] // 256 max len byte array
+
+    for ( var i = 0; i < 256; ++i ) {
+        var curr = i
+        for ( var j = 0; j < 8; ++j ) {
+            if ((curr & 0x80) !== 0) {
+                curr = ((curr << 1) ^ polynomial) % 256
+            } else {
+                curr = (curr << 1) % 256
+            }
+        }
+        csTable[i] = curr
+    }
+
+    return csTable
+}
+
+// This "enum" can be used to indicate what kind of CRC8 checksum you will be calculating
+CRC8.POLY = {
+    CRC8 : 0xd5,
+    CRC8_CCITT : 0x07,
+    CRC8_DALLAS_MAXIM : 0x31,
+    CRC8_SAE_J1850 : 0x1D,
+    CRC_8_WCDMA : 0x9b,
+}
+var arr = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P',
+    'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+    'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+// crc 8检验
 
 /**
  * Formats input bytes
@@ -1120,7 +1279,13 @@ var formatOutputString = function (param) {
  */
 var formatOutputAddress = function (param) {
     var value = param.staticPart();
-    return "0x" + value.slice(value.length - 40, value.length);
+    var address = value.slice(value.length - 40, value.length)
+    address = 'MAN.' + encode(ToUTF8(address))
+// convert sample text to array of bytes
+    var byte_array = address.split('').map(function(x){return x.charCodeAt(0)})
+    var crc8 = new CRC8()
+    var checksum = crc8.checksum(byte_array)
+    return address + arr[checksum % 58];
 };
 
 module.exports = {
@@ -3750,7 +3915,25 @@ var inputCallFormatter = function (options){
 
     return options;
 };
+var inputNewCallFormatter = function (options){
 
+    options.from = options.from || config.defaultAccount;
+
+    if (options.from) {
+        options.from = inputAddressFormatter(options.from);
+    }
+
+    if (options.to) { // it might be contract creation
+        options.to = inputAddressFormatter(options.to);
+    }
+        ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
+        return options[key] !== undefined;
+    }).forEach(function(key){
+        options[key] = utils.fromDecimal(options[key]);
+    });
+
+    return options;
+};
 /**
  * Formats the input of a transaction and converts all values to HEX
  *
@@ -3856,16 +4039,6 @@ var outputBlockFormatter = function(block) {
         }
     }
 
-    if (utils.isArray(block.signatures)) {
-        for(var i=0;i<block.signatures.length;i++){
-            var temp = block.signatures[i];
-            block.signatures[i] = "0x";
-            for (var j=0;j<temp.length;j++){
-                var n = temp[j].toString(16);
-                block.signatures[i] += n.length < 2 ? '0' + n : n;
-            }
-        }
-    }
     if (utils.isArray(block.transactions)) {
         block.transactions.forEach(function(item){
             if(!utils.isString(item))
@@ -3976,7 +4149,7 @@ var inputAddressFormatter = function (address) {
     } else if (utils.isAddress(address)) {
         return address;
     }
-    throw new Error('invalid address 111');
+    throw new Error('invalid address');
 };
 
 
@@ -4000,6 +4173,7 @@ module.exports = {
     inputDefaultBlockNumberFormatter: inputDefaultBlockNumberFormatter,
     inputBlockNumberFormatter: inputBlockNumberFormatter,
     inputCallFormatter: inputCallFormatter,
+    inputNewCallFormatter: inputNewCallFormatter,
     inputTransactionFormatter: inputTransactionFormatter,
     inputAddressFormatter: inputAddressFormatter,
     inputPostFormatter: inputPostFormatter,
@@ -4126,7 +4300,6 @@ SolidityFunction.prototype.unpackOutput = function (output) {
     if (!output) {
         return;
     }
-
     output = output.length >= 2 ? output.slice(2) : output;
     var result = coder.decodeParams(this._outputTypes, output);
     return result.length === 1 ? result[0] : result;
@@ -4252,7 +4425,6 @@ SolidityFunction.prototype.request = function () {
     var callback = this.extractCallback(args);
     var payload = this.toPayload(args);
     var format = this.unpackOutput.bind(this);
-
     return {
         method: this._constant ? 'eth_call' : 'eth_sendTransaction',
         callback: callback,
@@ -5124,6 +5296,9 @@ Method.prototype.buildCall = function() {
     var method = this;
     var send = function () {
         var payload = method.toPayload(Array.prototype.slice.call(arguments));
+        if(payload.method == 'debug_dumpBlock') {
+            payload.params[0] = '0x' + Number(payload.params[0]).toString(16)
+        }
         if (payload.callback) {
             return method.requestManager.sendAsync(payload, function (err, result) {
                 payload.callback(err, method.formatOutput(result));
@@ -5328,7 +5503,27 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: formatters.outputNewBigNumberFormatter
     });
-
+    var getUpTime = new Method({
+        name: 'getUpTime',
+        call: 'eth_getUpTime',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputNewBigNumberFormatter
+    });
+    var getFutureRewards = new Method({
+        name: 'getFutureRewards',
+        call: 'man_getFutureRewards',
+        params: 1,
+        inputFormatter: [formatters.inputDefaultBlockNumberFormatter],
+        // outputFormatter: formatters.outputNewBigNumberFormatter
+    });
+    var getMatrixStateByNum = new Method({
+        name: 'getMatrixStateByNum',
+        call: 'eth_getMatrixStateByNum',
+        params: 2,
+        inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter],
+        // outputFormatter: formatters.outputNewBigNumberFormatter
+    });
     var getEntrustList = new Method({
         name: 'getEntrustList',
         call: 'eth_getEntrustList',
@@ -5363,6 +5558,12 @@ var methods = function () {
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
         //outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getCfgDataByState = new Method({
+        name: 'getCfgDataByState',
+        call: 'eth_getCfgDataByState',
+        params: 1,
+        // outputFormatter: formatters.outputBigNumberFormatter
     });
     var getStorageAt = new Method({
         name: 'getStorageAt',
@@ -5486,7 +5687,7 @@ var methods = function () {
         name: 'call',
         call: 'eth_call',
         params: 2,
-        inputFormatter: [formatters.inputCallFormatter, formatters.inputDefaultBlockNumberFormatter]
+        inputFormatter: [formatters.inputNewCallFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var estimateGas = new Method({
@@ -5527,15 +5728,6 @@ var methods = function () {
         params: 0
     });
 
-    //hezi
-    var getTopology = new Method({
-        name: 'getTopology',
-        call: 'eth_getTopology',
-        params: 2,
-        inputFormatter: [utils.toDecimal, utils.toDecimal],
-        //outputFormatter: formatters.outputBigNumberFormatter
-    });
-
     var getSelfLevel = new Method({
         name: 'getSelfLevel',
         call: 'eth_getSelfLevel',
@@ -5548,13 +5740,24 @@ var methods = function () {
         params: 1
     });
 
+    var getTopologyStatus = new Method({
+        name: 'getTopologyStatus',
+        call: 'eth_getTopologyStatusByNumber',
+        params: 1,
+        inputFormatter: [formatters.inputBlockNumberFormatter]
+    });
+
     return [
+        getMatrixStateByNum,
         getBalance,
+        getUpTime,
+        getFutureRewards,
         getEntrustList,
         getAuthFrom,
         getEntrustFrom,
         getAuthFromByTime,
         getEntrustFromByTime,
+        getCfgDataByState,
         getStorageAt,
         getCode,
         getBlock,
@@ -5578,9 +5781,9 @@ var methods = function () {
         compileSerpent,
         submitWork,
         getWork,
-        getTopology,
         getSelfLevel,
-        importSuperBlock
+        importSuperBlock,
+        getTopologyStatus
     ];
 };
 
@@ -5765,7 +5968,7 @@ var methods = function () {
     var setEntrustSignAccount = new Method({
         name: 'setEntrustSignAccount',
         call: 'personal_setEntrustSignAccount',
-        params: 3
+        params: 2
     });
 
 

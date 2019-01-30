@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/matrix/go-matrix/ca"
+	"github.com/matrix/go-matrix/params/manparams"
 
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/reelection"
@@ -25,6 +26,7 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/consensus"
+	"github.com/matrix/go-matrix/consensus/blkmanage"
 	"github.com/matrix/go-matrix/consensus/clique"
 	"github.com/matrix/go-matrix/consensus/manash"
 	"github.com/matrix/go-matrix/core"
@@ -102,7 +104,7 @@ type Matrix struct {
 	networkId     uint64
 	netRPCService *manapi.PublicNetAPI
 
-	broadTx *broadcastTx.BroadCast //YY
+	broadTx *broadcastTx.BroadCast //
 
 	//algorithm
 	ca         *ca.Identity //node传进来的
@@ -114,6 +116,7 @@ type Matrix struct {
 	random       *baseinterface.Random
 	olConsensus  *olconsensus.TopNodeService
 	blockGen     *blkgenor.BlockGenor
+	manBlkManage *blkmanage.ManBlkManage
 	blockVerify  *blkverify.BlockVerify
 	leaderServer *leaderelect.LeaderIdentity
 
@@ -192,7 +195,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 
 	man.signHelper.SetAuthReader(man.blockchain)
 
-	ca.SetTopologyReader(man.blockchain.GetGraphStore())
+	ca.SetTopologyReader(man.blockchain.GetTopologyStore())
 
 	//if config.TxPool.Journal != "" {
 	//	config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
@@ -204,7 +207,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	}
 	//man.protocolManager.Msgcenter = ctx.MsgCenter
 	MsgCenter = ctx.MsgCenter
-	man.miner, err = miner.New(man.blockchain, man.chainConfig, man.EventMux(), man.engine, man.blockchain.DPOSEngine(), man.hd)
+	man.miner, err = miner.New(man.blockchain, man.chainConfig, man.EventMux(), man.hd)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +218,20 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+	man.blockchain.Processor([]byte(manparams.VersionAlpha)).SetRandom(man.random)
+	man.olConsensus = olconsensus.NewTopNodeService(man.blockchain)
+	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
+	man.olConsensus.SetValidatorReader(man.blockchain)
+	man.olConsensus.SetStateReaderInterface(man.blockchain.GetTopologyStore())
+	man.olConsensus.SetTopNodeStateInterface(topNodeInstance)
+	man.olConsensus.SetValidatorAccountInterface(topNodeInstance)
+	man.olConsensus.SetMessageSendInterface(topNodeInstance)
+	man.olConsensus.SetMessageCenterInterface(topNodeInstance)
 
-	man.reelection, err = reelection.New(man.blockchain, man.random)
+	if err = man.olConsensus.Start(); err != nil {
+		return nil, err
+	}
+	man.reelection, err = reelection.New(man.blockchain, man.random, man.olConsensus)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +240,6 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyElectOnlineState, man.reelection.ProduceElectOnlineStateData)
 	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyPreBroadcastRoot, man.reelection.ProducePreBroadcastStateData)
 	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyMinHash, man.reelection.ProduceMinHashData)
-	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyPerAllTop, man.reelection.ProducePreAllTopData)
 	man.blockchain.RegisterMatrixStateDataProducer(mc.MSKeyBroadcastTx, core.ProduceMatrixStateData)
 
 	man.APIBackend = &ManAPIBackend{man, nil}
@@ -235,23 +249,14 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	}
 	man.APIBackend.gpo = gasprice.NewOracle(man.APIBackend, gpoParams)
 	depoistInfo.NewDepositInfo(man.APIBackend)
-	man.broadTx = broadcastTx.NewBroadCast(man.APIBackend) //YY
+	man.broadTx = broadcastTx.NewBroadCast(man.APIBackend) //
 
 	man.leaderServer, err = leaderelect.NewLeaderIdentityService(man, "leader服务")
 
-	man.olConsensus = olconsensus.NewTopNodeService(man.blockchain.DPOSEngine())
-	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
-	man.olConsensus.SetValidatorReader(man.blockchain)
-	man.olConsensus.SetStateReaderInterface(man.blockchain)
-	man.olConsensus.SetTopNodeStateInterface(topNodeInstance)
-	man.olConsensus.SetValidatorAccountInterface(topNodeInstance)
-	man.olConsensus.SetMessageSendInterface(topNodeInstance)
-	man.olConsensus.SetMessageCenterInterface(topNodeInstance)
-
-	if err = man.olConsensus.Start(); err != nil {
+	man.manBlkManage, err = blkmanage.New(man)
+	if err != nil {
 		return nil, err
 	}
-
 	man.blockGen, err = blkgenor.New(man)
 	if err != nil {
 		return nil, err
@@ -263,6 +268,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	}
 
 	return man, nil
+
 }
 
 func makeExtraData(extra []byte) []byte {
@@ -459,12 +465,18 @@ func (s *Matrix) StopMining()         { s.miner.Stop() }
 func (s *Matrix) IsMining() bool      { return s.miner.Mining() }
 func (s *Matrix) Miner() *miner.Miner { return s.miner }
 
-func (s *Matrix) AccountManager() *accounts.Manager        { return s.accountManager }
-func (s *Matrix) BlockChain() *core.BlockChain             { return s.blockchain }
-func (s *Matrix) TxPool() *core.TxPoolManager              { return s.txPool } //YYY
-func (s *Matrix) EventMux() *event.TypeMux                 { return s.eventMux }
-func (s *Matrix) Engine() consensus.Engine                 { return s.engine }
-func (s *Matrix) DPOSEngine() consensus.DPOSEngine         { return s.blockchain.DPOSEngine() }
+func (s *Matrix) AccountManager() *accounts.Manager { return s.accountManager }
+func (s *Matrix) BlockChain() *core.BlockChain      { return s.blockchain }
+func (s *Matrix) TxPool() *core.TxPoolManager       { return s.txPool } //Y
+func (s *Matrix) EventMux() *event.TypeMux          { return s.eventMux }
+func (s *Matrix) Engine() consensus.Engine          { return s.engine }
+func (s *Matrix) DPOSEngine() consensus.DPOSEngine {
+	block := s.blockchain.CurrentBlock()
+	if nil == block {
+		s.blockchain.DPOSEngine([]byte("default"))
+	}
+	return s.blockchain.DPOSEngine(s.blockchain.CurrentBlock().Version())
+}
 func (s *Matrix) ChainDb() mandb.Database                  { return s.chainDb }
 func (s *Matrix) IsListening() bool                        { return true } // Always listening
 func (s *Matrix) ManVersion() int                          { return int(s.protocolManager.SubProtocols[0].Version) }
@@ -477,6 +489,7 @@ func (s *Matrix) ReElection() *reelection.ReElection       { return s.reelection
 func (s *Matrix) HD() *msgsend.HD                          { return s.hd }
 func (s *Matrix) OLConsensus() *olconsensus.TopNodeService { return s.olConsensus }
 func (s *Matrix) Random() *baseinterface.Random            { return s.random }
+func (s *Matrix) ManBlkDeal() *blkmanage.ManBlkManage      { return s.manBlkManage }
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.
@@ -510,7 +523,7 @@ func (s *Matrix) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-	//s.broadTx.Start()//YY
+	//s.broadTx.Start()//
 	return nil
 }
 
@@ -582,7 +595,7 @@ func (s *Matrix) Stop() error {
 	s.eventMux.Stop()
 
 	s.chainDb.Close()
-	s.broadTx.Stop() //YY
+	s.broadTx.Stop() //
 	close(s.shutdownChan)
 
 	return nil

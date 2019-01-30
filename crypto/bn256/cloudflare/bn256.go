@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 // Package bn256 implements a particular bilinear group at the 128-bit security
 // level.
 //

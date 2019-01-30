@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -39,8 +39,12 @@ type StateDB interface {
 	SaveTx(typ byte, key uint32, data map[common.Hash][]byte)
 	NewBTrie(typ byte)
 
-	GetStateByteArray(common.Address, common.Hash) []byte
-	SetStateByteArray(common.Address, common.Hash, []byte)
+	//GetStateByteArray(common.Address, common.Hash) []byte
+	//SetStateByteArray(common.Address, common.Hash, []byte)
+	GetEntrustStateByteArray(addr common.Address) []byte
+	GetAuthStateByteArray(addr common.Address) []byte
+	SetEntrustStateByteArray(addr common.Address, value []byte)
+	SetAuthStateByteArray(addr common.Address, value []byte)
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool
 

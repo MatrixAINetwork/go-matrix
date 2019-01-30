@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package reelection
@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"encoding/json"
-
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
@@ -16,6 +14,7 @@ import (
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -34,31 +33,37 @@ type ElectReturnInfo struct {
 	BackUpValidator []mc.ElectNodeInfo
 }
 type ReElection struct {
-	bc     *core.BlockChain
-	random *baseinterface.Random
-	lock   sync.Mutex
+	bc      *core.BlockChain
+	topNode TopNodeService
+	random  *baseinterface.Random
+	lock    sync.Mutex
 }
 
-func New(bc *core.BlockChain, random *baseinterface.Random) (*ReElection, error) {
+type TopNodeService interface {
+	GetConsensusOnlineResults() []*mc.HD_OnlineConsensusVoteResultMsg
+}
+
+func New(bc *core.BlockChain, random *baseinterface.Random, topNode TopNodeService) (*ReElection, error) {
 	reelection := &ReElection{
-		bc:     bc,
-		random: random,
+		bc:      bc,
+		random:  random,
+		topNode: topNode,
 	}
 	return reelection, nil
 }
 
 func (self *ReElection) GetElection(state *state.StateDB, hash common.Hash) (*ElectReturnInfo, error) {
-	log.INFO(Module, "GetElection", "start", "hash", hash)
-	defer log.INFO(Module, "GetElection", "end", "hash", hash)
-	preElectGraphBytes := state.GetMatrixData(matrixstate.GetKeyHash(mc.MSKeyElectGraph))
-	var electState mc.ElectGraph
-	if err := json.Unmarshal(preElectGraphBytes, &electState); err != nil {
-		log.ERROR(Module, "GetElection Unmarshal err", err)
+	log.Trace(Module, "GetElection", "start", "hash", hash)
+	defer log.Trace(Module, "GetElection", "end", "hash", hash)
+	preElectGraph, err := matrixstate.GetElectGraph(state)
+	if err != nil || nil == preElectGraph {
+		log.ERROR(Module, "GetElection err", err)
 		return nil, err
 	}
-	log.INFO(Module, "开始获取选举信息 hash", hash.String())
+
+	//log.INFO(Module, "开始获取选举信息 hash", hash.String())
 	height, err := self.GetNumberByHash(hash)
-	log.INFO(Module, "electStatte", electState, "高度", height, "err", err)
+	//log.INFO(Module, "preElectGraph", preElectGraph, "高度", height, "err", err)
 	if err != nil {
 		log.Error(Module, "GetElection", "获取hash的高度失败")
 		return nil, err
@@ -66,8 +71,8 @@ func (self *ReElection) GetElection(state *state.StateDB, hash common.Hash) (*El
 	data := &ElectReturnInfo{}
 
 	if self.IsMinerTopGenTiming(hash) {
-		log.INFO(Module, "GetElection", "IsMinerTopGenTiming", "高度", height)
-		for _, v := range electState.NextMinerElect {
+		log.Trace(Module, "GetElection", "IsMinerTopGenTiming", "高度", height)
+		for _, v := range preElectGraph.NextMinerElect {
 			switch v.Type {
 			case common.RoleMiner:
 				data.MasterMiner = append(data.MasterMiner, v)
@@ -76,8 +81,8 @@ func (self *ReElection) GetElection(state *state.StateDB, hash common.Hash) (*El
 		}
 	}
 	if self.IsValidatorTopGenTiming(hash) {
-		log.INFO(Module, "GetElection", "IsValidatorTopGenTiming", "高度", height)
-		for _, v := range electState.NextValidatorElect {
+		log.Trace(Module, "GetElection", "IsValidatorTopGenTiming", "高度", height)
+		for _, v := range preElectGraph.NextValidatorElect {
 			switch v.Type {
 			case common.RoleValidator:
 				data.MasterValidator = append(data.MasterValidator, v)
@@ -87,13 +92,13 @@ func (self *ReElection) GetElection(state *state.StateDB, hash common.Hash) (*El
 		}
 	}
 
-	log.INFO(Module, "不是任何网络切换时间点 height", height)
+	//log.INFO(Module, "不是任何网络切换时间点 height", height)
 
 	return data, nil
 }
 func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address, online []common.Address) ([]mc.Alternative, error) {
-	log.INFO(Module, "GetTopoChange", "start", "hash", hash, "online", online, "offline", offline)
-	defer log.INFO(Module, "GetTopoChange", "end", "hash", hash, "online", online, "offline", offline)
+	log.Trace(Module, "GetTopoChange", "start", "hash", hash, "online", online, "offline", offline)
+	defer log.Trace(Module, "GetTopoChange", "end", "hash", hash, "online", online, "offline", offline)
 	height, err := self.GetNumberByHash(hash)
 	if err != nil {
 		log.ERROR(Module, "根据hash获取高度失败 err", err)
@@ -117,16 +122,15 @@ func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address
 	headerPos := self.bc.GetHeaderByHash(hash)
 	stateDB, err := self.bc.StateAt(headerPos.Root)
 
-	ElectGraphBytes := stateDB.GetMatrixData(matrixstate.GetKeyHash(mc.MSKeyElectGraph))
-	var electState mc.ElectGraph
-	if err := json.Unmarshal(ElectGraphBytes, &electState); err != nil {
-		log.ERROR(Module, "GetElection Unmarshal err", err)
+	electState, err := matrixstate.GetElectGraph(stateDB)
+	if err != nil || nil == electState {
+		log.Error(Module, "get electGraph from state err", err)
 		return []mc.Alternative{}, err
 	}
-	ElectOnlineBytes := stateDB.GetMatrixData(matrixstate.GetKeyHash(mc.MSKeyElectOnlineState))
-	var electOnlineState mc.ElectOnlineStatus
-	if err := json.Unmarshal(ElectOnlineBytes, &electOnlineState); err != nil {
-		log.ERROR(Module, "GetElection Unmarshal err", err)
+
+	electOnlineState, err := matrixstate.GetElectOnlineState(stateDB)
+	if err != nil || nil == electOnlineState {
+		log.ERROR(Module, "get electOnlineState from state err", err)
 		return []mc.Alternative{}, err
 	}
 
@@ -135,25 +139,23 @@ func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address
 		log.Error(Module, "获取CA当前拓扑图失败 err", err)
 		return []mc.Alternative{}, err
 	}
-	antive := GetAllNativeDataForUpdate(electState, electOnlineState, TopoGrap)
+	antive := GetAllNativeDataForUpdate(*electState, *electOnlineState, TopoGrap)
 	DiffValidatot, err := self.TopoUpdate(antive, TopoGrap, height-1)
 	if err != nil {
 		log.ERROR(Module, "拓扑更新失败 err", err, "高度", height)
 	}
 
-	olineStatus := GetOnlineAlter(offline, online, electOnlineState)
+	olineStatus := GetOnlineAlter(offline, online, *electOnlineState)
 	DiffValidatot = append(DiffValidatot, olineStatus...)
-	log.INFO(Module, "获取拓扑改变 end ", DiffValidatot)
+	log.DEBUG(Module, "获取拓扑改变 end ", DiffValidatot)
 	return DiffValidatot, nil
 }
 
 func (self *ReElection) GetNetTopologyAll(hash common.Hash) (*ElectReturnInfo, error) {
-
 	result := &ElectReturnInfo{}
-	//todo 从hash获取state， 得全拓扑
 	height, err := self.GetNumberByHash(hash)
-	log.INFO(Module, "GetNetTopologyAll", "start", "height", height)
-	defer log.INFO(Module, "GetNetTopologyAll", "end", "height", height)
+	log.Trace(Module, "GetNetTopologyAll", "start", "height", height)
+	defer log.Trace(Module, "GetNetTopologyAll", "end", "height", height)
 	if err != nil {
 		log.ERROR(Module, "根据hash获取高度失败 err", err)
 		return nil, err
@@ -163,28 +165,38 @@ func (self *ReElection) GetNetTopologyAll(hash common.Hash) (*ElectReturnInfo, e
 		log.ERROR(Module, "根据hash获取广播周期信息 err", err)
 		return nil, err
 	}
-	if bcInterval.IsReElectionNumber(height + 2) {
-		masterV, backupV, _, err := self.GetTopNodeInfo(hash, common.RoleValidator)
-		if err != nil {
-			log.ERROR(Module, "获取验证者全拓扑图失败 err", err)
-			return nil, err
-		}
-		masterM, backupM, _, err := self.GetTopNodeInfo(hash, common.RoleMiner)
-		if err != nil {
-			log.ERROR(Module, "获取矿工全拓扑图失败 err", err)
-			return nil, err
-		}
-
-		result = &ElectReturnInfo{
-			MasterMiner:     masterM,
-			BackUpMiner:     backupM,
-			MasterValidator: masterV,
-			BackUpValidator: backupV,
-		}
-		log.INFO(Module, "是299 height", height)
+	if bcInterval.IsReElectionNumber(height+2) == false {
+		log.Trace(Module, "不是广播区间前一块 不处理 height", height+1)
 		return result, nil
-
 	}
-	log.Info(Module, "不是广播区间前一块 不处理 height", height)
+
+	stateDB, err := self.bc.StateAtBlockHash(hash)
+	if err != nil {
+		log.ERROR(Module, "获取state失败", err)
+		return nil, err
+	}
+	electGraph, err := matrixstate.GetElectGraph(stateDB)
+	if err != nil || electGraph == nil {
+		log.ERROR(Module, "获取elect graph 失败", err)
+		return nil, errors.Errorf("获取elect graph 失败: %v", err)
+	}
+
+	masterV, backupV, _, err := self.GetNextElectNodeInfo(electGraph, common.RoleValidator)
+	if err != nil {
+		log.ERROR(Module, "获取验证者全拓扑图失败 err", err)
+		return nil, err
+	}
+	masterM, backupM, _, err := self.GetNextElectNodeInfo(electGraph, common.RoleMiner)
+	if err != nil {
+		log.ERROR(Module, "获取矿工全拓扑图失败 err", err)
+		return nil, err
+	}
+
+	result.MasterMiner = masterM
+	result.BackUpMiner = backupM
+	result.MasterValidator = masterV
+	result.BackUpValidator = backupV
+
 	return result, nil
+
 }

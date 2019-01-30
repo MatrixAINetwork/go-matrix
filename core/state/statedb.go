@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -253,7 +253,7 @@ func (self *StateDB) GetNonce(addr common.Address) uint64 {
 		return stateObject.Nonce()
 	}
 
-	return 0 | params.NonceAddOne //YY
+	return 0 | params.NonceAddOne //
 }
 
 func (self *StateDB) GetCode(addr common.Address) []byte {
@@ -303,9 +303,18 @@ func (self *StateDB) GetStateByteArray(a common.Address, b common.Hash) []byte {
 	return nil
 }
 
+func (self *StateDB) GetEntrustStateByteArray(addr common.Address) []byte {
+	hashkey := append([]byte("ET"), addr[:]...)
+	return self.GetStateByteArray(addr, common.BytesToHash(hashkey[:]))
+}
+func (self *StateDB) GetAuthStateByteArray(addr common.Address) []byte {
+	hashkey := append([]byte("AU"), addr[:]...)
+	return self.GetStateByteArray(addr, common.BytesToHash(hashkey[:]))
+}
+
 //根据授权人from和高度获取委托人的from列表,返回委托人地址列表(算法组调用,仅适用委托签名) A2 s
 func (self *StateDB) GetEntrustFrom(authFrom common.Address, height uint64) []common.Address {
-	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	EntrustMarsha1Data := self.GetEntrustStateByteArray(authFrom)
 	if len(EntrustMarsha1Data) == 0 {
 		return nil
 	}
@@ -317,7 +326,10 @@ func (self *StateDB) GetEntrustFrom(authFrom common.Address, height uint64) []co
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.EnstrustSetType == params.EntrustByHeight && entrustData.IsEntrustSign == true && entrustData.StartHeight <= height && entrustData.EndHeight >= height {
-			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil{
+				return nil
+			}
 			addressList = append(addressList, entrustFrom)
 		}
 	}
@@ -326,7 +338,7 @@ func (self *StateDB) GetEntrustFrom(authFrom common.Address, height uint64) []co
 
 //根据委托人from和高度获取授权人的from,返回授权人地址(算法组调用,仅适用委托签名)	 A1
 func (self *StateDB) GetAuthFrom(entrustFrom common.Address, height uint64) common.Address {
-	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	AuthMarsha1Data := self.GetAuthStateByteArray(entrustFrom)
 	if len(AuthMarsha1Data) == 0 {
 		return common.Address{}
 	}
@@ -345,7 +357,7 @@ func (self *StateDB) GetAuthFrom(entrustFrom common.Address, height uint64) comm
 
 //根据授权人获取所有委托签名列表,(该方法用于取消委托时调用)
 func (self *StateDB) GetAllEntrustSignFrom(authFrom common.Address) []common.Address {
-	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	EntrustMarsha1Data := self.GetEntrustStateByteArray(authFrom)
 	entrustDataList := make([]common.EntrustType, 0)
 	err := json.Unmarshal(EntrustMarsha1Data, &entrustDataList)
 	if err != nil {
@@ -354,7 +366,10 @@ func (self *StateDB) GetAllEntrustSignFrom(authFrom common.Address) []common.Add
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.IsEntrustSign == true {
-			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil{
+				return nil
+			}
 			addressList = append(addressList, entrustFrom)
 		}
 	}
@@ -363,7 +378,7 @@ func (self *StateDB) GetAllEntrustSignFrom(authFrom common.Address) []common.Add
 
 //根据委托人from和时间获取授权人的from,返回授权人地址(内部调用,仅适用委托gas)
 func (self *StateDB) GetGasAuthFromByTime(entrustFrom common.Address, time uint64) common.Address {
-	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	AuthMarsha1Data := self.GetAuthStateByteArray(entrustFrom)
 	if len(AuthMarsha1Data) == 0 {
 		return common.Address{}
 	}
@@ -382,7 +397,7 @@ func (self *StateDB) GetGasAuthFromByTime(entrustFrom common.Address, time uint6
 
 //根据委托人from和高度获取授权人的from,返回授权人地址(内部调用,仅适用委托gas)
 func (self *StateDB) GetGasAuthFrom(entrustFrom common.Address, height uint64) common.Address {
-	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	AuthMarsha1Data := self.GetAuthStateByteArray(entrustFrom)
 	if len(AuthMarsha1Data) > 0 {
 		AuthDataList := make([]common.AuthType, 0) //授权数据是结构体切片
 		err := json.Unmarshal(AuthMarsha1Data, &AuthDataList)
@@ -400,7 +415,7 @@ func (self *StateDB) GetGasAuthFrom(entrustFrom common.Address, height uint64) c
 
 //根据授权人获取所有委托gas列表,(该方法用于取消委托时调用)
 func (self *StateDB) GetAllEntrustGasFrom(authFrom common.Address) []common.Address {
-	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	EntrustMarsha1Data := self.GetEntrustStateByteArray(authFrom)
 	entrustDataList := make([]common.EntrustType, 0)
 	err := json.Unmarshal(EntrustMarsha1Data, &entrustDataList)
 	if err != nil {
@@ -409,7 +424,10 @@ func (self *StateDB) GetAllEntrustGasFrom(authFrom common.Address) []common.Addr
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.IsEntrustGas == true {
-			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil{
+				return nil
+			}
 			addressList = append(addressList, entrustFrom)
 		}
 	}
@@ -417,7 +435,7 @@ func (self *StateDB) GetAllEntrustGasFrom(authFrom common.Address) []common.Addr
 }
 
 func (self *StateDB) GetEntrustFromByTime(authFrom common.Address, time uint64) []common.Address {
-	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	EntrustMarsha1Data := self.GetEntrustStateByteArray(authFrom)
 	if len(EntrustMarsha1Data) == 0 {
 		return nil
 	}
@@ -429,7 +447,10 @@ func (self *StateDB) GetEntrustFromByTime(authFrom common.Address, time uint64) 
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.EnstrustSetType == params.EntrustByTime && entrustData.IsEntrustGas == true && entrustData.StartHeight <= time && entrustData.EndHeight >= time {
-			entrustFrom := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil{
+				return nil
+			}
 			addressList = append(addressList, entrustFrom)
 		}
 	}
@@ -438,7 +459,7 @@ func (self *StateDB) GetEntrustFromByTime(authFrom common.Address, time uint64) 
 
 //判断根据时间委托是否满足条件，用于执行按时间委托的交易(跑交易),此处time应该为header里的时间戳
 func (self *StateDB) GetIsEntrustByTime(entrustFrom common.Address, time uint64) bool {
-	AuthMarsha1Data := self.GetStateByteArray(entrustFrom, common.BytesToHash(entrustFrom[:]))
+	AuthMarsha1Data := self.GetAuthStateByteArray(entrustFrom)
 	if len(AuthMarsha1Data) == 0 {
 		return false
 	}
@@ -457,7 +478,8 @@ func (self *StateDB) GetIsEntrustByTime(entrustFrom common.Address, time uint64)
 
 //钱包调用显示
 func (self *StateDB) GetAllEntrustList(authFrom common.Address) []common.EntrustType {
-	EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	//EntrustMarsha1Data := self.GetStateByteArray(authFrom, common.BytesToHash(authFrom[:]))
+	EntrustMarsha1Data := self.GetEntrustStateByteArray(authFrom)
 	if len(EntrustMarsha1Data) == 0 {
 		return nil
 	}
@@ -490,9 +512,9 @@ func (self *StateDB) GetSaveTx(typ byte, key uint32, hashlist []common.Hash, isd
 			log.Info("file statedb", "func GetSaveTx:ExtraRevocable", "item is nil")
 			return
 		}
-		self.revocablebtrie.Root().Printree(2)
+		//self.revocablebtrie.Root().Printree(2)
 		delitem := self.revocablebtrie.Delete(item)
-		self.revocablebtrie.Root().Printree(2)
+		//self.revocablebtrie.Root().Printree(2)
 
 		log.Info("file statedb", "revocablebtrie func GetSaveTx:del item key", delitem.(btrie.SpcialTxData).Key_Time, "len(delitem.(trie.SpcialTxData).Value_Tx)", len(delitem.(btrie.SpcialTxData).Value_Tx))
 		log.Info("file statedb", "revocablebtrie func GetSaveTx:del item key", std.Key_Time)
@@ -513,9 +535,9 @@ func (self *StateDB) GetSaveTx(typ byte, key uint32, hashlist []common.Hash, isd
 			log.Info("file statedb", "func GetSaveTx:ExtraTimeTxType", "item is nil")
 			return
 		}
-		self.timebtrie.Root().Printree(2)
+		//self.timebtrie.Root().Printree(2)
 		delitem := self.timebtrie.Delete(item)
-		self.timebtrie.Root().Printree(2)
+		//self.timebtrie.Root().Printree(2)
 
 		log.Info("file statedb", "timebtrie func GetSaveTx:del item key", delitem.(btrie.SpcialTxData).Key_Time, "len(delitem.(trie.SpcialTxData).Value_Tx)", len(delitem.(btrie.SpcialTxData).Value_Tx))
 		log.Info("file statedb", "timebtrie func GetSaveTx:del item key", std.Key_Time)
@@ -755,7 +777,7 @@ func (self *StateDB) SetBalance(accountType uint32, addr common.Address, amount 
 func (self *StateDB) SetNonce(addr common.Address, nonce uint64) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetNonce(nonce | params.NonceAddOne) //YY
+		stateObject.SetNonce(nonce | params.NonceAddOne) //
 	}
 }
 
@@ -778,6 +800,14 @@ func (self *StateDB) SetStateByteArray(addr common.Address, key common.Hash, val
 	if stateObject != nil {
 		stateObject.SetStateByteArray(self.db, key, value)
 	}
+}
+func (self *StateDB) SetEntrustStateByteArray(addr common.Address, value []byte) {
+	hashkey := append([]byte("ET"), addr[:]...)
+	self.SetStateByteArray(addr, common.BytesToHash(hashkey[:]), value)
+}
+func (self *StateDB) SetAuthStateByteArray(addr common.Address, value []byte) {
+	hashkey := append([]byte("AU"), addr[:]...)
+	self.SetStateByteArray(addr, common.BytesToHash(hashkey[:]), value)
 }
 
 // Suicide marks the given account as suicided.
@@ -923,7 +953,7 @@ func (self *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
 func (self *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) {
 	prev = self.getStateObject(addr)
 	newobj = newObject(self, addr, Account{})
-	newobj.setNonce(0 | params.NonceAddOne) // sets the object to dirty    //YY
+	newobj.setNonce(0 | params.NonceAddOne) // sets the object to dirty    //
 	if prev == nil {
 		self.journal.append(createObjectChange{account: &addr})
 	} else {

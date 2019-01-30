@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -14,8 +14,20 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"github.com/matrix/go-matrix/common"
 )
+func TestRlpTestFunc(t *testing.T){
+	buff := []byte{248,124,135,16,0,0,0,0,0,0,133,9,139,202,90,0,131,3,52,80,161,77,65,78,46,51,66,121,78,66,106,119,52,69,55,103,99,120,68,51,117,71,75,116,65,90,89,76,89,85,68,53,120,105,136,13,224,182,179,167,100,0,0,128,20,128,128,128,128,134,1,103,252,105,4,0,241,240,128,128,237,236,161,77,65,78,46,50,122,88,87,115,68,116,121,116,55,118,104,86,65,68,71,84,122,50,121,88,68,54,104,55,87,74,110,70,136,13,224,182,179,167,100,0,0,128}
+	var test1 interface{}
+	DecodeBytes(buff,&test1)
+	t.Log(test1)
 
+	buff2 := common.Hex2Bytes("f87a871000000000000085098bca5a0083033450a14d414e2e3342794e426a77344537676378443375474b74415a594c595544357869880de0b6b3a7640000801480808080860167fc690400efee8080eba14d414e2e327a5857734474797437766856414447547a32795844366837574a6e46880de0b6b3a7640000")
+	var test2 interface{}
+	DecodeBytes(buff2,&test2)
+	t.Log(test2)
+
+}
 func TestStreamKind(t *testing.T) {
 	tests := []struct {
 		input    string

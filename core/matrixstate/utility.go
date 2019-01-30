@@ -1,35 +1,43 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package matrixstate
 
 import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/params/manparams"
-	"github.com/pkg/errors"
+	"math/big"
 )
 
-func ReaderVersionInfo(st StateDB) string {
+func GetVersionInfo(st StateDB) string {
 	value, err := versionOpt.GetValue(st)
 	if err != nil {
 		log.Error(logInfo, "get version failed", err)
 		return ""
 	}
+	return value.(string)
+}
 
-	version, _ := value.(string)
-	if len(version) == 0 {
-		// 第一版本state中没有版本信息
-		log.Debug(logInfo, "not version in state", "使用Alpha版本")
-		return manparams.VersionAlpha
-	}
-	return version
+func SetVersionInfo(st StateDB, version string) error {
+	return versionOpt.SetValue(st, version)
 }
 
 func GetBroadcastInterval(st StateDB) (*mc.BCIntervalInfo, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyBroadcastInterval)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*mc.BCIntervalInfo), nil
+}
+
+func GetBroadcastIntervalByVersion(st StateDB, version string) (*mc.BCIntervalInfo, error) {
+	mgr := GetManager(version)
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -45,7 +53,7 @@ func GetBroadcastInterval(st StateDB) (*mc.BCIntervalInfo, error) {
 }
 
 func SetBroadcastInterval(st StateDB, interval *mc.BCIntervalInfo) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -57,7 +65,7 @@ func SetBroadcastInterval(st StateDB, interval *mc.BCIntervalInfo) error {
 }
 
 func GetBroadcastAccounts(st StateDB) ([]common.Address, error) {
-	version := ReaderVersionInfo(st)
+	version := GetVersionInfo(st)
 	mgr := GetManager(version)
 	if mgr == nil {
 		return nil, ErrFindManager
@@ -70,17 +78,11 @@ func GetBroadcastAccounts(st StateDB) ([]common.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if version == manparams.VersionAlpha {
-		// Alpha版，广播节点为单common.Address
-		return []common.Address{value.(common.Address)}, nil
-	} else {
-		return value.([]common.Address), nil
-	}
+	return value.([]common.Address), nil
 }
 
 func SetBroadcastAccounts(st StateDB, accounts []common.Address) error {
-	version := ReaderVersionInfo(st)
+	version := GetVersionInfo(st)
 	mgr := GetManager(version)
 	if mgr == nil {
 		return ErrFindManager
@@ -89,20 +91,11 @@ func SetBroadcastAccounts(st StateDB, accounts []common.Address) error {
 	if err != nil {
 		return err
 	}
-	if version == manparams.VersionAlpha {
-		// Alpha版，广播节点为单common.Address
-		if len(accounts) == 0 {
-			return errors.New("account size is 0")
-		}
-		log.Info(logInfo, "Alpha版广播节点设置", "只保存第一个账户", "广播账户", accounts[0].Hex())
-		return opt.SetValue(st, accounts[0])
-	} else {
-		return opt.SetValue(st, accounts)
-	}
+	return opt.SetValue(st, accounts)
 }
 
 func GetInnerMinerAccounts(st StateDB) ([]common.Address, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -118,7 +111,7 @@ func GetInnerMinerAccounts(st StateDB) ([]common.Address, error) {
 }
 
 func SetInnerMinerAccounts(st StateDB, accounts []common.Address) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -130,7 +123,7 @@ func SetInnerMinerAccounts(st StateDB, accounts []common.Address) error {
 }
 
 func GetFoundationAccount(st StateDB) (common.Address, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return common.Address{}, ErrFindManager
 	}
@@ -146,7 +139,7 @@ func GetFoundationAccount(st StateDB) (common.Address, error) {
 }
 
 func SetFoundationAccount(st StateDB, account common.Address) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -158,7 +151,7 @@ func SetFoundationAccount(st StateDB, account common.Address) error {
 }
 
 func GetVersionSuperAccounts(st StateDB) ([]common.Address, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -174,7 +167,7 @@ func GetVersionSuperAccounts(st StateDB) ([]common.Address, error) {
 }
 
 func SetVersionSuperAccounts(st StateDB, accounts []common.Address) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -186,7 +179,7 @@ func SetVersionSuperAccounts(st StateDB, accounts []common.Address) error {
 }
 
 func GetBlockSuperAccounts(st StateDB) ([]common.Address, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -202,7 +195,7 @@ func GetBlockSuperAccounts(st StateDB) ([]common.Address, error) {
 }
 
 func SetBlockSuperAccounts(st StateDB, accounts []common.Address) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -213,8 +206,92 @@ func SetBlockSuperAccounts(st StateDB, accounts []common.Address) error {
 	return opt.SetValue(st, accounts)
 }
 
+func GetTxsSuperAccounts(st StateDB) ([]common.Address, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAccountTxsSupers)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.([]common.Address), nil
+}
+
+func SetTxsSuperAccounts(st StateDB, accounts []common.Address) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAccountTxsSupers)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, accounts)
+}
+
+func GetMultiCoinSuperAccounts(st StateDB) ([]common.Address, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAccountMultiCoinSupers)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.([]common.Address), nil
+}
+
+func SetMultiCoinSuperAccounts(st StateDB, accounts []common.Address) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAccountMultiCoinSupers)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, accounts)
+}
+
+func GetSubChainSuperAccounts(st StateDB) ([]common.Address, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAccountSubChainSupers)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.([]common.Address), nil
+}
+
+func SetSubChainSuperAccounts(st StateDB, accounts []common.Address) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAccountSubChainSupers)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, accounts)
+}
+
 func GetPreBroadcastRoot(st StateDB) (*mc.PreBroadStateRoot, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -230,7 +307,7 @@ func GetPreBroadcastRoot(st StateDB) (*mc.PreBroadStateRoot, error) {
 }
 
 func GetLeaderConfig(st StateDB) (*mc.LeaderConfig, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -246,7 +323,7 @@ func GetLeaderConfig(st StateDB) (*mc.LeaderConfig, error) {
 }
 
 func SetLeaderConfig(st StateDB, cfg *mc.LeaderConfig) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -258,7 +335,7 @@ func SetLeaderConfig(st StateDB, cfg *mc.LeaderConfig) error {
 }
 
 func GetSuperBlockCfg(st StateDB) (*mc.SuperBlkCfg, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -274,7 +351,7 @@ func GetSuperBlockCfg(st StateDB) (*mc.SuperBlkCfg, error) {
 }
 
 func SetSuperBlockCfg(st StateDB, cfg *mc.SuperBlkCfg) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -285,8 +362,9 @@ func SetSuperBlockCfg(st StateDB, cfg *mc.SuperBlkCfg) error {
 	return opt.SetValue(st, cfg)
 }
 
-func GetBroadcastTxs(st StateDB) (map[string]map[common.Address][]byte, error) {
-	mgr := GetManager(ReaderVersionInfo(st))
+//func GetBroadcastTxs(st StateDB) (map[string]map[common.Address][]byte, error)
+func GetBroadcastTxs(st StateDB) (common.BroadTxSlice, error) {
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -298,11 +376,11 @@ func GetBroadcastTxs(st StateDB) (map[string]map[common.Address][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value.(map[string]map[common.Address][]byte), nil
+	return value.(common.BroadTxSlice), nil
 }
 
-func SetBroadcastTxs(st StateDB, txs map[string]map[common.Address][]byte) error {
-	mgr := GetManager(ReaderVersionInfo(st))
+func SetBroadcastTxs(st StateDB, txs common.BroadTxSlice) error {
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return ErrFindManager
 	}
@@ -311,4 +389,37 @@ func SetBroadcastTxs(st StateDB, txs map[string]map[common.Address][]byte) error
 		return err
 	}
 	return opt.SetValue(st, txs)
+}
+
+func GetTxpoolGasLimit(st StateDB) (*big.Int, error) {
+	version := GetVersionInfo(st)
+	mgr := GetManager(version)
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSTxpoolGasLimitCfg)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil || value == "0" {
+		return nil, err
+	}
+	return value.(*big.Int), nil
+}
+func GetAccountBlackList(st StateDB) ([]common.Address, error) {
+	version := GetVersionInfo(st)
+	mgr := GetManager(version)
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSAccountBlackList)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.([]common.Address), nil
 }

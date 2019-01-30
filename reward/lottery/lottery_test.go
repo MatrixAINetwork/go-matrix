@@ -1,20 +1,17 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package lottery
 
 import (
-	"bou.ke/monkey"
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
+	"strconv"
+	"testing"
+
+	"bou.ke/monkey"
 	"github.com/matrix/go-matrix/core/matrixstate"
 	"github.com/matrix/go-matrix/crypto"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params/manparams"
-	"math/big"
-	"strconv"
-	"testing"
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
@@ -117,7 +114,7 @@ func TestTxsLottery_LotteryCalc(t *testing.T) {
 		if key == mc.MSKeyLotteryCfg {
 			info := make([]mc.LotteryInfo, 0)
 			info = append(info, mc.LotteryInfo{PrizeLevel: 0, PrizeNum: 2, PrizeMoney: 6})
-			return &mc.LotteryCfgStruct{LotteryCalc: "1", LotteryInfo: info}, nil
+			return &mc.LotteryCfg{LotteryCalc: "1", LotteryInfo: info}, nil
 		}
 		return nil, nil
 	})
@@ -155,12 +152,12 @@ func TestTxsLottery_LotteryCalc1(t *testing.T) {
 		if key == mc.MSKeyLotteryCfg {
 			info := make([]mc.LotteryInfo, 0)
 			info = append(info, mc.LotteryInfo{PrizeLevel: 0, PrizeNum: 2, PrizeMoney: 6})
-			return &mc.LotteryCfgStruct{LotteryCalc: "1", LotteryInfo: info}, nil
+			return &mc.LotteryCfg{LotteryCalc: "1", LotteryInfo: info}, nil
 		}
-		if key == mc.MSKEYLotteryNum {
+		if key == mc.MSKeyLotteryNum {
 			info := make([]mc.LotteryInfo, 0)
 			info = append(info, mc.LotteryInfo{PrizeLevel: 0, PrizeNum: 1, PrizeMoney: 6})
-			return &mc.LotteryCfgStruct{LotteryCalc: "1", LotteryInfo: info}, nil
+			return &mc.LotteryCfg{LotteryCalc: "1", LotteryInfo: info}, nil
 		}
 		return nil, nil
 	})
@@ -198,12 +195,12 @@ func TestTxsLottery_LotteryCalc2(t *testing.T) {
 		if key == mc.MSKeyLotteryCfg {
 			info := make([]mc.LotteryInfo, 0)
 			info = append(info, mc.LotteryInfo{PrizeLevel: 0, PrizeNum: 1, PrizeMoney: 6})
-			return &mc.LotteryCfgStruct{LotteryCalc: "1", LotteryInfo: info}, nil
+			return &mc.LotteryCfg{LotteryCalc: "1", LotteryInfo: info}, nil
 		}
-		if key == mc.MSKEYLotteryNum {
+		if key == mc.MSKeyLotteryNum {
 			info := make([]mc.LotteryInfo, 0)
 			info = append(info, mc.LotteryInfo{PrizeLevel: 0, PrizeNum: 1, PrizeMoney: 6})
-			return &mc.LotteryCfgStruct{LotteryCalc: "1", LotteryInfo: info}, nil
+			return &mc.LotteryCfg{LotteryCalc: "1", LotteryInfo: info}, nil
 		}
 		return nil, nil
 	})
@@ -243,12 +240,12 @@ func TestTxsLottery_LotteryCalc3(t *testing.T) {
 			info = append(info, mc.LotteryInfo{PrizeLevel: 0, PrizeNum: 1, PrizeMoney: 1})
 			info = append(info, mc.LotteryInfo{PrizeLevel: 1, PrizeNum: 2, PrizeMoney: 1})
 			info = append(info, mc.LotteryInfo{PrizeLevel: 2, PrizeNum: 3, PrizeMoney: 1})
-			return &mc.LotteryCfgStruct{LotteryCalc: "1", LotteryInfo: info}, nil
+			return &mc.LotteryCfg{LotteryCalc: "1", LotteryInfo: info}, nil
 		}
-		if key == mc.MSKEYLotteryNum {
+		if key == mc.MSKeyLotteryNum {
 			info := make([]mc.LotteryInfo, 0)
 			info = append(info, mc.LotteryInfo{PrizeLevel: 0, PrizeNum: 50, PrizeMoney: 1})
-			return &mc.LotteryCfgStruct{LotteryCalc: "1", LotteryInfo: info}, nil
+			return &mc.LotteryCfg{LotteryCalc: "1", LotteryInfo: info}, nil
 		}
 		return nil, nil
 	})

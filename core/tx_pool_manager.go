@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package core
 
 import (
@@ -8,6 +5,7 @@ import (
 	"errors"
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/core/matrixstate"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/event"
 	"github.com/matrix/go-matrix/log"
@@ -16,6 +14,7 @@ import (
 	"github.com/matrix/go-matrix/params"
 	"sync"
 	"time"
+	"github.com/matrix/go-matrix/core/state"
 )
 
 var (
@@ -24,7 +23,7 @@ var (
 	ErrTxPoolNonexistent  = errors.New("txpool nonexistent")
 )
 
-//YY
+//
 type RetChan struct {
 	//Rxs   []types.SelfTransaction
 	AllTxs []*RetCallTx
@@ -99,6 +98,7 @@ type TxPoolManager struct {
 	sendTxCh     chan NewTxsEvent
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
+	chain        blockChain
 }
 
 func NewTxPoolManager(config TxPoolConfig, chainconfig *params.ChainConfig, chain blockChain, path string) *TxPoolManager {
@@ -110,6 +110,7 @@ func NewTxPoolManager(config TxPoolConfig, chainconfig *params.ChainConfig, chai
 		addPool:      make(chan TxPool),
 		delPool:      make(chan TxPool),
 		sendTxCh:     make(chan NewTxsEvent),
+		chain:        chain,
 	}
 	SelfBlackList = NewInitblacklist()
 	go txPoolManager.loop(config, chainconfig, chain, path)
@@ -166,7 +167,7 @@ func (pm *TxPoolManager) loop(config TxPoolConfig, chainconfig *params.ChainConf
 
 	pm.sub, err = mc.SubscribeEvent(mc.TxPoolManager, pm.roleChan)
 	if err != nil {
-		log.Error("txpool manage", "subscribe error", err)
+		log.Error("txpool manager", "subscribe error", err)
 		return
 	}
 
@@ -221,7 +222,7 @@ func (pm *TxPoolManager) Pending() (map[common.Address]types.SelfTransactions, e
 	for _, txpool := range pm.txPools {
 		txmap, _ := txpool.Pending()
 		for addr, txs := range txmap {
-			txs = pm.filter(txs)
+			//txs = pm.filter(txs)
 			if len(txs) > 0 {
 				if txlist, ok := txser[addr]; ok {
 					txlist = append(txlist, txs...)
@@ -234,20 +235,75 @@ func (pm *TxPoolManager) Pending() (map[common.Address]types.SelfTransactions, e
 	}
 	return txser, nil
 }
-func (pm *TxPoolManager) filter(txser []types.SelfTransaction) (txerlist []types.SelfTransaction) {
+func BlackListFilter(tx types.SelfTransaction,state *state.StateDB) bool{
 	//TODO 目前只要求过滤一个币种. 需要去状态树上获取被过滤的币种
-	for _, txer := range txser {
-		ct := txer.GetTxCurrency()
-		if ct == "" {
+	//state, err := pm.chain.State()
+	//if err != nil {
+	//	log.Error("TxPoolManager:filter", "get state failed", err)
+	//	return nil
+	//}
 
-		}
-		//黑账户过滤
-		if SelfBlackList.FindBlackAddress(*txer.To()) {
-			continue
-		}
-		txerlist = append(txerlist, txer)
+	blklist, err := matrixstate.GetAccountBlackList(state)
+	if err != nil {
+		//不做处理
 	}
-	return
+
+	//黑账户过滤
+	if len(blklist) > 0 {
+		for _, blkAccount := range blklist {
+			if tx.From().Equal(blkAccount) {
+				return false
+			}
+		}
+	}
+
+	ct := tx.GetTxCurrency()
+	if ct == "" {
+
+	}
+
+	//超级交易账户不匹配
+	if tx.GetMatrixType() == common.ExtraSuperTxType {
+		mansuperTxAddreslist, err := matrixstate.GetTxsSuperAccounts(state)
+		if err != nil {
+			log.Error("TxPoolManager:filter", "get super tx account failed", err)
+			return false
+		}
+		isOK := false
+		for _, superAddress := range mansuperTxAddreslist {
+			if tx.From().Equal(superAddress) {
+				isOK = true
+				break
+			}
+		}
+		if !isOK {
+			log.Error("超级账户不匹配")
+			return false
+		}
+	}
+
+	//奖励交易账户不匹配
+	if tx.GetMatrixType() == common.ExtraUnGasTxType{
+		isOK := false
+		for _,account := range common.RewardAccounts{
+			if tx.From().Equal(account){
+				isOK = true
+				break
+			}
+		}
+		if !isOK{
+			log.Error("奖励交易账户不合法")
+			return false
+		}
+	}
+
+	//黑账户过滤
+	if tx.To() != nil {
+		if SelfBlackList.FindBlackAddress(*tx.To()) {
+			return false
+		}
+	}
+	return true
 }
 func (pm *TxPoolManager) AddRemote(tx types.SelfTransaction) (err error) {
 	pm.txPoolsMutex.Lock()
@@ -272,7 +328,7 @@ func (pm *TxPoolManager) ProcessMsg(m NetworkMsgData) {
 	defer pm.txPoolsMutex.RUnlock()
 
 	if len(m.Data) <= 0 {
-		log.Error("TxPoolManager", "ProcessMsg", "data is empty")
+		log.Error("TxPoolManager processmsg data is empty")
 		return
 	}
 	messageType := m.Data[0].TxpoolType
@@ -288,6 +344,7 @@ func (pm *TxPoolManager) ProcessMsg(m NetworkMsgData) {
 			nPool.ProcessMsg(m)
 		}
 	case types.BroadCastTxIndex:
+		log.Info("TxPoolManager", "Receive broadtx from", m.SendAddress.Hex())
 		if bPool, ok := pool.(*BroadCastTxPool); ok {
 			bPool.ProcessMsg(m)
 		}
@@ -308,9 +365,9 @@ func (pm *TxPoolManager) AddBroadTx(tx types.SelfTransaction, bType bool) (err e
 		txMx := types.GetTransactionMx(tx)
 		if txMx == nil {
 			// If it is nil, it may be because the assertion failed.
-			log.Error("Broad txpool", "AddBroadTx() txMx is nil", tx)
+			log.Error("TxPoolManager addBroadTx", "txMx is nil", tx)
 
-			return errors.New("tx is nil or txMx assertion failed")
+			return errors.New("TxPoolManager tx is nil or txMx assertion failed")
 		}
 		msData, err := json.Marshal(txMx)
 		if err != nil {
@@ -318,6 +375,7 @@ func (pm *TxPoolManager) AddBroadTx(tx types.SelfTransaction, bType bool) (err e
 		}
 		bids := ca.GetRolesByGroup(common.RoleBroadcast)
 		for _, bid := range bids {
+			log.Info("TxPoolManager addBroadTx", "send broadtx to", bid.Hex())
 			pm.SendMsg(MsgStruct{Msgtype: BroadCast, SendAddr: bid, MsgData: msData, TxpoolType: types.BroadCastTxIndex})
 		}
 		return nil
@@ -358,7 +416,7 @@ func (pm *TxPoolManager) ReturnAllTxsByN(listretctx []*common.RetCallTxN, resqe 
 		select {
 		case txch := <-txAcquireCh:
 			if txch.Err != nil {
-				log.Info("File txpoolManager", "ReturnAllTxsByN:loss tx=", 0)
+				log.Info("txpoolManager", "ReturnAllTxsByN:loss tx=", 0)
 				txerr := errors.New("File txpoolManager loss tx")
 				retch <- &RetChan{nil, txerr, resqe}
 				return
@@ -369,8 +427,8 @@ func (pm *TxPoolManager) ReturnAllTxsByN(listretctx []*common.RetCallTxN, resqe 
 				return
 			}
 		case <-timeOut.C:
-			log.Info("File txpoolManager", "ReturnAllTxsByN:time out =", 0)
-			txerr := errors.New("File txpoolManager time out")
+			log.Info("txpoolManager", "ReturnAllTxsByN:time out =", 0)
+			txerr := errors.New("txpoolManager time out")
 			retch <- &RetChan{nil, txerr, resqe}
 			return
 		}

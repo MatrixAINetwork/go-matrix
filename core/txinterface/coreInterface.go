@@ -21,7 +21,7 @@ type Message interface {
 	CheckNonce() bool
 	Data() []byte
 	GetMatrixType() byte
-	GetMatrix_EX() []types.Matrix_Extra //YYY  注释 Extra() 方法 改用此方法
+	GetMatrix_EX() []types.Matrix_Extra //Y  注释 Extra() 方法 改用此方法
 	TxType() byte
 	IsEntrustTx() bool
 	GetCreateTime() uint32

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -28,7 +28,7 @@ func (h _N_) Bytes() []byte { return h[:] }
 func (h _N_) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
 func (h _N_) Hex() string   { return "0x" + Bytes2Hex(h[:]) }
 
-// Sets the hash to the value of b. If b is larger than len(h) it will panic
+// Sets the hash to the Value of b. If b is larger than len(h) it will panic
 func (h *_N_) SetBytes(b []byte) {
 	// Use the right most bytes
 	if len(b) > len(h) {

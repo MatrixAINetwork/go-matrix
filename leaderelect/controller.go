@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
@@ -69,9 +69,6 @@ func (self *controller) ParentHash() common.Hash {
 }
 
 func (self *controller) run() {
-	log.Debug(self.logInfo, "controller", "begin run()", "高度", self.dc.number)
-	defer log.Debug(self.logInfo, "controller", "exit run()", "高度", self.dc.number)
-
 	self.setTimer(0, self.timer)
 	self.setTimer(0, self.reelectTimer)
 	for {
@@ -97,7 +94,7 @@ func (self *controller) publishLeaderMsg() {
 		log.ERROR(self.logInfo, "公布leader身份消息", "准备消息失败", "err", err)
 		return
 	}
-	log.INFO(self.logInfo, "公布leader身份消息, leader", msg.Leader.Hex(), "高度", msg.Number,
+	log.Debug(self.logInfo, "公布leader身份消息, leader", msg.Leader.Hex(), "高度", msg.Number,
 		"共识状态", msg.ConsensusState, "共识轮次", msg.ConsensusTurn.String(), "重选轮次", msg.ReelectTurn,
 		"pre Leader", msg.PreLeader.Hex(), "Next Leader", msg.NextLeader.Hex())
 	mc.PublishEvent(mc.Leader_LeaderChangeNotify, msg)

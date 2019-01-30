@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -163,6 +163,31 @@ func (tab *Table) GetAllAddress() map[common.Address]*Node {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 	return tab.nodeBindAddress
+}
+
+var (
+	EmptyNodeId  = NodeID{}
+	EmptyAddress = common.Address{}
+)
+
+func (tab *Table) ResolveNode(addr common.Address, id NodeID) *Node {
+	tab.mutex.Lock()
+	defer tab.mutex.Unlock()
+	if id == EmptyNodeId && addr != EmptyAddress {
+		for key, val := range tab.nodeBindAddress {
+			if key == addr {
+				return val
+			}
+		}
+	}
+	if id != EmptyNodeId && addr == EmptyAddress {
+		for _, val := range tab.nodeBindAddress {
+			if val.ID == id {
+				return val
+			}
+		}
+	}
+	return nil
 }
 
 func (tab *Table) GetNodeByAddress(address common.Address) *Node {
@@ -634,7 +659,7 @@ func (tab *Table) bondall(nodes []*Node) (result []*Node) {
 //
 // If pinged is true, the remote node has just pinged us and one half
 // of the process can be skipped.
-func (tab *Table) bond(pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16, reqAddr common.Address, reqSign common.Signature, reqTime time.Time) (*Node, error) {
+func (tab *Table) bond(pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16, reqAddr common.Address, reqSign common.Signature, reqTime uint64) (*Node, error) {
 	if id == tab.self.ID {
 		return nil, errors.New("is self")
 	}
@@ -682,7 +707,7 @@ func (tab *Table) bond(pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16
 	return node, result
 }
 
-func (tab *Table) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16, reqAddr common.Address, reqSign common.Signature, reqTime time.Time) {
+func (tab *Table) pingpong(w *bondproc, pinged bool, id NodeID, addr *net.UDPAddr, tcpPort uint16, reqAddr common.Address, reqSign common.Signature, reqTime uint64) {
 	// Request a bonding slot to limit network usage
 	<-tab.bondslots
 	defer func() { tab.bondslots <- struct{}{} }()
@@ -739,11 +764,14 @@ func (tab *Table) add(new *Node) {
 	b := tab.bucket(new.sha)
 	emptyAddr := common.Address{}
 	if new.Address != emptyAddr {
-		if val, ok := tab.nodeBindAddress[new.Address]; !ok {
+		val, ok := tab.nodeBindAddress[new.Address]
+		if !ok {
 			tab.nodeBindAddress[new.Address] = new
-		} else if val.ID != new.ID && val.SignTime.Before(new.SignTime) {
-			log.Info("replace node info", "old", val.ID, "new", new.ID)
-			tab.nodeBindAddress[new.Address] = new
+		} else {
+			if val.SignTime < new.SignTime {
+				log.Info("replace node info", "old", val.ID, "new", new.ID)
+				tab.nodeBindAddress[new.Address] = new
+			}
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -54,9 +54,9 @@ func TestHashJsonValidation(t *testing.T) {
 		Size   int
 		Error  string
 	}{
-		{"", 62, "json: cannot unmarshal hex string without 0x prefix into Go value of type common.Hash"},
+		{"", 62, "json: cannot unmarshal hex string without 0x prefix into Go Value of type common.Hash"},
 		{"0x", 66, "hex string has length 66, want 64 for common.Hash"},
-		{"0x", 63, "json: cannot unmarshal hex string of odd length into Go value of type common.Hash"},
+		{"0x", 63, "json: cannot unmarshal hex string of odd length into Go Value of type common.Hash"},
 		{"0x", 0, "hex string has length 0, want 64 for common.Hash"},
 		{"0x", 64, ""},
 		{"0X", 64, ""},
@@ -102,7 +102,7 @@ func TestAddressUnmarshalJSON(t *testing.T) {
 				t.Errorf("test #%d: expected error, got none", i)
 			}
 			if v.Big().Cmp(test.Output) != 0 {
-				t.Errorf("test #%d: address mismatch: have %v, want %v", i, v.Big(), test.Output)
+				t.Errorf("test #%d: Address mismatch: have %v, want %v", i, v.Big(), test.Output)
 			}
 		}
 	}

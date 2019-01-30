@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package base58
 
 import (
@@ -8,6 +5,7 @@ import (
 	"github.com/matrix/go-matrix/crc8"
 	"math/big"
 	"strings"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -150,15 +148,26 @@ func Base58EncodeToString(currency string, b common.Address) string {
 	return strAddr + strCrc
 }
 
-func Base58DecodeToAddress(strData string) common.Address {
+func Base58DecodeToAddress(strData string) (common.Address,error) {
 	if strData == "" {
-		return common.Address{}
+		return common.Address{},errors.New("input address invalid")
 	}
 	if !strings.Contains(strData, ".") {
-		return common.Address{}
+		return common.Address{},errors.New("input address invalid")
 	}
+	currency := strings.Split(strData, ".")[0]
+	if !common.IsValidityManCurrency(currency){
+		return common.Address{},errors.New("input address invalid")
+	}
+
+	crc := strData[len(strData)-1]
+	crc1 := crc8.CalCRC8([]byte(strData[0 : len(strData)-1]))
+	strCrc := EncodeInt(crc1 % 58)
+	if strCrc != string(crc){
+		return common.Address{},errors.New("input address invalid")
+	}
+
 	tmpaddres := strings.Split(strData, ".")[1]
 	addres := Decode(tmpaddres[0 : len(tmpaddres)-1]) //最后一位为crc%58
-	return common.BytesToAddress(addres)
-	//return common.HexToAddress(string(addres))
+	return common.BytesToAddress(addres),nil
 }

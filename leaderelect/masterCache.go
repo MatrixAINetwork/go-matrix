@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
@@ -7,11 +7,12 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 
+	"time"
+
 	"github.com/matrix/go-matrix/accounts/signhelper"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/pkg/errors"
-	"time"
 )
 
 type posPool struct {
@@ -51,7 +52,7 @@ func (pp *posPool) getReqMsg() interface{} {
 
 func (pp *posPool) saveVoteMsg(reqHash common.Hash, sign common.Signature, from common.Address, cdc *cdc, signHelper *signhelper.SignHelper) error {
 	if (pp.reqHash == common.Hash{} || pp.reqMsg == nil) {
-		return ErrParamsIsNil
+		return ErrSelfReqIsNil
 	}
 	if cdc == nil || cdc.leaderCal == nil || signHelper == nil {
 		return ErrCDCOrSignHelperisNil
@@ -63,7 +64,7 @@ func (pp *posPool) saveVoteMsg(reqHash common.Hash, sign common.Signature, from 
 	if _, exist := pp.voteCache[from]; exist {
 		return errors.Errorf("响应已存在, from[%v]", from)
 	}
-	signAccount, validate, err := signHelper.VerifySignWithValidateByReader(cdc, reqHash.Bytes(), sign.Bytes(), cdc.leaderCal.preHash)
+	depositAccount, signAccount, validate, err := signHelper.VerifySignWithValidateByReader(cdc, reqHash.Bytes(), sign.Bytes(), cdc.leaderCal.preHash)
 	if err != nil {
 		return errors.Errorf("签名解析错误(%v)", err)
 	}
@@ -73,7 +74,7 @@ func (pp *posPool) saveVoteMsg(reqHash common.Hash, sign common.Signature, from 
 	if !validate {
 		return errors.New("签名为不同意签名")
 	}
-	pp.voteCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: signAccount, Validate: validate, Stock: 0}
+	pp.voteCache[signAccount] = &common.VerifiedSign{Sign: sign, Account: depositAccount, Validate: validate, Stock: 0}
 	return nil
 }
 
@@ -89,6 +90,7 @@ func (pp *posPool) getVotes() []*common.VerifiedSign {
 type masterCache struct {
 	number                uint64
 	selfAddr              common.Address
+	selfNodeAddr          common.Address
 	lastSignalInquiryTime int64
 	inquiryResult         mc.ReelectRSPType
 	inquiryPool           *posPool
@@ -100,6 +102,7 @@ func newMasterCache(number uint64) *masterCache {
 	return &masterCache{
 		number:                number,
 		selfAddr:              common.Address{},
+		selfNodeAddr:          common.Address{},
 		lastSignalInquiryTime: 0,
 		inquiryResult:         mc.ReelectRSPTypeNone,
 		inquiryPool:           newPosPool(),
@@ -199,7 +202,7 @@ func (self *masterCache) GenBroadcastMsgWithInquiryResult(result mc.ReelectRSPTy
 		Type:      result,
 		POSResult: rsp.POSResult,
 		RLResult:  rsp.RLResult,
-		From:      self.selfAddr,
+		From:      self.selfNodeAddr,
 	}
 	self.broadcastPool.saveReqMsg(broadcastMsg)
 	return nil
@@ -226,7 +229,7 @@ func (self *masterCache) GenBroadcastMsgWithRLSuccess(rlAgreeVotes []common.Sign
 		Type:      mc.ReelectRSPTypeAgree,
 		POSResult: nil,
 		RLResult:  rlResult,
-		From:      self.selfAddr,
+		From:      self.selfNodeAddr,
 	}
 	self.broadcastPool.saveReqMsg(broadcastMsg)
 	self.rlReqPool.clear()

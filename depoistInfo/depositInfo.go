@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -13,6 +13,7 @@ import (
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/core/vm"
 	"github.com/matrix/go-matrix/rpc"
+	"github.com/pkg/errors"
 )
 
 type manBackend interface {
@@ -67,7 +68,7 @@ func GetDepositList(tm *big.Int, getDeposit common.RoleType) ([]vm.DepositDetail
 
 func GetDepositAndWithDrawList(tm *big.Int) ([]vm.DepositDetail, error) {
 	db, err := getDepositInfo(tm)
-	if err != nil {
+	if err != nil || db == nil {
 		return nil, err
 	}
 	contract := vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 60000)
@@ -78,7 +79,7 @@ func GetDepositAndWithDrawList(tm *big.Int) ([]vm.DepositDetail, error) {
 
 func GetAllDeposit(tm *big.Int) ([]vm.DepositDetail, error) {
 	db, err := getDepositInfo(tm)
-	if err != nil {
+	if err != nil || db == nil {
 		return nil, err
 	}
 	contract := vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 60000)
@@ -87,7 +88,7 @@ func GetAllDeposit(tm *big.Int) ([]vm.DepositDetail, error) {
 	return depositList, nil
 }
 
-func getDepositInfo(tm *big.Int) (db vm.StateDB, err error) {
+func getDepositInfo(tm *big.Int) (vm.StateDB, error) {
 	depositInfo.Contract = vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 0)
 	var c context.Context
 	var h rpc.BlockNumber
@@ -97,7 +98,10 @@ func getDepositInfo(tm *big.Int) (db vm.StateDB, err error) {
 	//if err != nil {
 	//	return nil, err
 	//}
-	db, _, err = depositInfo.manApi.StateAndHeaderByNumber(c, h)
+	db, _, err := depositInfo.manApi.StateAndHeaderByNumber(c, h)
+	if db == nil {
+		return nil, errors.New("db is nill")
+	}
 	return db, err
 }
 
@@ -150,4 +154,20 @@ func SetDeposit(stateDB vm.StateDB, address common.Address) error {
 }
 func AddDeposit(stateDB vm.StateDB, address common.Address) error {
 	return depositInfo.MatrixDeposit.AddDeposit(depositInfo.Contract, stateDB, address)
+}
+
+// 获取A0账户
+func GetDepositAccount(stateDB vm.StateDB, authAccount common.Address) common.Address {
+	if depositInfo.Contract == nil {
+		depositInfo.Contract = vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 0)
+	}
+	return depositInfo.MatrixDeposit.GetDepositAccount(depositInfo.Contract, stateDB, authAccount)
+}
+
+// 获取A1账户
+func GetAuthAccount(stateDB vm.StateDB, depositAccount common.Address) common.Address {
+	if depositInfo.Contract == nil {
+		depositInfo.Contract = vm.NewContract(vm.AccountRef(common.HexToAddress("1337")), vm.AccountRef(common.BytesToAddress([]byte{10})), big.NewInt(0), 0)
+	}
+	return depositInfo.MatrixDeposit.GetAuthAccount(depositInfo.Contract, stateDB, depositAccount)
 }

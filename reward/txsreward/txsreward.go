@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package txsreward
 
 import (
@@ -24,18 +21,21 @@ type TxsReward struct {
 }
 
 func New(chain util.ChainReader, st util.StateDB) reward.Reward {
-	Rewardcfg, err := matrixstate.GetDataByState(mc.MSKeyTxsRewardCfg, st)
+
+	data, err := matrixstate.GetTxsCalc(st)
 	if nil != err {
 		log.ERROR(PackageName, "获取状态树配置错误")
 		return nil
 	}
-	TC, ok := Rewardcfg.(*mc.TxsRewardCfgStruct)
-	if !ok {
-		log.ERROR(PackageName, "反射失败", "")
+
+	if data == util.Stop {
+		log.ERROR(PackageName, "停止发放区块奖励", "")
 		return nil
 	}
-	if TC.TxsRewardCalc == util.Stop {
-		log.ERROR(PackageName, "停止发放", PackageName)
+
+	TC, err := matrixstate.GetTxsRewardCfg(st)
+	if nil != err || nil == TC {
+		log.ERROR(PackageName, "获取状态树配置错误", err)
 		return nil
 	}
 

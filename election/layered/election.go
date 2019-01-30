@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package layered
@@ -24,11 +24,13 @@ func RegInit() baseinterface.ElectionInterface {
 }
 
 func (self *layered) MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg) *mc.MasterMinerReElectionRsp {
-	log.INFO("分层方案", "矿工拓扑生成", mmrerm)
+	log.Trace("分层方案", "矿工拓扑生成", mmrerm)
 	vipEle := support.NewElelection(nil, mmrerm.MinerList, mmrerm.ElectConfig, mmrerm.RandSeed, mmrerm.SeqNum, common.RoleMiner)
 
+	if mmrerm.ElectConfig.WhiteListSwitcher{
+		vipEle.ProcessWhiteNode()
+	}
 	vipEle.ProcessBlackNode()
-	vipEle.ProcessWhiteNode()
 	nodeList := vipEle.GetNodeByLevel(common.VIP_Nil)
 	value := support.CalcValue(nodeList, common.RoleMiner)
 	Chosed, value := support.GetList_Common(value, vipEle.NeedNum, vipEle.RandSeed)
@@ -36,17 +38,55 @@ func (self *layered) MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg) *mc.Mas
 
 }
 
+func TryFilterBlockProduceBlackList(vipElec *support.Electoion, blackList []mc.UserBlockProduceSlash, minRemainNum int) int {
+	//计算目前可用Node
+	var availableNodeNum = vipElec.GetAvailableNodeNum()
+	for i := 0; i < len(blackList); i++ {
+		//如果剩余可用数小于等于最小保留数，不再过滤
+		if availableNodeNum <= minRemainNum {
+			return availableNodeNum
+		}
+		if k, status := vipElec.GetNodeByAccount(blackList[i].Address); status {
+			if vipElec.NodeList[k].Usable {
+				vipElec.NodeList[k].Usable = false
+				log.Trace("VIP选举黑名单处理", "过滤账户", vipElec.NodeList[k].Address, "禁止周期", blackList[i].ProhibitCycleCounter)
+				availableNodeNum--
+			}
+		}
+	}
+	return availableNodeNum
+}
+func printVipBlackList(blackList []mc.UserBlockProduceSlash) {
+	if len(blackList) == 0 {
+		log.Trace("VIP选举黑名单处理", "无黑名单", nil)
+	} else {
+		for _, v := range blackList {
+			log.Trace("VIP选举黑名单处理", "账户", v.Address.String(), "禁止周期", v.ProhibitCycleCounter)
+		}
+	}
+}
 func (self *layered) ValidatorTopGen(mvrerm *mc.MasterValidatorReElectionReqMsg) *mc.MasterValidatorReElectionRsq {
-	log.INFO("分层方案", "验证者拓扑生成", mvrerm)
+	log.Trace("分层方案", "验证者拓扑生成", mvrerm)
 
 	vipEle := support.NewElelection(mvrerm.VIPList, mvrerm.ValidatorList, mvrerm.ElectConfig, mvrerm.RandSeed, mvrerm.SeqNum, common.RoleValidator)
+	if mvrerm.ElectConfig.WhiteListSwitcher{
+		vipEle.ProcessWhiteNode()
+	}
 	vipEle.ProcessBlackNode()
-	vipEle.ProcessWhiteNode()
 	//vipEle.DisPlayNode()
 
 	for vipEleLoop := len(vipEle.VipLevelCfg) - 1; vipEleLoop >= 0; vipEleLoop-- {
 		if vipEle.VipLevelCfg[vipEleLoop].ElectUserNum <= 0 && vipEleLoop != 0 { //vip0继续处理
 			continue
+		}
+
+		//普通选举之前过滤区块生成黑名单
+		if vipEleLoop == 0 {
+			printVipBlackList(mvrerm.BlockProduceBlackList.BlackList)
+			if vipEle.NeedNum >= vipEle.ChosedNum {
+				//TryFilterBlockProduceBlackList(vipEle, mvrerm.BlockProduceBlackList.BlackList, vipEle.NeedNum-vipEle.ChosedNum)
+				TryFilterBlockProduceBlackList(vipEle, mvrerm.BlockProduceBlackList.BlackList,0)
+			}
 		}
 		nodeList := vipEle.GetNodeByLevel(common.GetVIPLevel(vipEleLoop))
 

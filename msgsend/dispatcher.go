@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package msgsend
@@ -61,6 +61,11 @@ func (self *HD) SendNodeMsg(subCode mc.EventCode, msg interface{}, Roles common.
 	} else {
 		log.INFO("SendToSignal", "total address count", len(nodes), "SubCode", subCode)
 		for _, addr := range nodes {
+			if err != nil {
+				log.ERROR("SendToSignal", "ConvertAddressToNodeId err", err, "address", addr.Hex())
+				continue
+			}
+			log.INFO("SendToSignal", "address", addr.Hex())
 			go func() {
 				err := p2p.SendToSingle(addr, common.AlgorithmMsg, sendData)
 				if err != nil {
@@ -76,7 +81,7 @@ func (self *HD) receive() {
 		select {
 		case data := <-self.dataChan:
 			subCode := mc.EventCode(data.Data.SubCode)
-			log.INFO("HD", "SubCode", subCode)
+			log.Trace("HD", "SubCode", subCode)
 			codec, err := self.findCodec(subCode)
 			if err != nil {
 				log.ERROR("HD", "receive findCodec err", err)

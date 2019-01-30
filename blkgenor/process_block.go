@@ -1,23 +1,19 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
-	"math/big"
-
-	"time"
-
 	"github.com/matrix/go-matrix/ca"
 	"github.com/matrix/go-matrix/common"
+	"github.com/matrix/go-matrix/consensus/blkmanage"
 	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/matrixwork"
 	"github.com/matrix/go-matrix/mc"
 	"github.com/matrix/go-matrix/params/manparams"
-	"github.com/pkg/errors"
+	"math/big"
+	"time"
 )
 
 func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
@@ -29,6 +25,12 @@ func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
 
 	header := msg.Header
 	headerHash := header.HashNoSignsAndNonce()
+	if msg.IsBroadcast {
+		log.Debug(p.logExtraInfo(), "区块为广播区块", "直接发送全区块获取")
+		p.sendFullBlockReq(headerHash, header.Number.Uint64(), msg.From)
+		return
+	}
+
 	minerResult := &mc.HD_MiningRspMsg{
 		From:       header.Coinbase,
 		Number:     header.Number.Uint64(),
@@ -48,23 +50,27 @@ func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
 	if p.state != StateEnd {
 		//处理完成后，状态不是完成状态，说明缺少数据
 		log.Debug(p.logExtraInfo(), "状态恢复消息处理", "处理完毕后，本地状态不是end", "本地状态", p.state, "hash", headerHash.TerminalString())
-		if p.FullBlockReqCache.IsExistMsg(headerHash) {
-			data, err := p.FullBlockReqCache.ReUseMsg(headerHash)
-			if err != nil {
-				return
-			}
-			reqMsg, _ := data.(*mc.HD_FullBlockReqMsg)
-			log.Debug(p.logExtraInfo(), "状态恢复消息处理", "发送完整区块获取请求消息", "to", msg.From.Hex(), "高度", reqMsg.Number, "hash", reqMsg.HeaderHash.TerminalString())
-			p.pm.hd.SendNodeMsg(mc.HD_FullBlockReq, reqMsg, common.RoleNil, []common.Address{msg.From})
-		} else {
-			reqMsg := &mc.HD_FullBlockReqMsg{
-				HeaderHash: headerHash,
-				Number:     header.Number.Uint64(),
-			}
-			p.FullBlockReqCache.AddMsg(headerHash, reqMsg, time.Now().Unix())
-			log.Debug(p.logExtraInfo(), "状态恢复消息处理", "发送完整区块获取请求消息", "to", msg.From.Hex(), "高度", reqMsg.Number, "hash", reqMsg.HeaderHash.TerminalString())
-			p.pm.hd.SendNodeMsg(mc.HD_FullBlockReq, reqMsg, common.RoleNil, []common.Address{msg.From})
+		p.sendFullBlockReq(headerHash, header.Number.Uint64(), msg.From)
+	}
+}
+
+func (p *Process) sendFullBlockReq(hash common.Hash, number uint64, target common.Address) {
+	if p.FullBlockReqCache.IsExistMsg(hash) {
+		data, err := p.FullBlockReqCache.ReUseMsg(hash)
+		if err != nil {
+			return
 		}
+		reqMsg, _ := data.(*mc.HD_FullBlockReqMsg)
+		log.Debug(p.logExtraInfo(), "状态恢复消息处理", "发送完整区块获取请求消息", "to", target.Hex(), "高度", reqMsg.Number, "hash", reqMsg.HeaderHash.TerminalString())
+		p.pm.hd.SendNodeMsg(mc.HD_FullBlockReq, reqMsg, common.RoleNil, []common.Address{target})
+	} else {
+		reqMsg := &mc.HD_FullBlockReqMsg{
+			HeaderHash: hash,
+			Number:     number,
+		}
+		p.FullBlockReqCache.AddMsg(hash, reqMsg, time.Now().Unix())
+		log.Debug(p.logExtraInfo(), "状态恢复消息处理", "发送完整区块获取请求消息", "to", target.Hex(), "高度", reqMsg.Number, "hash", reqMsg.HeaderHash.TerminalString())
+		p.pm.hd.SendNodeMsg(mc.HD_FullBlockReq, reqMsg, common.RoleNil, []common.Address{target})
 	}
 }
 
@@ -98,13 +104,19 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if blockData := p.blockCache.GetBlockDataByBlockHash(headerHash); blockData != nil {
-		log.ERROR(p.logExtraInfo(), "处理完整区块响应", "已存在的区块信息", "header Hash", headerHash.TerminalString(), "高度", p.number)
+	if p.bcInterval == nil {
+		log.Error(p.logExtraInfo(), "处理完整区块响应", "广播周期为nil", "header Hash", headerHash.TerminalString(), "高度", p.number)
 		return
 	}
 
-	if err := p.pm.bc.Engine(rsp.Header.Version).VerifyHeader(p.pm.bc, rsp.Header, true); err != nil {
-		log.ERROR(p.logExtraInfo(), "处理完整区块响应", "POW验证未通过", "err", err, "高度", p.number)
+	if blockData := p.blockCache.GetBlockDataByBlockHash(headerHash); blockData != nil {
+		log.Error(p.logExtraInfo(), "处理完整区块响应", "已存在的区块信息", "header Hash", headerHash.TerminalString(), "高度", p.number)
+		return
+	}
+
+	isBroadcast := p.bcInterval.IsBroadcastNumber(rsp.Header.Number.Uint64())
+	if err := p.pm.bc.Engine(rsp.Header.Version).VerifyHeader(p.pm.bc, rsp.Header, !isBroadcast); err != nil {
+		log.Error(p.logExtraInfo(), "处理完整区块响应", "POW验证未通过", "err", err, "高度", p.number)
 		return
 	}
 
@@ -113,10 +125,14 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 		return
 	}
 
+	blkType := blkmanage.CommonBlk
+	if isBroadcast {
+		blkType = blkmanage.BroadcastBlk
+	}
 	//运行交易
-	receipts, stateDB, finalTxs, err := p.runTxs(rsp.Header, headerHash, rsp.Txs)
+	stateDB, finalTxs, receipts, _, err := p.pm.manblk.VerifyTxsAndState(blkType, string(rsp.Header.Version), rsp.Header, rsp.Txs)
 	if err != nil {
-		log.ERROR(p.logExtraInfo(), "处理完整区块响应", "执行交易错误", "err", err, "高度", p.number)
+		log.Error(p.logExtraInfo(), "处理完整区块响应", "执行交易错误", "err", err, "高度", p.number)
 		return
 	}
 
@@ -137,69 +153,6 @@ func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 
 	p.state = StateBlockInsert
 	p.processBlockInsert(rsp.Header.Leader)
-}
-
-func (p *Process) runTxs(header *types.Header, headerHash common.Hash, Txs types.SelfTransactions) ([]*types.Receipt, *state.StateDB, types.SelfTransactions, error) {
-	parent := p.blockChain().GetBlockByHash(header.ParentHash)
-	if parent == nil {
-		return nil, nil, nil, errors.Errorf("父区块(%s)获取失败!", header.ParentHash.TerminalString())
-	}
-
-	localHeader := types.CopyHeader(header)
-	localHeader.GasUsed = 0
-
-	work, err := matrixwork.NewWork(p.blockChain().Config(), p.blockChain(), nil, localHeader)
-	if err != nil {
-		return nil, nil, nil, errors.Errorf("创建worker错误(%v)", err)
-	}
-
-	err = p.blockChain().ProcessStateVersion(header.Version, work.State)
-	if err != nil {
-		return nil, nil, nil, errors.Errorf("ProcessStateVersion err(%v)", err)
-	}
-
-	uptimeMap, err := p.blockChain().ProcessUpTime(work.State, localHeader)
-	if err != nil {
-		return nil, nil, nil, errors.Errorf("执行uptime错误(%v)", err)
-	}
-	err = p.blockChain().ProcessBlockGProduceSlash(work.State, localHeader)
-	if err != nil {
-		return nil, nil, nil, errors.Errorf("执行区块生产惩罚错误(%v)", err)
-	}
-	err = work.ConsensusTransactions(p.pm.matrix.EventMux(), Txs, uptimeMap)
-	if err != nil {
-		return nil, nil, nil, errors.Errorf("执行交易错误(%v)", err)
-	}
-	finalTxs := work.GetTxs()
-	localBlock := types.NewBlock(localHeader, finalTxs, nil, work.Receipts)
-
-	// process matrix state
-	err = p.blockChain().ProcessMatrixState(localBlock, work.State)
-	if err != nil {
-		return nil, nil, nil, errors.Errorf("ProcessMatrixState err(%v)", err)
-	}
-
-	// 运行完matrix state后，生成root
-	block, err := p.blockChain().Engine(localBlock.Header().Version).Finalize(p.blockChain(), localBlock.Header(), work.State, finalTxs, nil, work.Receipts)
-	if err != nil {
-		return nil, nil, nil, errors.Errorf("Failed to finalize block (%v)", err)
-	}
-
-	//localBlock check
-	localHash := block.Header().HashNoSignsAndNonce()
-
-	if localHash != headerHash {
-		log.ERROR(p.logExtraInfo(), "交易验证，错误", "block hash不匹配",
-			"local hash", localHash.TerminalString(), "remote hash", headerHash.TerminalString(),
-			"local root", block.Header().Root.TerminalString(), "remote root", header.Root.TerminalString(),
-			"local txHash", block.Header().TxHash.TerminalString(), "remote txHash", header.TxHash.TerminalString(),
-			"local ReceiptHash", block.Header().ReceiptHash.TerminalString(), "remote ReceiptHash", header.ReceiptHash.TerminalString(),
-			"local Bloom", block.Header().Bloom.Big(), "remote Bloom", header.Bloom.Big(),
-			"local GasLimit", block.Header().GasLimit, "remote GasLimit", header.GasLimit,
-			"local GasUsed", block.Header().GasUsed, "remote GasUsed", header.GasUsed)
-		return nil, nil, nil, errors.Errorf("block hash不匹配.LocalHash(%s) != remoteHash(%s)", localHash.TerminalString(), headerHash.TerminalString())
-	}
-	return work.Receipts, work.State, finalTxs, nil
 }
 
 func (p *Process) AddMinerResult(minerResult *mc.HD_MiningRspMsg) {
@@ -291,11 +244,6 @@ func (p *Process) dealMinerResultVerifyCommon(leader common.Address) {
 		}
 		blockData.block.Header = p.copyHeader(blockData.block.Header, satisfyResult)
 		blockData.state = blockStateReady
-
-		//root, _ := blockData.block.State.Commit(p.blockChain().Config().IsEIP158(blockData.block.Header.Number))
-		//if root != blockData.block.Header.Root {
-		//	log.Error("hyk_miss_trie_3", "root", blockData.block.Header.Root.TerminalString(), "state root", root.TerminalString())
-		//}
 	}
 	p.stopMinerPikerTimer()
 	p.closeConsensusReqSender()

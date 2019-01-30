@@ -68,6 +68,10 @@ func CalcValue(nodes []Node, role common.RoleType) []Pnormalized {
 		value += DefaultQuantificationRatio.Add_Online * self.OnlineTimeStake()
 		value += DefaultQuantificationRatio.Add_Deposit * self.DepositStake(role)
 		value *= (float64(item.Ratio) / float64(DefaultRatioDenominator))
+	//保护价值函数值
+	if 0 == value{
+		value = 1
+	}
 		CapitalMap = append(CapitalMap, Pnormalized{Addr: self.Address, Value: float64(value)})
 	}
 	return CapitalMap

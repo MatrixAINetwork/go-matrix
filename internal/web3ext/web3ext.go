@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -162,6 +162,10 @@ web3._extend({
 			name: 'datadir',
 			getter: 'admin_datadir'
 		}),
+		new web3._extend.Property({
+			name: 'addressTable',
+			getter: 'admin_addressTable'
+		}),
 	]
 });
 `
@@ -174,6 +178,11 @@ web3._extend({
 			name: 'printBlock',
 			call: 'debug_printBlock',
 			params: 1
+		}),
+        new web3._extend.Method({
+			name: 'getAllChainInfo',
+			call: 'debug_getAllChainInfo',
+			params: 0,
 		}),
 		new web3._extend.Method({
 			name: 'getBlockRlp',
@@ -425,10 +434,30 @@ web3._extend({
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, web3._extend.utils.toHex]
 		}),
-		//hezi
+		// 
 		new web3._extend.Method({
 			name: 'getEntrustList',
 			call: 'man_getEntrustList',
+			params: 1,
+		}),
+		new web3._extend.Method({
+			name: 'getIPFSsnap',
+			call: 'man_getIPFSsnap',
+			params: 1,
+		}),
+		new web3._extend.Method({
+			name: 'getIPFSfirstcache',
+			call: 'man_getIPFSfirstcache',
+			params: 0,
+		}),
+		new web3._extend.Method({
+			name: 'getIPFSsecondcache',
+			call: 'man_getIPFSsecondcache',
+			params: 1,
+		}),
+		new web3._extend.Method({
+			name: 'getIPFSblock',
+			call: 'man_getIPFSblock',
 			params: 1,
 		}),
 		new web3._extend.Method({
@@ -451,15 +480,15 @@ web3._extend({
 			call: 'man_getEntrustFromByTime',
 			params: 2,
 		}),
-		new web3._extend.Method({
-			name: 'getTopology',
-			call: 'man_getTopology',
-			params: 2,
-		}),
         new web3._extend.Method({
 			name: 'getSelfLevel',
 			call: 'man_getSelfLevel',
 			params: 0,
+		}),
+		new web3._extend.Method({
+			name: 'getCfgDataByState',
+			call: 'man_getCfgDataByState',
+			params: 1,
 		}),
 	],
 	properties: [
@@ -559,7 +588,7 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'setEntrustSignAccount',
 			call: 'personal_setEntrustSignAccount',
-			params: 3
+			params: 2
 		}),
 		new web3._extend.Method({
 			name: 'sign',

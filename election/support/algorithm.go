@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package support
@@ -25,7 +25,10 @@ func GetList_VIP(probnormalized []Pnormalized, needNum int, rand *mt19937.RandUn
 	for i := 0; i < MaxSample; i++ {
 		tempRand := float64(rand.Uniform(0.0, 1.0))
 
-		node := Sample1NodesInValNodes_VIP(probnormalized, tempRand)
+		node, status := Sample1NodesInValNodes_VIP(probnormalized, tempRand)
+		if !status{
+			continue
+		}
 		_, ok := dict[node]
 		if ok == true {
 			dict[node] = dict[node] + 1
@@ -73,15 +76,15 @@ func Normalize_VIP(probVal []Pnormalized) []Pnormalized {
 	return pnormalizedlist
 }
 
-func Sample1NodesInValNodes_VIP(probnormalized []Pnormalized, rand01 float64) common.Address {
+func Sample1NodesInValNodes_VIP(probnormalized []Pnormalized, rand01 float64) (common.Address, bool) {
 	len := len(probnormalized)
 	for index := len - 1; index >= 0; index-- {
 		if rand01 >= probnormalized[index].Value {
-			return probnormalized[index].Addr
+			return probnormalized[index].Addr, true
 		}
 	}
 
-	return common.Address{}
+	return common.Address{},false
 }
 
 func GetList_Common(probnormalized []Pnormalized, needNum int, rand *mt19937.RandUniform) ([]Strallyint, []Pnormalized) {
@@ -101,7 +104,10 @@ func GetList_Common(probnormalized []Pnormalized, needNum int, rand *mt19937.Ran
 	for i := 0; i < MaxSample; i++ {
 		tempRand := float64(rand.Uniform(0.0, 1.0))
 
-		node := Sample1NodesInValNodes_Common(probnormalized, tempRand)
+		node, status := Sample1NodesInValNodes_Common(probnormalized, tempRand)
+		if !status{
+			continue
+		}
 		_, ok := dict[node]
 		if ok == true {
 			dict[node] = dict[node] + 1
@@ -151,13 +157,13 @@ func Normalize_Common(probVal []Pnormalized) []Pnormalized {
 	return pnormalizedlist
 }
 
-func Sample1NodesInValNodes_Common(probnormalized []Pnormalized, rand01 float64) common.Address {
+func Sample1NodesInValNodes_Common(probnormalized []Pnormalized, rand01 float64) (common.Address, bool) {
 
 	for _, iterm := range probnormalized {
 		rand01 -= iterm.Value
 		if rand01 < 0 {
-			return iterm.Addr
+			return iterm.Addr, true
 		}
 	}
-	return probnormalized[0].Addr
+	return probnormalized[0].Addr, false
 }

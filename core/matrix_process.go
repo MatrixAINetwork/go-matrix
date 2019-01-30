@@ -1,7 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package core
 
 import (
@@ -55,23 +51,28 @@ func (mp *MatrixProcessor) ProcessStateVersion(version []byte, state *state.Stat
 	return nil
 }
 
-func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, state *state.StateDB) error {
+func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, preVersion string, state *state.StateDB) error {
 	if block == nil || state == nil {
 		return errors.New("param is nil")
 	}
 
 	// 获取matrix状态树管理类
-	version := matrixstate.GetVersionInfo(state)
-	mgr := matrixstate.GetManager(version)
-	if mgr == nil {
+	curVersion := matrixstate.GetVersionInfo(state)
+	curMgr := matrixstate.GetManager(curVersion)
+	if curMgr == nil {
 		return matrixstate.ErrFindManager
 	}
 
-	readFn := func(key string) (interface{}, error) {
+	preMgr := matrixstate.GetManager(preVersion)
+	if preMgr == nil {
+		return matrixstate.ErrFindManager
+	}
+
+	preReadFn := func(key string) (interface{}, error) {
 		if key == mc.MSKeyVersionInfo {
-			return version, nil
+			return preVersion, nil
 		}
-		opt, err := mgr.FindOperator(key)
+		opt, err := preMgr.FindOperator(key)
 		if err != nil {
 			return nil, err
 		}
@@ -83,7 +84,7 @@ func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, state *state.S
 
 	dataMap := make(map[string]interface{})
 	for key := range mp.producerMap {
-		data, err := mp.producerMap[key](block, readFn)
+		data, err := mp.producerMap[key](block, preReadFn)
 		if err != nil {
 			return errors.Errorf("key(%s) produce matrix state data err(%v)", key, err)
 		}
@@ -95,7 +96,7 @@ func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, state *state.S
 	}
 
 	for key := range dataMap {
-		opt, err := mgr.FindOperator(key)
+		opt, err := curMgr.FindOperator(key)
 		if err != nil {
 			return errors.Errorf("key(%s) find operator err: %v", key, err)
 		}

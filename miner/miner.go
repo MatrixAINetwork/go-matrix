@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+
+	"github.com/matrix/go-matrix/params/manparams"
 
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
@@ -23,7 +25,7 @@ import (
 
 const (
 	ModuleWork  = "Miner_Work"
-	ModuleMiner = "Miner Miner"
+	ModuleMiner = "Miner"
 )
 
 var (
@@ -43,7 +45,6 @@ type Miner struct {
 
 	coinbase common.Address
 	bc       *core.BlockChain
-	engine   consensus.Engine
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
@@ -51,20 +52,20 @@ type Miner struct {
 
 func (s *Miner) Getworker() *worker { return s.worker }
 
-func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, dposEngine consensus.DPOSEngine, hd *msgsend.HD) (*Miner, error) {
+func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, hd *msgsend.HD) (*Miner, error) {
 	miner := &Miner{
-		mux:    mux,
-		engine: engine,
+		mux: mux,
+		bc:  bc,
 
 		canStart: 1,
 	}
 	var err error
-	miner.worker, err = newWorker(config, engine, bc, dposEngine, mux, hd)
+	miner.worker, err = newWorker(config, bc, mux, hd)
 	if err != nil {
 		log.ERROR(ModuleMiner, "创建work", "失败")
 		return miner, err
 	}
-	miner.Register(NewCpuAgent(bc, engine))
+	miner.Register(NewCpuAgent(bc))
 	//go miner.update()
 	log.INFO(ModuleMiner, "创建miner", "成功")
 	return miner, nil
@@ -104,7 +105,7 @@ func (self *Miner) Mining() bool {
 }
 
 func (self *Miner) HashRate() (tot int64) {
-	if pow, ok := self.engine.(consensus.PoW); ok {
+	if pow, ok := self.bc.Engine([]byte(manparams.VersionAlpha)).(consensus.PoW); ok {
 		tot += int64(pow.Hashrate())
 	}
 	// do we care this might race? is it worth we're rewriting some

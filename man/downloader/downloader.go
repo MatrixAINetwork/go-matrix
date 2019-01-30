@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -51,7 +51,7 @@ var (
 
 	maxQueuedHeaders  = 800  //lb 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
 	maxHeadersProcess = 1024 //2048      // Number of header download results to import at once into the chain
-	maxResultsProcess = 396  //576      //lb//2048      // Number of content download results to import at once into the chain
+	maxResultsProcess = 918  //396  //576      //lb//2048      // Number of content download results to import at once into the chain
 
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
@@ -149,6 +149,7 @@ type Downloader struct {
 	dpIpfs        *IPfsDownloader
 	ipfsBodyCh    chan BlockIpfs //result
 	bIpfsDownload int            //1 broadcast, 2 download
+	WaitSnapshoot chan int
 }
 type BlockIpfs struct {
 	Flag             int
@@ -160,10 +161,17 @@ type BlockIpfs struct {
 }
 type BlockIpfsReq struct {
 	ReqPendflg  int
-	Flag        int //1 单个, 2 批量
-	coinstr     string
+	Flag        uint64 //int //1 单个, 2 批量 //快照时携带区块number
+	coinstr     string //快照时携带区块Hash
 	HeadReqipfs *types.Header
 }
+type SnapshootReq struct {
+	BlockNumber uint64
+	Hashstr     string
+	FilePath    string
+}
+
+var SnapshootNumber uint64
 
 // LightChain encapsulates functions required to synchronise a light chain.
 type LightChain interface {
@@ -218,18 +226,21 @@ type BlockChain interface {
 	GetSuperBlockSeq() (uint64, error)
 	GetSuperBlockNum() (uint64, error)
 	GetSuperBlockInfo() (*mc.SuperBlkCfg, error)
-	DPOSEngine() consensus.DPOSEngine
+	DPOSEngine(version []byte) consensus.DPOSEngine
 
 	GetCurrentHash() common.Hash
 
 	Genesis() *types.Block
 
 	GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGraph, error)
-	GetBroadcastAccount(blockHash common.Hash) (common.Address, error)
+	GetBroadcastAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetVersionSuperAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetBlockSuperAccounts(blockHash common.Hash) ([]common.Address, error)
-	GetBroadcastInterval(blockHash common.Hash) (*mc.BCIntervalInfo, error)
-	GetAuthAccount(addr common.Address, hash common.Hash) (common.Address, error)
+	GetBroadcastIntervalByHash(blockHash common.Hash) (*mc.BCIntervalInfo, error)
+	GetA0AccountFromAnyAccount(account common.Address, blockHash common.Hash) (common.Address, common.Address, error)
+	SynSnapshot(blockNum uint64, hash string, filePath string) bool
+	SetSnapshotParam(period uint64, start uint64)
+	PrintSnapshotAccountMsg(blockNum uint64, hash string, filePath string)
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -265,6 +276,7 @@ func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockC
 		trackStateReq: make(chan *stateReq),
 		dpIpfs:        nil,
 		bIpfsDownload: 0,
+		WaitSnapshoot: make(chan int),
 	}
 	if dl.IpfsMode {
 		dl.dpIpfs = newIpfsDownload()
@@ -495,11 +507,12 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 			log.Error("不是超级区块", "err", err)
 			return errBadPeer
 		}
-		if err := d.blockchain.DPOSEngine().CheckSuperBlock(d.blockchain, superBLock); nil != err {
+		if err := d.blockchain.DPOSEngine(superBLock.Version).CheckSuperBlock(d.blockchain, superBLock); nil != err {
 			log.Error("验证超级区块签名", "err", err)
 			return errBadPeer
 		}
 	} else {
+		//todo：高度,序号一样只验证hash
 		if d.blockchain.Genesis().Hash() != superBLock.Hash() {
 			log.Error("创世文件不一致")
 			return err
@@ -752,7 +765,17 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 		floor = int64(ceil - MaxForkAncestry)
 	}
 	p.log.Debug("Looking for common ancestor", "local", ceil, "remote", height)
+	if SnapshootNumber != 0 {
+		if ceil == SnapshootNumber {
+			p.log.Debug("Looking for common ancestor find SnapshootNumber", "local", ceil, "remote", height)
+			return ceil, nil
+		}
+	}
 
+	/*	if snapshot.SnapShotSync==true {
+		snapshot.SnapShotSync= false
+		return  ceil,nil
+	}*/
 	// Request the topmost blocks to short circuit binary ancestor lookup
 	head := ceil
 	if head > height {
@@ -1888,7 +1911,8 @@ func (d *Downloader) requestTTL() time.Duration {
 	if ttl > ttlLimit {
 		ttl = ttlLimit
 	}
-	return ttl
+	//return ttl //lb
+	return ttl * 3
 }
 func (d *Downloader) SetbStoreSendIpfsFlg(flg bool) {
 	if flg {
@@ -1930,4 +1954,46 @@ func (d *Downloader) processIpfsContent() error {
 	}
 	log.Debug("Downloader WaitBlockInfoFromIpfs out")
 	return nil
+}
+func (d *Downloader) ProcessSnapshoot(number uint64, hash string) error {
+	if d.dpIpfs == nil {
+		return errors.New("Downloader ipfs is nill")
+	}
+	sendReq := make([]BlockIpfsReq, 0, 1)
+	stReq := BlockIpfsReq{
+		ReqPendflg:  4, //full同步,
+		Flag:        number,
+		coinstr:     hash, //借存状态hash
+		HeadReqipfs: nil,
+	}
+	sendReq = append(sendReq, stReq)
+	d.dpIpfs.HeaderIpfsCh <- sendReq
+
+	return nil
+
+}
+func (d *Downloader) SetSnapshootNum(number uint64) {
+	SnapshootNumber = number
+}
+func (d *Downloader) PrintSnapshotAccountMsg(blockNum uint64, hash string, filePath string) {
+	// Short circuit if no peers are available
+
+	//syn snapshots
+
+	// Make sure the peer's TD is higher than our own
+	filePath = "TrieData600"
+	d.blockchain.PrintSnapshotAccountMsg(blockNum, hash, filePath)
+
+}
+func (d *Downloader) DGetIPFSfirstcache() {
+	d.GetfirstcacheByIPFS()
+}
+func (d *Downloader) DGetIPFSSecondcache(strHash string) {
+	d.GetsecondcacheByIPFS(strHash)
+}
+func (d *Downloader) DGetIPFSBlock(strHash string) {
+	d.GetBlockByIPFS(strHash)
+}
+func (d *Downloader) DGetIPFSsnap(strHash string) {
+	d.GetsanpByIPFS(strHash)
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -182,7 +182,16 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 				ide.log.Error("get next elect", "error", err)
 				continue
 			}
-			ide.prevElect = elect
+			newElect := make([]common.Elect, 0)
+			for _, val := range elect {
+				sAddr, err := ConvertDepositToSignAddress(val.Account)
+				if err != nil {
+					log.Error("convert address failed", "error", err)
+					continue
+				}
+				newElect = append(newElect, common.Elect{Account: sAddr, Stock: val.Stock, Type: val.Type, VIP: val.VIP})
+			}
+			ide.prevElect = newElect
 
 			// init topology
 			initCurrentTopology()
@@ -379,7 +388,12 @@ func GetGapValidator() (rlt []common.Address) {
 
 	for _, or := range ori {
 		if or.Type >= common.ElectRoleValidator {
-			rlt = append(rlt, or.Account)
+			sAddr, err := ConvertDepositToSignAddress(or.Account)
+			if err != nil {
+				log.Error("convert address failed", "error", err)
+				continue
+			}
+			rlt = append(rlt, sAddr)
 		}
 	}
 	return

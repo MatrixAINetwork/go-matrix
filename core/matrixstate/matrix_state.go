@@ -1,108 +1,120 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package matrixstate
 
 import (
 	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
-	"github.com/pkg/errors"
-	"sync"
+	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/params/manparams"
 )
 
-type keyInfo struct {
-	keyHash      common.Hash
-	dataProducer ProduceMatrixStateDataFn
+const logInfo = "matrix state"
+
+var mangerAlpha *Manager
+var mangerBeta *Manager
+var versionOpt MatrixOperator
+
+func init() {
+	mangerAlpha = newManger(manparams.VersionAlpha)
+	versionOpt = newVersionInfoOpt()
 }
 
-func genKeyMap() (keyMap map[string]*keyInfo) {
-	keyMap = make(map[string]*keyInfo)
-	for key, hash := range km.keys {
-		keyMap[key] = &keyInfo{hash, nil}
-	}
-	return
+type MatrixOperator interface {
+	KeyHash() common.Hash
+	GetValue(st StateDB) (interface{}, error)
+	SetValue(st StateDB, value interface{}) error
 }
 
-type MatrixState struct {
-	mu     sync.RWMutex
-	keyMap map[string]*keyInfo
+type Manager struct {
+	version   string
+	operators map[string]MatrixOperator
 }
 
-func NewMatrixState() *MatrixState {
-	return &MatrixState{
-		keyMap: genKeyMap(),
+func GetManager(version string) *Manager {
+	switch version {
+	case manparams.VersionAlpha:
+		return mangerAlpha
+	default:
+		log.Error(logInfo, "get Manger err", "version not exist", "version", version)
+		return nil
 	}
 }
 
-func (ms *MatrixState) RegisterProducer(key string, producer ProduceMatrixStateDataFn) error {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
-	info, err := ms.findKeyInfo(key)
-	if err != nil {
-		return err
-	}
-	info.dataProducer = producer
-	return nil
+func (self *Manager) Version() string {
+	return self.version
 }
 
-func (ms *MatrixState) ProcessMatrixState(block *types.Block, state StateDB) error {
-	if block == nil || state == nil {
-		return errors.New("param is nil")
+func (self *Manager) FindOperator(key string) (MatrixOperator, error) {
+	opt, exist := self.operators[key]
+	if !exist {
+		log.Warn(logInfo, "find operator err", "not exist", "key", key, "version", self.version)
+		return nil, ErrOptNotExist
 	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-
-	readFn := func(key string) (interface{}, error) {
-		return GetDataByState(key, state)
-	}
-
-	dataMap := make(map[common.Hash][]byte)
-	for key, info := range ms.keyMap {
-		if info == nil || info.dataProducer == nil {
-			continue
-		}
-
-		codec, exist := km.codecMap[key]
-		if exist == false {
-			log.Error("matrix state", "编解码器未找到", key)
-			continue
-		}
-
-		data, err := info.dataProducer(block, readFn)
-		if err != nil {
-			return errors.Errorf("key(%s) produce matrix state data err(%v)", key, err)
-		}
-		if nil == data {
-			continue
-		}
-		bytes, err := codec.encodeFn(data)
-		if err != nil {
-			return errors.Errorf("encode data of key(%s) err: %v", key, err)
-		}
-		if len(bytes) == 0 {
-			return errors.Errorf("the encoded data of key(%s) is empty", key)
-		}
-
-		dataMap[info.keyHash] = bytes
-	}
-
-	for keyHash, data := range dataMap {
-		state.SetMatrixData(keyHash, data)
-	}
-
-	return nil
+	return opt, nil
 }
 
-func (ms *MatrixState) findKeyInfo(key string) (*keyInfo, error) {
-	info, OK := ms.keyMap[key]
-	if !OK {
-		return nil, errors.Errorf("key(%s) is illegal", key)
+func newManger(version string) *Manager {
+	switch version {
+	case manparams.VersionAlpha:
+		return &Manager{
+			version: version,
+			operators: map[string]MatrixOperator{
+				mc.MSKeyBroadcastTx:            newBroadcastTxOpt(),
+				mc.MSKeyTopologyGraph:          newTopologyGraphOpt(),
+				mc.MSKeyElectGraph:             newELectGraphOpt(),
+				mc.MSKeyElectOnlineState:       newELectOnlineStateOpt(),
+				mc.MSKeyBroadcastInterval:      newBroadcastIntervalOpt(),
+				mc.MSKeyElectGenTime:           newElectGenTimeOpt(),
+				mc.MSKeyElectMinerNum:          newElectMinerNumOpt(),
+				mc.MSKeyElectConfigInfo:        newElectConfigInfoOpt(),
+				mc.MSKeyElectBlackList:         newElectBlackListOpt(),
+				mc.MSKeyElectWhiteList:         newElectWhiteListOpt(),
+				mc.MSKeyElectWhiteListSwitcher: newElectWhiteListSwitcherOpt(),
+				mc.MSKeyAccountBroadcasts:      newBroadcastAccountsOpt(),
+				mc.MSKeyAccountInnerMiners:     newInnerMinerAccountsOpt(),
+				mc.MSKeyAccountFoundation:      newFoundationAccountOpt(),
+				mc.MSKeyAccountVersionSupers:   newVersionSuperAccountsOpt(),
+				mc.MSKeyAccountBlockSupers:     newBlockSuperAccountsOpt(),
+				mc.MSKeyAccountTxsSupers:       newTxsSuperAccountsOpt(),
+				mc.MSKeyAccountMultiCoinSupers: newMultiCoinSuperAccountsOpt(),
+				mc.MSKeyAccountSubChainSupers:  newSubChainSuperAccountsOpt(),
+				mc.MSKeyVIPConfig:              newVIPConfigOpt(),
+				mc.MSKeyPreBroadcastRoot:       newPreBroadcastRootOpt(),
+				mc.MSKeyLeaderConfig:           newLeaderConfigOpt(),
+				mc.MSKeyMinHash:                newMinHashOpt(),
+				mc.MSKeySuperBlockCfg:          newSuperBlockCfgOpt(),
+
+				mc.MSKeyBlkRewardCfg:      newBlkRewardCfgOpt(),
+				mc.MSKeyTxsRewardCfg:      newTxsRewardCfgOpt(),
+				mc.MSKeyInterestCfg:       newInterestCfgOpt(),
+				mc.MSKeyLotteryCfg:        newLotteryCfgOpt(),
+				mc.MSKeySlashCfg:          newSlashCfgOpt(),
+				mc.MSKeyPreMinerBlkReward: newPreMinerBlkRewardOpt(),
+				mc.MSKeyPreMinerTxsReward: newPreMinerTxsRewardOpt(),
+				mc.MSKeyUpTimeNum:         newUpTimeNumOpt(),
+				mc.MSKeyLotteryNum:        newLotteryNumOpt(),
+				mc.MSKeyLotteryAccount:    newLotteryAccountOpt(),
+				mc.MSKeyInterestCalcNum:   newInterestCalcNumOpt(),
+				mc.MSKeyInterestPayNum:    newInterestPayNumOpt(),
+				mc.MSKeySlashNum:          newSlashNumOpt(),
+
+				mc.MSKeyBlkCalc:      newBlkCalcOpt(),
+				mc.MSKeyTxsCalc:      newTxsCalcOpt(),
+				mc.MSKeyInterestCalc: newInterestCalcOpt(),
+				mc.MSKeyLotteryCalc:  newLotteryCalcOpt(),
+				mc.MSKeySlashCalc:    newSlashCalcOpt(),
+
+				mc.MSTxpoolGasLimitCfg: newTxpoolGasLimitOpt(),
+				mc.MSCurrencyPack:      newCurrencyPackOpt(),
+				mc.MSAccountBlackList:  newAccountBlackListOpt(),
+
+				mc.MSKeyBlockProduceStatsStatus: newBlockProduceStatsStatusOpt(),
+				mc.MSKeyBlockProduceSlashCfg:    newBlockProduceSlashCfgOpt(),
+				mc.MSKeyBlockProduceStats:       newBlockProduceStatsOpt(),
+				mc.MSKeyBlockProduceBlackList:   newBlockProduceBlackListOpt(),
+			},
+		}
+	default:
+		log.Error(logInfo, "创建管理类", "失败", "版本", version)
+		return nil
 	}
-	if info == nil {
-		return nil, errors.Errorf("CRITICAL the info of key(%s) is nil in map", key)
-	}
-	return info, nil
 }

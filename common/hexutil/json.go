@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -291,9 +291,11 @@ func checkNumberText(input []byte) (raw []byte, err error) {
 	if len(input) == 0 {
 		return nil, ErrEmptyNumber
 	}
+	/*
 	if len(input) > 1 && input[0] == '0' {
 		return nil, ErrLeadingZero
 	}
+	*/
 	return input, nil
 }
 

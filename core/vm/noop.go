@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -38,7 +38,7 @@ func (NoopStateDB) CreateAccount(common.Address)                                
 func (NoopStateDB) SubBalance(common.Address, *big.Int)                                {}
 func (NoopStateDB) AddBalance(common.Address, *big.Int)                                {}
 func (NoopStateDB) GetBalance(common.Address) *big.Int                                 { return nil }
-func (NoopStateDB) GetNonce(common.Address) uint64                                     { return 0 | params.NonceAddOne } //YY
+func (NoopStateDB) GetNonce(common.Address) uint64                                     { return 0 | params.NonceAddOne } //
 func (NoopStateDB) SetNonce(common.Address, uint64)                                    {}
 func (NoopStateDB) GetCodeHash(common.Address) common.Hash                             { return common.Hash{} }
 func (NoopStateDB) GetCode(common.Address) []byte                                      { return nil }

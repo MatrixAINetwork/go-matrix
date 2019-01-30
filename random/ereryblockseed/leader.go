@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package everyblockseed
@@ -28,7 +28,7 @@ type EveryBlockSeedPlug1 struct {
 func (self *EveryBlockSeedPlug1) CalcSeed(hash common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error) {
 	currentHeader := support.BlockChain().GetHeaderByHash(hash)
 	if currentHeader == nil {
-		log.Error(ModulePreBlockSeed, "根据hash获取区块头失败 hash", hash)
+		log.ERROR(ModulePreBlockSeed, "获取区块头失败:", hash.String())
 		return nil, errors.New("根据hash获取区块头失败")
 	}
 	preBlockSeedSum := big.NewInt(0)
@@ -39,7 +39,7 @@ func (self *EveryBlockSeedPlug1) CalcSeed(hash common.Hash, support baseinterfac
 func (self *EveryBlockSeedPlug1) Prepare(height uint64) error {
 	privatekey, publickeySend, err := commonsupport.GetVoteData()
 	if err != nil {
-		log.Error(ModulePreBlockSeed, "获取投票数据失败 err", err)
+		log.ERROR(ModulePreBlockSeed, "获取投票数据失败:", err)
 		return err
 	}
 	privatekeySend := common.BigToHash(self.privatekey).Bytes()

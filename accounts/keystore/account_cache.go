@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -249,7 +249,10 @@ func (ac *accountCache) scanAccounts() error {
 		err = json.NewDecoder(buf).Decode(&key)
 		//addr := common.HexToAddress(key.Address)//需修改
 		strAddr := key.Address
-		addr := base58.Base58DecodeToAddress(strAddr)
+		addr ,err := base58.Base58DecodeToAddress(strAddr)
+		if err != nil{
+			return nil
+		}
 		switch {
 		case err != nil:
 			log.Debug("Failed to decode keystore key", "path", path, "err", err)

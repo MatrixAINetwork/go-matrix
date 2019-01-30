@@ -25,8 +25,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/matrix/go-matrix/base58"
-
 	"github.com/matrix/go-matrix/mandb"
 
 	"github.com/matrix/go-matrix/core/types"
@@ -49,7 +47,7 @@ func MakeWizard(network string) *wizard {
 }
 
 // makeGenesis creates a new genesis struct based on some user input.
-func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num uint64) {
+func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num uint64, electFlag bool) {
 	// Construct a default genesis block
 	var parentHeader, curHeader *types.Header
 	if num > 1 {
@@ -66,16 +64,16 @@ func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num ui
 		log.Error("get parent header err!")
 		return
 	}
-	genesis := &core.Genesis1{
+	genesis := &core.Genesis{
 		ParentHash:        parentHeader.Hash(),
-		Leader:            base58.Base58EncodeToString("MAN", common.HexToAddress("8111111111111111111111111111111111111111")),
+		Leader:            common.HexToAddress("8111111111111111111111111111111111111111"),
 		Mixhash:           parentHeader.MixDigest,
-		Coinbase:          base58.Base58EncodeToString("MAN", common.HexToAddress("8111111111111111111111111111111111111111")),
+		Coinbase:          common.HexToAddress("8111111111111111111111111111111111111111"),
 		Signatures:        make([]common.Signature, 0),
 		Timestamp:         uint64(time.Now().Unix()),
 		GasLimit:          parentHeader.GasLimit,
 		Difficulty:        parentHeader.Difficulty,
-		Alloc:             make(core.GenesisAlloc1),
+		Alloc:             make(core.GenesisAlloc),
 		ExtraData:         make([]byte, 8),
 		Version:           string(parentHeader.Version),
 		VersionSignatures: parentHeader.VersionSignatures,
@@ -94,30 +92,77 @@ func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num ui
 	binary.BigEndian.PutUint64(genesis.ExtraData, sbs)
 	fmt.Println("超级区块序号", sbs)
 	if curHeader != nil {
-		sliceElect := make([]common.Elect1, 0)
-		for _, elec := range curHeader.Elect {
-			tmp := new(common.Elect1)
-			tmp.Account = base58.Base58EncodeToString("MAN", elec.Account)
-			tmp.Stock = elec.Stock
-			tmp.Type = elec.Type
-			tmp.VIP = elec.VIP
-			sliceElect = append(sliceElect, *tmp)
+		if electFlag {
+			genesis.MState = new(core.GenesisMState)
+			stateDB, err := bc.StateAtBlockHash(curHeader.Hash())
+			if nil != err {
+				log.Error("Failed get stateDB", "err", err)
+				return
+			}
+			topology, elect, err := bc.GetGraphByState(stateDB)
+			if nil != err {
+				log.Error("Failed get graph", "err", err)
+				return
+			}
+			curElect := make([]core.GenesisElect, 0)
+			for _, v := range elect.ElectList {
+				curElect = append(curElect, core.GenesisElect{Account: core.GenesisAddress(v.Account), Stock: v.Stock, Type: common.ElectRoleType(v.Type), VIP: v.VIPLevel})
+			}
+			genesis.MState.CurElect = &curElect
+			genesis.NextElect = elect.TransferNextElect2CommonElect()
+
+			topologyData := make([]common.NetTopologyData, 0)
+			for _, v := range topology.NodeList {
+				topologyData = append(topologyData, common.NetTopologyData{Account: v.Account, Position: v.Position})
+			}
+			genesis.NetTopology.NetTopologyData = topologyData
+			genesis.NetTopology.Type = common.NetTopoTypeAll
+			//stateDB.RawAccount(common.ContractAddress)
+		} else {
+			genesis.NetTopology.NetTopologyData = curHeader.NetTopology.NetTopologyData
+			genesis.NetTopology.Type = curHeader.NetTopology.Type
+			genesis.NextElect = curHeader.Elect
 		}
-		genesis.NextElect = sliceElect
-		//NetTopology
-		sliceNetTopologyData := make([]common.NetTopologyData1, 0)
-		for _, netTopology := range curHeader.NetTopology.NetTopologyData {
-			tmp := new(common.NetTopologyData1)
-			tmp.Account = base58.Base58EncodeToString("MAN", netTopology.Account)
-			tmp.Position = netTopology.Position
-			sliceNetTopologyData = append(sliceNetTopologyData, *tmp)
-		}
-		genesis.NetTopology.NetTopologyData = sliceNetTopologyData
-		genesis.NetTopology.Type = curHeader.NetTopology.Type
 
 	} else {
-		genesis.NextElect = make([]common.Elect1, 0)
-		genesis.NetTopology = common.NetTopology1{Type: common.NetTopoTypeChange, NetTopologyData: make([]common.NetTopologyData1, 0)}
+		if electFlag {
+			genesis.MState = new(core.GenesisMState)
+			stateDB, err := bc.StateAtBlockHash(parentHeader.Hash())
+			if nil != err {
+				log.Error("Failed get stateDB", "err", err)
+				return
+			}
+			topology, elect, err := bc.GetGraphByState(stateDB)
+			if nil != err {
+				log.Error("Failed get graph", "err", err)
+				return
+			}
+			curElect := make([]core.GenesisElect, 0)
+			for _, v := range elect.ElectList {
+				curElect = append(curElect, core.GenesisElect{Account: core.GenesisAddress(v.Account), Stock: v.Stock, Type: common.ElectRoleType(v.Type), VIP: v.VIPLevel})
+			}
+			genesis.MState.CurElect = &curElect
+			genesis.NextElect = elect.TransferNextElect2CommonElect()
+
+			topologyData := make([]common.NetTopologyData, 0)
+			for _, v := range topology.NodeList {
+				topologyData = append(topologyData, common.NetTopologyData{Account: v.Account, Position: v.Position})
+			}
+			genesis.NetTopology.NetTopologyData = topologyData
+			genesis.NetTopology.Type = common.NetTopoTypeAll
+
+			//genesis.Alloc = make(map[common.Address]core.GenesisAccount)
+			//depositBalance := stateDB.GetBalance(common.ContractAddress)
+			//depositBalance := stateDB.sets(common.ContractAddress)
+
+			stateDB.RawAccount(common.ContractAddress)
+
+		} else {
+			genesis.NextElect = make([]common.Elect, 0)
+
+			genesis.NetTopology = common.NetTopology{Type: common.NetTopoTypeChange, NetTopologyData: make([]common.NetTopologyData, 0)}
+		}
+
 	}
 
 	// Figure out which consensus engine to choose

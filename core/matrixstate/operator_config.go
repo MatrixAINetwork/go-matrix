@@ -1,15 +1,11 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package matrixstate
 
 import (
-	"encoding/json"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/rlp"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -22,6 +18,10 @@ func newVersionInfoOpt() *operatorVersionInfo {
 	return &operatorVersionInfo{
 		key: types.RlpHash(matrixStatePrefix + mc.MSKeyVersionInfo),
 	}
+}
+
+func (opt *operatorVersionInfo) KeyHash() common.Hash {
+	return opt.key
 }
 
 func (opt *operatorVersionInfo) GetValue(st StateDB) (interface{}, error) {
@@ -57,6 +57,10 @@ func newInnerMinerAccountsOpt() *operatorInnerMinerAccounts {
 	return &operatorInnerMinerAccounts{
 		key: types.RlpHash(matrixStatePrefix + mc.MSKeyAccountInnerMiners),
 	}
+}
+
+func (opt *operatorInnerMinerAccounts) KeyHash() common.Hash {
+	return opt.key
 }
 
 func (opt *operatorInnerMinerAccounts) GetValue(st StateDB) (interface{}, error) {
@@ -107,6 +111,10 @@ func newFoundationAccountOpt() *operatorFoundationAccount {
 	}
 }
 
+func (opt *operatorFoundationAccount) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorFoundationAccount) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -153,6 +161,10 @@ func newVersionSuperAccountsOpt() *operatorVersionSuperAccounts {
 	return &operatorVersionSuperAccounts{
 		key: types.RlpHash(matrixStatePrefix + mc.MSKeyAccountVersionSupers),
 	}
+}
+
+func (opt *operatorVersionSuperAccounts) KeyHash() common.Hash {
+	return opt.key
 }
 
 func (opt *operatorVersionSuperAccounts) GetValue(st StateDB) (interface{}, error) {
@@ -207,6 +219,10 @@ func newBlockSuperAccountsOpt() *operatorBlockSuperAccounts {
 	}
 }
 
+func (opt *operatorBlockSuperAccounts) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorBlockSuperAccounts) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -248,6 +264,174 @@ func (opt *operatorBlockSuperAccounts) SetValue(st StateDB, value interface{}) e
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
+// 超级交易签名账户
+type operatorTxsSuperAccounts struct {
+	key common.Hash
+}
+
+func newTxsSuperAccountsOpt() *operatorTxsSuperAccounts {
+	return &operatorTxsSuperAccounts{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyAccountTxsSupers),
+	}
+}
+
+func (opt *operatorTxsSuperAccounts) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorTxsSuperAccounts) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return make([]common.Address, 0), nil
+	}
+	accounts, err := decodeAccounts(data)
+	if err != nil {
+		log.Error(logInfo, "TxsSuperAccounts decode failed", err)
+		return nil, err
+	}
+	return accounts, nil
+}
+
+func (opt *operatorTxsSuperAccounts) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	accounts, OK := value.([]common.Address)
+	if !OK {
+		log.Error(logInfo, "input param(TxsSuperAccounts) err", "reflect failed")
+		return ErrParamReflect
+	}
+	if len(accounts) == 0 {
+		log.Error(logInfo, "input param(TxsSuperAccounts) err", "accounts is empty")
+		return ErrParamReflect
+	}
+	data, err := encodeAccounts(accounts)
+	if err != nil {
+		log.Error(logInfo, "TxsSuperAccounts encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 多币种签名账户
+type operatorMultiCoinSuperAccounts struct {
+	key common.Hash
+}
+
+func newMultiCoinSuperAccountsOpt() *operatorMultiCoinSuperAccounts {
+	return &operatorMultiCoinSuperAccounts{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyAccountMultiCoinSupers),
+	}
+}
+
+func (opt *operatorMultiCoinSuperAccounts) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorMultiCoinSuperAccounts) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return make([]common.Address, 0), nil
+	}
+	accounts, err := decodeAccounts(data)
+	if err != nil {
+		log.Error(logInfo, "MultiCoinSupers decode failed", err)
+		return nil, err
+	}
+	return accounts, nil
+}
+
+func (opt *operatorMultiCoinSuperAccounts) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	accounts, OK := value.([]common.Address)
+	if !OK {
+		log.Error(logInfo, "input param(MultiCoinSupers) err", "reflect failed")
+		return ErrParamReflect
+	}
+	if len(accounts) == 0 {
+		log.Error(logInfo, "input param(MultiCoinSupers) err", "accounts is empty")
+		return ErrParamReflect
+	}
+	data, err := encodeAccounts(accounts)
+	if err != nil {
+		log.Error(logInfo, "MultiCoinSupers encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 子链签名账户
+type operatorSubChainSuperAccounts struct {
+	key common.Hash
+}
+
+func newSubChainSuperAccountsOpt() *operatorSubChainSuperAccounts {
+	return &operatorSubChainSuperAccounts{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyAccountSubChainSupers),
+	}
+}
+
+func (opt *operatorSubChainSuperAccounts) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorSubChainSuperAccounts) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return make([]common.Address, 0), nil
+	}
+	accounts, err := decodeAccounts(data)
+	if err != nil {
+		log.Error(logInfo, "SubChainSupers decode failed", err)
+		return nil, err
+	}
+	return accounts, nil
+}
+
+func (opt *operatorSubChainSuperAccounts) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	accounts, OK := value.([]common.Address)
+	if !OK {
+		log.Error(logInfo, "input param(SubChainSupers) err", "reflect failed")
+		return ErrParamReflect
+	}
+	if len(accounts) == 0 {
+		log.Error(logInfo, "input param(SubChainSupers) err", "accounts is empty")
+		return ErrParamReflect
+	}
+	data, err := encodeAccounts(accounts)
+	if err != nil {
+		log.Error(logInfo, "SubChainSupers encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
 // leader服务配置信息
 type operatorLeaderConfig struct {
 	key common.Hash
@@ -257,6 +441,10 @@ func newLeaderConfigOpt() *operatorLeaderConfig {
 	return &operatorLeaderConfig{
 		key: types.RlpHash(matrixStatePrefix + mc.MSKeyLeaderConfig),
 	}
+}
+
+func (opt *operatorLeaderConfig) KeyHash() common.Hash {
+	return opt.key
 }
 
 func (opt *operatorLeaderConfig) GetValue(st StateDB) (interface{}, error) {
@@ -271,9 +459,9 @@ func (opt *operatorLeaderConfig) GetValue(st StateDB) (interface{}, error) {
 	}
 
 	value := new(mc.LeaderConfig)
-	err := json.Unmarshal(data, &value)
+	err := rlp.DecodeBytes(data, &value)
 	if err != nil {
-		log.Error(logInfo, "leaderConfig unmarshal failed", err)
+		log.Error(logInfo, "leaderConfig rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -284,14 +472,9 @@ func (opt *operatorLeaderConfig) SetValue(st StateDB, value interface{}) error {
 		return err
 	}
 
-	roots, OK := value.(*mc.LeaderConfig)
-	if !OK {
-		log.Error(logInfo, "input param(preBroadcastRoot) err", "reflect failed")
-		return ErrParamReflect
-	}
-	data, err := json.Marshal(roots)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "preBroadcastRoot marshal failed", err)
+		log.Error(logInfo, "leaderConfig rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -310,6 +493,10 @@ func newMinHashOpt() *operatorMinHash {
 	}
 }
 
+func (opt *operatorMinHash) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorMinHash) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -321,9 +508,9 @@ func (opt *operatorMinHash) GetValue(st StateDB) (interface{}, error) {
 		return value, nil
 	}
 
-	err := json.Unmarshal(data, &value)
+	err := rlp.DecodeBytes(data, &value)
 	if err != nil {
-		log.Error(logInfo, "minHash unmarshal failed", err)
+		log.Error(logInfo, "minHash rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -334,14 +521,9 @@ func (opt *operatorMinHash) SetValue(st StateDB, value interface{}) error {
 		return err
 	}
 
-	info, OK := value.(*mc.RandomInfoStruct)
-	if !OK {
-		log.Error(logInfo, "input param(minHash) err", "reflect failed")
-		return ErrParamReflect
-	}
-	data, err := json.Marshal(info)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "minHash marshal failed", err)
+		log.Error(logInfo, "minHash rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -360,6 +542,10 @@ func newSuperBlockCfgOpt() *operatorSuperBlockCfg {
 	}
 }
 
+func (opt *operatorSuperBlockCfg) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorSuperBlockCfg) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -371,9 +557,9 @@ func (opt *operatorSuperBlockCfg) GetValue(st StateDB) (interface{}, error) {
 	}
 
 	value := new(mc.SuperBlkCfg)
-	err := json.Unmarshal(data, &value)
+	err := rlp.DecodeBytes(data, &value)
 	if err != nil {
-		log.Error(logInfo, "superBlkCfg unmarshal failed", err)
+		log.Error(logInfo, "superBlkCfg rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -384,14 +570,9 @@ func (opt *operatorSuperBlockCfg) SetValue(st StateDB, value interface{}) error 
 		return err
 	}
 
-	cfg, OK := value.(*mc.SuperBlkCfg)
-	if !OK {
-		log.Error(logInfo, "input param(superBlkCfg) err", "reflect failed")
-		return ErrParamReflect
-	}
-	data, err := json.Marshal(cfg)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "superBlkCfg marshal failed", err)
+		log.Error(logInfo, "superBlkCfg rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)

@@ -1,15 +1,11 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package matrixstate
 
 import (
-	"encoding/json"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core/types"
 	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mc"
+	"github.com/matrix/go-matrix/rlp"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -24,18 +20,23 @@ func newBroadcastTxOpt() *operatorBroadcastTx {
 	}
 }
 
+func (opt *operatorBroadcastTx) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorBroadcastTx) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
 	}
 
-	value := make(map[string]map[common.Address][]byte)
+	//value := make(map[string]map[common.Address][]byte)
+	value := make(common.BroadTxSlice, 0)
 	data := st.GetMatrixData(opt.key)
 	if len(data) == 0 {
 		return value, nil
 	}
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "broadcastTx unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "broadcastTx rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -46,14 +47,15 @@ func (opt *operatorBroadcastTx) SetValue(st StateDB, value interface{}) error {
 		return err
 	}
 
-	txs, OK := value.(map[string]map[common.Address][]byte)
+	//txs, OK := value.(map[string]map[common.Address][]byte)
+	txs, OK := value.(common.BroadTxSlice)
 	if !OK {
 		log.Error(logInfo, "input param(broadcastTx) err", "reflect failed")
 		return ErrParamReflect
 	}
-	data, err := json.Marshal(txs)
+	data, err := rlp.EncodeToBytes(txs)
 	if err != nil {
-		log.Error(logInfo, "broadcastTx marshal failed", err)
+		log.Error(logInfo, "broadcastTx rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -72,6 +74,10 @@ func newBroadcastIntervalOpt() *operatorBroadcastInterval {
 	}
 }
 
+func (opt *operatorBroadcastInterval) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorBroadcastInterval) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -83,8 +89,8 @@ func (opt *operatorBroadcastInterval) GetValue(st StateDB) (interface{}, error) 
 		return nil, ErrDataEmpty
 	}
 	value := new(mc.BCIntervalInfo)
-	if err := json.Unmarshal(data, &value); err != nil {
-		log.Error(logInfo, "broadcastInterval unmarshal failed", err)
+	if err := rlp.DecodeBytes(data, &value); err != nil {
+		log.Error(logInfo, "broadcastInterval rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -95,18 +101,9 @@ func (opt *operatorBroadcastInterval) SetValue(st StateDB, value interface{}) er
 		return err
 	}
 
-	interval, OK := value.(*mc.BCIntervalInfo)
-	if !OK {
-		log.Error(logInfo, "input param(broadcastInterval) err", "reflect failed")
-		return ErrParamReflect
-	}
-	if interval == nil {
-		log.Error(logInfo, "input param(broadcastInterval) err", "is nil")
-		return ErrParamNil
-	}
-	data, err := json.Marshal(interval)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "broadcastInterval marshal failed", err)
+		log.Error(logInfo, "broadcastInterval rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
@@ -115,75 +112,21 @@ func (opt *operatorBroadcastInterval) SetValue(st StateDB, value interface{}) er
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // 广播账户
-type operatorBroadcastAccount struct {
+type operatorBroadcastAccounts struct {
 	key common.Hash
 }
 
-func newBroadcastAccountOpt() *operatorBroadcastAccount {
-	return &operatorBroadcastAccount{
-		key: types.RlpHash(matrixStatePrefix + mc.OldMSKeyAccountBroadcast),
-	}
-}
-
-func (opt *operatorBroadcastAccount) GetValue(st StateDB) (interface{}, error) {
-	if err := checkStateDB(st); err != nil {
-		return nil, err
-	}
-
-	data := st.GetMatrixData(opt.key)
-	if len(data) == 0 {
-		// 广播账户数据不可为空
-		log.Error(logInfo, "broadcastAccount data", "is empty")
-		return nil, ErrDataEmpty
-	}
-	account, err := decodeAccount(data)
-	if err != nil {
-		log.Error(logInfo, "broadcastAccount decode failed", err)
-		return nil, err
-	}
-	if account == (common.Address{}) {
-		log.Error(logInfo, "broadcastAccount", "is empty account")
-		return nil, ErrAccountNil
-	}
-	return account, nil
-}
-
-func (opt *operatorBroadcastAccount) SetValue(st StateDB, value interface{}) error {
-	if err := checkStateDB(st); err != nil {
-		return err
-	}
-	account, OK := value.(common.Address)
-	if !OK {
-		log.Error(logInfo, "input param(broadcastAccount) err", "reflect failed")
-		return ErrParamReflect
-	}
-	if account == (common.Address{}) {
-		log.Error(logInfo, "input param(broadcastAccount) err", "account is empty account")
-		return ErrAccountNil
-	}
-
-	data, err := encodeAccount(account)
-	if err != nil {
-		log.Error(logInfo, "broadcastAccount encode failed", err)
-		return err
-	}
-	st.SetMatrixData(opt.key, data)
-	return nil
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// 广播账户新版
-type operatorBroadcastAccountV2 struct {
-	key common.Hash
-}
-
-func newBroadcastAccountOptV2() *operatorBroadcastAccountV2 {
-	return &operatorBroadcastAccountV2{
+func newBroadcastAccountsOpt() *operatorBroadcastAccounts {
+	return &operatorBroadcastAccounts{
 		key: types.RlpHash(matrixStatePrefix + mc.MSKeyAccountBroadcasts),
 	}
 }
 
-func (opt *operatorBroadcastAccountV2) GetValue(st StateDB) (interface{}, error) {
+func (opt *operatorBroadcastAccounts) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorBroadcastAccounts) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
 	}
@@ -206,7 +149,7 @@ func (opt *operatorBroadcastAccountV2) GetValue(st StateDB) (interface{}, error)
 	return accounts, nil
 }
 
-func (opt *operatorBroadcastAccountV2) SetValue(st StateDB, value interface{}) error {
+func (opt *operatorBroadcastAccounts) SetValue(st StateDB, value interface{}) error {
 	if err := checkStateDB(st); err != nil {
 		return err
 	}
@@ -241,6 +184,10 @@ func newPreBroadcastRootOpt() *operatorPreBroadcastRoot {
 	}
 }
 
+func (opt *operatorPreBroadcastRoot) KeyHash() common.Hash {
+	return opt.key
+}
+
 func (opt *operatorPreBroadcastRoot) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
 		return nil, err
@@ -252,9 +199,9 @@ func (opt *operatorPreBroadcastRoot) GetValue(st StateDB) (interface{}, error) {
 		return value, nil
 	}
 
-	err := json.Unmarshal(data, &value)
+	err := rlp.DecodeBytes(data, &value)
 	if err != nil {
-		log.Error(logInfo, "preBroadcastRoot unmarshal failed", err)
+		log.Error(logInfo, "preBroadcastRoot rlp decode failed", err)
 		return nil, err
 	}
 	return value, nil
@@ -265,14 +212,9 @@ func (opt *operatorPreBroadcastRoot) SetValue(st StateDB, value interface{}) err
 		return err
 	}
 
-	roots, OK := value.(*mc.PreBroadStateRoot)
-	if !OK {
-		log.Error(logInfo, "input param(preBroadcastRoot) err", "reflect failed")
-		return ErrParamReflect
-	}
-	data, err := json.Marshal(roots)
+	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
-		log.Error(logInfo, "preBroadcastRoot marshal failed", err)
+		log.Error(logInfo, "preBroadcastRoot rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)

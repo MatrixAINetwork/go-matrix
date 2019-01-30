@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -15,9 +15,10 @@ import (
 
 	"bytes"
 
+	"unicode"
+
 	"github.com/matrix/go-matrix/common/hexutil"
 	"github.com/matrix/go-matrix/crypto/sha3"
-	"unicode"
 )
 
 const (
@@ -100,7 +101,7 @@ func (h Hash) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(h[:]).MarshalText()
 }
 
-// Sets the hash to the value of b. If b is larger than len(h), 'b' will be cropped (from the left).
+// Sets the hash to the Value of b. If b is larger than len(h), 'b' will be cropped (from the left).
 func (h *Hash) SetBytes(b []byte) {
 	if len(b) > len(h) {
 		b = b[len(b)-HashLength:]
@@ -151,7 +152,7 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 
 /////////// Address
 
-// Address represents the 20 byte address of an Matrix account.
+// Address represents the 20 byte Address of an Matrix account.
 type Address [AddressLength]byte
 
 func BytesToAddress(b []byte) Address {
@@ -168,7 +169,7 @@ func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
 func HexToAddress(s string) Address   { return BytesToAddress(FromHex(s)) }
 
 // IsHexAddress verifies whether a string can represent a valid hex-encoded
-// Matrix address or not.
+// Matrix Address or not.
 func IsHexAddress(s string) bool {
 	if hasHexPrefix(s) {
 		s = s[2:]
@@ -176,7 +177,7 @@ func IsHexAddress(s string) bool {
 	return len(s) == 2*AddressLength && isHex(s)
 }
 
-// Get the string representation of the underlying address
+// Get the string representation of the underlying Address
 func (a Address) Str() string   { return string(a[:]) }
 func (a Address) Bytes() []byte { return a[:] }
 func (a Address) Big() *big.Int { return new(big.Int).SetBytes(a[:]) }
@@ -186,7 +187,7 @@ func (a Address) Equal(other Address) bool {
 	return bytes.Equal(a[:], other[:])
 }
 
-// Hex returns an EIP55-compliant hex string representation of the address.
+// Hex returns an EIP55-compliant hex string representation of the Address.
 func (a Address) Hex() string {
 	unchecksummed := hex.EncodeToString(a[:])
 	sha := sha3.NewKeccak256()
@@ -219,7 +220,7 @@ func (a Address) Format(s fmt.State, c rune) {
 	fmt.Fprintf(s, "%"+string(c), a[:])
 }
 
-// Sets the address to the value of b. If b is larger than len(a) it will panic
+// Sets the Address to the Value of b. If b is larger than len(a) it will panic
 func (a *Address) SetBytes(b []byte) {
 	if len(b) > len(a) {
 		b = b[len(b)-AddressLength:]
@@ -255,12 +256,12 @@ func (a *Address) UnmarshalJSON(input []byte) error {
 // UnprefixedHash allows marshaling an Address without 0x prefix.
 type UnprefixedAddress Address
 
-// UnmarshalText decodes the address from hex. The 0x prefix is optional.
+// UnmarshalText decodes the Address from hex. The 0x prefix is optional.
 func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedUnprefixedText("UnprefixedAddress", input, a[:])
 }
 
-// MarshalText encodes the address as hex.
+// MarshalText encodes the Address as hex.
 func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(a[:])), nil
 }
@@ -280,7 +281,7 @@ func NewMixedcaseAddress(addr Address) MixedcaseAddress {
 // NewMixedcaseAddressFromString is mainly meant for unit-testing
 func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
 	if !IsHexAddress(hexaddr) {
-		return nil, fmt.Errorf("Invalid address")
+		return nil, fmt.Errorf("Invalid Address")
 	}
 	a := FromHex(hexaddr)
 	return &MixedcaseAddress{addr: BytesToAddress(a), original: hexaddr}, nil
@@ -294,7 +295,7 @@ func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
 	return json.Unmarshal(input, &ma.original)
 }
 
-// MarshalJSON marshals the original value
+// MarshalJSON marshals the original Value
 func (ma *MixedcaseAddress) MarshalJSON() ([]byte, error) {
 	if strings.HasPrefix(ma.original, "0x") || strings.HasPrefix(ma.original, "0X") {
 		return json.Marshal(fmt.Sprintf("0x%s", ma.original[2:]))
@@ -302,7 +303,7 @@ func (ma *MixedcaseAddress) MarshalJSON() ([]byte, error) {
 	return json.Marshal(fmt.Sprintf("0x%s", ma.original))
 }
 
-// Address returns the address
+// Address returns the Address
 func (ma *MixedcaseAddress) Address() Address {
 	return ma.addr
 }
@@ -315,7 +316,7 @@ func (ma *MixedcaseAddress) String() string {
 	return fmt.Sprintf("%s [chksum INVALID]", ma.original)
 }
 
-// ValidChecksum returns true if the address has valid checksum
+// ValidChecksum returns true if the Address has valid checksum
 func (ma *MixedcaseAddress) ValidChecksum() bool {
 	return ma.original == ma.addr.Hex()
 }
@@ -462,7 +463,10 @@ const (
 	ExtraSuperBlockTx  byte = 120 //超级区块交易
 )
 
-var WhiteAddrlist = [1]Address{InterestRewardAddress}
+var (
+	WhiteAddrlist = [1]Address{InterestRewardAddress}
+	RewardAccounts = [5]Address{BlkMinerRewardAddress,BlkValidatorRewardAddress,TxGasRewardAddress,LotteryRewardAddress,InterestRewardAddress}
+)
 
 const (
 	RewardNomalType   byte = 0 //奖励通过普通交易发放
@@ -514,27 +518,27 @@ type AuthType struct {
 }
 
 type BroadTxkey struct {
-	key     string
-	address Address
+	Key     string
+	Address Address
 }
 type BroadTxValue struct {
-	key   BroadTxkey
-	value []byte
+	Key   BroadTxkey
+	Value []byte
 }
 
 func Greater(a, b BroadTxkey) bool {
-	if a.key > b.key {
+	if a.Key > b.Key {
 		return true
-	} else if a.key == b.key {
-		return bytes.Compare(a.address[:], b.address[:]) > 0
+	} else if a.Key == b.Key {
+		return bytes.Compare(a.Address[:], b.Address[:]) > 0
 	}
 	return false
 }
 func Less(a, b BroadTxkey) bool {
-	if a.key < b.key {
+	if a.Key < b.Key {
 		return true
-	} else if a.key == b.key {
-		return bytes.Compare(a.address[:], b.address[:]) < 0
+	} else if a.Key == b.Key {
+		return bytes.Compare(a.Address[:], b.Address[:]) < 0
 	}
 	return false
 }
@@ -543,7 +547,7 @@ type BroadTxSlice []BroadTxValue
 
 func (si *BroadTxSlice) Insert(key string, address Address, value []byte) {
 	insValue := BroadTxValue{BroadTxkey{key, address}, value}
-	index, exist := find(insValue.key, si)
+	index, exist := find(insValue.Key, si)
 	if exist {
 		(*si)[index] = insValue
 	} else {
@@ -553,8 +557,8 @@ func (si *BroadTxSlice) Insert(key string, address Address, value []byte) {
 func (si *BroadTxSlice) FindKey(key string) map[Address][]byte {
 	firstKey := BroadTxkey{key, Address{}}
 	endKey := BroadTxkey{key, Address{}}
-	for i := 0; i < len(endKey.address); i++ {
-		endKey.address[i] = 0xff
+	for i := 0; i < len(endKey.Address); i++ {
+		endKey.Address[i] = 0xff
 	}
 	first, exist := find(firstKey, si)
 	last, exist1 := find(endKey, si)
@@ -566,14 +570,14 @@ func (si *BroadTxSlice) FindKey(key string) map[Address][]byte {
 	}
 	valueMap := make(map[Address][]byte, last-first)
 	for ; first < last; first++ {
-		valueMap[(*si)[first].key.address] = (*si)[first].value
+		valueMap[(*si)[first].Key.Address] = (*si)[first].Value
 	}
 	return valueMap
 }
 func (si *BroadTxSlice) FindValue(key string, address Address) ([]byte, bool) {
 	index, exist := find(BroadTxkey{key, address}, si)
 	if exist {
-		return (*si)[index].value, true
+		return (*si)[index].Value, true
 	} else {
 		return nil, false
 	}
@@ -585,9 +589,9 @@ func find(k BroadTxkey, info *BroadTxSlice) (int, bool) {
 	}
 	for {
 		mid = (left + right) / 2
-		if Greater((*info)[mid].key, k) {
+		if Greater((*info)[mid].Key, k) {
 			right = mid - 1
-		} else if Less((*info)[mid].key, k) {
+		} else if Less((*info)[mid].Key, k) {
 			left = mid + 1
 		} else {
 			return mid, true
@@ -625,6 +629,24 @@ func IsValidityCurrency(s string) bool {
 	}
 	if strings.Contains(s, "MAN") {
 		return false
+	}
+	return true
+}
+
+//长度为3-8位,不能有小写字母，不能有特殊字符，不能有数字
+func IsValidityManCurrency(s string) bool {
+	if len(s) < 3 || len(s) > 8 {
+		return false
+	}
+
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if !unicode.IsLetter(int32(ch)) {
+			return false
+		}
+		if !unicode.IsUpper(int32(ch)) {
+			return false
+		}
 	}
 	return true
 }

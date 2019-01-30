@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 // +build amd64,!generic arm64,!generic
 
 package bn256
@@ -9,6 +6,13 @@ package bn256
 // assembly implementations of these functions, provided that they exist.
 
 // go:noescape
+import (
+	"golang.org/x/sys/cpu"
+)
+
+//nolint:varcheck
+var hasBMI2 = cpu.X86.HasBMI2
+
 func gfpNeg(c, a *gfP)
 
 //go:noescape

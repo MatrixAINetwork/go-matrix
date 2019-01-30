@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
@@ -79,9 +79,6 @@ func (cm *ControllerManager) fixCtrlMap() {
 	if len(cm.ctrlMap) == 0 {
 		return
 	}
-
-	log.Trace(cm.logInfo, "ctrlManager 开始修正map, controller数量", len(cm.ctrlMap), "修正高度", cm.curNumber)
-
 	delKeys := make([]uint64, 0)
 	for key, ctrl := range cm.ctrlMap {
 		if err := cm.isLegalNumber(key); err != nil {
@@ -89,12 +86,9 @@ func (cm *ControllerManager) fixCtrlMap() {
 			delKeys = append(delKeys, key)
 		}
 	}
-
 	for _, delKey := range delKeys {
 		delete(cm.ctrlMap, delKey)
 	}
-
-	log.Trace(cm.logInfo, "ctrlManager 结束修正map, controller数量", len(cm.ctrlMap))
 }
 
 func (cm *ControllerManager) isLegalNumber(number uint64) error {
@@ -110,7 +104,6 @@ func (cm *ControllerManager) isLegalNumber(number uint64) error {
 func (cm *ControllerManager) getController(number uint64) *controller {
 	ctrl, OK := cm.ctrlMap[number]
 	if OK == false {
-		log.Trace(cm.logInfo, "ctrlManager 创建controller，高度", number)
 		ctrl = newController(cm.matrix, cm.logInfo, number)
 		cm.ctrlMap[number] = ctrl
 	}

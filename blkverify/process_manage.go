@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
@@ -14,7 +14,6 @@ import (
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/core"
 	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
 	"github.com/matrix/go-matrix/mandb"
 	"github.com/matrix/go-matrix/msgsend"
 	"github.com/matrix/go-matrix/reelection"
@@ -112,8 +111,6 @@ func (pm *ProcessManage) fixProcessMap() {
 		return
 	}
 
-	log.INFO(pm.logExtraInfo(), "PM 开始修正map, process数量", len(pm.processMap), "修复高度", pm.curNumber)
-
 	delKeys := make([]uint64, 0)
 	for key, process := range pm.processMap {
 		if key < pm.curNumber {
@@ -125,20 +122,15 @@ func (pm *ProcessManage) fixProcessMap() {
 	for _, delKey := range delKeys {
 		delete(pm.processMap, delKey)
 	}
-
-	log.INFO(pm.logExtraInfo(), "PM 结束修正map, process数量", len(pm.processMap))
 }
 
 func (pm *ProcessManage) clearProcessMap() {
 	if pm.curNumber == 0 {
 		return
 	}
-
 	if len(pm.processMap) == 0 {
 		return
 	}
-
-	log.INFO(pm.logExtraInfo(), "超级区块：PM 开始删除map, process数量", len(pm.processMap), "修复高度", pm.curNumber)
 
 	delKeys := make([]uint64, 0)
 	for key, process := range pm.processMap {
@@ -149,8 +141,6 @@ func (pm *ProcessManage) clearProcessMap() {
 	for _, delKey := range delKeys {
 		delete(pm.processMap, delKey)
 	}
-
-	log.INFO(pm.logExtraInfo(), "超级区块：PM 结束删除map, process数量", len(pm.processMap))
 }
 
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
@@ -168,7 +158,6 @@ func (pm *ProcessManage) isLegalNumber(number uint64) error {
 func (pm *ProcessManage) getProcess(number uint64) *Process {
 	process, OK := pm.processMap[number]
 	if OK == false {
-		log.INFO(pm.logExtraInfo(), "PM 创建process，高度", number)
 		process = newProcess(number, pm)
 		pm.processMap[number] = process
 	}

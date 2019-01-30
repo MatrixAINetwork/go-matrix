@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -336,7 +336,7 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, tx types.SelfTransact
 	var signer types.Signer
 	if chainID == nil {
 		//signer = new(types.HomesteadSigner)
-		signer = types.NewEIP155Signer(chainID) //YYY
+		signer = types.NewEIP155Signer(chainID) //Y
 	} else {
 		signer = types.NewEIP155Signer(chainID)
 		signature[64] = signature[64] - byte(chainID.Uint64()*2+35)

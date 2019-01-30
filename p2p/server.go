@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -36,8 +36,6 @@ const (
 
 	// Maximum amount of time allowed for writing a complete message.
 	frameWriteTimeout = 20 * time.Second
-
-	defaultPort uint16 = 50505
 )
 
 var errServerStopped = errors.New("server stopped")
@@ -135,7 +133,6 @@ type Config struct {
 	NetWorkId uint64
 
 	// ManAddress
-	ManAddrStr string
 	ManAddress common.Address
 	Signature  common.Signature
 	SignTime   time.Time
@@ -273,22 +270,24 @@ func (srv *Server) Peers() []*Peer {
 	return ps
 }
 
+func (srv *Server) AddressTable() map[common.Address]*discover.Node {
+	return srv.ntab.GetAllAddress()
+}
+
 func (srv *Server) ConvertAddressToId(addr common.Address) discover.NodeID {
-	bindAddress := srv.ntab.GetAllAddress()
-	if node, ok := bindAddress[addr]; ok {
+	node := srv.ntab.ResolveNode(addr, EmptyNodeId)
+	if node != nil {
 		return node.ID
 	}
-	return discover.NodeID{}
+	return EmptyNodeId
 }
 
 func (srv *Server) ConvertIdToAddress(id discover.NodeID) common.Address {
-	bindAddress := srv.ntab.GetAllAddress()
-	for _, node := range bindAddress {
-		if node.ID == id {
-			return node.Address
-		}
+	node := srv.ntab.ResolveNode(EmptyAddress, id)
+	if node != nil {
+		return node.Address
 	}
-	return common.Address{}
+	return EmptyAddress
 }
 
 // PeerCount returns the number of connected peers.
@@ -319,6 +318,7 @@ func (srv *Server) AddPeerByAddress(addr common.Address) {
 	srv.log.Info("add peer by address into task", "addr", addr.Hex())
 	node := srv.ntab.GetNodeByAddress(addr)
 	if node == nil {
+		srv.CouTask(addr)
 		srv.log.Error("add peer by address failed, node info not found", "addr", addr.Hex())
 		return
 	}
@@ -344,14 +344,13 @@ func (srv *Server) RemovePeer(node *discover.Node) {
 
 func (srv *Server) RemovePeerByAddress(addr common.Address) {
 	srv.DelTasks(addr)
-	val, ok := srv.ntab.GetAllAddress()[addr]
-	if !ok {
+
+	node := srv.ntab.ResolveNode(addr, EmptyNodeId)
+	if node != nil {
+		srv.RemovePeer(node)
 		return
 	}
-	select {
-	case srv.removestatic <- val:
-	case <-srv.quit:
-	}
+	srv.log.Info("can not found node info and remove from table", "addr", addr)
 }
 
 // SubscribePeers subscribes the given channel to peer events
@@ -502,7 +501,7 @@ func (srv *Server) Start() (err error) {
 	//	sconn = &sharedUDPConn{conn, unhandled}
 	//}
 
-	srv.log.Info("server start info", "man address", srv.ManAddress, "signature", srv.Signature)
+	srv.log.Info("server start info", "man address", srv.ManAddress, "signature", srv.Signature, "time", srv.SignTime)
 
 	// node table
 	if !srv.NoDiscovery {
@@ -516,7 +515,7 @@ func (srv *Server) Start() (err error) {
 			NetWorkId:    srv.NetWorkId,
 			Address:      srv.ManAddress,
 			Signature:    srv.Signature,
-			SignTime:     srv.SignTime,
+			SignTime:     uint64(srv.SignTime.Unix()),
 		}
 		ntab, err := discover.ListenUDP(conn, cfg)
 		if err != nil {
@@ -736,6 +735,8 @@ running:
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			pd.log.Debug("Removing p2p peer", "duration", d, "peers", len(peers)-1, "req", pd.requested, "err", pd.err)
 			delete(peers, pd.ID())
+			// delete each peers
+			dialstate.removeStatic(discover.NewNode(pd.ID(), net.IP{}, 0, 0))
 			if pd.Inbound() {
 				inboundCount--
 			}
@@ -1072,5 +1073,14 @@ func (srv *Server) AddTasks(addr common.Address) {
 func (srv *Server) DelTasks(addr common.Address) {
 	srv.taskLock.Lock()
 	delete(srv.tasks, addr)
+	srv.taskLock.Unlock()
+}
+
+func (srv *Server) CouTask(addr common.Address) {
+	srv.taskLock.Lock()
+	srv.tasks[addr] = srv.tasks[addr] + 1
+	if srv.tasks[addr] > 30 {
+		delete(srv.tasks, addr)
+	}
 	srv.taskLock.Unlock()
 }

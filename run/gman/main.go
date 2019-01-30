@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -73,15 +73,15 @@ var (
 		utils.ManashDatasetsInMemoryFlag,
 		utils.ManashDatasetsOnDiskFlag,
 		utils.TxPoolNoLocalsFlag,
-		//utils.TxPoolJournalFlag, //YYY
+		//utils.TxPoolJournalFlag, //Y
 		//utils.TxPoolRejournalFlag,
 		utils.TxPoolPriceLimitFlag,
-		//utils.TxPoolPriceBumpFlag,//YYY
+		//utils.TxPoolPriceBumpFlag,//Y
 		utils.TxPoolAccountSlotsFlag,
 		utils.TxPoolGlobalSlotsFlag,
 		utils.TxPoolAccountQueueFlag,
 		utils.TxPoolGlobalQueueFlag,
-		//utils.TxPoolLifetimeFlag,//YYY
+		//utils.TxPoolLifetimeFlag,//Y
 		utils.FastSyncFlag,
 		utils.LightModeFlag,
 		utils.SyncModeFlag,
@@ -125,6 +125,13 @@ var (
 		configFileFlag,
 		utils.GetCommitFlag,
 		utils.ManAddressFlag,
+		utils.SuperBlockElectGenFlag,
+		utils.SynSnapshootNumFlg,
+		utils.SynSnapshootHashFlg,
+		utils.SaveSnapStartFlg,
+		utils.SaveSnapPeriodFlg,
+		utils.SnapModeFlg,
+		utils.GetGenesisFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -148,8 +155,6 @@ func init() {
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2013-2018 The go-matrix Authors"
 	app.Commands = []cli.Command{
-		// See signcmd.go
-		signatureCommand,
 		// See chaincmd.go:
 		initCommand,
 		importCommand,
@@ -230,6 +235,7 @@ func main() {
 func gman(ctx *cli.Context) error {
 	node := makeFullNode(ctx)
 	startNode(ctx, node)
+	fmt.Println("Congratulations! Your Matrix Masternode has been successfully deployed and is already hard at work! Thank you for supporting the Matrix AI Network!")
 	node.Wait()
 	return nil
 }
@@ -310,10 +316,6 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 		utils.Fatalf("Matrix service not running :%v", err)
 	}
 	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
-	//log.INFO("BoradCastNode", "data", manparams.BroadCastNodes)
-	log.Info("main", "nodeid", stack.Server().Self().ID.String())
-	log.INFO("创世文件选举信息", "data", matrix.BlockChain().GetBlockByNumber(0).Header().Elect)
-	log.INFO("创世文件拓扑图", "data", matrix.BlockChain().GetBlockByNumber(0).Header().NetTopology)
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {

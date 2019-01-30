@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderreward
 
 import (
@@ -33,6 +30,6 @@ func (lr *LeaderReward) SetLeaderRewards(reward *big.Int, Leader common.Address,
 	}
 	rewards := make(map[common.Address]*big.Int)
 	rewards[Leader] = reward
-	log.Debug(PackageName, "leader 奖励地址", Leader, "奖励金额", reward)
+	//log.Debug(PackageName, "leader 奖励地址", Leader, "奖励金额", reward)
 	return rewards
 }

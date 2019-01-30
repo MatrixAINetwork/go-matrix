@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package vrf
@@ -44,7 +44,7 @@ func (self *vrfWithHash) verifyVrf(pk *ecdsa.PublicKey, prevVrf, newVrf, proof [
 	return nil
 }
 
-func (self *vrfWithHash) VerifyVrf(header *types.Header, preHeader *types.Header, signAccount common.Address) error {
+func (self *vrfWithHash) DecodeVrf(header *types.Header, preHeader *types.Header) (common.Address, error) {
 	log.INFO("vrf", "len header.VrfValue", len(header.VrfValue), "data", header.VrfValue, "高度", header.Number.Uint64())
 	account, _, _ := self.GetVrfInfoFromHeader(header.VrfValue)
 
@@ -55,7 +55,7 @@ func (self *vrfWithHash) VerifyVrf(header *types.Header, preHeader *types.Header
 	pk1, err := btcec.ParsePubKey(public, curve)
 	if err != nil {
 		log.Error("vrf转换失败", "err", err, "account", account, "len", len(account))
-		return err
+		return common.Address{}, err
 	}
 
 	pk1_1 := (*ecdsa.PublicKey)(pk1)
@@ -72,22 +72,18 @@ func (self *vrfWithHash) VerifyVrf(header *types.Header, preHeader *types.Header
 	preVrfMsg, err := json.Marshal(preMsg)
 	if err != nil {
 		log.Error("vrf", "生成vefmsg出错", err, "parentMsg", preVrfMsg)
-		return errors.New("生成vrfmsg出错")
+		return common.Address{}, errors.New("生成vrfmsg出错")
 	} else {
 		log.Error("生成vrfmsg成功")
 	}
 	//log.Info("msgggggvrf_verify","preVrfMsg",preVrfMsg,"高度",header.Number.Uint64(),"VrfProof",preMsg.VrfProof,"VrfValue",preMsg.VrfValue,"Hash",preMsg.Hash)
 	if err := self.verifyVrf(pk1_1, preVrfMsg, vrfValue, vrfProof); err != nil {
 		log.Error("vrf verify ", "err", err)
-		return err
+		return common.Address{}, err
 	}
 
 	ans := crypto.PubkeyToAddress(*pk1_1)
-	if ans.Equal(signAccount) {
-		log.Error("vrf leader comparre", "与leader不匹配", "nil")
-		return nil
-	}
-	return errors.New("公钥与leader账户不匹配")
+	return ans, nil
 }
 
 func (self *vrfWithHash) GetHeaderVrf(account []byte, vrfvalue []byte, vrfproof []byte) []byte {

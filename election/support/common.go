@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package support
@@ -217,7 +217,7 @@ func ToPoUpdate(allNative AllNative, topoG *mc.TopologyGraph) []mc.Alternative {
 		k := common.GeneratePosition(uint16(index), common.ElectRoleValidatorBackUp)
 		//fmt.Println("222222222---k",k)
 		if KInTop(k, topoG) == false {
-			fmt.Println("二级 该点不在顶层内", "不处理")
+			log.Trace(ModuleLogName, "二级 该点不在顶层内", "不处理")
 			continue
 		}
 		if _, ok := mapBackup[k]; ok == false {

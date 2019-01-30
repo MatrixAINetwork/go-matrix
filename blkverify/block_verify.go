@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
@@ -136,7 +136,7 @@ func (self *BlockVerify) handleRoleUpdatedMsg(roleMsg *mc.RoleUpdatedMsg) {
 		log.Error(self.logExtraInfo(), "CA身份消息异常", "消息为nil")
 		return
 	}
-	log.Info(self.logExtraInfo(), "CA身份消息", "开始处理", "高度", roleMsg.BlockNum, "角色", roleMsg.Role.String(), "区块hash", roleMsg.BlockHash.TerminalString())
+	log.Debug(self.logExtraInfo(), "CA身份消息", "开始处理", "高度", roleMsg.BlockNum, "角色", roleMsg.Role.String(), "区块hash", roleMsg.BlockHash.TerminalString())
 
 	curNumber := roleMsg.BlockNum + 1
 	self.processManage.SetCurNumber(curNumber, roleMsg.IsSuperBlock)
@@ -153,7 +153,7 @@ func (self *BlockVerify) handleLeaderChangeNotify(leaderMsg *mc.LeaderChangeNoti
 		log.Error(self.logExtraInfo(), "leader变更消息异常", "消息为nil")
 		return
 	}
-	log.Info(self.logExtraInfo(), "Leader变更消息", "开始处理", "高度", leaderMsg.Number, "共识轮次",
+	log.Debug(self.logExtraInfo(), "Leader变更消息", "开始处理", "高度", leaderMsg.Number, "共识轮次",
 		leaderMsg.ConsensusTurn.String(), "共识状态", leaderMsg.ConsensusState, "leader", leaderMsg.Leader.Hex(), "next leader", leaderMsg.NextLeader.Hex())
 
 	msgNumber := leaderMsg.Number
@@ -171,7 +171,7 @@ func (self *BlockVerify) handleRequestMsg(reqMsg *mc.HD_BlkConsensusReqMsg) {
 		log.Warn(self.logExtraInfo(), "区块共识请求消息", "msg is nil")
 		return
 	}
-	log.INFO(self.logExtraInfo(), "区块共识请求消息", "开始处理", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn.String(), "Leader", reqMsg.Header.Leader.Hex())
+	log.Debug(self.logExtraInfo(), "区块共识请求消息", "开始处理", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn.String(), "Leader", reqMsg.Header.Leader.Hex())
 	if (reqMsg.Header.Leader == common.Address{}) {
 		log.WARN(self.logExtraInfo(), "请求消息", "leader is nil")
 		return
@@ -192,8 +192,8 @@ func (self *BlockVerify) handleLocalRequestMsg(localReq *mc.LocalBlockVerifyCons
 		return
 	}
 	msgNumber := localReq.BlkVerifyConsensusReq.Header.Number.Uint64()
-	log.INFO(self.logExtraInfo(), "本地请求消息处理", "开始", "高度", msgNumber)
-	defer log.INFO(self.logExtraInfo(), "本地请求消息处理", "结束", "高度", msgNumber)
+	log.Trace(self.logExtraInfo(), "本地请求消息处理", "开始", "高度", msgNumber)
+	defer log.Trace(self.logExtraInfo(), "本地请求消息处理", "结束", "高度", msgNumber)
 	if (localReq.BlkVerifyConsensusReq.Header.Leader == common.Address{}) {
 		log.WARN(self.logExtraInfo(), "本地请求消息", "leader is nil")
 		return
@@ -209,7 +209,7 @@ func (self *BlockVerify) handleLocalRequestMsg(localReq *mc.LocalBlockVerifyCons
 
 func (self *BlockVerify) handleVoteMsg(voteMsg *mc.HD_ConsensusVote) {
 	if nil == voteMsg {
-		log.ERROR(self.logExtraInfo(), "投票消息处理", "消息为nil")
+		log.Error(self.logExtraInfo(), "投票消息处理", "消息为nil")
 		return
 	}
 
@@ -236,8 +236,8 @@ func (self *BlockVerify) handleRecoveryMsg(msg *mc.RecoveryStateMsg) {
 	}
 
 	number := msg.Header.Number.Uint64()
-	log.INFO(self.logExtraInfo(), "状态恢复消息", "开始", "高度", number, "leader", msg.Header.Leader.Hex(), "header hash", msg.Header.HashNoSignsAndNonce().TerminalString())
-	defer log.INFO(self.logExtraInfo(), "状态恢复消息", "结束", "高度", number, "leader", msg.Header.Leader.Hex())
+	log.Debug(self.logExtraInfo(), "状态恢复消息", "开始", "高度", number, "leader", msg.Header.Leader.Hex(), "header hash", msg.Header.HashNoSignsAndNonce().TerminalString())
+	defer log.Debug(self.logExtraInfo(), "状态恢复消息", "结束", "高度", number, "leader", msg.Header.Leader.Hex())
 
 	curProcess := self.processManage.GetCurrentProcess()
 	if curProcess != nil {

@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 package core
 
@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"runtime"
 	"sync"
+
 	"github.com/matrix/go-matrix/baseinterface"
 	"github.com/matrix/go-matrix/common"
 	"github.com/matrix/go-matrix/consensus"
@@ -64,7 +65,7 @@ func (p *StateProcessor) getGas(state *state.StateDB, gas *big.Int) *big.Int {
 		return big.NewInt(0)
 	}
 
-	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) <= 0 || balance[common.MainAccount].Balance.Cmp(allGas) <= 0 {
+	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) <= 0 || balance[common.MainAccount].Balance.Cmp(allGas) < 0 {
 		log.WARN("奖励", "交易费奖励账户余额不合法，余额", balance)
 		return big.NewInt(0)
 	}
@@ -269,50 +270,41 @@ func (p *StateProcessor) ProcessTxs(block *types.Block, statedb *state.StateDB, 
 	return receipts, allLogs, *usedGas, nil
 }
 
-func (p *StateProcessor) Process(block *types.Block, parent *types.Block, statedb *state.StateDB, cfg vm.Config) error {
-
-	err := p.bc.ProcessStateVersion(block.Header().Version, statedb)
+func (p *StateProcessor) Process(block *types.Block, parent *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	err := p.bc.ProcessStateVersion(block.Version(), statedb)
 	if err != nil {
 		log.Trace("BlockChain insertChain in3 Process Block err0")
-		return err
+		return nil, nil, 0, err
 	}
 
 	uptimeMap, err := p.bc.ProcessUpTime(statedb, block.Header())
 	if err != nil {
 		log.Trace("BlockChain insertChain in3 Process Block err1")
 		p.bc.reportBlock(block, nil, err)
-		return err
+		return nil, nil, 0, err
 	}
 	err = p.bc.ProcessBlockGProduceSlash(statedb, block.Header())
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err6")
+		log.Trace("BlockChain insertChain in3 Process Block err2")
 		p.bc.reportBlock(block, nil, err)
-		return err
+		return nil, nil, 0, err
 	}
 	// Process block using the parent state as reference point.
-	receipts, _, usedGas, err := p.ProcessTxs(block, statedb, cfg, uptimeMap)
+	receipts, logs, usedGas, err := p.ProcessTxs(block, statedb, cfg, uptimeMap)
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err2")
+		log.Trace("BlockChain insertChain in3 Process Block err3")
 		p.bc.reportBlock(block, receipts, err)
-		return err
+		return receipts, logs, usedGas, err
 	}
 
 	// Process matrix state
-	err = p.bc.matrixProcessor.ProcessMatrixState(block, statedb)
-	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err3")
-		return err
-	}
-
-	// Validate the state using the default validator
-	err = p.bc.Validator(block.Header().Version).ValidateState(block, parent, statedb, receipts, usedGas)
+	err = p.bc.matrixProcessor.ProcessMatrixState(block, string(parent.Version()), statedb)
 	if err != nil {
 		log.Trace("BlockChain insertChain in3 Process Block err4")
-		p.bc.reportBlock(block, receipts, err)
-		return err
+		return receipts, logs, usedGas, err
 	}
 
-	return nil
+	return receipts, logs, usedGas, nil
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database
@@ -320,6 +312,10 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx types.SelfTransaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+	if !BlackListFilter(tx, statedb) {
+		return nil, 0, errors.New("blacklist account")
+	}
+
 	// Create a new context to be used in the EVM environment
 	from, err := tx.GetTxFrom()
 	if err != nil {
@@ -333,7 +329,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if tx.GetIsEntrustGas() && tx.GetIsEntrustByTime() {
 		if !statedb.GetIsEntrustByTime(from, header.Time.Uint64()) {
 			log.Error("按时间委托gas的交易失效")
-			return nil, 0, errors.New("entrustTx is invalid")
+			return nil, 0, errors.New("entrustTx invalid")
 		}
 	}
 

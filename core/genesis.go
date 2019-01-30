@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -237,6 +237,7 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 	if db == nil {
 		db = mandb.NewMemDatabase()
 	}
+
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(common.MainAccount, addr, account.Balance)
@@ -256,7 +257,7 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 		log.Error("genesis", "设置matrix状态树错误", "g.MState = nil")
 		return nil, errors.New("MState of genesis is nil")
 	}
-	if err := g.MState.setMatrixState(statedb, g.NetTopology, g.NextElect, g.Version, g.Number); err != nil {
+	if err := g.MState.setMatrixState(statedb, g.NetTopology, g.NextElect, g.Version, g.Version, g.Number); err != nil {
 		log.Error("genesis", "MState.setMatrixState err", err)
 		return nil, err
 	}
@@ -321,8 +322,14 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Dat
 		}
 	}
 	if nil != g.MState {
-		if err := g.MState.setMatrixState(stateDB, g.NetTopology, g.NextElect, g.Version, g.Number); err != nil {
+		if err := g.MState.setMatrixState(stateDB, g.NetTopology, g.NextElect, g.Version, string(parentHeader.Version),g.Number); err != nil {
 			log.Error("genesis super block", "设置matrix状态树错误", err)
+			return nil
+		}
+	} else {
+		mState := new(GenesisMState)
+		if err := mState.setMatrixState(stateDB, g.NetTopology, g.NextElect, g.Version, string(parentHeader.Version), g.Number); err != nil {
+			log.Error("genesis super block", "mstate参数为nil时, 设置matrix状态树错误", err)
 			return nil
 		}
 	}
@@ -365,25 +372,27 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Dat
 		log.ERROR("genesis super block", "marshal alloc info err", err)
 		return nil
 	}
-	tx0 := types.NewTransaction(g.Number, common.Address{}, nil, 0, nil, data, common.ExtraSuperBlockTx, 0)
+	tx0 := types.NewTransaction(g.Number, common.Address{}, nil, 0, nil, data, nil, nil, nil, common.ExtraSuperBlockTx, 0, "MAN", 0)
 	if tx0 == nil {
 		log.ERROR("genesis super block", "create super block tx err", "NewTransaction return nil")
 		return nil
 	}
 	txs = append(txs, tx0)
+
+	var msData []byte = nil
 	if nil != g.MState {
-		data, err = json.Marshal(g.MState)
+		msData, err = json.Marshal(g.MState)
 		if err != nil {
 			log.ERROR("genesis super block", "marshal alloc info err", err)
 			return nil
 		}
-		tx1 := types.NewTransaction(g.Number, common.Address{}, nil, 1, nil, data, common.ExtraSuperBlockTx, 0)
-		if tx1 == nil {
-			log.ERROR("genesis super block", "create super block tx err", "NewTransaction return nil")
-			return nil
-		}
-		txs = append(txs, tx1)
 	}
+	txMState := types.NewTransaction(g.Number, common.Address{}, nil, 1, nil, msData, nil, nil, nil, common.ExtraSuperBlockTx, 0, "MAN", 0)
+	if txMState == nil {
+		log.ERROR("genesis super block", "create super block matrix state tx err", "NewTransaction return nil")
+		return nil
+	}
+	txs = append(txs, txMState)
 
 	return types.NewBlock(head, txs, nil, nil)
 }

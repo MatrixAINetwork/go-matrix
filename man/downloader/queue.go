@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -640,16 +640,18 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 						break
 					}
 				}
-				q.resultCache[i].Flag = 1
-				tmpReq := BlockIpfsReq{
-					ReqPendflg:  components, //q.resultCache[i].Pending,
-					Flag:        1,
-					coinstr:     "0",
-					HeadReqipfs: q.resultCache[i].Header,
+				if q.resultCache[i].Pending > 0 { //空hash 不请求body等
+					q.resultCache[i].Flag = 1
+					tmpReq := BlockIpfsReq{
+						ReqPendflg:  components, //q.resultCache[i].Pending,
+						Flag:        1,
+						coinstr:     "0",
+						HeadReqipfs: q.resultCache[i].Header,
+					}
+					RequsetHeader = append(RequsetHeader, tmpReq)
+					q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 1)
+					log.Warn(" download queue Reserveipfs continuous not but is discontinuous ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
 				}
-				RequsetHeader = append(RequsetHeader, tmpReq)
-				q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 1)
-				log.Warn(" download queue Reserveipfs continuous not but is discontinuous ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
 				q.recvheadNum = 0
 				// 延后处理
 				if progress && q.resultWait {
@@ -1276,6 +1278,10 @@ func (q *queue) BlockRegetByOldMode(bFlg int, pending int, header *types.Header)
 	q.BlockIpfsdeletePool(header.Number.Uint64())
 }
 func (q *queue) checkBatchBlockReq(blockNum uint64, pending int) bool {
+	if q.resultCache[0] == nil || q.resultCache[0].Header == nil {
+		log.Warn("download queue checkBatchBlockReq nil")
+		return false
+	}
 	firstBlockNum := q.resultCache[0].Header.Number.Uint64()
 	index := int(blockNum) - int(firstBlockNum)
 	log.Warn("download queue checkBatchBlockReq reto old sysc", "index", index, "blockNum", blockNum)

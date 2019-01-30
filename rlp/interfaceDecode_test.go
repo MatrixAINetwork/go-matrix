@@ -112,7 +112,7 @@ type Matrix_Extra1 struct {
 	TxType     byte   `json:"txType" gencodec:"required"`
 	LockHeight uint64 `json:"lockHeight" gencodec:"required"`
 	//ExtraTo    []Tx_to1 `json:"extra_to" gencodec:"required"`
-	ExtraTo []Tx_to1 ` rlp:"tail"` //hezi
+	ExtraTo []Tx_to1 ` rlp:"tail"` //
 }
 type txdata1 struct {
 	AccountNonce uint64   `json:"nonce"    gencodec:"required"`
@@ -130,8 +130,8 @@ type txdata1 struct {
 	Hash        *common.Hash `json:"hash" rlp:"-"`
 	TxEnterType byte         `json:"TxEnterType" gencodec:"required"` //入池类型
 	IsEntrustTx bool         `json:"TxEnterType" gencodec:"required"` //是否是委托
-	//Extra []Matrix_Extra1 ` rlp:"tail"` //YY
-	Extra []Matrix_Extra1 `json:"Extra" gencodec:"required"` //YY
+	//Extra []Matrix_Extra1 ` rlp:"tail"` //
+	Extra []Matrix_Extra1 `json:"Extra" gencodec:"required"` //
 }
 
 //{"nonce":"0x10000000000000","gasPrice":"0x098bca5a00","gasLimit":"0x033450","to":"MAN.3eKSYmc89mnRMeekbjL2WtPAKaL4zhAw656wmpUBsQVjGaU668XTAPNj","value":"0x0de0b6b3a7640000","data":"0x","TxEnterType":"0x01","IsEntrustTx":1,"extra_to":[[1,0]],"chainId":20}

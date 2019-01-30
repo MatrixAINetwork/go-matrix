@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -46,6 +46,28 @@ func (self *TopologyGraph) AccountIsInGraph(account common.Address) bool {
 		}
 	}
 	return false
+}
+
+func (self *TopologyGraph) FindNextValidator(account common.Address) common.Address {
+	validators := make([]common.Address, 0)
+	for _, node := range self.NodeList {
+		if node.Type == common.RoleValidator {
+			validators = append(validators, node.Account)
+		}
+	}
+
+	pos := -1
+	size := len(validators)
+	for i := 0; i < size; i++ {
+		if account == validators[i] {
+			pos = i
+			break
+		}
+	}
+	if pos == -1 {
+		return common.Address{}
+	}
+	return validators[(pos+1)%size]
 }
 
 func (self *TopologyGraph) Transfer2NextGraph(number uint64, blockTopology *common.NetTopology) (*TopologyGraph, error) {
@@ -241,4 +263,13 @@ func (info *ConsensusTurnInfo) Cmp(target ConsensusTurnInfo) int64 {
 			return 1
 		}
 	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+func (req *HD_BlkConsensusReqMsg) TxsCodeCount() int {
+	txsCodeCount := 0
+	for _, item := range req.TxsCode {
+		txsCodeCount += len(item.ListN)
+	}
+	return txsCodeCount
 }

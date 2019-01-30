@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -106,7 +106,7 @@ type StateReader interface {
 }
 
 type DPOSEngine interface {
-	VerifyVersion(reader StateReader, header *types.Header) error
+	VerifyVersionSigns(reader StateReader, header *types.Header) error
 
 	CheckSuperBlock(reader StateReader, header *types.Header) error
 

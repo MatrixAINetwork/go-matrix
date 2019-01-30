@@ -1,16 +1,14 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package txsreward
 
 import (
 	"fmt"
-	"github.com/matrix/go-matrix/ca"
-	"github.com/matrix/go-matrix/core/vm"
-	"github.com/matrix/go-matrix/params/manparams"
 	"math/big"
 	"math/rand"
 	"testing"
+
+	"github.com/matrix/go-matrix/ca"
+	"github.com/matrix/go-matrix/core/vm"
+	"github.com/matrix/go-matrix/params/manparams"
 
 	"github.com/matrix/go-matrix/core/state"
 	"github.com/matrix/go-matrix/params"
@@ -176,7 +174,7 @@ func TestBlockReward_calcTxsFees(t *testing.T) {
 		}
 		if key == mc.MSKeyTxsRewardCfg {
 
-			return &mc.TxsRewardCfgStruct{TxsRewardCalc: "1", MinersRate: 0, ValidatorsRate: 10000, RewardRate: rrc}, nil
+			return &mc.TxsRewardCfg{TxsRewardCalc: "1", MinersRate: 0, ValidatorsRate: 10000, RewardRate: rrc}, nil
 		}
 		return nil, nil
 	})

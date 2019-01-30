@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -56,14 +56,21 @@ type Backend interface {
 	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
 	Stats() (pending int, queued int)
 	TxPoolContent() (map[common.Address]types.SelfTransactions, map[common.Address]types.SelfTransactions)
-	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription //YYY
+	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription //Y
 
-	SignTx(signedTx types.SelfTransaction, chainID *big.Int) (types.SelfTransaction, error) //YY
-	SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error      //YY
-	FetcherNotify(hash common.Hash, number uint64)                                          //YY
+	SignTx(signedTx types.SelfTransaction, chainID *big.Int, blkHash common.Hash, signHeight uint64, usingEntrust bool) (types.SelfTransaction, error) //
+	SendBroadTx(ctx context.Context, signedTx types.SelfTransaction, bType bool) error                                                                 //
+	FetcherNotify(hash common.Hash, number uint64)                                                                                                     //
 
 	ChainConfig() *params.ChainConfig
+	//Config() *man.Config
+	NetWorkID() uint64
+	SyncMode() downloader.SyncMode
+	NetRPCService() *PublicNetAPI
 	CurrentBlock() *types.Block
+	GetDepositAccount(signAccount common.Address, blockHash common.Hash) (common.Address, error)
+	GetFutureRewards(*state.StateDB, rpc.BlockNumber) (interface{}, error)
+	Genesis() *types.Block
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
