@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/pod"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/pod"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 // SampleService is a trivial network service that can be attached to a node for

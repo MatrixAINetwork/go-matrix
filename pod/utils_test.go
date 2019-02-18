@@ -10,8 +10,8 @@ package pod
 import (
 	"reflect"
 
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 // NoopService is a trivial implementation of the Service interface.

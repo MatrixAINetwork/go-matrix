@@ -24,12 +24,12 @@ import (
 	"time"
 
 	"github.com/golang/snappy"
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/crypto/ecies"
-	"github.com/matrix/go-matrix/crypto/secp256k1"
-	"github.com/matrix/go-matrix/crypto/sha3"
-	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/crypto/ecies"
+	"github.com/MatrixAINetwork/go-matrix/crypto/secp256k1"
+	"github.com/MatrixAINetwork/go-matrix/crypto/sha3"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 const (

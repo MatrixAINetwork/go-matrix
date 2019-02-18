@@ -3,8 +3,8 @@ package reward
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/reward/cfg"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/reward/cfg"
 )
 
 //todo:多个币种reward，超级节点

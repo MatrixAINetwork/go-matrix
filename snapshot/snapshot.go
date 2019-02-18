@@ -3,8 +3,8 @@ package snapshot
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 //need  to clear

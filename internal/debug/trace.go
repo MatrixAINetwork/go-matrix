@@ -11,7 +11,7 @@ import (
 	"os"
 	"runtime/trace"
 
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/log"
 )
 
 // StartGoTrace turns on tracing, writing to the given file.

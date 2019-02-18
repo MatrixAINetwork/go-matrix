@@ -8,8 +8,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // senderFromServer is a types.Signer that remembers the sender address returned by the RPC

@@ -5,17 +5,17 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/matrix/go-matrix/core/matrixstate"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/params"
 
-	"github.com/matrix/go-matrix/reward/util"
+	"github.com/MatrixAINetwork/go-matrix/reward/util"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
 )
 
 type MinerOutReward struct {

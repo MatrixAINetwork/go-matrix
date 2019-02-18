@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/matrix/go-matrix/common/math"
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/crypto/sha3"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/crypto/sha3"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 // Registry of known identity schemes.

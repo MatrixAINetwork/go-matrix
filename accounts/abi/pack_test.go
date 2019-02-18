@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 func TestPack(t *testing.T) {

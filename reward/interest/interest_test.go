@@ -7,18 +7,18 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/matrix/go-matrix/core/matrixstate"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 
-	"github.com/matrix/go-matrix/ca"
-	"github.com/matrix/go-matrix/reward/util"
+	"github.com/MatrixAINetwork/go-matrix/ca"
+	"github.com/MatrixAINetwork/go-matrix/reward/util"
 
 	"bou.ke/monkey"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/core/vm"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/log"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

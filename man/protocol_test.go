@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/man/downloader"
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/man/downloader"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 func init() {

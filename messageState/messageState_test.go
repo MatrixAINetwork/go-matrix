@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 type testMessage struct {

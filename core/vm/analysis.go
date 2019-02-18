@@ -7,7 +7,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // destinations stores one map per contract (keyed by hash of code).

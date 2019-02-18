@@ -15,7 +15,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/matrix/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -3,7 +3,7 @@ package manapi
 import (
 	"testing"
 	"math/big"
-	"github.com/matrix/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 	"encoding/json"
 	"strings"
 )

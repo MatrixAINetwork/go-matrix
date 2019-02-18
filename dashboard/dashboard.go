@@ -21,11 +21,11 @@ import (
 	"time"
 
 	"github.com/elastic/gosigar"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/params"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 	"golang.org/x/net/websocket"
 )
 

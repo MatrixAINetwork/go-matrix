@@ -7,7 +7,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 const (

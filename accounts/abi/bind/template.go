@@ -4,7 +4,7 @@
 
 package bind
 
-import "github.com/matrix/go-matrix/accounts/abi"
+import "github.com/MatrixAINetwork/go-matrix/accounts/abi"
 
 // tmplData is the data structure required to fill the binding template.
 type tmplData struct {

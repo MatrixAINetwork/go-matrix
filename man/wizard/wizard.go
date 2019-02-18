@@ -30,9 +30,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core"
+	"github.com/MatrixAINetwork/go-matrix/log"
 	"golang.org/x/crypto/ssh/terminal"
 )
 

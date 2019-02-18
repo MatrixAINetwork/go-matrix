@@ -5,9 +5,9 @@
 package vm
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/math"
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	"math/big"
 )
 

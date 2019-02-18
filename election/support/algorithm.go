@@ -4,8 +4,8 @@
 package support
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/mt19937"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/mt19937"
 )
 
 func GetList_VIP(probnormalized []Pnormalized, needNum int, rand *mt19937.RandUniform) ([]Strallyint, []Pnormalized) {

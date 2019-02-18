@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/matrix/go-matrix/accounts/abi"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/core/vm"
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/accounts/abi"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 )
 
 func TestDefaults(t *testing.T) {

@@ -13,10 +13,10 @@ import (
 	"runtime"
 
 	"github.com/fjl/memsize/memsizeui"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/log/term"
-	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/metrics/exp"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/log/term"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/metrics/exp"
 	colorable "github.com/mattn/go-colorable"
 	"gopkg.in/urfave/cli.v1"
 )

@@ -17,8 +17,8 @@ import (
 
 	"unicode"
 
-	"github.com/matrix/go-matrix/common/hexutil"
-	"github.com/matrix/go-matrix/crypto/sha3"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/crypto/sha3"
 )
 
 const (

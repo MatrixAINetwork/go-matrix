@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/console"
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/run/utils"
+	"github.com/MatrixAINetwork/go-matrix/accounts"
+	"github.com/MatrixAINetwork/go-matrix/accounts/keystore"
+	"github.com/MatrixAINetwork/go-matrix/console"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -12,8 +12,8 @@ import (
 
 	"strings"
 
-	"github.com/matrix/go-matrix/internal/debug"
-	"github.com/matrix/go-matrix/run/utils"
+	"github.com/MatrixAINetwork/go-matrix/internal/debug"
+	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 

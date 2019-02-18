@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/matrix/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 )
 
 // Simulation provides a framework for running actions in a simulated network

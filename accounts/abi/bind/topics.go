@@ -10,9 +10,9 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/matrix/go-matrix/accounts/abi"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/accounts/abi"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
 )
 
 // makeTopics converts a filter query argument list into a filter topic set.

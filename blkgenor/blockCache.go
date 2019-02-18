@@ -5,8 +5,8 @@
 package blkgenor
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 type blockState uint8

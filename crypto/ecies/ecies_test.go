@@ -43,7 +43,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/matrix/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
 )
 
 var dumpEnc bool

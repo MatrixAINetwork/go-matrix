@@ -10,11 +10,11 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/matrix/go-matrix/base58"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/hexutil"
-	"github.com/matrix/go-matrix/common/math"
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/base58"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 var _ = (*genesisSpecMarshaling)(nil)

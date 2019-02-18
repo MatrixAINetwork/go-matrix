@@ -7,7 +7,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // ContractRef is a reference to the contract's backing object

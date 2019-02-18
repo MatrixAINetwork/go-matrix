@@ -16,8 +16,8 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
 )
 
 func TestTable_pingReplace(t *testing.T) {

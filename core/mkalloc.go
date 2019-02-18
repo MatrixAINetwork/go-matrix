@@ -22,8 +22,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/core"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 type allocItem struct{ Addr, Balance *big.Int }

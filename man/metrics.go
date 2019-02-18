@@ -5,8 +5,8 @@
 package man
 
 import (
-	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
 )
 
 var (

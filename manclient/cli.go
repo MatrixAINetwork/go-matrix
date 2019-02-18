@@ -4,10 +4,10 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/matrix/go-matrix/common/hexutil"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/p2p"
-	manrpc "github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	manrpc "github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 // client defines typed wrappers for the matrix RPC API.

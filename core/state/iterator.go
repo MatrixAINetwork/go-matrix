@@ -8,9 +8,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/rlp"
-	"github.com/matrix/go-matrix/trie"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/trie"
 )
 
 // NodeIterator is an iterator to traverse the entire state trie post-order,

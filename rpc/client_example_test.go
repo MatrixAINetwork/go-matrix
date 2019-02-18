@@ -10,7 +10,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 // In this example, our client whishes to track the latest 'block number'

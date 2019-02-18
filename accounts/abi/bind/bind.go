@@ -5,7 +5,7 @@
 // Package bind generates Matrix contract Go bindings.
 //
 // Detailed usage document and tutorial available on the go-matrix Wiki page:
-// https://github.com/matrix/go-matrix/wiki/Native-DApps:-Go-bindings-to-Matrix-contracts
+// https://github.com/MatrixAINetwork/go-matrix/wiki/Native-DApps:-Go-bindings-to-Matrix-contracts
 package bind
 
 import (
@@ -16,7 +16,7 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/matrix/go-matrix/accounts/abi"
+	"github.com/MatrixAINetwork/go-matrix/accounts/abi"
 	"golang.org/x/tools/imports"
 )
 

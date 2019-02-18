@@ -7,7 +7,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/matrix/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
 )
 
 func TestVM(t *testing.T) {

@@ -22,10 +22,10 @@ import (
 
 	mmap "github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/matrix/go-matrix/consensus"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/metrics"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/consensus"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")

@@ -10,7 +10,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // reads the integer based on its kind

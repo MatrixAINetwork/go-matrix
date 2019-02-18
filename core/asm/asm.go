@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/matrix/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
 )
 
 // Iterator for disassembled EVM instructions

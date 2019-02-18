@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/matrix/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 )
 
 type MyType [5]byte

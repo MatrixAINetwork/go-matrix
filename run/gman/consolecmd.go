@@ -12,10 +12,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/matrix/go-matrix/console"
-	"github.com/matrix/go-matrix/pod"
-	"github.com/matrix/go-matrix/rpc"
-	"github.com/matrix/go-matrix/run/utils"
+	"github.com/MatrixAINetwork/go-matrix/console"
+	"github.com/MatrixAINetwork/go-matrix/pod"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -31,7 +31,7 @@ var (
 		Description: `
 The Gman console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/matrix/go-matrix/wiki/JavaScript-Console.`,
+See https://github.com/MatrixAINetwork/go-matrix/wiki/JavaScript-Console.`,
 	}
 
 	attachCommand = cli.Command{
@@ -44,7 +44,7 @@ See https://github.com/matrix/go-matrix/wiki/JavaScript-Console.`,
 		Description: `
 The Gman console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/matrix/go-matrix/wiki/JavaScript-Console.
+See https://github.com/MatrixAINetwork/go-matrix/wiki/JavaScript-Console.
 This command allows to open a console on a running gman node.`,
 	}
 
@@ -57,7 +57,7 @@ This command allows to open a console on a running gman node.`,
 		Category:  "CONSOLE COMMANDS",
 		Description: `
 The JavaScript VM exposes a node admin interface as well as the Ðapp
-JavaScript API. See https://github.com/matrix/go-matrix/wiki/JavaScript-Console`,
+JavaScript API. See https://github.com/MatrixAINetwork/go-matrix/wiki/JavaScript-Console`,
 	}
 )
 

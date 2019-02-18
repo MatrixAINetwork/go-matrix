@@ -5,8 +5,8 @@ package depoistInfo
 
 import (
 	"fmt"
-	"github.com/matrix/go-matrix/common/hexutil"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 	"math/big"
 	"testing"
 )

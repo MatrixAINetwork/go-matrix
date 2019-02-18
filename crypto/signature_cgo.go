@@ -12,9 +12,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/math"
-	"github.com/matrix/go-matrix/crypto/secp256k1"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/crypto/secp256k1"
 	"math/big"
 )
 

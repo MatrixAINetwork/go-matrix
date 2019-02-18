@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/matrix/go-matrix/common/math"
-	"github.com/matrix/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
 )
 
 // Compiler contains information about the parsed source

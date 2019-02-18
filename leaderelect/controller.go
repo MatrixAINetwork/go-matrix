@@ -6,9 +6,9 @@ package leaderelect
 import (
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"strconv"
 )
 

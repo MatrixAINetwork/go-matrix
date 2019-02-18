@@ -45,7 +45,7 @@ import (
 	"fmt"
 	"hash"
 
-	mancrypto "github.com/matrix/go-matrix/crypto"
+	mancrypto "github.com/MatrixAINetwork/go-matrix/crypto"
 )
 
 var (

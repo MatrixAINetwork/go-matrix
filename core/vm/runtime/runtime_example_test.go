@@ -7,8 +7,8 @@ package runtime_test
 import (
 	"fmt"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/vm/runtime"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/vm/runtime"
 )
 
 func ExampleExecute() {

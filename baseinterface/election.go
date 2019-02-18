@@ -4,8 +4,8 @@
 package baseinterface
 
 import (
-	"github.com/matrix/go-matrix/election/support"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/election/support"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 const (

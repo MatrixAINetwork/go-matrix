@@ -6,14 +6,14 @@ package everyblockseed
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 
 	"errors"
 
-	"github.com/matrix/go-matrix/baseinterface"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/random/commonsupport"
+	"github.com/MatrixAINetwork/go-matrix/baseinterface"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/random/commonsupport"
 )
 
 func init() {

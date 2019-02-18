@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/base58"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/accounts"
+	"github.com/MatrixAINetwork/go-matrix/base58"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
 	"gopkg.in/fatih/set.v0"
 )
 

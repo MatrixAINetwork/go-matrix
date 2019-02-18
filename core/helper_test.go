@@ -7,9 +7,9 @@ package core
 import (
 	"container/list"
 
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 )
 
 // Implement our ManTest Manager

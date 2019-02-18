@@ -7,9 +7,9 @@ package state
 import (
 	"bytes"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/rlp"
-	"github.com/matrix/go-matrix/trie"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/trie"
 )
 
 // NewStateSync create a new state trie download scheduler.

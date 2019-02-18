@@ -1,8 +1,8 @@
 package base58
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/crc8"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/crc8"
 	"math/big"
 	"strings"
 	"github.com/pkg/errors"

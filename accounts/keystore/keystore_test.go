@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/accounts"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 var testSigData = make([]byte, 32)

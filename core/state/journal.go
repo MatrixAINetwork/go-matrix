@@ -5,7 +5,7 @@
 package state
 
 import (
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // journalEntry is a modification entry in the state change journal that can be

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -5,9 +5,9 @@ package support
 
 import (
 	"fmt"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 func DelIndex(native AllNative, flag int) AllNative {

@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 // Vote represents a single vote that an authorized signer made to modify the

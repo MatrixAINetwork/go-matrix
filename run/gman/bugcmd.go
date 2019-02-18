@@ -14,10 +14,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/matrix/go-matrix/params"
-	"github.com/matrix/go-matrix/run/internal/browser"
+	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/run/internal/browser"
 
-	"github.com/matrix/go-matrix/run/utils"
+	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -29,7 +29,7 @@ var bugCommand = cli.Command{
 	Category:  "MISCELLANEOUS COMMANDS",
 }
 
-const issueURL = "https://github.com/matrix/go-matrix/issues/new"
+const issueURL = "https://github.com/MatrixAINetwork/go-matrix/issues/new"
 
 // reportBug reports a bug by opening a new URL to the go-matrix GH issue
 // tracker and setting default values as the issue body.

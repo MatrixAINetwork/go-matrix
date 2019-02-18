@@ -12,7 +12,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 // RLPTest is the JSON structure of a single RLP test.

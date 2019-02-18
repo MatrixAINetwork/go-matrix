@@ -7,8 +7,8 @@ package vm
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // StateDB is an EVM database for full state querying.

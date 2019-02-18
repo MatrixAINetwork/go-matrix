@@ -7,8 +7,8 @@ package manparams
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	"io/ioutil"
 	"os"
 )

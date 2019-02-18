@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/matrix/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 )
 
 // Tests that data bitset encoding and decoding works and is bijective.

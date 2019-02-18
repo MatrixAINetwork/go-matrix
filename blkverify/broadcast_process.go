@@ -4,8 +4,8 @@
 package blkverify
 
 import (
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 func (p *Process) startReqVerifyBC() {

@@ -7,7 +7,7 @@ package downloader
 import (
 	"fmt"
 
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.

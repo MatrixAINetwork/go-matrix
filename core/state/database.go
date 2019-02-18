@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/trie"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/trie"
 )
 
 // Trie cache generation limit after which to evict trie nodes from memory.

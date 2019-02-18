@@ -39,7 +39,7 @@ import (
 	"math/big"
 	"unsafe"
 
-	"github.com/matrix/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
 )
 
 /*

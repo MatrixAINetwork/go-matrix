@@ -7,13 +7,13 @@ package miner
 import (
 	"sync"
 
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 
 	"sync/atomic"
 
-	"github.com/matrix/go-matrix/consensus"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/consensus"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/log"
 )
 
 type CpuAgent struct {

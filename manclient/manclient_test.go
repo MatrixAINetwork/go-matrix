@@ -4,7 +4,7 @@
 
 package manclient
 
-import "github.com/matrix/go-matrix"
+import "github.com/MatrixAINetwork/go-matrix"
 
 // Verify that Client implements the matrix interfaces.
 var (

@@ -9,9 +9,9 @@ import (
 	"hash"
 	"sync"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/crypto/sha3"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/crypto/sha3"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 type hasher struct {

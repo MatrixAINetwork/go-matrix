@@ -42,7 +42,7 @@ func TestBloom(t *testing.T) {
 import (
 	"testing"
 
-	"github.com/matrix/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 )
 
 func TestBloom9(t *testing.T) {

@@ -13,8 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/accounts"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/pborman/uuid"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -52,7 +52,7 @@ func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error
 	iv := encSeedBytes[:16]
 	cipherText := encSeedBytes[16:]
 	/*
-		See https://github.com/matrix/pyethsaletool
+		See https://github.com/MatrixAINetwork/pyethsaletool
 
 		pyethsaletool generates the encryption key from password by
 		2000 rounds of PBKDF2 with HMAC-SHA-256 using password as salt (:().

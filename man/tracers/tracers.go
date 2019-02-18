@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/matrix/go-matrix/man/tracers/internal/tracers"
+	"github.com/MatrixAINetwork/go-matrix/man/tracers/internal/tracers"
 )
 
 // all contains all the built in JavaScript tracers by name.

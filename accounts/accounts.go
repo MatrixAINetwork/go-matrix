@@ -8,11 +8,11 @@ package accounts
 import (
 	"math/big"
 
-	matrix "github.com/matrix/go-matrix"
-	"github.com/matrix/go-matrix/base58"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/event"
+	matrix "github.com/MatrixAINetwork/go-matrix"
+	"github.com/MatrixAINetwork/go-matrix/base58"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 // Account represents an Matrix account located at a specific location defined

@@ -13,13 +13,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/p2p/simulations"
-	"github.com/matrix/go-matrix/p2p/simulations/adapters"
-	"github.com/matrix/go-matrix/pod"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/p2p/simulations"
+	"github.com/MatrixAINetwork/go-matrix/p2p/simulations/adapters"
+	"github.com/MatrixAINetwork/go-matrix/pod"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 var adapterType = flag.String("adapter", "sim", `node adapter to use (one of "sim", "exec" or "docker")`)

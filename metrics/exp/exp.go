@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/matrix/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
 )
 
 type exp struct {

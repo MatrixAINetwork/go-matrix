@@ -9,20 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/consensus/mtxdpos"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/accounts/keystore"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/consensus/mtxdpos"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	//"github.com/pborman/uuid"
 	"math/rand"
 
-	"github.com/matrix/go-matrix/consensus"
+	"github.com/MatrixAINetwork/go-matrix/consensus"
 	//"unicode"
-	"github.com/matrix/go-matrix/messageState"
+	"github.com/MatrixAINetwork/go-matrix/messageState"
 )
 
 var (

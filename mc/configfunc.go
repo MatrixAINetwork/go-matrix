@@ -1,6 +1,6 @@
 package mc
 
-import "github.com/matrix/go-matrix/log"
+import "github.com/MatrixAINetwork/go-matrix/log"
 
 const ReelectionTimes = uint64(3) // 选举周期的倍数(广播周期*ReelectionTimes = 选举周期)
 

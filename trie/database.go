@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 )
 
 // secureKeyPrefix is the database key prefix used to store trie node preimages.

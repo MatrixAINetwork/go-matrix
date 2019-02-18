@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 func TestUnmarshalJSONNewFilterArgs(t *testing.T) {

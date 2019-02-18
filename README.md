@@ -1,4 +1,4 @@
-# GO-MATRIX
+# go-matrix
 ---
 
 ### About
@@ -57,9 +57,9 @@ Welcome! This guide is intended to get you running on the MATRIX network. To ens
 
 First of all, you need to clone the source code from MATRIX repository:
 
-Git clone https://github.com/MatrixAINetwork/GO-MATRIX.git, or
+Git clone https://github.com/MatrixAINetwork/go-matrix.git, or
 
-wget https://github.com/MatrixAINetwork/GO-MATRIX/archive/master.zip
+wget https://github.com/MatrixAINetwork/go-matrix/archive/master.zip
 
 - Branch: Master
 

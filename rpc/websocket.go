@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/log"
 	"golang.org/x/net/websocket"
 	"gopkg.in/fatih/set.v0"
 )

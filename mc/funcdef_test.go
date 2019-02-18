@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"fmt"
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 	"math/big"
 )
 

@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/consensus/manash"
-	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/internal/jsre"
-	"github.com/matrix/go-matrix/man"
-	"github.com/matrix/go-matrix/pod"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/consensus/manash"
+	"github.com/MatrixAINetwork/go-matrix/core"
+	"github.com/MatrixAINetwork/go-matrix/internal/jsre"
+	"github.com/MatrixAINetwork/go-matrix/man"
+	"github.com/MatrixAINetwork/go-matrix/pod"
 )
 
 const (

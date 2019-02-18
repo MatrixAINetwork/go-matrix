@@ -7,7 +7,7 @@
 package fetcher
 
 import (
-	"github.com/matrix/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
 )
 
 var (

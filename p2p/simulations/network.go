@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/p2p/simulations/adapters"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/p2p/simulations/adapters"
 )
 
 var dialBanTimeout = 200 * time.Millisecond

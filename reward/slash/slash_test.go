@@ -6,17 +6,17 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/matrix/go-matrix/core/matrixstate"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/log"
 
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/params"
 
-	"github.com/matrix/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 
 	"bou.ke/monkey"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

@@ -6,7 +6,7 @@ package mc
 import (
 	"strconv"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/pkg/errors"
 	"sort"
 )
@@ -43,6 +43,18 @@ func (self *TopologyGraph) AccountIsInGraph(account common.Address) bool {
 	for _, one := range self.NodeList {
 		if account == one.Account {
 			return true
+		}
+	}
+	return false
+}
+
+func (self *TopologyGraph) CheckAccountRole(account common.Address, role common.RoleType) bool {
+	if len(self.NodeList) == 0 {
+		return false
+	}
+	for _, one := range self.NodeList {
+		if account == one.Account {
+			return one.Type == role
 		}
 	}
 	return false

@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 var (

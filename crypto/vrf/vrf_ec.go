@@ -16,7 +16,7 @@ import (
 	"hash"
 	"math/big"
 
-	"github.com/matrix/go-matrix/crypto/vrf/ec"
+	"github.com/MatrixAINetwork/go-matrix/crypto/vrf/ec"
 )
 
 var (

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 // Forks table defines supported forks and their chain config.

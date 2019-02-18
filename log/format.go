@@ -25,7 +25,7 @@ const (
 
 // locationTrims are trimmed for display to avoid unwieldy log lines.
 var locationTrims = []string{
-	"github.com/matrix/go-matrix/",
+	"github.com/MatrixAINetwork/go-matrix/",
 }
 
 // PrintOrigins sets or unsets log location (file:line) printing for terminal

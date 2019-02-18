@@ -1,7 +1,7 @@
 package matrixstate
 
 import (
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 /////////////////////////////////////////////////////////////////////

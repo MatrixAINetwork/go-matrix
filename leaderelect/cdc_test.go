@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"encoding/json"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/hexutil"
-	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/core/matrixstate"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/core"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 )
 
 func getTestValidatorGraph() *mc.TopologyGraph {

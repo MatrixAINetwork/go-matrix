@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/karalabe/hid"
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/accounts"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/log"
 )
 
 // LedgerScheme is the protocol scheme prefixing account and wallet URLs.

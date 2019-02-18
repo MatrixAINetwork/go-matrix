@@ -7,7 +7,7 @@ package rpc
 import (
 	"net"
 
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/log"
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules

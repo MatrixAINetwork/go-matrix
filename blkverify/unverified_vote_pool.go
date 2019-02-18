@@ -7,11 +7,11 @@ import (
 	"container/list"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/pkg/errors"
 
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 )
 
 type voteInfo struct {

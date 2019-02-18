@@ -5,10 +5,10 @@ package support
 
 import (
 	"fmt"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/mt19937"
-	"github.com/matrix/go-matrix/core/vm"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/mt19937"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"math/big"
 	"math/rand"
 )

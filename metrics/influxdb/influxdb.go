@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/influxdata/influxdb/client"
-	"github.com/matrix/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
 )
 
 type reporter struct {

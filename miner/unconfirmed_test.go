@@ -7,8 +7,8 @@ package miner
 import (
 	"testing"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // noopHeaderRetriever is an implementation of headerRetriever that always

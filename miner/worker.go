@@ -10,17 +10,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/matrix/go-matrix/ca"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/consensus"
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/msgsend"
-	"github.com/matrix/go-matrix/params"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/ca"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/consensus"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/msgsend"
+	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -108,6 +108,7 @@ type ChainReader interface {
 	GetCurrentHash() common.Hash
 	GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGraph, error)
 	GetBroadcastAccounts(blockHash common.Hash) ([]common.Address, error)
+	GetInnerMinerAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetVersionSuperAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetBlockSuperAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetBroadcastIntervalByHash(blockHash common.Hash) (*mc.BCIntervalInfo, error)
@@ -238,7 +239,7 @@ func (self *worker) RoleUpdatedMsgHandler(data *mc.RoleUpdatedMsg) {
 	role := data.Role
 	self.mineReqCtrl.SetNewNumber(data.BlockNum+1, role)
 	canMining := self.mineReqCtrl.CanMining()
-	log.Trace(ModuleMiner,  "高度", data.BlockNum, "角色", role, "是否可以挖矿", canMining)
+	log.Trace(ModuleMiner, "高度", data.BlockNum, "角色", role, "是否可以挖矿", canMining)
 	if canMining {
 		self.StartAgent()
 		self.processMineReq()
@@ -434,10 +435,10 @@ func (self *worker) processAppointedMineReq(reqData *mineReqData) {
 	}
 
 	if reqData.mined {
-		log.Trace(ModuleMiner,  "请求已完成，直接发送结果", reqData.headerHash.TerminalString())
+		log.Trace(ModuleMiner, "请求已完成，直接发送结果", reqData.headerHash.TerminalString())
 		self.sendMineResultFunc(reqData, 0)
 	} else {
-		log.Trace(ModuleMiner,  "接收请求，开始处理", reqData.headerHash.TerminalString())
+		log.Trace(ModuleMiner, "接收请求，开始处理", reqData.headerHash.TerminalString())
 		self.beginMine(reqData)
 	}
 }
@@ -447,7 +448,7 @@ func (self *worker) processMineReq() {
 	if reqData == nil {
 		return
 	}
-	log.Trace(ModuleMiner,  "开始挖矿", reqData.headerHash.TerminalString())
+	log.Trace(ModuleMiner, "开始挖矿", reqData.headerHash.TerminalString())
 	self.beginMine(reqData)
 }
 
@@ -468,7 +469,7 @@ func (self *worker) beginMine(reqData *mineReqData) {
 	}
 
 	if err := self.mineReqCtrl.SetCurrentMineReq(reqData.headerHash); err != nil {
-		log.ERROR(ModuleMiner,"保存挖矿请求:", err)
+		log.ERROR(ModuleMiner, "保存挖矿请求:", err)
 		return
 	}
 	self.CommitNewWork(reqData.header, reqData.isBroadcastReq)

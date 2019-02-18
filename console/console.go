@@ -16,9 +16,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/matrix/go-matrix/internal/jsre"
-	"github.com/matrix/go-matrix/internal/web3ext"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/internal/jsre"
+	"github.com/MatrixAINetwork/go-matrix/internal/web3ext"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"

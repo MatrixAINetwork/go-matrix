@@ -6,7 +6,7 @@ package mc
 import (
 	"errors"
 
-	"github.com/matrix/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 type Center struct {

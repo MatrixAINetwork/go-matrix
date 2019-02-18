@@ -10,10 +10,10 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/accounts/keystore"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
 )
 
 // NewTransactor is a utility method to easily create a transaction signer from

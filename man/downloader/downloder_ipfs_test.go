@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/ethdb"
-	"github.com/matrix/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/ethdb"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 func TestIPfsInit(t *testing.T) {

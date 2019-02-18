@@ -12,8 +12,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/matrix/go-matrix/common/math"
-	"github.com/matrix/go-matrix/crypto/randentropy"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/crypto/randentropy"
 )
 
 const TestCount = 1000

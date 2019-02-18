@@ -14,8 +14,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/internal/jsre/deps"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/internal/jsre/deps"
 	"github.com/robertkrimen/otto"
 )
 

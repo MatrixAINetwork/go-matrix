@@ -1,6 +1,6 @@
 package matrixstate
 
-import "github.com/matrix/go-matrix/mc"
+import "github.com/MatrixAINetwork/go-matrix/mc"
 
 func GetBlockProduceStatsStatus(st StateDB) (*mc.BlockProduceSlashStatsStatus, error) {
 	mgr := GetManager(GetVersionInfo(st))

@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/matrix/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
 )
 
 func TestState(t *testing.T) {

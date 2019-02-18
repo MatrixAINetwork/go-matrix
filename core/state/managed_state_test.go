@@ -7,8 +7,8 @@ package state
 import (
 	"testing"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 )
 
 var addr = common.BytesToAddress([]byte("test"))

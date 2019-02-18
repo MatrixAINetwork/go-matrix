@@ -7,8 +7,8 @@ package trie
 import (
 	"fmt"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
 )
 
 // SecureTrie wraps a trie with key hashing. In a secure trie, all

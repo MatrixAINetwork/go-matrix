@@ -10,15 +10,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/core/vm"
-	"github.com/matrix/go-matrix/depoistInfo"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/p2p/discover"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 )
 
 type TopologyGraphReader interface {
@@ -494,6 +494,11 @@ func GetDepositAddress() common.Address {
 
 	for _, broadcast := range ide.broadcastAccounts {
 		if ide.addr == broadcast {
+			return ide.addr
+		}
+	}
+	for _, innerMiner := range ide.innerMiners {
+		if ide.addr == innerMiner {
 			return ide.addr
 		}
 	}

@@ -7,7 +7,7 @@ package params
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // DAOForkBlockExtra is the block header extra-data field to set for the DAO fork

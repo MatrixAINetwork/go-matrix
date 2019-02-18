@@ -7,7 +7,7 @@ package vm
 import (
 	"fmt"
 
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 func makeStackFunc(pop, push int) stackValidationFunc {

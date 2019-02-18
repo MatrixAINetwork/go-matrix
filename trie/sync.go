@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

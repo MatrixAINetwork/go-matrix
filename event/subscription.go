@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/matrix/go-matrix/common/mclock"
+	"github.com/MatrixAINetwork/go-matrix/common/mclock"
 )
 
 // Subscription represents a stream of events. The carrier of the events is typically a

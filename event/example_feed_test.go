@@ -7,7 +7,7 @@ package event_test
 import (
 	"fmt"
 
-	"github.com/matrix/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 func ExampleFeed_acknowledgedEvents() {

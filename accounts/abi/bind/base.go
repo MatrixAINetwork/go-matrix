@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/matrix/go-matrix"
-	"github.com/matrix/go-matrix/accounts/abi"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix"
+	"github.com/MatrixAINetwork/go-matrix/accounts/abi"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 // SignerFn is a signer function callback when a contract requires a method to

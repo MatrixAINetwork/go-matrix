@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // Tests that manash works correctly in test mode.
@@ -32,7 +32,7 @@ func TestTestMode(t *testing.T) {
 }
 
 // This test checks that cache lru logic doesn't crash under load.
-// It reproduces https://github.com/matrix/go-matrix/issues/14943
+// It reproduces https://github.com/MatrixAINetwork/go-matrix/issues/14943
 func TestCacheFileEvict(t *testing.T) {
 	tmpdir, err := ioutil.TempDir("", "manash-test")
 	if err != nil {

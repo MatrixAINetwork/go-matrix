@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/matrix/go-matrix/p2p"
-	"github.com/matrix/go-matrix/p2p/nat"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/p2p/nat"
 )
 
 const (

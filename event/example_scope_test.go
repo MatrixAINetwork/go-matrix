@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/matrix/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 // This example demonstrates how SubscriptionScope can be used to control the lifetime of

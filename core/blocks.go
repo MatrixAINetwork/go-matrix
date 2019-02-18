@@ -4,7 +4,7 @@
 
 package core
 
-import "github.com/matrix/go-matrix/common"
+import "github.com/MatrixAINetwork/go-matrix/common"
 
 // BadHashes represent a set of manually tracked bad hashes (usually hard forks)
 var BadHashes = map[common.Hash]bool{

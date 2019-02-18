@@ -7,7 +7,7 @@ package p2p
 import (
 	"fmt"
 
-	"github.com/matrix/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 )
 
 // Protocol represents a P2P subprotocol implementation.

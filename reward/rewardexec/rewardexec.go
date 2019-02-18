@@ -3,13 +3,13 @@ package rewardexec
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/reward/cfg"
-	"github.com/matrix/go-matrix/reward/util"
+	"github.com/MatrixAINetwork/go-matrix/reward/cfg"
+	"github.com/MatrixAINetwork/go-matrix/reward/util"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/matrixstate"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 const (

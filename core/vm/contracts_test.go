@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.

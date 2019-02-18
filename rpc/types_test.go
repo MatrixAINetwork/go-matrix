@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/matrix/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
 )
 
 func TestBlockNumberJSONUnmarshal(t *testing.T) {

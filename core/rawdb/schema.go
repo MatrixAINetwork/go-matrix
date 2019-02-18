@@ -8,8 +8,8 @@ package rawdb
 import (
 	"encoding/binary"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
 )
 
 // The fields below define the low level database schema prefixing.

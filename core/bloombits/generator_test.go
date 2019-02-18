@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // Tests that batched bloom bits are correctly rotated from the input bloom

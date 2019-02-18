@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/matrix/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
 )
 
 // error codes used by this  protocol scheme

@@ -1,15 +1,15 @@
 package txsreward
 
 import (
-	"github.com/matrix/go-matrix/core/matrixstate"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/mc"
-	"github.com/matrix/go-matrix/reward"
-	"github.com/matrix/go-matrix/reward/rewardexec"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/reward"
+	"github.com/MatrixAINetwork/go-matrix/reward/rewardexec"
 
-	"github.com/matrix/go-matrix/reward/util"
+	"github.com/MatrixAINetwork/go-matrix/reward/util"
 
-	"github.com/matrix/go-matrix/reward/cfg"
+	"github.com/MatrixAINetwork/go-matrix/reward/cfg"
 )
 
 const (

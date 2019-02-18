@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/matrix/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
 )
 
 // a regexp for extracting the unit from time.Duration.String

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 )
 
 func newTestLDB() (*mandb.LDBDatabase, func()) {

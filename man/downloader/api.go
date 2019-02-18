@@ -8,9 +8,9 @@ import (
 	"context"
 	"sync"
 
-	matrix "github.com/matrix/go-matrix"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/rpc"
+	matrix "github.com/MatrixAINetwork/go-matrix"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 // PublicDownloaderAPI provides an API which gives information about the current synchronisation status.

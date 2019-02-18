@@ -7,7 +7,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
 )
 
 func memorySha3(stack *Stack) *big.Int {

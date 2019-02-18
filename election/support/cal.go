@@ -4,8 +4,8 @@
 package support
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 func MakeElectNode(address common.Address, Pos int, Stock int, VIPLevel common.VIPRoleType, Type common.RoleType) mc.ElectNodeInfo {

@@ -12,14 +12,14 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/math"
-	"github.com/matrix/go-matrix/consensus"
-	"github.com/matrix/go-matrix/consensus/misc"
-	"github.com/matrix/go-matrix/core/state"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/math"
+	"github.com/MatrixAINetwork/go-matrix/consensus"
+	"github.com/MatrixAINetwork/go-matrix/consensus/misc"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	set "gopkg.in/fatih/set.v0"
 )
 
@@ -45,6 +45,7 @@ var (
 	errInvalidDifficulty = errors.New("non-positive difficulty")
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
+	errCoinbase          = errors.New("invalid coinbase")
 )
 
 // Author implements consensus.Engine, returning the header's coinbase as the
@@ -325,7 +326,7 @@ var (
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Byzantium rules.
 func calcDifficultyByzantium(time uint64, parent *types.Header) *big.Int {
-	// https://github.com/matrix/EIPs/issues/100.
+	// https://github.com/MatrixAINetwork/EIPs/issues/100.
 	// algorithm:
 	// diff = (parent_diff +
 	//         (parent_diff / 2048 * max((2 if len(parent.uncles) else 1) - ((timestamp - parent.timestamp) // 9), -99))
@@ -363,7 +364,7 @@ func calcDifficultyByzantium(time uint64, parent *types.Header) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 	// calculate a fake block number for the ice-age delay:
-	//   https://github.com/matrix/EIPs/pull/669
+	//   https://github.com/MatrixAINetwork/EIPs/pull/669
 	//   fake_block_number = min(0, block.number - 3_000_000
 	fakeBlockNumber := new(big.Int)
 	if parent.Number.Cmp(big2999999) >= 0 {
@@ -387,7 +388,7 @@ func calcDifficultyByzantium(time uint64, parent *types.Header) *big.Int {
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Homestead rules.
 func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
-	// https://github.com/matrix/EIPs/blob/master/EIPS/eip-2.md
+	// https://github.com/MatrixAINetwork/EIPs/blob/master/EIPS/eip-2.md
 	// algorithm:
 	// diff = (parent_diff +
 	//         (parent_diff / 2048 * max(1 - (block_timestamp - parent_timestamp) // 10, -99))
@@ -468,6 +469,9 @@ func calcDifficultyFrontier(time uint64, parent *types.Header) *big.Int {
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
 func (manash *Manash) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
+	if err := manash.verifyCoinbaseRole(chain, header); err != nil {
+		return err
+	}
 	// If we're running a fake PoW, accept any seal as valid
 	if manash.config.PowMode == ModeFake || manash.config.PowMode == ModeFullFake {
 		time.Sleep(manash.fakeDelay)
@@ -560,4 +564,28 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 		reward.Add(reward, r)
 	}
 	state.AddBalance(common.MainAccount, header.Coinbase, reward)
+}
+
+func (manash *Manash) verifyCoinbaseRole(chain consensus.ChainReader, header *types.Header) error {
+	log.DEBUG("seal coinbase", "开始验证coinbase", header.Coinbase.Hex(), "高度", header.Number, "hash", header.Hash().Hex())
+	preTopology, _, err := chain.GetGraphByHash(header.ParentHash)
+	if err != nil {
+		log.Error("seal coinbase", "get pre topology graph err", err)
+		return errCoinbase
+	}
+	if preTopology.CheckAccountRole(header.Coinbase, common.RoleMiner) {
+		return nil
+	}
+
+	innerMiners, err := chain.GetInnerMinerAccounts(header.ParentHash)
+	if err != nil {
+		log.Error("seal coinbase", "get inner miner accounts err", err)
+		return errCoinbase
+	}
+	for _, account := range innerMiners {
+		if account == header.Coinbase {
+			return nil
+		}
+	}
+	return errCoinbase
 }

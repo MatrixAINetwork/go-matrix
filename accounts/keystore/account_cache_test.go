@@ -17,8 +17,8 @@ import (
 
 	"github.com/cespare/cp"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/accounts"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 var (

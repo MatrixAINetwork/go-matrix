@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/matrix/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
 )
 
 // Method represents a callable given a `Name` and whether the method is a constant.

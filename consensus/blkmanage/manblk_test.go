@@ -3,8 +3,8 @@ package blkmanage
 import (
 	"testing"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 )
 
 func TestManBlkBasePlug_Prepare(t *testing.T) {

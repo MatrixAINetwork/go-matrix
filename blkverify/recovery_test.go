@@ -1,8 +1,8 @@
 package blkverify
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"testing"
 )
 

@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	matrix "github.com/matrix/go-matrix"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/common/hexutil"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/event"
-	"github.com/matrix/go-matrix/mandb"
-	"github.com/matrix/go-matrix/rpc"
+	matrix "github.com/MatrixAINetwork/go-matrix"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
 var (
@@ -89,7 +89,7 @@ func (api *PublicFilterAPI) timeoutLoop() {
 // It is part of the filter package because this filter can be used through the
 // `man_getFilterChanges` polling method that is also used for log filters.
 //
-// https://github.com/matrix/wiki/wiki/JSON-RPC#man_newpendingtransactionfilter
+// https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_newpendingtransactionfilter
 func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 	var (
 		pendingTxs   = make(chan []common.Hash)
@@ -159,7 +159,7 @@ func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Su
 // NewBlockFilter creates a filter that fetches blocks that are imported into the chain.
 // It is part of the filter package since polling goes with man_getFilterChanges.
 //
-// https://github.com/matrix/wiki/wiki/JSON-RPC#man_newblockfilter
+// https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_newblockfilter
 func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 	var (
 		headers   = make(chan *types.Header)
@@ -275,7 +275,7 @@ type FilterCriteria matrix.FilterQuery
 //
 // In case "fromBlock" > "toBlock" an error is returned.
 //
-// https://github.com/matrix/wiki/wiki/JSON-RPC#man_newfilter
+// https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_newfilter
 func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
 	logs := make(chan []*types.Log)
 	logsSub, err := api.events.SubscribeLogs(matrix.FilterQuery(crit), logs)
@@ -310,7 +310,7 @@ func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
 
 // GetLogs returns logs matching the given argument that are stored within the state.
 //
-// https://github.com/matrix/wiki/wiki/JSON-RPC#man_getlogs
+// https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_getlogs
 func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([]*types.Log, error) {
 	// Convert the RPC block numbers into internal representations
 	if crit.FromBlock == nil {
@@ -331,7 +331,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 
 // UninstallFilter removes the filter with the given filter id.
 //
-// https://github.com/matrix/wiki/wiki/JSON-RPC#man_uninstallfilter
+// https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_uninstallfilter
 func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 	api.filtersMu.Lock()
 	f, found := api.filters[id]
@@ -349,7 +349,7 @@ func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 // GetFilterLogs returns the logs for the filter with the given id.
 // If the filter could not be found an empty array of logs is returned.
 //
-// https://github.com/matrix/wiki/wiki/JSON-RPC#man_getfilterlogs
+// https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_getfilterlogs
 func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*types.Log, error) {
 	api.filtersMu.Lock()
 	f, found := api.filters[id]
@@ -383,7 +383,7 @@ func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ty
 // For pending transaction and block filters the result is []common.Hash.
 // (pending)Log filters return []Log.
 //
-// https://github.com/matrix/wiki/wiki/JSON-RPC#man_getfilterchanges
+// https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_getfilterchanges
 func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 	api.filtersMu.Lock()
 	defer api.filtersMu.Unlock()

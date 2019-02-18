@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/matrix/go-matrix/consensus/manash"
-	"github.com/matrix/go-matrix/man"
-	"github.com/matrix/go-matrix/params/manparams"
-	"github.com/matrix/go-matrix/run/utils"
+	"github.com/MatrixAINetwork/go-matrix/consensus/manash"
+	"github.com/MatrixAINetwork/go-matrix/man"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 

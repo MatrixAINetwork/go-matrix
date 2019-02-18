@@ -9,7 +9,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/matrix/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/event"
 )
 
 // Manager is an overarching account manager that can communicate with various

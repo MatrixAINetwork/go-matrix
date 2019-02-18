@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/gizak/termui"
-	"github.com/matrix/go-matrix/pod"
-	"github.com/matrix/go-matrix/rpc"
-	"github.com/matrix/go-matrix/run/utils"
+	"github.com/MatrixAINetwork/go-matrix/pod"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 

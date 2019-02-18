@@ -7,7 +7,7 @@ package number
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 var tt256 = new(big.Int).Lsh(big.NewInt(1), 256)

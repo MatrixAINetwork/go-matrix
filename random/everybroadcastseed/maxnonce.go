@@ -7,11 +7,11 @@ import (
 	"math/big"
 
 	"fmt"
-	"github.com/matrix/go-matrix/baseinterface"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/params/manparams"
-	"github.com/matrix/go-matrix/random/commonsupport"
+	"github.com/MatrixAINetwork/go-matrix/baseinterface"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/random/commonsupport"
 )
 
 func init() {

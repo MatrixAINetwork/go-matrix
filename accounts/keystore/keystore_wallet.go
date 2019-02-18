@@ -7,9 +7,9 @@ package keystore
 import (
 	"math/big"
 
-	"github.com/matrix/go-matrix"
-	"github.com/matrix/go-matrix/accounts"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix"
+	"github.com/MatrixAINetwork/go-matrix/accounts"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // keystoreWallet implements the accounts.Wallet interface for the original

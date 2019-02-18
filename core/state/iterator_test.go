@@ -8,8 +8,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 )
 
 // Tests that the node iterator indeed walks over the entire database contents.

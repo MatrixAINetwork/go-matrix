@@ -10,8 +10,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/matrix/go-matrix/crypto"
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 // Entry is implemented by known node record entry types.

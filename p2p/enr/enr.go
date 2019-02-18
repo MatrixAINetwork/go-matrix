@@ -22,7 +22,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/matrix/go-matrix/rlp"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 const SizeLimit = 300 // maximum encoded size of a node record in bytes

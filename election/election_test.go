@@ -1,21 +1,21 @@
 package election
 
 import (
-	"github.com/matrix/go-matrix/election/layered"
-	"github.com/matrix/go-matrix/election/support"
+	"github.com/MatrixAINetwork/go-matrix/election/layered"
+	"github.com/MatrixAINetwork/go-matrix/election/support"
 	"testing"
 
 	"fmt"
-	"github.com/matrix/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/log"
 	"math/big"
 
-	"github.com/matrix/go-matrix/baseinterface"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/vm"
-	_ "github.com/matrix/go-matrix/election/layered"
-	_ "github.com/matrix/go-matrix/election/nochoice"
-	_ "github.com/matrix/go-matrix/election/stock"
-	"github.com/matrix/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/baseinterface"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
+	_ "github.com/MatrixAINetwork/go-matrix/election/layered"
+	_ "github.com/MatrixAINetwork/go-matrix/election/nochoice"
+	_ "github.com/MatrixAINetwork/go-matrix/election/stock"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 func init()  {

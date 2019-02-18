@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"encoding/json"
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 	"io/ioutil"
 	"log"
 	"os"

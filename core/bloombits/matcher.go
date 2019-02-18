@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/matrix/go-matrix/common/bitutil"
-	"github.com/matrix/go-matrix/crypto"
+	"github.com/MatrixAINetwork/go-matrix/common/bitutil"
+	"github.com/MatrixAINetwork/go-matrix/crypto"
 )
 
 // bloomIndexes represents the bit indexes inside the bloom filter that belong

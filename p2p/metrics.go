@@ -9,7 +9,7 @@ package p2p
 import (
 	"net"
 
-	"github.com/matrix/go-matrix/metrics"
+	"github.com/MatrixAINetwork/go-matrix/metrics"
 )
 
 var (

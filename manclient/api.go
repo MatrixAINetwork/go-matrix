@@ -4,10 +4,10 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/matrix/go-matrix"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
-	"github.com/matrix/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/p2p"
 )
 
 type ManClient interface {

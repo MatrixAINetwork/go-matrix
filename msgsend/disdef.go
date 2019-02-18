@@ -4,7 +4,7 @@
 package msgsend
 
 import (
-	"github.com/matrix/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // AlgorithmMsg

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/matrix/go-matrix/accounts/usbwallet"
-	"github.com/matrix/go-matrix/log"
-	"github.com/matrix/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/accounts/usbwallet"
+	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/rpc"
 	"github.com/robertkrimen/otto"
 )
 

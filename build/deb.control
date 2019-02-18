@@ -5,8 +5,8 @@ Maintainer: {{.Author}}
 Build-Depends: debhelper (>= 8.0.0), golang-1.10
 Standards-Version: 3.9.5
 Homepage: https://ethereum.org
-Vcs-Git: git://github.com/matrix/go-matrix.git
-Vcs-Browser: https://github.com/matrix/go-matrix
+Vcs-Git: git://github.com/MatrixAINetwork/go-matrix.git
+Vcs-Browser: https://github.com/MatrixAINetwork/go-matrix
 
 Package: {{.Name}}
 Architecture: any

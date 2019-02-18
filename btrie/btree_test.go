@@ -2,8 +2,8 @@ package btrie
 
 import (
 	"fmt"
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/mandb"
 	_ "math/rand"
 	"os"
 	"strconv"

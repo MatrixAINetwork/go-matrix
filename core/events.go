@@ -5,8 +5,8 @@
 package core
 
 import (
-	"github.com/matrix/go-matrix/common"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.

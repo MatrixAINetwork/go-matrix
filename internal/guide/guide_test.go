@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/matrix/go-matrix/accounts/keystore"
-	"github.com/matrix/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/accounts/keystore"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // Tests that the account management snippets work correctly.

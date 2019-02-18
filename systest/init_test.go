@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/matrix/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 var (
