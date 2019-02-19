@@ -10,7 +10,7 @@ fi
 # Create fake Go workspace if it doesn't exist yet.
 workspace="$PWD/build/_workspace"
 root="$PWD"
-ethdir="$workspace/src/github.com/matrix"
+ethdir="$workspace/src/github.com/MatrixAINetwork"
 if [ ! -L "$ethdir/go-matrix" ]; then
     mkdir -p "$ethdir"
     cd "$ethdir"
