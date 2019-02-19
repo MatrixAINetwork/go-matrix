@@ -3,9 +3,9 @@ InstallDir "$InstDir"
 OutFile "${OUTPUTFILE}" # set through command line arguments
 
 # Links for "Add/Remove Programs"
-!define HELPURL "https://github.com/MATRIX/go-MATRIX/issues"
-!define UPDATEURL "https://github.com/MATRIX/go-MATRIX/releases"
-!define ABOUTURL "https://github.com/MATRIX/go-MATRIX#MATRIX-go"
+!define HELPURL "https://github.com/MatrixAINetwork/go-matrix/issues"
+!define UPDATEURL "https://github.com/MatrixAINetwork/go-matrix/releases"
+!define ABOUTURL "https://github.com/MatrixAINetwork/go-matrix#MATRIX-go"
 !define /date NOW "%Y%m%d"
 
 PageEx license
@@ -33,7 +33,7 @@ Section "gman" gman_IDX
   SimpleFC::AdvAddRule "gman outgoing peers (TCP:50505)" ""  6 2 1 2147483647 1 "$INSTDIR\gman.exe" "" "" "MATRIX" "" 50505 "" ""
   SimpleFC::AdvAddRule "gman UDP discovery (UDP:50505)" "" 17 2 1 2147483647 1 "$INSTDIR\gman.exe" "" "" "MATRIX" "" 50505 "" ""
 
-  # Set default IPC endpoint (https://github.com/MATRIX/EIPs/issues/147)
+  # Set default IPC endpoint (https://github.com/MatrixAINetwork/EIPs/issues/147)
   ${EnvVarUpdate} $0 "MATRIX_SOCKET" "R" "HKLM" "\\.\pipe\gman.ipc"
   ${EnvVarUpdate} $0 "MATRIX_SOCKET" "A" "HKLM" "\\.\pipe\gman.ipc"
 
