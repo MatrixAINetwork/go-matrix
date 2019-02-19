@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018-2019 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 // Copyright 2017-2018 DERO Project. All rights reserved.
