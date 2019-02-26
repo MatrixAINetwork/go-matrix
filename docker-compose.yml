@@ -1,0 +1,20 @@
+version: '2'
+services:
+      GMAN:
+        image: dockermatrix123/matrix:matrix
+        ports:
+        - 8568:8568
+        stdin_open: true
+        tty: true
+      EXP:
+        image: dockermatrix123/matrix:man
+        privileged: true
+        environment:
+          IP: 10.0.75.2
+        ports:
+        - 3000:3000
+        - 80:80
+        depends_on:
+          - GMAN
+        stdin_open: true
+        tty: true
