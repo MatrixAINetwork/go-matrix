@@ -92,7 +92,7 @@ func (b *testBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent)
 	return b.rmLogsFeed.Subscribe(ch)
 }
 
-func (b *testBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (b *testBackend) SubscribeLogsEvent(ch chan<- []types.CoinLogs) event.Subscription {
 	return b.logsFeed.Subscribe(ch)
 }
 

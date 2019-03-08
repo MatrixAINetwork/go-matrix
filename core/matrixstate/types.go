@@ -8,6 +8,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/pkg/errors"
+	"reflect"
 )
 
 var (
@@ -32,6 +33,12 @@ const (
 
 func checkStateDB(st StateDB) error {
 	if st == nil {
+		log.Error(logInfo, "stateDB err", ErrStateDBNil)
+		return ErrStateDBNil
+	}
+
+	value := reflect.ValueOf(st)
+	if value.Kind() == reflect.Ptr && value.IsNil() {
 		log.Error(logInfo, "stateDB err", ErrStateDBNil)
 		return ErrStateDBNil
 	}

@@ -1,10 +1,11 @@
 package matrixstate
 
 import (
+	"math/big"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"math/big"
 )
 
 func GetVersionInfo(st StateDB) string {
@@ -37,7 +38,7 @@ func GetBroadcastInterval(st StateDB) (*mc.BCIntervalInfo, error) {
 }
 
 func GetBroadcastIntervalByVersion(st StateDB, version string) (*mc.BCIntervalInfo, error) {
-	mgr := GetManager(version)
+	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
 		return nil, ErrFindManager
 	}
@@ -200,34 +201,6 @@ func SetBlockSuperAccounts(st StateDB, accounts []common.Address) error {
 		return ErrFindManager
 	}
 	opt, err := mgr.FindOperator(mc.MSKeyAccountBlockSupers)
-	if err != nil {
-		return err
-	}
-	return opt.SetValue(st, accounts)
-}
-
-func GetTxsSuperAccounts(st StateDB) ([]common.Address, error) {
-	mgr := GetManager(GetVersionInfo(st))
-	if mgr == nil {
-		return nil, ErrFindManager
-	}
-	opt, err := mgr.FindOperator(mc.MSKeyAccountTxsSupers)
-	if err != nil {
-		return nil, err
-	}
-	value, err := opt.GetValue(st)
-	if err != nil {
-		return nil, err
-	}
-	return value.([]common.Address), nil
-}
-
-func SetTxsSuperAccounts(st StateDB, accounts []common.Address) error {
-	mgr := GetManager(GetVersionInfo(st))
-	if mgr == nil {
-		return ErrFindManager
-	}
-	opt, err := mgr.FindOperator(mc.MSKeyAccountTxsSupers)
 	if err != nil {
 		return err
 	}
@@ -422,4 +395,20 @@ func GetAccountBlackList(st StateDB) ([]common.Address, error) {
 		return nil, err
 	}
 	return value.([]common.Address), nil
+}
+func GetCoinConfig(st StateDB) ([]common.CoinConfig, error) {
+	version := GetVersionInfo(st)
+	mgr := GetManager(version)
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSCurrencyConfig)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.([]common.CoinConfig), nil
 }

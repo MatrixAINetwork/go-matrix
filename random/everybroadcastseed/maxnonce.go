@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"fmt"
+
 	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -36,7 +37,7 @@ func (self *EveryBroadcastSeedPlug1) CalcSeed(hash common.Hash, support baseinte
 	ans.Add(ans, big.NewInt(int64(maxNonce)))
 	return ans, nil
 }
-func (self *EveryBroadcastSeedPlug1) Prepare(height uint64) error {
+func (self *EveryBroadcastSeedPlug1) Prepare(height uint64, hash common.Hash) error {
 	log.Info(ModuleEveryBroadcastSeed, "每个广播区块产生一个随机数 准备阶段", "", "不需要处理 高度", height)
 	return nil
 }

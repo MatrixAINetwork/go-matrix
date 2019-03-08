@@ -11,6 +11,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/pkg/errors"
 )
 
@@ -376,7 +377,7 @@ func (dc *cdc) getA2Accounts(a0Account common.Address, blockHash common.Hash, si
 		return nil, errors.New("不存在A1账户")
 	}
 
-	a2Accounts := dc.parentState.GetEntrustFrom(a1Account, signHeight)
+	a2Accounts := dc.parentState.GetEntrustFrom(params.MAN_COIN, a1Account, signHeight)
 	if len(a2Accounts) == 0 {
 		log.INFO(common.SignLog, "cdc获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
 	} else {
@@ -403,7 +404,7 @@ func (dc *cdc) getA0Account(account common.Address, blockHash common.Hash, signH
 	}
 
 	//账户为A2账户，获取A1
-	a1Account := dc.parentState.GetAuthFrom(account, signHeight)
+	a1Account := dc.parentState.GetAuthFrom(params.MAN_COIN, account, signHeight)
 	if a1Account == (common.Address{}) {
 		log.Error(common.SignLog, "CDC获取A0账户", "账户不是A1也不是A2账户", "Account", account.Hex())
 		return common.Address{}, common.Address{}, errors.New("账户不是A1也不是A2账户")

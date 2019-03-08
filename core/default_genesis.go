@@ -226,12 +226,6 @@ var (
         "MAN.2nRsUetjWAaYUizRkgBxGETimfUV2":{
             "balance":"10000000000000000000000000"
         },
-        "MAN.2nRsUetjWAaYUizRkgBxGETimfUW7":{
-            "balance":"5000000000000000000000000"
-        },
-        "MAN.2nRsUetjWAaYUizRkgBxGETimfUXN":{
-            "balance":"10000000000000000000000000"
-        },
         "MAN.4L95KmR3e8eUJvzwK2thft1eKaFYa":{
             "balance":"300000000000000000000000000"
         },
@@ -416,7 +410,7 @@ var (
 				"ElectUserNum": 3,
 				"StockScale": 1600
 			},
-		{
+			{
 				"MinMoney": 10000000,
 				"InterestRate": 15,
 				"ElectUserNum": 5,
@@ -430,9 +424,11 @@ var (
         "SlashCalcCfg":"1",
 		"BlkRewardCfg": {
 			"MinerMount": 3,
-			"MinerHalf": 5000000,
-			"ValidatorMount": 7,
-			"ValidatorHalf": 5000000,
+            "MinerAttenuationRate":8500,
+            "MinerAttenuationNum":5000000,
+			"ValidatorMount": 5,
+            "ValidatorAttenuationRate":8500,
+			"ValidatorAttenuationNum": 5000000,
 			"RewardRate": {
 				"MinerOutRate": 4000,
 				"ElectedMinerRate": 5000,
@@ -467,7 +463,9 @@ var (
 			}]
 		},
 		"InterestCfg": {
-			"CalcInterval": 100,
+            "RewardMount":2,
+            "AttenuationRate":8500,
+            "AttenuationPeriod":5000000,
 			"PayInterval": 3600
 		},
 		"LeaderCfg": {
@@ -575,9 +573,11 @@ var (
         "SlashCalcCfg":"1",
 		"BlkRewardCfg": {
 			"MinerMount": 3,
-			"MinerHalf": 5000000,
-			"ValidatorMount": 7,
-			"ValidatorHalf": 5000000,
+            "MinerAttenuationRate":8500,
+			"MinerAttenuationNum": 5000000,
+			"ValidatorMount": 5,
+            "ValidatorAttenuationRate":8500,
+			"ValidatorAttenuationNum": 5000000,
 			"RewardRate": {
 				"MinerOutRate": 4000,
 				"ElectedMinerRate": 5000,
@@ -612,7 +612,9 @@ var (
 			}]
 		},
 		"InterestCfg": {
-			"CalcInterval": 100,
+            "RewardMount":2,
+            "AttenuationRate":8500,
+            "AttenuationPeriod":5000000,
 			"PayInterval": 3600
 		},
 		"LeaderCfg": {

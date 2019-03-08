@@ -44,11 +44,11 @@ type Work struct {
 	config *params.ChainConfig
 	signer types.Signer
 
-	state     *state.StateDB // apply state changes here
-	ancestors *set.Set       // ancestor set (used for checking uncle parent validity)
-	family    *set.Set       // family set (used for checking uncle invalidity)
-	uncles    *set.Set       // uncle set
-	tcount    int            // tx count in cycle
+	state     *state.StateDBManage // apply state changes here
+	ancestors *set.Set             // ancestor set (used for checking uncle parent validity)
+	family    *set.Set             // family set (used for checking uncle invalidity)
+	uncles    *set.Set             // uncle set
+	tcount    int                  // tx count in cycle
 
 	Block *types.Block // the new block
 
@@ -315,16 +315,17 @@ func (self *worker) setExtra(extra []byte) {
 	self.extra = extra
 }
 
-func (self *worker) pending() (*types.Block, *state.StateDB) {
+func (self *worker) pending() (*types.Block, *state.StateDBManage) {
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
 
+	tx, rx := types.GetCoinTXRS(self.current.txs, self.current.receipts)
+	cb := types.MakeCurencyBlock(tx, rx, nil)
 	if atomic.LoadInt32(&self.mining) == 0 {
 		return types.NewBlock(
 			self.current.header,
-			self.current.txs,
+			cb,
 			nil,
-			self.current.receipts,
 		), self.current.state.Copy()
 	}
 	return self.current.Block, self.current.state.Copy()
@@ -335,11 +336,12 @@ func (self *worker) pendingBlock() *types.Block {
 	defer self.currentMu.Unlock()
 
 	if atomic.LoadInt32(&self.mining) == 0 {
+		tx, rx := types.GetCoinTXRS(self.current.txs, self.current.receipts)
+		cb := types.MakeCurencyBlock(tx, rx, nil)
 		return types.NewBlock(
 			self.current.header,
-			self.current.txs,
+			cb,
 			nil,
-			self.current.receipts,
 		)
 	}
 
@@ -519,7 +521,7 @@ func (self *worker) sendMineResultFunc(data interface{}, times uint32) {
 				Txs:    resultData.txs,
 			},
 		}
-		log.Trace(ModuleMiner, "广播挖矿结果", "发送", "交易数量", rsp.BlockMainData.Txs.Len(), "次数", times, "高度", rsp.BlockMainData.Header.Number)
+		log.Trace(ModuleMiner, "广播挖矿结果", "发送", "交易数量", len(types.GetTX(rsp.BlockMainData.Txs)), "次数", times, "高度", rsp.BlockMainData.Header.Number)
 		self.hd.SendNodeMsg(mc.HD_BroadcastMiningRsp, rsp, common.RoleValidator, nil)
 	} else {
 		rsp := &mc.HD_MiningRspMsg{

@@ -4,8 +4,9 @@
 package electionseed
 
 import (
-	"github.com/MatrixAINetwork/go-matrix/log"
 	"math/big"
+
+	"github.com/MatrixAINetwork/go-matrix/log"
 
 	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/common"
@@ -19,7 +20,7 @@ var (
 
 type ElectSeedPlugs interface {
 	CalcSeed(common.Hash, baseinterface.RandomChainSupport) (*big.Int, error)
-	Prepare(uint64, baseinterface.RandomChainSupport) error
+	Prepare(uint64, common.Hash, baseinterface.RandomChainSupport) error
 }
 
 func init() {
@@ -44,16 +45,16 @@ func RegisterElectSeedPlugs(name string, plug ElectSeedPlugs) {
 
 func (self *ElectionSeed) CalcData(calcData common.Hash) (*big.Int, error) {
 	ans, err := mapElectSeedPlugs[self.plug].CalcSeed(calcData, self.support)
-	if err != nil{
+	if err != nil {
 		log.ERROR(ModuleElectSeed, "随机数计算错误:", "err", err)
 	}
 	return ans, err
 
 }
 
-func (self *ElectionSeed) Prepare(height uint64) error {
-	err := mapElectSeedPlugs[self.plug].Prepare(height, self.support)
-	if err != nil{
+func (self *ElectionSeed) Prepare(height uint64, hash common.Hash) error {
+	err := mapElectSeedPlugs[self.plug].Prepare(height, hash, self.support)
+	if err != nil {
 		log.ERROR(ModuleElectSeed, "随机数计算错误:", "err", err)
 	}
 	return err

@@ -98,8 +98,8 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 
 // CanTransfer checks wether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
-func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
-	for _, tAccount := range db.GetBalance(addr) {
+func CanTransfer(db vm.StateDBManager, addr common.Address, amount *big.Int, typ string) bool {
+	for _, tAccount := range db.GetBalance(typ, addr) {
 		if tAccount.AccountType == common.MainAccount {
 			return tAccount.Balance.Cmp(amount) >= 0
 		}
@@ -108,7 +108,7 @@ func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
-func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
-	db.SubBalance(common.MainAccount, sender, amount)
-	db.AddBalance(common.MainAccount, recipient, amount)
+func Transfer(db vm.StateDBManager, sender, recipient common.Address, amount *big.Int, typ string) {
+	db.SubBalance(typ, common.MainAccount, sender, amount)
+	db.AddBalance(typ, common.MainAccount, recipient, amount)
 }

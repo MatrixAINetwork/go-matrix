@@ -4,15 +4,7 @@
 
 package types
 
-import (
-	"math/big"
-	"testing"
-
-	"github.com/MatrixAINetwork/go-matrix/common"
-	"github.com/MatrixAINetwork/go-matrix/crypto"
-	"github.com/MatrixAINetwork/go-matrix/rlp"
-)
-
+/*
 func TestEIP155Signing(t *testing.T) {
 	key, _ := crypto.GenerateKey()
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -124,3 +116,4 @@ func TestChainId(t *testing.T) {
 		t.Error("expected no error")
 	}
 }
+*/

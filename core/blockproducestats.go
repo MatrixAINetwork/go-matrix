@@ -20,7 +20,7 @@ var (
 	ErrSlashCfgPtrIsNil      = errors.Errorf("Slash Cfg Ptr Is Null")
 )
 
-func (bc *BlockChain) slashCfgProc(state *state.StateDB, num uint64) (*mc.BlockProduceSlashCfg, bool, error) {
+func (bc *BlockChain) slashCfgProc(state *state.StateDBManage, num uint64) (*mc.BlockProduceSlashCfg, bool, error) {
 	if nil == state {
 		return nil, false, ErrStatePtrIsNil
 	}
@@ -32,7 +32,7 @@ func (bc *BlockChain) slashCfgProc(state *state.StateDB, num uint64) (*mc.BlockP
 		return slashCfg, true, nil
 	}
 }
-func (bc *BlockChain) ProcessBlockGProduceSlash(state *state.StateDB, header *types.Header) error {
+func (bc *BlockChain) ProcessBlockGProduceSlash(state *state.StateDBManage, header *types.Header) error {
 	if nil == state {
 		return ErrStatePtrIsNil
 	}
@@ -96,7 +96,7 @@ func blackListPrint(blackList *mc.BlockProduceSlashBlackList) {
 /*确定是否执行统计初始化：
 配置不存在，或惩罚关闭，不执行
 */
-func (bc *BlockChain) shouldBlockProduceStatsStart(currentState *state.StateDB, parentHash common.Hash, slashCfg *mc.BlockProduceSlashCfg) (bool, error) {
+func (bc *BlockChain) shouldBlockProduceStatsStart(currentState *state.StateDBManage, parentHash common.Hash, slashCfg *mc.BlockProduceSlashCfg) (bool, error) {
 	if nil == currentState {
 		return false, ErrStatePtrIsNil
 	}
@@ -124,7 +124,7 @@ func (bc *BlockChain) shouldBlockProduceStatsStart(currentState *state.StateDB, 
 
 }
 
-func (bc *BlockChain) GetSlashCfg(state *state.StateDB) (*mc.BlockProduceSlashCfg, error) {
+func (bc *BlockChain) GetSlashCfg(state *state.StateDBManage) (*mc.BlockProduceSlashCfg, error) {
 	slashCfg, err := matrixstate.GetBlockProduceSlashCfg(state)
 	if err != nil {
 		log.Error(ModuleName, "获取区块生产惩罚配置失败", err)
@@ -134,7 +134,7 @@ func (bc *BlockChain) GetSlashCfg(state *state.StateDB) (*mc.BlockProduceSlashCf
 	return slashCfg, nil
 }
 
-func getSlashStatsList(state *state.StateDB) (*mc.BlockProduceStats, error) {
+func getSlashStatsList(state *state.StateDBManage) (*mc.BlockProduceStats, error) {
 	if nil == state {
 		return nil, ErrStatePtrIsNil
 	}
@@ -147,7 +147,7 @@ func getSlashStatsList(state *state.StateDB) (*mc.BlockProduceStats, error) {
 
 	return statsInfo, nil
 }
-func getLatestInitStatsNum(state *state.StateDB) (uint64, error) {
+func getLatestInitStatsNum(state *state.StateDBManage) (uint64, error) {
 	if nil == state {
 		return 0, ErrStatePtrIsNil
 	}
@@ -173,7 +173,7 @@ func hasStatsInit(parentHash common.Hash, latestUpdateTime uint64) (bool, error)
 	}
 
 }
-func initStatsList(state *state.StateDB, updateNumber uint64) {
+func initStatsList(state *state.StateDBManage, updateNumber uint64) {
 	if nil == state {
 		log.Error(ModuleName, "Input state ptr ", nil)
 		return
@@ -197,7 +197,7 @@ func initStatsList(state *state.StateDB, updateNumber uint64) {
 	matrixstate.SetBlockProduceStats(state, &statsList)
 	matrixstate.SetBlockProduceStatsStatus(state, &mc.BlockProduceSlashStatsStatus{updateNumber})
 }
-func (bc *BlockChain) shouldAddRecorder(state *state.StateDB, slashCfg *mc.BlockProduceSlashCfg) (*mc.BlockProduceStats, bool) {
+func (bc *BlockChain) shouldAddRecorder(state *state.StateDBManage, slashCfg *mc.BlockProduceSlashCfg) (*mc.BlockProduceStats, bool) {
 	if !slashCfg.Switcher {
 		return nil, false
 	}
@@ -208,7 +208,7 @@ func (bc *BlockChain) shouldAddRecorder(state *state.StateDB, slashCfg *mc.Block
 	}
 }
 
-func statsListAddRecorder(state *state.StateDB, list *mc.BlockProduceStats, userAddress common.Address) {
+func statsListAddRecorder(state *state.StateDBManage, list *mc.BlockProduceStats, userAddress common.Address) {
 	for k, v := range list.StatsList {
 		if v.Address.Equal(userAddress) {
 			list.StatsList[k].ProduceNum = list.StatsList[k].ProduceNum + 1
@@ -220,7 +220,7 @@ func statsListAddRecorder(state *state.StateDB, list *mc.BlockProduceStats, user
 	}
 }
 
-func shouldBlockProduceSlash(state *state.StateDB, header *types.Header, slashCfg *mc.BlockProduceSlashCfg) bool {
+func shouldBlockProduceSlash(state *state.StateDBManage, header *types.Header, slashCfg *mc.BlockProduceSlashCfg) bool {
 	if !slashCfg.Switcher {
 		log.Debug(ModuleName, "不执行惩罚，原因", "配置关闭")
 		return false
@@ -232,7 +232,7 @@ func shouldBlockProduceSlash(state *state.StateDB, header *types.Header, slashCf
 	return false
 }
 
-func getElectTimingCfg(state *state.StateDB) (*mc.ElectGenTimeStruct, error) {
+func getElectTimingCfg(state *state.StateDBManage) (*mc.ElectGenTimeStruct, error) {
 	electTiming, err := matrixstate.GetElectGenTime(state)
 	if nil != err {
 		log.ERROR(ModuleName, "读取选举时序错误", err)
@@ -241,7 +241,7 @@ func getElectTimingCfg(state *state.StateDB) (*mc.ElectGenTimeStruct, error) {
 
 	return electTiming, nil
 }
-func isNextBlockValidatorGenTimming(state *state.StateDB, currNum uint64, parentHash common.Hash) bool {
+func isNextBlockValidatorGenTimming(state *state.StateDBManage, currNum uint64, parentHash common.Hash) bool {
 
 	bcInterval, err := manparams.GetBCIntervalInfoByHash(parentHash)
 	if nil != err {
@@ -258,7 +258,7 @@ func isNextBlockValidatorGenTimming(state *state.StateDB, currNum uint64, parent
 	return bcInterval.IsReElectionNumber(currNum + 1 + uint64(electTiming.ValidatorGen))
 }
 
-func (bc *BlockChain) GetBlackList(state *state.StateDB) *mc.BlockProduceSlashBlackList {
+func (bc *BlockChain) GetBlackList(state *state.StateDBManage) *mc.BlockProduceSlashBlackList {
 	blackList, err := matrixstate.GetBlockProduceBlackList(state)
 	if nil != err {
 		log.Error(ModuleName, "Get Block Produce BlackList State Err", err)

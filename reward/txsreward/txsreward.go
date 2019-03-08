@@ -20,9 +20,9 @@ type TxsReward struct {
 	blockReward *rewardexec.BlockReward
 }
 
-func New(chain util.ChainReader, st util.StateDB) reward.Reward {
+func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB) reward.Reward {
 
-	data, err := matrixstate.GetTxsCalc(st)
+	data, err := matrixstate.GetTxsCalc(preSt)
 	if nil != err {
 		log.ERROR(PackageName, "获取状态树配置错误")
 		return nil
@@ -33,20 +33,42 @@ func New(chain util.ChainReader, st util.StateDB) reward.Reward {
 		return nil
 	}
 
-	TC, err := matrixstate.GetTxsRewardCfg(st)
+	TC, err := matrixstate.GetTxsRewardCfg(preSt)
 	if nil != err || nil == TC {
 		log.ERROR(PackageName, "获取状态树配置错误", err)
 		return nil
 	}
+	interval, err := matrixstate.GetBroadcastInterval(preSt)
+	if err != nil {
+		log.ERROR(PackageName, "获取广播周期失败", err)
+		return nil
+	}
 
+	foundationAccount, err := matrixstate.GetFoundationAccount(preSt)
+	if err != nil {
+		log.ERROR(PackageName, "获取基金会账户数据失败", err)
+		return nil
+	}
+
+	innerMinerAccounts, err := matrixstate.GetInnerMinerAccounts(preSt)
+	if err != nil {
+		log.ERROR(PackageName, "获取内部矿工账户数据失败", err)
+		return nil
+	}
 	rate := TC.RewardRate
 
 	if util.RewardFullRate != TC.ValidatorsRate+TC.MinersRate {
 		log.ERROR(PackageName, "交易费奖励比例配置错误", "")
 		return nil
 	}
+	currentTop, originElectNodes, err := chain.GetGraphByState(preSt)
+	if err != nil {
+		log.Error("固定区块奖励", "获取拓扑图错误", err)
+		return nil
+	}
+
 	cfg := cfg.New(&mc.BlkRewardCfg{RewardRate: rate}, nil)
 	cfg.ValidatorsRate = TC.ValidatorsRate
 	cfg.MinersRate = TC.MinersRate
-	return rewardexec.New(chain, cfg, st)
+	return rewardexec.New(chain, cfg, st, interval, foundationAccount, innerMinerAccounts, currentTop, originElectNodes)
 }

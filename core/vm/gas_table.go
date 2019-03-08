@@ -107,7 +107,7 @@ func gasReturnDataCopy(gt params.GasTable, evm *EVM, contract *Contract, stack *
 func gasSStore(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	var (
 		y, x = stack.Back(1), stack.Back(0)
-		val  = evm.StateDB.GetState(contract.Address(), common.BigToHash(x))
+		val  = evm.StateDB.GetState(evm.Cointyp, contract.Address(), common.BigToHash(x))
 	)
 	// This checks for 3 scenario's and calculates gas accordingly
 	// 1. From a zero-value address to a non-zero value         (NEW VALUE)
@@ -117,7 +117,7 @@ func gasSStore(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, m
 		// 0 => non 0
 		return params.SstoreSetGas, nil
 	} else if !common.EmptyHash(val) && common.EmptyHash(common.BigToHash(y)) {
-		evm.StateDB.AddRefund(params.SstoreRefundGas)
+		//evm.StateDB.AddRefund(evm.Cointyp,params.SstoreRefundGas)
 
 		return params.SstoreClearGas, nil
 	} else {
@@ -311,10 +311,10 @@ func gasCall(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, mem
 		eip158         = evm.ChainConfig().IsEIP158(evm.BlockNumber)
 	)
 	if eip158 {
-		if transfersValue && evm.StateDB.Empty(address) {
+		if transfersValue && evm.StateDB.Empty(evm.Cointyp, address) {
 			gas += params.CallNewAccountGas
 		}
-	} else if !evm.StateDB.Exist(address) {
+	} else if !evm.StateDB.Exist(evm.Cointyp, address) {
 		gas += params.CallNewAccountGas
 	}
 	if transfersValue {
@@ -384,7 +384,7 @@ func gasSuicide(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, 
 		if eip158 {
 			// if empty and transfers value
 			var amountIsZero bool
-			for _, tAccount := range evm.StateDB.GetBalance(contract.Address()) {
+			for _, tAccount := range evm.StateDB.GetBalance(evm.Cointyp, contract.Address()) {
 				if tAccount.AccountType == common.MainAccount {
 					if tAccount.Balance.Cmp(big.NewInt(int64(0))) == 0 {
 						amountIsZero = true
@@ -394,17 +394,17 @@ func gasSuicide(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, 
 					break
 				}
 			}
-			if evm.StateDB.Empty(address) && !amountIsZero /*evm.StateDB.GetBalance(contract.Address())[common.MainAccount].Sign() != 0*/ {
+			if evm.StateDB.Empty(evm.Cointyp, address) && !amountIsZero /*evm.StateDB.GetBalance(contract.Address())[common.MainAccount].Sign() != 0*/ {
 				gas += gt.CreateBySuicide
 			}
-		} else if !evm.StateDB.Exist(address) {
+		} else if !evm.StateDB.Exist(evm.Cointyp, address) {
 			gas += gt.CreateBySuicide
 		}
 	}
 
-	if !evm.StateDB.HasSuicided(contract.Address()) {
-		evm.StateDB.AddRefund(params.SuicideRefundGas)
-	}
+	//if !evm.StateDB.HasSuicided(evm.Cointyp,contract.Address()) {
+	//evm.StateDB.AddRefund(params.SuicideRefundGas)
+	//}
 	return gas, nil
 }
 

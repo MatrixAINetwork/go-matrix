@@ -420,7 +420,7 @@ func (opt *operatorElectWhiteList) SetValue(st StateDB, value interface{}) error
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
-// 选举白名单
+// 选举白名单开关
 type operatorElectWhiteListSwitcher struct {
 	key common.Hash
 }

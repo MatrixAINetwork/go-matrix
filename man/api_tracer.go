@@ -58,10 +58,10 @@ type txTraceResult struct {
 // blockTraceTask represents a single block trace task when an entire chain is
 // being traced.
 type blockTraceTask struct {
-	statedb *state.StateDB   // Intermediate state prepped for tracing
-	block   *types.Block     // Block to trace the transactions from
-	rootref common.Hash      // Trie root reference held for this task
-	results []*txTraceResult // Trace results procudes by the task
+	statedb *state.StateDBManage // Intermediate state prepped for tracing
+	block   *types.Block         // Block to trace the transactions from
+	rootref common.Hash          // Trie root reference held for this task
+	results []*txTraceResult     // Trace results procudes by the task
 }
 
 // blockTraceResult represets the results of tracing a single block when an entire
@@ -75,8 +75,8 @@ type blockTraceResult struct {
 // txTraceTask represents a single transaction trace task when an entire block
 // is being traced.
 type txTraceTask struct {
-	statedb *state.StateDB // Intermediate state prepped for tracing
-	index   int            // Transaction offset in the block
+	statedb *state.StateDBManage // Intermediate state prepped for tracing
+	index   int                  // Transaction offset in the block
 }
 
 // TraceChain returns the structured logs created during the execution of EVM
@@ -132,7 +132,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 			return nil, fmt.Errorf("parent block #%d not found", number-1)
 		}
 	}
-	statedb, err := state.New(start.Root(), database)
+	statedb, err := state.NewStateDBManage(start.Root(), api.man.ChainDb(), database)
 	if err != nil {
 		// If the starting state is missing, allow some number of blocks to be reexecuted
 		reexec := defaultTraceReexec
@@ -145,7 +145,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 			if start == nil {
 				break
 			}
-			if statedb, err = state.New(start.Root(), database); err == nil {
+			if statedb, err = state.NewStateDBManage(start.Root(), api.man.ChainDb(), database); err == nil {
 				break
 			}
 		}
@@ -181,7 +181,13 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				//signer := types.MakeSigner(api.config, task.block.Number())
 
 				// Trace all the transactions contained within
-				for i, tx := range task.block.Transactions() {
+				var txs []types.SelfTransaction
+				for _, currencie := range task.block.Currencies() {
+					for  _,tx:=range currencie.Transactions.Transactions{
+						txs=append(txs,tx)
+					}
+				}
+				for i, tx := range txs {
 					//msg, _ := tx.AsMessage(signer)
 					vmctx := core.NewEVMContext(tx.From(), tx.GasPrice(), task.block.Header(), api.man.blockchain, nil)
 
@@ -191,7 +197,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 						log.Warn("Tracing failed", "hash", tx.Hash(), "block", task.block.NumberU64(), "err", err)
 						break
 					}
-					task.statedb.Finalise(true)
+					task.statedb.Finalise(tx.GetTxCurrency(), true)
 					task.results[i] = &txTraceResult{Result: res}
 				}
 				// Stream the result back to the user or abort on teardown
@@ -253,8 +259,13 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				break
 			}
 			// Send the block over to the concurrent tracers (if not in the fast-forward phase)
+			var txs []types.SelfTransaction
+			for _, currencie := range block.Currencies() {
+				for  _,tx:=range currencie.Transactions.Transactions{
+					txs=append(txs,tx)
+				}
+			}
 			if number > origin {
-				txs := block.Transactions()
 
 				select {
 				case tasks <- &blockTraceTask{statedb: statedb.Copy(), block: block, rootref: proot, results: make([]*txTraceResult, len(txs))}:
@@ -264,13 +275,13 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				traced += uint64(len(txs))
 			}
 			// Generate the next state snapshot fast without tracing
-			_, _, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
+			 _, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
 			if err != nil {
 				failed = err
 				break
 			}
 			// Finalize the state so any modifications are written to the trie
-			root, err := statedb.Commit(true)
+			root, _, err := statedb.Commit(true)
 			if err != nil {
 				failed = err
 				break
@@ -280,13 +291,15 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				break
 			}
 			// Reference the trie twice, once for us, once for the trancer
-			database.TrieDB().Reference(root, common.Hash{})
+			roothash := types.RlpHash(root)
+
+			database.TrieDB().Reference(roothash, common.Hash{})
 			if number >= origin {
-				database.TrieDB().Reference(root, common.Hash{})
+				database.TrieDB().Reference(roothash, common.Hash{})
 			}
 			// Dereference all past tries we ourselves are done working with
 			database.TrieDB().Dereference(proot, common.Hash{})
-			proot = root
+			proot = roothash
 		}
 	}()
 
@@ -393,10 +406,16 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 		return nil, err
 	}
 	// Execute all the transaction contained within the block concurrently
+	var txs []types.SelfTransaction
+	for _, currencie := range block.Currencies() {
+		for  _,tx:=range currencie.Transactions.Transactions{
+			txs=append(txs,tx)
+		}
+	}
 	var (
 		//signer = types.MakeSigner(api.config, block.Number())
 
-		txs     = block.Transactions()
+		//txs     = block.Transactions()
 		results = make([]*txTraceResult, len(txs))
 
 		pend = new(sync.WaitGroup)
@@ -435,13 +454,13 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 		//msg, _ := tx.AsMessage(signer)
 		vmctx := core.NewEVMContext(tx.From(), tx.GasPrice(), block.Header(), api.man.blockchain, nil)
 
-		vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{})
-		if _, _, _, err := core.ApplyMessage(vmenv, tx, new(core.GasPool).AddGas(tx.Gas())); err != nil {
+		vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{}, tx.GetTxCurrency())
+		if _, _, _, _, err := core.ApplyMessage(vmenv, tx, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			failed = err
 			break
 		}
 		// Finalize the state so any modifications are written to the trie
-		statedb.Finalise(true)
+		statedb.Finalise(tx.GetTxCurrency(), true)
 	}
 	close(jobs)
 	pend.Wait()
@@ -456,7 +475,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 // computeStateDB retrieves the state database associated with a certain block.
 // If no state is locally available for the given block, a number of blocks are
 // attempted to be reexecuted to generate the desired state.
-func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*state.StateDB, error) {
+func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*state.StateDBManage, error) {
 	// If we have the state fully available, use that
 	statedb, err := api.man.blockchain.StateAt(block.Root())
 	if err == nil {
@@ -471,7 +490,7 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if block == nil {
 			break
 		}
-		if statedb, err = state.New(block.Root(), database); err == nil {
+		if statedb, err = state.NewStateDBManage(block.Root(), api.man.ChainDb(), database); err == nil {
 			break
 		}
 	}
@@ -499,21 +518,22 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if block = api.man.blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
 			return nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
-		_, _, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
+		 _, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
 		if err != nil {
 			return nil, err
 		}
 		// Finalize the state so any modifications are written to the trie
-		root, err := statedb.Commit(true)
+		root, _, err := statedb.Commit(true)
 		if err != nil {
 			return nil, err
 		}
 		if err := statedb.Reset(root); err != nil {
 			return nil, err
 		}
-		database.TrieDB().Reference(root, common.Hash{})
+		roothash := types.RlpHash(root)
+		database.TrieDB().Reference(roothash, common.Hash{})
 		database.TrieDB().Dereference(proot, common.Hash{})
-		proot = root
+		proot = roothash
 	}
 	log.Info("Historical state regenerated", "block", block.NumberU64(), "elapsed", time.Since(start), "size", database.TrieDB().Size())
 	return statedb, nil
@@ -542,7 +562,7 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *PrivateDebugAPI) traceTx(ctx context.Context, message txinterface.Message, vmctx vm.Context, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+func (api *PrivateDebugAPI) traceTx(ctx context.Context, message txinterface.Message, vmctx vm.Context, statedb *state.StateDBManage, config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer vm.Tracer
@@ -558,7 +578,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message txinterface.Mes
 			}
 		}
 		// Constuct the JavaScript tracer to execute with
-		if tracer, err = tracers.New(*config.Tracer); err != nil {
+		if tracer, err = tracers.New(message.GetTxCurrency(), *config.Tracer); err != nil {
 			return nil, err
 		}
 		// Handle timeouts and RPC cancellations
@@ -576,9 +596,9 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message txinterface.Mes
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
 	// Run the transaction with tracing enabled.
-	vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{Debug: true, Tracer: tracer})
+	vmenv := vm.NewEVM(vmctx, statedb, api.config, vm.Config{Debug: true, Tracer: tracer}, message.GetTxCurrency())
 
-	ret, gas, failed, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()))
+	ret, gas, failed, _, err := core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()))
 	if err != nil {
 		return nil, fmt.Errorf("tracing failed: %v", err)
 	}
@@ -601,7 +621,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message txinterface.Mes
 }
 
 // computeTxEnv returns the execution environment of a certain transaction.
-func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (txinterface.Message, vm.Context, *state.StateDB, error) {
+func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (txinterface.Message, vm.Context, *state.StateDBManage, error) {
 	// Create the parent state database
 	block := api.man.blockchain.GetBlockByHash(blockHash)
 	if block == nil {
@@ -617,8 +637,14 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	}
 	// Recompute transactions up to the target index.
 	//signer := types.MakeSigner(api.config, block.Number())
+	var txs []types.SelfTransaction
+	for _, currencie := range block.Currencies() {
+		for  _,tx:=range currencie.Transactions.Transactions{
+			txs=append(txs,tx)
+		}
+	}
 
-	for idx, tx := range block.Transactions() {
+	for idx, tx := range txs {
 		// Assemble the transaction call message and return if the requested offset
 		//msg, _ := tx.AsMessage(signer)
 		context := core.NewEVMContext(tx.From(), tx.GasPrice(), block.Header(), api.man.blockchain, nil)
@@ -626,12 +652,12 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 			return tx, context, statedb, nil
 		}
 		// Not yet the searched for transaction, execute on top of the current state
-		vmenv := vm.NewEVM(context, statedb, api.config, vm.Config{})
-		if _, _, _, err := core.ApplyMessage(vmenv, tx, new(core.GasPool).AddGas(tx.Gas())); err != nil {
+		vmenv := vm.NewEVM(context, statedb, api.config, vm.Config{}, tx.GetTxCurrency())
+		if _, _, _, _, err := core.ApplyMessage(vmenv, tx, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 		}
 		// Ensure any modifications are committed to the state
-		statedb.Finalise(true)
+		statedb.Finalise(tx.GetTxCurrency(), true)
 	}
 	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
 }

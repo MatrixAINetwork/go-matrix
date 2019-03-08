@@ -91,16 +91,16 @@ func GetOnlineAlter(offline []common.Address, online []common.Address, electonli
 	return ans
 }
 
-func (self *ReElection) TopoUpdate(allNative support.AllNative, top *mc.TopologyGraph, height uint64) ([]mc.Alternative, error) {
-	elect, err := self.GetElectPlug(height)
+func (self *ReElection) TopoUpdate(allNative support.AllNative, top *mc.TopologyGraph, hash common.Hash) ([]mc.Alternative, error) {
+	elect, err := self.GetElectPlug(hash)
 	if err != nil {
 		log.ERROR(Module, "获取选举插件")
 		return []mc.Alternative{}, err
 	}
 
-	st, err := self.bc.StateAtNumber(height)
+	st, err := self.bc.StateAtBlockHash(hash)
 	if err != nil {
-		log.Error(Module, "get state by height err", err, "height", height)
+		log.Error(Module, "get state by height err", err, "hash", hash)
 		return nil, err
 	}
 	electInfo, err := matrixstate.GetElectConfigInfo(st)
@@ -114,7 +114,7 @@ func (self *ReElection) TopoUpdate(allNative support.AllNative, top *mc.Topology
 
 func (self *ReElection) LastMinerGenTimeStamp(height uint64, types common.RoleType, hash common.Hash) (uint64, error) {
 
-	data, err := self.GetElectGenTimes(height)
+	data, err := self.GetElectGenTimes(hash)
 	if err != nil {
 		log.ERROR(Module, "获取配置文件失败 err", err)
 		return 0, err

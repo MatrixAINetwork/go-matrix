@@ -18,7 +18,7 @@ var (
 
 type PreBlockSeedPlug interface {
 	CalcSeed(req common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error)
-	Prepare(uint64) error
+	Prepare(uint64, common.Hash) error
 }
 
 func init() {
@@ -41,8 +41,8 @@ func RegisterLotterySeedPlugs(name string, plug PreBlockSeedPlug) {
 	mapPreBlockSeedPlugs[name] = plug
 }
 
-func (self *preBlockSeed) Prepare(height uint64) error {
-	err := mapPreBlockSeedPlugs[self.plug].Prepare(height)
+func (self *preBlockSeed) Prepare(height uint64, hash common.Hash) error {
+	err := mapPreBlockSeedPlugs[self.plug].Prepare(height, hash)
 	return err
 }
 

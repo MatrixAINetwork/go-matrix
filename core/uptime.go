@@ -18,15 +18,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (bc *BlockChain) getUpTimeAccounts(num uint64, bcInterval *mc.BCIntervalInfo) ([]common.Address, error) {
-
-	log.INFO(ModuleName, "获取所有参与uptime点名高度", num)
+func (bc *BlockChain) getUpTimeAccounts(parentHash common.Hash, bcInterval *mc.BCIntervalInfo) ([]common.Address, error) {
 
 	upTimeAccounts := make([]common.Address, 0)
 	//todo:和老吕讨论Uptime使用当前抵押值
-	minerNum := num - 1
 	//log.Debug(ModuleName, "参选矿工节点uptime高度", minerNum)
-	ans, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(minerNum)), common.RoleMiner)
+	ans, err := ca.GetElectedByHeightAndRoleByHash(parentHash, common.RoleMiner)
 	if err != nil {
 		return nil, err
 	}
@@ -35,9 +32,8 @@ func (bc *BlockChain) getUpTimeAccounts(num uint64, bcInterval *mc.BCIntervalInf
 		upTimeAccounts = append(upTimeAccounts, v.Address)
 		//log.INFO("v.Address", "v.Address", v.Address)
 	}
-	validatorNum := num - 1
 	//log.Debug(ModuleName, "参选验证节点uptime高度", validatorNum)
-	ans1, err := ca.GetElectedByHeightAndRole(big.NewInt(int64(validatorNum)), common.RoleValidator)
+	ans1, err := ca.GetElectedByHeightAndRoleByHash(parentHash, common.RoleValidator)
 	if err != nil {
 		return upTimeAccounts, err
 	}
@@ -49,8 +45,7 @@ func (bc *BlockChain) getUpTimeAccounts(num uint64, bcInterval *mc.BCIntervalInf
 
 	return upTimeAccounts, nil
 }
-func (bc *BlockChain) getUpTimeData(root common.Hash, num uint64, parentHash common.Hash) (map[common.Address]uint32, map[common.Address][]byte, error) {
-
+func (bc *BlockChain) getUpTimeData(root []common.CoinRoot, num uint64, parentHash common.Hash) (map[common.Address]uint32, map[common.Address][]byte, error) {
 	heatBeatOriginMap, error := GetBroadcastTxMap(bc, root, mc.Heartbeat)
 	if nil != error {
 		log.WARN(ModuleName, "获取主动心跳交易错误", error)
@@ -92,7 +87,7 @@ func (bc *BlockChain) getUpTimeData(root common.Hash, num uint64, parentHash com
 	}
 	return calltherollMap, headerBeatMap, nil
 }
-func (bc *BlockChain) handleUpTime(BeforeLastStateRoot common.Hash, state *state.StateDB, accounts []common.Address, calltherollRspAccounts map[common.Address]uint32, heatBeatAccounts map[common.Address][]byte, blockNum uint64, bcInterval *mc.BCIntervalInfo) (map[common.Address]uint64, error) {
+func (bc *BlockChain) handleUpTime(BeforeLastStateRoot []common.CoinRoot, state *state.StateDBManage, accounts []common.Address, calltherollRspAccounts map[common.Address]uint32, heatBeatAccounts map[common.Address][]byte, blockNum uint64, bcInterval *mc.BCIntervalInfo) (map[common.Address]uint64, error) {
 	HeartBeatMap := bc.getHeatBeatAccount(BeforeLastStateRoot, bcInterval, blockNum, accounts, heatBeatAccounts)
 
 	originValidatorMap, originMinerMap, err := bc.getElectMap(blockNum, bcInterval)
@@ -136,12 +131,12 @@ func (bc *BlockChain) getElectMap(blockNum uint64, bcInterval *mc.BCIntervalInfo
 	return originValidatorMap, originMinerMap, nil
 }
 
-func (bc *BlockChain) getHeatBeatAccount(beforeLastStateRoot common.Hash, bcInterval *mc.BCIntervalInfo, blockNum uint64, accounts []common.Address, heatBeatAccounts map[common.Address][]byte) map[common.Address]bool {
+func (bc *BlockChain) getHeatBeatAccount(beforeLastStateRoot []common.CoinRoot, bcInterval *mc.BCIntervalInfo, blockNum uint64, accounts []common.Address, heatBeatAccounts map[common.Address][]byte) map[common.Address]bool {
 	HeatBeatReqAccounts := make([]common.Address, 0)
 	HeartBeatMap := make(map[common.Address]bool, 0)
 	//subVal就是最新的广播区块，例如当前区块高度是198或者是101，那么subVal就是100
 
-	broadcastBlock := beforeLastStateRoot.Big()
+	broadcastBlock := types.RlpHash(beforeLastStateRoot).Big()
 	val := new(big.Int).Rem(broadcastBlock, big.NewInt(int64(bcInterval.GetBroadcastInterval())-1))
 	for _, v := range accounts {
 		currentAcc := v.Big()
@@ -160,7 +155,7 @@ func (bc *BlockChain) getHeatBeatAccount(beforeLastStateRoot common.Hash, bcInte
 	return HeartBeatMap
 }
 
-func (bc *BlockChain) calcUpTime(accounts []common.Address, calltherollRspAccounts map[common.Address]uint32, HeartBeatMap map[common.Address]bool, bcInterval *mc.BCIntervalInfo, state *state.StateDB, originValidatorMap map[common.Address]uint32, originMinerMap map[common.Address]uint32) map[common.Address]uint64 {
+func (bc *BlockChain) calcUpTime(accounts []common.Address, calltherollRspAccounts map[common.Address]uint32, HeartBeatMap map[common.Address]bool, bcInterval *mc.BCIntervalInfo, state *state.StateDBManage, originValidatorMap map[common.Address]uint32, originMinerMap map[common.Address]uint32) map[common.Address]uint64 {
 	var upTime uint64
 	maxUptime := bcInterval.GetBroadcastInterval() - 3
 	upTimeMap := make(map[common.Address]uint64, 0)
@@ -201,7 +196,7 @@ func (bc *BlockChain) upTimesReset(oldUpTime *big.Int, a float64, b int64) *big.
 	return big.NewInt(int64(a*float64(oldUpTime.Int64())) + b)
 
 }
-func (bc *BlockChain) saveUptime(account common.Address, upTime uint64, state *state.StateDB, originValidatorMap map[common.Address]uint32, originMinerMap map[common.Address]uint32) {
+func (bc *BlockChain) saveUptime(account common.Address, upTime uint64, state *state.StateDBManage, originValidatorMap map[common.Address]uint32, originMinerMap map[common.Address]uint32) {
 	old, err := depoistInfo.GetOnlineTime(state, account)
 	if nil != err {
 		return
@@ -227,7 +222,8 @@ func (bc *BlockChain) saveUptime(account common.Address, upTime uint64, state *s
 	depoistInfo.GetOnlineTime(state, account)
 	//log.Debug(ModuleName, "读取存入upTime账户", account, "upTime处理后", newTime.Uint64())
 }
-func (bc *BlockChain) HandleUpTimeWithSuperBlock(state *state.StateDB, accounts []common.Address, blockNum uint64, bcInterval *mc.BCIntervalInfo) (map[common.Address]uint64, error) {
+
+func (bc *BlockChain) HandleUpTimeWithSuperBlock(state *state.StateDBManage, accounts []common.Address, blockNum uint64, bcInterval *mc.BCIntervalInfo) (map[common.Address]uint64, error) {
 	broadcastInterval := bcInterval.GetBroadcastInterval()
 	originTopologyNum := blockNum - blockNum%broadcastInterval - 1
 	originTopology, err := ca.GetTopologyByNumber(common.RoleValidator|common.RoleBackupValidator|common.RoleMiner|common.RoleBackupMiner, originTopologyNum)
@@ -261,7 +257,8 @@ func (bc *BlockChain) HandleUpTimeWithSuperBlock(state *state.StateDB, accounts 
 	return upTimeMap, nil
 
 }
-func (bc *BlockChain) ProcessUpTime(state *state.StateDB, header *types.Header) (map[common.Address]uint64, error) {
+
+func (bc *BlockChain) ProcessUpTime(state *state.StateDBManage, header *types.Header) (map[common.Address]uint64, error) {
 	latestNum, err := matrixstate.GetUpTimeNum(state)
 	if nil != err {
 		return nil, err
@@ -283,7 +280,7 @@ func (bc *BlockChain) ProcessUpTime(state *state.StateDB, header *types.Header) 
 	if latestNum < bcInterval.GetLastBroadcastNumber()+1 {
 		//log.Debug(ModuleName, "区块插入验证", "完成创建work, 开始执行uptime", "高度", header.Number.Uint64())
 		matrixstate.SetUpTimeNum(state, header.Number.Uint64())
-		upTimeAccounts, err := bc.getUpTimeAccounts(header.Number.Uint64(), bcInterval)
+		upTimeAccounts, err := bc.getUpTimeAccounts(header.ParentHash, bcInterval)
 		if err != nil {
 			log.ERROR("core", "获取所有抵押账户错误!", err, "高度", header.Number.Uint64())
 			return nil, err
@@ -319,28 +316,28 @@ func (bc *BlockChain) ProcessUpTime(state *state.StateDB, header *types.Header) 
 
 	return nil, nil
 }
-func (bc *BlockChain) getPreRoot(header *types.Header, bcInterval *mc.BCIntervalInfo) (common.Hash, common.Hash, error) {
-	var LastStateRoot common.Hash
-	var BeforeLastStateRoot common.Hash
+func (bc *BlockChain) getPreRoot(header *types.Header, bcInterval *mc.BCIntervalInfo) ([]common.CoinRoot, []common.CoinRoot, error) {
+	var LastStateRoot []common.CoinRoot
+	var BeforeLastStateRoot []common.CoinRoot
 	if header.Number.Uint64() == bcInterval.GetLastBroadcastNumber()+1 {
-		preBroadcastRoot, err := readstatedb.GetPreBroadcastRoot(bc, header.Number.Uint64()-1)
+		preBroadcastRoot, err := readstatedb.GetPreBroadcastRoot(bc, header.ParentHash)
 		if err != nil {
 			log.Error(ModuleName, "获取之前广播区块的root值失败 err", err)
-			return common.Hash{}, common.Hash{}, fmt.Errorf("从状态树获取前2个广播区块root失败")
+			return nil, nil, fmt.Errorf("从状态树获取前2个广播区块root失败")
 		}
 		BeforeLastStateRoot = preBroadcastRoot.LastStateRoot
 		LastStateRoot = bc.GetBlockByHash(header.ParentHash).Root()
 
 	} else {
-		preBroadcastRoot, err := readstatedb.GetPreBroadcastRoot(bc, header.Number.Uint64()-1)
+		preBroadcastRoot, err := readstatedb.GetPreBroadcastRoot(bc, header.ParentHash)
 		if err != nil {
 			log.Error(ModuleName, "获取之前广播区块的root值失败 err", err)
-			return common.Hash{}, common.Hash{}, fmt.Errorf("从状态树获取前2个广播区块root失败")
+			return nil, nil, fmt.Errorf("从状态树获取前2个广播区块root失败")
 		}
 		LastStateRoot = preBroadcastRoot.LastStateRoot
 		BeforeLastStateRoot = preBroadcastRoot.BeforeLastStateRoot
 
 	}
-	log.Debug(ModuleName, "获取最新的root", LastStateRoot.Hex(), "上一个root", BeforeLastStateRoot)
+	log.Debug(ModuleName, "获取最新的root", LastStateRoot, "上一个root", BeforeLastStateRoot)
 	return LastStateRoot, BeforeLastStateRoot, nil
 }

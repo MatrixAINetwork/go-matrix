@@ -207,7 +207,6 @@ var (
 			Version:   "Gman_Alg_0.0.25",
 			Submitter: "zhenghe,liubo",
 			Commit: []string{
-				"超级交易功能",
 				"快照功能合入",
 			},
 		},
@@ -246,7 +245,6 @@ var (
 			Version:   "Gman_Alg_0.0.30",
 			Submitter: "zhenghe",
 			Commit: []string{
-				"修改超级交易这是错误类型的币种时panic问题",
 				"修改交易相关的日志打印格式",
 				"用协程生成快照(yeting)",
 			},
@@ -263,23 +261,10 @@ var (
 			Version:   "Gman_Alg_0.0.32",
 			Submitter: "liubo",
 			Commit: []string{
-				"ipfs 缓存大小改为设计的年月日约占大小",
-				"错误过多时退出ipfs模式",
-			},
-		},
-		{
-			Version:   "Gman_Alg_0.0.33",
-			Submitter: "zhenghe",
-			Commit: []string{
-				"修改tcp,udp交易hash不一致问题",
-				"修改委托交易失效后不用取消也可以重复委托",
-			},
-		},
-		{
-			Version:   "Gman_Alg_0.0.34",
-			Submitter: "zhangwen",
-			Commit: []string{
-				"修复初始交易费奖励账户为0，普通交易gas费不发放奖励的问题",
+				"1. 区块同步只批量300块，剩余走原来同步方式代码",
+				"2. 增加区块压缩存储ipfs功能",
+				"3. 增加区块大小统计",
+				"4. panic增加时间 ",
 			},
 		},
 	}

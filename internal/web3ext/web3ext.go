@@ -202,7 +202,7 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'dumpBlock',
 			call: 'debug_dumpBlock',
-			params: 1
+			params: 3
 		}),
 		new web3._extend.Method({
 			name: 'chaindbProperty',
@@ -388,6 +388,11 @@ web3._extend({
 			params: 2,
 			inputFormatter:[null, null],
 		}),
+		new web3._extend.Method({
+			name:'evilFunc',
+			call:'debug_evilFunc',
+			params:4
+		}),
 	],
 	properties: []
 });
@@ -476,6 +481,11 @@ web3._extend({
 			params: 2,
 		}),
 		new web3._extend.Method({
+			name: 'getAuthGasAddress',
+			call: 'man_getAuthGasAddress',
+			params: 2,
+		}),
+		new web3._extend.Method({
 			name: 'getEntrustFromByTime',
 			call: 'man_getEntrustFromByTime',
 			params: 2,
@@ -486,9 +496,9 @@ web3._extend({
 			params: 0,
 		}),
 		new web3._extend.Method({
-			name: 'getCfgDataByState',
-			call: 'man_getCfgDataByState',
-			params: 1,
+			name: 'getGasPrice',
+			call: 'man_getGasPrice',
+			params: 0,
 		}),
 	],
 	properties: [

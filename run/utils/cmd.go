@@ -23,6 +23,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/internal/debug"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/pod"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
@@ -245,8 +246,8 @@ func ImportPreimages(db *mandb.LDBDatabase, fn string) error {
 	stream := rlp.NewStream(reader, 0)
 
 	// Import the preimages in batches to prevent disk trashing
-	preimages := make(map[common.Hash][]byte)
-
+	//preimages := make(map[common.Hash][]byte)
+	preimages := make(map[string]map[common.Hash][]byte)
 	for {
 		// Read the next entry and ensure it's not junk
 		var blob []byte
@@ -258,10 +259,11 @@ func ImportPreimages(db *mandb.LDBDatabase, fn string) error {
 			return err
 		}
 		// Accumulate the preimages and flush when enough ws gathered
-		preimages[crypto.Keccak256Hash(blob)] = common.CopyBytes(blob)
+		//TODO
+		preimages[params.MAN_COIN][crypto.Keccak256Hash(blob)] = common.CopyBytes(blob)
 		if len(preimages) > 1024 {
 			rawdb.WritePreimages(db, 0, preimages)
-			preimages = make(map[common.Hash][]byte)
+			preimages = make(map[string]map[common.Hash][]byte)
 		}
 	}
 	// Flush the last batch preimage data

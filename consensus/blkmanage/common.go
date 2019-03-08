@@ -58,8 +58,8 @@ type ChainReader interface {
 	GetBlockSuperAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetBroadcastInterval() (*mc.BCIntervalInfo, error)
 
-	ProcessUpTime(state *state.StateDB, header *types.Header) (map[common.Address]uint64, error)
-	StateAt(root common.Hash) (*state.StateDB, error)
+	ProcessUpTime(state *state.StateDBManage, header *types.Header) (map[common.Address]uint64, error)
+	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
 	Engine(version []byte) consensus.Engine
 	DPOSEngine(version []byte) consensus.DPOSEngine
 	Processor(version []byte) core.Processor
@@ -70,10 +70,10 @@ type MANBLKPlUGS interface {
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(version string, support BlKSupport, interval *mc.BCIntervalInfo, num uint64, args interface{}) (*types.Header, interface{}, error)
-	ProcessState(support BlKSupport, header *types.Header, args interface{}) ([]*common.RetCallTxN, *state.StateDB, []*types.Receipt, []types.SelfTransaction, []types.SelfTransaction, interface{}, error)
-	Finalize(support BlKSupport, header *types.Header, state *state.StateDB, txs []types.SelfTransaction, uncles []*types.Header, receipts []*types.Receipt, args interface{}) (*types.Block, interface{}, error)
+	ProcessState(support BlKSupport, header *types.Header, args interface{}) ([]*common.RetCallTxN, *state.StateDBManage, []types.CoinReceipts, []types.CoinSelfTransaction, []types.CoinSelfTransaction, interface{}, error)
+	Finalize(support BlKSupport, header *types.Header, state *state.StateDBManage, txs []types.CoinSelfTransaction, uncles []*types.Header, receipts []types.CoinReceipts, args interface{}) (*types.Block, interface{}, error)
 	VerifyHeader(version string, support BlKSupport, header *types.Header, args interface{}) (interface{}, error)
-	VerifyTxsAndState(support BlKSupport, header *types.Header, Txs types.SelfTransactions, args interface{}) (*state.StateDB, types.SelfTransactions, []*types.Receipt, interface{}, error)
+	VerifyTxsAndState(support BlKSupport, header *types.Header, Txs []types.CoinSelfTransaction, args interface{}) (*state.StateDBManage, []types.CoinSelfTransaction, []types.CoinReceipts, interface{}, error)
 }
 
 type TopNodeService interface {
@@ -178,7 +178,7 @@ func (bd *ManBlkManage) Prepare(types string, version string, num uint64, interv
 	return plug.Prepare(version, bd.support, interval, num, args)
 }
 
-func (bd *ManBlkManage) ProcessState(types string, version string, header *types.Header, args ...interface{}) ([]*common.RetCallTxN, *state.StateDB, []*types.Receipt, []types.SelfTransaction, []types.SelfTransaction, interface{}, error) {
+func (bd *ManBlkManage) ProcessState(types string, version string, header *types.Header, args ...interface{}) ([]*common.RetCallTxN, *state.StateDBManage, []types.CoinReceipts, []types.CoinSelfTransaction, []types.CoinSelfTransaction, interface{}, error) {
 	plug, ok := bd.mapManBlkPlugs[types+version]
 	if !ok {
 		log.ERROR(LogManBlk, "获取插件失败", "")
@@ -187,7 +187,7 @@ func (bd *ManBlkManage) ProcessState(types string, version string, header *types
 	return plug.ProcessState(bd.support, header, args)
 }
 
-func (bd *ManBlkManage) Finalize(types string, version string, header *types.Header, state *state.StateDB, txs []types.SelfTransaction, uncles []*types.Header, receipts []*types.Receipt, args ...interface{}) (*types.Block, interface{}, error) {
+func (bd *ManBlkManage) Finalize(types string, version string, header *types.Header, state *state.StateDBManage, txs []types.CoinSelfTransaction, uncles []*types.Header, receipts []types.CoinReceipts, args ...interface{}) (*types.Block, interface{}, error) {
 	plug, ok := bd.mapManBlkPlugs[types+version]
 	if !ok {
 		log.ERROR(LogManBlk, "获取插件失败", "")
@@ -205,7 +205,7 @@ func (bd *ManBlkManage) VerifyHeader(types string, version string, header *types
 	return plug.VerifyHeader(version, bd.support, header, args)
 }
 
-func (bd *ManBlkManage) VerifyTxsAndState(types string, version string, header *types.Header, Txs types.SelfTransactions, args ...interface{}) (*state.StateDB, types.SelfTransactions, []*types.Receipt, interface{}, error) {
+func (bd *ManBlkManage) VerifyTxsAndState(types string, version string, header *types.Header, Txs []types.CoinSelfTransaction, args ...interface{}) (*state.StateDBManage, []types.CoinSelfTransaction, []types.CoinReceipts, interface{}, error) {
 	plug, ok := bd.mapManBlkPlugs[types+version]
 	if !ok {
 		log.ERROR(LogManBlk, "获取插件失败", "")

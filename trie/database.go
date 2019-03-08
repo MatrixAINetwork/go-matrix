@@ -11,6 +11,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 // secureKeyPrefix is the database key prefix used to store trie node preimages.
@@ -160,6 +161,19 @@ func (db *Database) Nodes() []common.Hash {
 	}
 	return hashes
 }
+func (db *Database) ReferenceRoot(childs []common.CoinRoot, parent common.Hash) {
+	for _, cr := range childs {
+		var hashs []common.Hash
+		err := rlp.DecodeBytes(cr.Root[:], &hashs)
+		if err != nil {
+			log.Error("database", "CommitRoots:err", err)
+			continue
+		}
+		for _, hash := range hashs {
+			db.Reference(hash, parent)
+		}
+	}
+}
 
 // Reference adds a new reference from a parent node to a child node.
 func (db *Database) Reference(child common.Hash, parent common.Hash) {
@@ -224,6 +238,26 @@ func (db *Database) dereference(child common.Hash, parent common.Hash) {
 		db.nodesSize -= common.StorageSize(common.HashLength + len(node.blob))
 	}
 }
+func (db *Database) CommitRoots(nodes []common.CoinRoot, report bool) error {
+	for _, cr := range nodes {
+		var hashs []common.Hash
+		root, err := db.diskdb.Get(cr.Root[:])
+		if err != nil {
+			log.Error("database", "CommitRoots:err", "db.diskdb.Get", err)
+			continue
+		}
+		//err=json.Unmarshal(root,&hashs)
+		err = rlp.DecodeBytes(root, &hashs)
+		if err != nil {
+			log.Error("database", "CommitRoots:err", "DecodeBytes", err)
+			continue
+		}
+		for _, hash := range hashs {
+			db.Commit(hash, report)
+		}
+	}
+	return nil
+}
 
 // Commit iterates over all the children of a particular node, writes them out
 // to disk, forcefully tearing down all references in both directions.
@@ -236,7 +270,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	// by only uncaching existing data when the database write finalizes.
 	db.lock.RLock()
 
-	start := time.Now()
+	//start := time.Now()
 	batch := db.diskdb.NewBatch()
 
 	// Move all of the accumulated preimages into a write batch
@@ -254,7 +288,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 		}
 	}
 	// Move the trie itself into the batch, flushing if enough data is accumulated
-	nodes, storage := len(db.nodes), db.nodesSize+db.preimagesSize
+	//nodes, storage := len(db.nodes), db.nodesSize+db.preimagesSize
 	if err := db.commit(node, batch); err != nil {
 		log.Error("Failed to commit trie from trie database", "err", err)
 		db.lock.RUnlock()
@@ -277,12 +311,12 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 
 	db.uncache(node)
 
-	logger := log.Info
-	if !report {
-		logger = log.Debug
-	}
-	logger("Persisted trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
-		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
+	//logger := log.Info
+	//if !report {
+	//	logger = log.Debug
+	//}
+	//logger("Persisted trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
+	//	"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
 
 	// Reset the garbage collection statistics
 	db.gcnodes, db.gcsize, db.gctime = 0, 0, 0

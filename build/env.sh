@@ -10,10 +10,10 @@ fi
 # Create fake Go workspace if it doesn't exist yet.
 workspace="$PWD/build/_workspace"
 root="$PWD"
-ethdir="$workspace/src/github.com/MatrixAINetwork"
-if [ ! -L "$ethdir/go-matrix" ]; then
-    mkdir -p "$ethdir"
-    cd "$ethdir"
+mandir="$workspace/src/github.com/MatrixAINetwork"
+if [ ! -L "$mandir/go-matrix" ]; then
+    mkdir -p "$mandir"
+    cd "$mandir"
     ln -s ../../../../../. go-matrix
     cd "$root"
 fi
@@ -23,8 +23,8 @@ GOPATH="$workspace"
 export GOPATH
 
 # Run the command inside the workspace.
-cd "$ethdir/go-matrix"
-PWD="$ethdir/go-matrix"
+cd "$mandir/go-matrix"
+PWD="$mandir/go-matrix"
 
 # Launch the arguments with the configured environment.
 exec "$@"

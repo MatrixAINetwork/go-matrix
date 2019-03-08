@@ -18,7 +18,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-	"time"
 )
 
 const (
@@ -72,8 +71,8 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 	currBlockHeight := currBlock.Number()
 	//TODO sunchunfeng test
 	if h.Cmp(currBlockHeight) < 0 {
-		log.Info("===Send BroadCastTx===", "block height less than 100")
-		return errors.New("===Send BroadCastTx===,block height less than 100")
+		log.Error("Send BroadCastTx", "block height less than 100")
+		return errors.New("Send BroadCastTx,block height less than 100")
 	}
 	bType := false
 	if t == mc.CallTheRoll {
@@ -82,7 +81,7 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 
 	bcInterval, err := manparams.GetBCIntervalInfoByNumber(currBlockHeight.Uint64())
 	if err != nil || bcInterval == nil {
-		log.Info("===Send BroadCastTx===", "get broadcast interval err", err)
+		log.Error("Send BroadCastTx", "get broadcast interval err", err)
 	}
 	h.Quo(h, big.NewInt(int64(bcInterval.GetBroadcastInterval())))
 	t += h.String()
@@ -96,17 +95,17 @@ func (bc *BroadCast) sendBroadCastTransaction(t string, h *big.Int, data []byte)
 	if config := bc.manBackend.ChainConfig(); config.IsEIP155(currBlockHeight) {
 		chainID = config.ChainId
 	}
-	t1 := time.Now()
+	//t1 := time.Now()
 	usingEntrust := ca.GetRole() != common.RoleBroadcast
 	signed, err := bc.manBackend.SignTx(tx, chainID, currBlock.ParentHash(), bcInterval.GetNextBroadcastNumber(currBlockHeight.Uint64()), usingEntrust)
 	if err != nil {
-		log.Info("file broadcast", "sendBroadCastTransaction:SignTx=", err)
+		log.Error("broadcast", "sendBroadCastTransaction:SignTx=", err)
 		return err
 	}
-	t2 := time.Since(t1)
+	//t2 := time.Since(t1)
 	err1 := bc.manBackend.SendBroadTx(context.Background(), signed, bType)
-	t3 := time.Since(t1)
-	log.Info("File BroadCast", "func sendBroadCastTransaction:t2", t2, "t3", t3)
-	log.Info("==================", "sendBroadCastTransaction:Return=", err1)
+	//t3 := time.Since(t1)
+	//log.Info("File BroadCast", "func sendBroadCastTransaction:t2", t2, "t3", t3)
+	log.Trace("broadcast", "sendBroadCastTransaction:Return=", err1)
 	return nil
 }

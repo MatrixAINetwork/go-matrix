@@ -82,7 +82,7 @@ func TestProcess_LeaderInsertAndBcBlock(t *testing.T) {
 				return nil, nil
 			})
 
-			hash, err := p.insertAndBcBlock(true, common.HexToAddress(testAddress), header)
+			hash, err := p.InsertAndBcBlock(true, common.HexToAddress(testAddress), header)
 			So(err, ShouldEqual, nil)
 			So(hash, ShouldNotEqual, common.Hash{})
 			So(header.Hash(), ShouldEqual, eth.BlockChain().CurrentHeader().Hash())
@@ -153,7 +153,7 @@ func TestProcess_FowllerInsertAndBcBlock(t *testing.T) {
 				return nil, nil
 			})
 
-			hash, err := p.insertAndBcBlock(false, common.HexToAddress(testAddress), header)
+			hash, err := p.InsertAndBcBlock(false, common.HexToAddress(testAddress), header)
 			So(err, ShouldEqual, nil)
 			So(hash, ShouldNotEqual, common.Hash{})
 			So(header.Hash(), ShouldEqual, eth.BlockChain().CurrentHeader().Hash())

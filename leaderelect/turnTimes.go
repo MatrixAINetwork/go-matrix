@@ -4,10 +4,11 @@
 package leaderelect
 
 import (
+	"time"
+
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/pkg/errors"
-	"time"
 )
 
 type turnTimes struct {

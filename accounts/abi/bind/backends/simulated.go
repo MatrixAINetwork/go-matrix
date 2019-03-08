@@ -43,8 +43,8 @@ type SimulatedBackend struct {
 	blockchain *core.BlockChain // Matrix blockchain to handle the consensus
 
 	mu           sync.Mutex
-	pendingBlock *types.Block   // Currently pending block that will be imported on request
-	pendingState *state.StateDB // Currently pending state that will be the active on on request
+	pendingBlock *types.Block         // Currently pending block that will be imported on request
+	pendingState *state.StateDBManage // Currently pending state that will be the active on on request
 
 	events *filters.EventSystem // Event system for filtering log events live
 
@@ -94,7 +94,7 @@ func (b *SimulatedBackend) rollback() {
 	statedb, _ := b.blockchain.State()
 
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), statedb.Database())
+	b.pendingState, _ = state.NewStateDBManage(b.pendingBlock.Root(), statedb.Database())
 }
 
 // CodeAt returns the code associated with a certain account in the blockchain.
@@ -118,7 +118,7 @@ func (b *SimulatedBackend) BalanceAt(ctx context.Context, contract common.Addres
 		return nil, errBlockNumberUnsupported
 	}
 	statedb, _ := b.blockchain.State()
-	return statedb.GetBalance(contract), nil
+	return statedb.GetBalance(params.MAN_COIN, contract), nil
 }
 
 // NonceAt returns the nonce of a certain account in the blockchain.
@@ -454,7 +454,7 @@ func (fb *filterBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Su
 func (fb *filterBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
 	return fb.bc.SubscribeRemovedLogsEvent(ch)
 }
-func (fb *filterBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (fb *filterBackend) SubscribeLogsEvent(ch chan<- []types.CoinLogs) event.Subscription {
 	return fb.bc.SubscribeLogsEvent(ch)
 }
 

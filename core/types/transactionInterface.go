@@ -4,6 +4,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"math/big"
+	"sort"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 const (
@@ -11,6 +13,11 @@ const (
 	BroadCastTxIndex             // BroadcastPool save broadcast transaction
 
 )
+
+type CoinSelfTransaction struct {
+	CoinType string
+	Txser    SelfTransactions
+}
 
 type SelfTransaction interface {
 	TxType() byte
@@ -53,6 +60,7 @@ type SelfTransaction interface {
 	GetLocalHeight() uint32
 	GetIsEntrustGas() bool
 	GetIsEntrustByTime() bool
+	GetMakeHashfield(chid *big.Int) []interface{}
 	SetIsEntrustGas(b bool)
 	SetIsEntrustByTime(b bool)
 }
@@ -73,17 +81,82 @@ func SetMxToTransaction(txm *Transaction_Mx) (txer SelfTransaction) {
 		if tx != nil {
 			txer = tx
 		} else {
-			log.Info("file transactionInterface", "func SetMxToTransaction1", "tx is nil", "Transaction_Mx", txm)
+			log.Info("transactionInterface", "SetMxToTransaction1", "tx is nil", "Transaction_Mx", txm)
 		}
 	} else if txm.TxType_Mx == common.ExtraBroadTxType {
 		tx := SetTransactionMx(txm)
 		if tx != nil {
 			txer = tx
 		} else {
-			log.Info("file transactionInterface", "func SetMxToTransaction2", "tx is nil", "Transaction_Mx", txm)
+			log.Info("transactionInterface", "SetMxToTransaction2", "tx is nil", "Transaction_Mx", txm)
 		}
 	} else {
-		log.Info("file transactionInterface", "func SetMxToTransaction", "Transaction_Mx is nil", txm)
+		log.Info("transactionInterface", "SetMxToTransaction", "Transaction_Mx is nil", txm)
+	}
+	return
+}
+
+func GetTX(ctx []CoinSelfTransaction)[] SelfTransaction  {
+	var txs []SelfTransaction
+	for _,tx:= range ctx{
+		for _,t:= range tx.Txser  {
+			txs=append(txs,t)
+		}
+	}
+	return txs
+}
+
+func GetCoinTX(txs []SelfTransaction)[]CoinSelfTransaction  {
+	mm := make(map[string][]SelfTransaction) //BB
+	for _, tx := range txs {
+		cointype := tx.GetTxCurrency()
+		mm[cointype] = append(mm[cointype], tx)
+	}
+	cs := []CoinSelfTransaction{}
+	sorted_keys := make([]string, 0)
+	for k, _ := range mm {
+		sorted_keys = append(sorted_keys, k)
+	}
+	sort.Strings(sorted_keys)
+	cs = append(cs, CoinSelfTransaction{params.MAN_COIN, mm[params.MAN_COIN]})
+	for _, k := range sorted_keys {
+		if k == params.MAN_COIN{
+			continue
+		}
+		cs = append(cs, CoinSelfTransaction{k, mm[k]})
+	}
+	return cs
+}
+
+func GetCoinTXRS(txs []SelfTransaction,rxs []*Receipt) ([]CoinSelfTransaction,[]CoinReceipts) {
+	var tx []CoinSelfTransaction	//BB
+	var rx []CoinReceipts
+	tm := make(map[string][]SelfTransaction)
+	rm := make(map[string][]*Receipt)
+	for i,t := range txs  {
+		tm[t.GetTxCurrency()]=append(tm[t.GetTxCurrency()],t)
+		rm[t.GetTxCurrency()]=append(rm[t.GetTxCurrency()],rxs[i])
+	}
+	sorted_keys := make([]string, 0)
+	for k, _ := range tm {
+		sorted_keys = append(sorted_keys, k)
+	}
+	sort.Strings(sorted_keys)
+	tx=append(tx,CoinSelfTransaction{params.MAN_COIN,tm[params.MAN_COIN]})
+	rx=append(rx,CoinReceipts{params.MAN_COIN,rm[params.MAN_COIN]})
+	for _,k:=range sorted_keys  {
+		if k == params.MAN_COIN{
+			continue
+		}
+		tx=append(tx,CoinSelfTransaction{k,tm[k]})
+		rx=append(rx,CoinReceipts{k,rm[k]})
+	}
+	return tx,rx
+}
+
+func TxHashList(txs SelfTransactions)(list []common.Hash){
+	for _,tx := range txs{
+		list = append(list,tx.Hash())
 	}
 	return
 }

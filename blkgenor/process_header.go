@@ -29,6 +29,7 @@ func (p *Process) processBcHeaderGen() error {
 		return err
 	}
 	version := p.pm.manblk.ProduceBlockVersion(p.number, string(parent.Version()))
+
 	originHeader, _, err := p.pm.manblk.Prepare(blkmanage.BroadcastBlk, version, p.number, p.bcInterval, p.preBlockHash)
 	if err != nil {
 		log.Error(p.logExtraInfo(), "准备去看失败", err)
@@ -74,9 +75,7 @@ func (p *Process) processHeaderGen() error {
 		log.Error(p.logExtraInfo(), "准备阶段失败", err)
 		return err
 	}
-
 	onlineConsensusResults, ok := extraData.([]*mc.HD_OnlineConsensusVoteResultMsg)
-
 	if !ok {
 		log.Error(p.logExtraInfo(), "反射在线状态失败", "")
 		return errors.New("反射在线状态失败")
@@ -88,7 +87,7 @@ func (p *Process) processHeaderGen() error {
 		return err
 	}
 
-	//运行完matrix状态树后，生成root
+	//运行完matrix状态树后，生成root (p.blockChain(), header, stateDB, nil, tsBlock.Currencies())
 	block, _, err := p.pm.manblk.Finalize(blkmanage.CommonBlk, version, originHeader, stateDB, finalTxs, nil, receipts, nil)
 	if err != nil {
 		log.Error(p.logExtraInfo(), "Finalize失败", err)
@@ -98,7 +97,8 @@ func (p *Process) processHeaderGen() error {
 	return nil
 }
 
-func (p *Process) sendHeaderVerifyReq(header *types.Header, txsCode []*common.RetCallTxN, onlineConsensusResults []*mc.HD_OnlineConsensusVoteResultMsg, originalTxs []types.SelfTransaction, finalTxs []types.SelfTransaction, receipts []*types.Receipt, stateDB *state.StateDB) {
+func (p *Process) sendHeaderVerifyReq(header *types.Header, txsCode []*common.RetCallTxN, onlineConsensusResults []*mc.HD_OnlineConsensusVoteResultMsg, originalTxs []types.CoinSelfTransaction,
+	finalTxs []types.CoinSelfTransaction, receipts []types.CoinReceipts, stateDB *state.StateDBManage) {
 	p2pBlock := &mc.HD_BlkConsensusReqMsg{
 		Header:                 header,
 		TxsCode:                txsCode,
@@ -109,16 +109,16 @@ func (p *Process) sendHeaderVerifyReq(header *types.Header, txsCode []*common.Re
 	//send to local block verify module
 	localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, OriginalTxs: originalTxs, FinalTxs: finalTxs, Receipts: receipts, State: stateDB}
 	if len(originalTxs) > 0 {
-		txpoolCache.MakeStruck(originalTxs, header.HashNoSignsAndNonce(), p.number)
+		txpoolCache.MakeStruck(types.GetTX(originalTxs), header.HashNoSignsAndNonce(), p.number)
 	}
-	log.INFO(p.logExtraInfo(), "本地发送区块验证请求, root", p2pBlock.Header.Root.TerminalString(), "高度", p.number)
+	log.INFO(p.logExtraInfo(), "本地发送区块验证请求, root", p2pBlock.Header.Roots, "高度", p.number)
 	mc.PublishEvent(mc.BlockGenor_HeaderVerifyReq, localBlock)
 	p.startConsensusReqSender(p2pBlock)
 }
 
-func (p *Process) sendBroadcastMiningReq(header *types.Header, finalTxs []types.SelfTransaction) {
+func (p *Process) sendBroadcastMiningReq(header *types.Header, finalTxs []types.CoinSelfTransaction) {
 	sendMsg := &mc.BlockData{Header: header, Txs: finalTxs}
-	log.INFO(p.logExtraInfo(), "广播挖矿请求(本地), number", sendMsg.Header.Number, "root", header.Root.TerminalString(), "tx数量", sendMsg.Txs.Len())
+	log.INFO(p.logExtraInfo(), "广播挖矿请求(本地), number", sendMsg.Header.Number, "root", header.Roots, "tx数量", len(types.GetTX(finalTxs)))
 	mc.PublishEvent(mc.HD_BroadcastMiningReq, &mc.BlockGenor_BroadcastMiningReqMsg{sendMsg})
 }
 

@@ -33,7 +33,7 @@ type filter struct {
 	deadline *time.Timer // filter is inactiv when deadline triggers
 	hashes   []common.Hash
 	crit     FilterCriteria
-	logs     []*types.Log
+	logs     []types.CoinLogs
 	s        *Subscription // associated subscription in event system
 }
 
@@ -230,7 +230,7 @@ func (api *PublicFilterAPI) Logs(ctx context.Context, crit FilterCriteria) (*rpc
 
 	var (
 		rpcSub      = notifier.CreateSubscription()
-		matchedLogs = make(chan []*types.Log)
+		matchedLogs = make(chan []types.CoinLogs)
 	)
 
 	logsSub, err := api.events.SubscribeLogs(matrix.FilterQuery(crit), matchedLogs)
@@ -277,14 +277,14 @@ type FilterCriteria matrix.FilterQuery
 //
 // https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_newfilter
 func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
-	logs := make(chan []*types.Log)
+	logs := make(chan []types.CoinLogs)
 	logsSub, err := api.events.SubscribeLogs(matrix.FilterQuery(crit), logs)
 	if err != nil {
 		return rpc.ID(""), err
 	}
 
 	api.filtersMu.Lock()
-	api.filters[logsSub.ID] = &filter{typ: LogsSubscription, crit: crit, deadline: time.NewTimer(deadline), logs: make([]*types.Log, 0), s: logsSub}
+	api.filters[logsSub.ID] = &filter{typ: LogsSubscription, crit: crit, deadline: time.NewTimer(deadline), logs: make([]types.CoinLogs, 0), s: logsSub}
 	api.filtersMu.Unlock()
 
 	go func() {
@@ -311,7 +311,7 @@ func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
 // GetLogs returns logs matching the given argument that are stored within the state.
 //
 // https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_getlogs
-func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([]*types.Log, error) {
+func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([]types.CoinLogs, error) {
 	// Convert the RPC block numbers into internal representations
 	if crit.FromBlock == nil {
 		crit.FromBlock = big.NewInt(rpc.LatestBlockNumber.Int64())
@@ -326,7 +326,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 	if err != nil {
 		return nil, err
 	}
-	return returnLogs(logs), err
+	return logs, err
 }
 
 // UninstallFilter removes the filter with the given filter id.
@@ -350,7 +350,7 @@ func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 // If the filter could not be found an empty array of logs is returned.
 //
 // https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_getfilterlogs
-func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*types.Log, error) {
+func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]types.CoinLogs, error) {
 	api.filtersMu.Lock()
 	f, found := api.filters[id]
 	api.filtersMu.Unlock()
@@ -374,7 +374,7 @@ func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ty
 	if err != nil {
 		return nil, err
 	}
-	return returnLogs(logs), nil
+	return logs, nil
 }
 
 // GetFilterChanges returns the logs for the filter with the given id since
@@ -422,9 +422,9 @@ func returnHashes(hashes []common.Hash) []common.Hash {
 
 // returnLogs is a helper that will return an empty log array in case the given logs array is nil,
 // otherwise the given logs array is returned.
-func returnLogs(logs []*types.Log) []*types.Log {
+func returnLogs(logs []types.CoinLogs) []types.CoinLogs {
 	if logs == nil {
-		return []*types.Log{}
+		return []types.CoinLogs{}
 	}
 	return logs
 }

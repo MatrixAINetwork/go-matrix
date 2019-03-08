@@ -23,8 +23,8 @@ type MinHashPlug struct {
 	privatekey *big.Int
 }
 
-func (self *MinHashPlug) Prepare(height uint64, support baseinterface.RandomChainSupport) error {
-	data, err := commonsupport.GetElectGenTimes(support.BlockChain(), height)
+func (self *MinHashPlug) Prepare(height uint64, hash common.Hash, support baseinterface.RandomChainSupport) error {
+	data, err := commonsupport.GetElectGenTimes(support.BlockChain(), hash)
 	if err != nil {
 		log.ERROR(ModuleElectSeed, "获取通用配置失败:", err)
 		return err
@@ -34,7 +34,7 @@ func (self *MinHashPlug) Prepare(height uint64, support baseinterface.RandomChai
 	if bcInterval.IsBroadcastNumber(height+voteBeforeTime) == false {
 		return nil
 	}
-	if CanVote(height) == false {
+	if CanVote(hash) == false {
 		return nil
 	}
 	privatekey, publickeySend, err := commonsupport.GetVoteData()
@@ -67,10 +67,10 @@ func (self *MinHashPlug) CalcSeed(hash common.Hash, support baseinterface.Random
 	return SeedSum, nil
 }
 
-func CanVote(height uint64) bool {
-	depositList, err := commonsupport.GetDepositListByHeightAndRole(big.NewInt(int64(height)), common.RoleValidator)
+func CanVote(hash common.Hash) bool {
+	depositList, err := commonsupport.GetDepositListByHeightAndRole(hash, common.RoleValidator)
 	if err != nil {
-		log.Error(ModuleElectSeed, "投票失敗", "获取验证者身份列表失败", "高度", height)
+		log.Error(ModuleElectSeed, "投票失敗", "获取验证者身份列表失败", "hash", hash)
 		return false
 	}
 	selfAddress := commonsupport.GetSelfAddress()

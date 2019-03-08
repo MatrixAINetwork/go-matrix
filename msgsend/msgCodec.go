@@ -5,7 +5,6 @@ package msgsend
 
 import (
 	"encoding/json"
-
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
@@ -165,7 +164,7 @@ func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (inte
 	msg := new(mc.HD_BroadcastMiningRspMsg)
 	err := rlp.DecodeBytes(data, &msg)
 	if err != nil {
-		return nil, errors.Errorf("json.Unmarshal failed: %s", err)
+		return nil, errors.Errorf("rlp decode failed: %s", err)
 	}
 	if msg.BlockMainData == nil || msg.BlockMainData.Header == nil {
 		return nil, errors.Errorf("'Header' of the msg is nil")

@@ -199,8 +199,8 @@ type PendingStateEventer interface {
 }
 
 type StateReader interface {
-	State() (*state.StateDB, error)
-	StateAt(root common.Hash) (*state.StateDB, error)
-	StateAtNumber(number uint64) (*state.StateDB, error)
-	StateAtBlockHash(hash common.Hash) (*state.StateDB, error)
+	State() (*state.StateDBManage, error)
+	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
+	StateAtNumber(number uint64) (*state.StateDBManage, error)
+	StateAtBlockHash(hash common.Hash) (*state.StateDBManage, error)
 }

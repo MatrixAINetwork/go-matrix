@@ -23,6 +23,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common/math"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/pborman/uuid"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 const (
@@ -40,7 +41,7 @@ type Key struct {
 }
 
 func (key *Key) ManAddress() string {
-	return base58.Base58EncodeToString("MAN", key.Address)
+	return base58.Base58EncodeToString(params.MAN_COIN, key.Address)
 }
 
 type keyStore interface {

@@ -22,7 +22,7 @@ func init() {
 
 type preBroadcastSeedPlug interface {
 	CalcSeed(data common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error)
-	Prepare(uint64) error
+	Prepare(uint64, common.Hash) error
 }
 
 func newSubService(plug string, support baseinterface.RandomChainSupport) (baseinterface.RandomSubService, error) {
@@ -48,8 +48,8 @@ func RegisterEveryBlockSeedPlugs(name string, plug preBroadcastSeedPlug) {
 	mapEveryBroadcastSeedPlugs[name] = plug
 }
 
-func (self *preBroadcastSeed) Prepare(height uint64) error {
-	err := mapEveryBroadcastSeedPlugs[self.plug].Prepare(height)
+func (self *preBroadcastSeed) Prepare(height uint64, hash common.Hash) error {
+	err := mapEveryBroadcastSeedPlugs[self.plug].Prepare(height, hash)
 	return err
 }
 

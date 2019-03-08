@@ -2400,7 +2400,7 @@ var toTwosComplement = function (number) {
  * @return {Boolean}
 */
 var isStrictAddress = function (address) {
-    return /^[A-Z]{2,8}\.[0-9a-zA-Z]{21,29}$/i.test(address);
+    return /^[A-Z]{2,8}\.[0-9a-zA-Z]{18,29}$/i.test(address);
 };
 
 /**
@@ -2411,10 +2411,10 @@ var isStrictAddress = function (address) {
  * @return {Boolean}
 */
 var isAddress = function (address) {
-    if (!(/^[A-Z]{2,8}\.[0-9a-zA-Z]{21,29}$/.test(address))) {
+    if (!(/^[A-Z]{2,8}\.[0-9a-zA-Z]{18,29}$/.test(address))) {
         // check if it has the basic requirements of an address
         return false;
-    } else if ((/^[A-Z]{2,8}\.[0-9a-zA-Z]{21,29}$/.test(address))) {
+    } else if ((/^[A-Z]{2,8}\.[0-9a-zA-Z]{18,29}$/.test(address))) {
         // If it's all small caps or all all caps, return true
         return true;
     } else {
@@ -3873,7 +3873,7 @@ var isPredefinedBlockNumber = function (blockNumber) {
 };
 
 var inputDefaultBlockNumberFormatter = function (blockNumber) {
-    if (blockNumber === undefined) {
+  if (blockNumber === undefined) {
         return config.defaultBlock;
     }
     return inputBlockNumberFormatter(blockNumber);
@@ -3926,6 +3926,7 @@ var inputNewCallFormatter = function (options){
     if (options.to) { // it might be contract creation
         options.to = inputAddressFormatter(options.to);
     }
+    options.currency = options.currency || ContractAddr.split('.')[0];
         ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
     }).forEach(function(key){
@@ -4152,6 +4153,10 @@ var inputAddressFormatter = function (address) {
     throw new Error('invalid address');
 };
 
+var inputCurrencyFormatter = function (currency) {
+    return currency.toLocaleUpperCase();
+};
+
 
 var outputSyncingFormatter = function(result) {
     if (!result) {
@@ -4176,6 +4181,7 @@ module.exports = {
     inputNewCallFormatter: inputNewCallFormatter,
     inputTransactionFormatter: inputTransactionFormatter,
     inputAddressFormatter: inputAddressFormatter,
+    inputCurrencyFormatter: inputCurrencyFormatter,
     inputPostFormatter: inputPostFormatter,
     outputBigNumberFormatter: outputBigNumberFormatter,
     outputNewBigNumberFormatter: outputNewBigNumberFormatter,
@@ -5299,6 +5305,9 @@ Method.prototype.buildCall = function() {
         if(payload.method == 'debug_dumpBlock') {
             payload.params[0] = '0x' + Number(payload.params[0]).toString(16)
         }
+        if(payload.method == 'man_getAuthGasAddress') {
+            payload.params[1] = '0x' + Number(payload.params[1]).toString(16)
+        }
         if (payload.callback) {
             return method.requestManager.sendAsync(payload, function (err, result) {
                 payload.callback(err, method.formatOutput(result));
@@ -5508,7 +5517,21 @@ var methods = function () {
         call: 'eth_getUpTime',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
-        outputFormatter: formatters.outputNewBigNumberFormatter
+        outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getInterest = new Method({
+        name: 'getInterest',
+        call: 'eth_getInterest',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getSlash = new Method({
+        name: 'getSlash',
+        call: 'eth_getSlash',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputBigNumberFormatter
     });
     var getFutureRewards = new Method({
         name: 'getFutureRewards',
@@ -5524,6 +5547,13 @@ var methods = function () {
         inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter],
         // outputFormatter: formatters.outputNewBigNumberFormatter
     });
+    var getDeposit = new Method({
+        name: 'getDeposit',
+        call: 'eth_getDeposit',
+        params: 1,
+        inputFormatter: [ formatters.inputDefaultBlockNumberFormatter],
+        // outputFormatter: formatters.outputBigNumberFormatter
+    });
     var getEntrustList = new Method({
         name: 'getEntrustList',
         call: 'eth_getEntrustList',
@@ -5535,48 +5565,55 @@ var methods = function () {
         name: 'getAuthFrom',
         call: 'eth_getAuthFrom',
         params: 2,
-        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         //outputFormatter: formatters.outputBigNumberFormatter
     });
     var getEntrustFrom = new Method({
         name: 'getEntrustFrom',
         call: 'eth_getEntrustFrom',
         params: 2,
-        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         //outputFormatter: formatters.outputBigNumberFormatter
     });
     var getAuthFromByTime = new Method({
         name: 'getAuthFromByTime',
         call: 'eth_getAuthFromByTime',
         params: 2,
-        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         //outputFormatter: formatters.outputBigNumberFormatter
     });
     var getEntrustFromByTime = new Method({
         name: 'getEntrustFromByTime',
         call: 'eth_getEntrustFromByTime',
         params: 2,
-        inputFormatter: [formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         //outputFormatter: formatters.outputBigNumberFormatter
     });
-    var getCfgDataByState = new Method({
-        name: 'getCfgDataByState',
-        call: 'eth_getCfgDataByState',
-        params: 1,
+    var getAuthGasAddress = new Method({
+        name: 'getAuthGasAddress',
+        call: 'eth_getAuthGasAddress',
+        params: 2,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
+        //outputFormatter: formatters.outputNewBigNumberFormatter
+    });
+    var getGasPrice = new Method({
+        name: 'getGasPrice',
+        call: 'eth_getGasPrice',
+        params: 0,
         // outputFormatter: formatters.outputBigNumberFormatter
     });
     var getStorageAt = new Method({
         name: 'getStorageAt',
         call: 'eth_getStorageAt',
-        params: 3,
-        inputFormatter: [null, utils.toHex, formatters.inputDefaultBlockNumberFormatter]
+        params: 4,
+        inputFormatter: [formatters.inputAddressFormatter, utils.toHex, formatters.inputCurrencyFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var getCode = new Method({
         name: 'getCode',
         call: 'eth_getCode',
-        params: 2,
-        inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
+        params: 3,
+        inputFormatter: [formatters.inputAddressFormatter, formatters.inputCurrencyFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var getBlock = new Method({
@@ -5739,7 +5776,6 @@ var methods = function () {
         call: 'eth_importSuperBlock',
         params: 1
     });
-
     var getTopologyStatus = new Method({
         name: 'getTopologyStatus',
         call: 'eth_getTopologyStatusByNumber',
@@ -5747,17 +5783,33 @@ var methods = function () {
         inputFormatter: [formatters.inputBlockNumberFormatter]
     });
 
+    var getMatrixCoin = new Method({
+        name: 'getMatrixCoin',
+        call: 'eth_getMatrixCoin',
+        params: 1,
+        inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+    });
+    var getMatrixCoinConfig = new Method({
+        name: 'getMatrixCoinConfig',
+        call: 'eth_getMatrixCoinConfig',
+        params: 2,
+        inputFormatter: [formatters.inputCurrencyFormatter,formatters.inputDefaultBlockNumberFormatter]
+    });
     return [
         getMatrixStateByNum,
         getBalance,
         getUpTime,
+        getInterest,
+        getSlash,
         getFutureRewards,
+        getDeposit,
         getEntrustList,
         getAuthFrom,
         getEntrustFrom,
         getAuthFromByTime,
         getEntrustFromByTime,
-        getCfgDataByState,
+        getAuthGasAddress,
+        getGasPrice,
         getStorageAt,
         getCode,
         getBlock,
@@ -5783,6 +5835,8 @@ var methods = function () {
         getWork,
         getSelfLevel,
         importSuperBlock,
+        getMatrixCoin,
+        getMatrixCoinConfig,
         getTopologyStatus
     ];
 };

@@ -33,20 +33,20 @@ type ChainReader interface {
 	CurrentHeader() *types.Header
 
 	// GetHeader retrieves a block header from the database by hash and number.
-	GetHeader(hash common.Hash, number uint64) *types.Header
+	GetHeader(hash []common.CoinRoot, number uint64) *types.Header
 
 	// GetHeaderByNumber retrieves a block header from the database by number.
 	GetHeaderByNumber(number uint64) *types.Header
 
 	// GetHeaderByHash retrieves a block header from the database by its hash.
-	GetHeaderByHash(hash common.Hash) *types.Header
+	GetHeaderByHash(hash []common.CoinRoot) *types.Header
 
 	GetBlockByNumber(number uint64) *types.Block
 
 	// GetBlock retrieves a block sfrom the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.Block
-	StateAt(root common.Hash) (*state.StateDB, error)
-	State() (*state.StateDB, error)
+	GetBlock(hash []common.CoinRoot, number uint64) *types.Block
+	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
+	State() (*state.StateDBManage, error)
 }
 
 func (mr *MinerOutReward) GetPreMinerReward(state util.StateDB, rewardType uint8) (*big.Int, error) {

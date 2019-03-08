@@ -30,7 +30,6 @@ type GenesisMState struct {
 	Foundation                   *GenesisAddress                  `json:"Foundation,omitempty"`
 	VersionSuperAccounts         *[]GenesisAddress                `json:"VersionSuperAccounts,omitempty"`
 	BlockSuperAccounts           *[]GenesisAddress                `json:"BlockSuperAccounts,omitempty"`
-	TxsSuperAccounts             *[]GenesisAddress                `json:"TxsSuperAccounts,omitempty"`
 	MultiCoinSuperAccounts       *[]GenesisAddress                `json:"MultiCoinSuperAccounts,omitempty"`
 	SubChainSuperAccounts        *[]GenesisAddress                `json:"SubChainSuperAccounts,omitempty"`
 	VIPCfg                       *[]mc.VIPConfig                  `json:"VIPCfg,omitempty" gencodec:"required"`
@@ -59,7 +58,7 @@ type GenesisMState struct {
 	BlockProduceSlashStatsStatus *mc.BlockProduceSlashStatsStatus `json:"BlkProduceStatus,omitempty" gencodec:"required"`
 }
 
-func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common.NetTopology, nextElect []common.Elect, newVersion string, oldVersion string, num uint64) error {
+func (ms *GenesisMState) setMatrixState(state *state.StateDBManage, netTopology common.NetTopology, nextElect []common.Elect, newVersion string, oldVersion string, num uint64) error {
 	if err := ms.setVersionInfo(state, num, newVersion); err != nil {
 		return err
 	}
@@ -78,6 +77,7 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common
 	if err := ms.setElectBlackListInfo(state, num); err != nil {
 		return err
 	}
+
 	if err := ms.setElectWhiteListSwitcher(state, num); err != nil {
 		return err
 	}
@@ -107,9 +107,6 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common
 		return err
 	}
 	if err := ms.setBlockSuperAccountsToState(state, num); err != nil {
-		return err
-	}
-	if err := ms.setTxsSuperAccountsToState(state, num); err != nil {
 		return err
 	}
 	if err := ms.setMultiCoinSuperAccountsToState(state, num); err != nil {
@@ -176,7 +173,7 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDB, netTopology common
 	return nil
 }
 
-func (g *GenesisMState) setVersionInfo(state *state.StateDB, num uint64, version string) error {
+func (g *GenesisMState) setVersionInfo(state *state.StateDBManage, num uint64, version string) error {
 	if len(version) == 0 {
 		if num == 0 {
 			return errors.New("版本信息为空")
@@ -188,7 +185,7 @@ func (g *GenesisMState) setVersionInfo(state *state.StateDB, num uint64, version
 	return matrixstate.SetVersionInfo(state, version)
 }
 
-func (g *GenesisMState) setElectTime(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setElectTime(state *state.StateDBManage, num uint64) error {
 	if g.EleTimeCfg == nil {
 		if num == 0 {
 			return errors.New("选举配置信息为nil")
@@ -207,7 +204,7 @@ func (g *GenesisMState) setElectTime(state *state.StateDB, num uint64) error {
 	return matrixstate.SetElectGenTime(state, g.EleTimeCfg)
 }
 
-func (g *GenesisMState) setElectInfo(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setElectInfo(state *state.StateDBManage, num uint64) error {
 	if g.EleInfoCfg == nil {
 		if num == 0 {
 			return errors.New("electconfig配置信息为nil")
@@ -219,8 +216,7 @@ func (g *GenesisMState) setElectInfo(state *state.StateDB, num uint64) error {
 	log.Info("Geneis", "electconfig", g.EleInfoCfg)
 	return matrixstate.SetElectConfigInfo(state, g.EleInfoCfg)
 }
-
-func (g *GenesisMState) setElectMinerNumInfo(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setElectMinerNumInfo(state *state.StateDBManage, num uint64) error {
 	if g.ElectMinerNumCfg == nil {
 		if num == 0 {
 			return errors.New("electMinerNum为nil")
@@ -233,7 +229,7 @@ func (g *GenesisMState) setElectMinerNumInfo(state *state.StateDB, num uint64) e
 	return matrixstate.SetElectMinerNum(state, g.ElectMinerNumCfg)
 }
 
-func (g *GenesisMState) setElectWhiteListSwitcher(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setElectWhiteListSwitcher(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.ElectWhiteListSwitcherCfg == nil {
 			return errors.New("选举白名单开关配置信息为nil")
@@ -247,7 +243,8 @@ func (g *GenesisMState) setElectWhiteListSwitcher(state *state.StateDB, num uint
 	log.Info("Geneis", "ElectWhiteListSwitcherCfg", g.ElectWhiteListSwitcherCfg)
 	return matrixstate.SetElectWhiteListSwitcher(state, g.ElectWhiteListSwitcherCfg.Switcher)
 }
-func (g *GenesisMState) setElectWhiteListInfo(state *state.StateDB, num uint64) error {
+
+func (g *GenesisMState) setElectWhiteListInfo(state *state.StateDBManage, num uint64) error {
 	var whiteList []common.Address = nil
 	if g.ElectWhiteListCfg == nil || *g.ElectWhiteListCfg == nil {
 		log.Info("Geneis", "没有配置ElectWhiteListCfg信息", "")
@@ -261,7 +258,7 @@ func (g *GenesisMState) setElectWhiteListInfo(state *state.StateDB, num uint64) 
 	return matrixstate.SetElectWhiteList(state, whiteList)
 }
 
-func (g *GenesisMState) setElectBlackListInfo(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setElectBlackListInfo(state *state.StateDBManage, num uint64) error {
 	var blackList []common.Address = nil
 	if g.ElectBlackListCfg == nil || *g.ElectBlackListCfg == nil {
 		log.Info("Geneis", "没有配置ElectBlackListCfg信息", "")
@@ -275,7 +272,7 @@ func (g *GenesisMState) setElectBlackListInfo(state *state.StateDB, num uint64) 
 	return matrixstate.SetElectBlackList(state, blackList)
 }
 
-func (g *GenesisMState) setTopologyToState(state *state.StateDB, genesisNt common.NetTopology, num uint64, oldVersion string) error {
+func (g *GenesisMState) setTopologyToState(state *state.StateDBManage, genesisNt common.NetTopology, num uint64, oldVersion string) error {
 	if num == 0 {
 		if genesisNt.Type != common.NetTopoTypeAll {
 			return errors.New("genesis net topology type is not all graph type！")
@@ -317,13 +314,12 @@ func (g *GenesisMState) setTopologyToState(state *state.StateDB, genesisNt commo
 	return matrixstate.SetTopologyGraph(state, newGraph)
 }
 
-func (g *GenesisMState) setElectToState(state *state.StateDB, nextElect []common.Elect, num uint64) error {
+func (g *GenesisMState) setElectToState(state *state.StateDBManage, nextElect []common.Elect, num uint64) error {
 	if num == 0 {
 		if g.CurElect == nil || len(*g.CurElect) == 0 {
 			return errors.New("genesis cur elect is empty！")
 		}
 	}
-
 	var curElect []common.Elect = nil
 	if g.CurElect != nil {
 		curElect = make([]common.Elect, len(*g.CurElect))
@@ -334,7 +330,6 @@ func (g *GenesisMState) setElectToState(state *state.StateDB, nextElect []common
 			curElect[i].VIP = item.VIP
 		}
 	}
-
 	if len(nextElect) == 0 && len(curElect) == 0 {
 		return nil
 	}
@@ -411,8 +406,7 @@ func (g *GenesisMState) setElectToState(state *state.StateDB, nextElect []common
 
 	return matrixstate.SetElectOnlineState(state, electOnlineData)
 }
-
-func (g *GenesisMState) setBroadcastAccountToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBroadcastAccountToState(state *state.StateDBManage, num uint64) error {
 	if g.Broadcasts == nil || len(*g.Broadcasts) == 0 {
 		if num == 0 {
 			return errors.Errorf("the `broadcast` of genesis is empty")
@@ -423,7 +417,7 @@ func (g *GenesisMState) setBroadcastAccountToState(state *state.StateDB, num uin
 	return matrixstate.SetBroadcastAccounts(state, CopyAddressSlice(g.Broadcasts))
 }
 
-func (g *GenesisMState) setInnerMinerAccountsToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setInnerMinerAccountsToState(state *state.StateDBManage, num uint64) error {
 	var innerMiners []common.Address = nil
 	if g.InnerMiners == nil || *g.InnerMiners == nil {
 		if num == 0 {
@@ -440,7 +434,7 @@ func (g *GenesisMState) setInnerMinerAccountsToState(state *state.StateDB, num u
 	return nil
 }
 
-func (g *GenesisMState) setFoundationAccountToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setFoundationAccountToState(state *state.StateDBManage, num uint64) error {
 	var foundation common.Address
 	if g.Foundation == nil || *g.Foundation == (GenesisAddress{}) {
 		if num == 0 {
@@ -455,7 +449,7 @@ func (g *GenesisMState) setFoundationAccountToState(state *state.StateDB, num ui
 	return nil
 }
 
-func (g *GenesisMState) setVersionSuperAccountsToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setVersionSuperAccountsToState(state *state.StateDBManage, num uint64) error {
 	if g.VersionSuperAccounts == nil || len(*g.VersionSuperAccounts) == 0 {
 		if num == 0 {
 			return errors.Errorf("the version superAccounts of genesis is empty")
@@ -467,19 +461,7 @@ func (g *GenesisMState) setVersionSuperAccountsToState(state *state.StateDB, num
 	return nil
 }
 
-func (g *GenesisMState) setTxsSuperAccountsToState(state *state.StateDB, num uint64) error {
-	if g.TxsSuperAccounts == nil || len(*g.TxsSuperAccounts) == 0 {
-		if num == 0 {
-			return errors.Errorf("the txs superAccounts of genesis is empty")
-		} else {
-			return nil
-		}
-	}
-	matrixstate.SetTxsSuperAccounts(state, CopyAddressSlice(g.TxsSuperAccounts))
-	return nil
-}
-
-func (g *GenesisMState) setMultiCoinSuperAccountsToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setMultiCoinSuperAccountsToState(state *state.StateDBManage, num uint64) error {
 	if g.MultiCoinSuperAccounts == nil || len(*g.MultiCoinSuperAccounts) == 0 {
 		if num == 0 {
 			return errors.Errorf("the multicoin superAccounts of genesis is empty")
@@ -491,7 +473,7 @@ func (g *GenesisMState) setMultiCoinSuperAccountsToState(state *state.StateDB, n
 	return nil
 }
 
-func (g *GenesisMState) setSubChainSuperAccountsToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setSubChainSuperAccountsToState(state *state.StateDBManage, num uint64) error {
 	if g.SubChainSuperAccounts == nil || len(*g.SubChainSuperAccounts) == 0 {
 		if num == 0 {
 			return errors.Errorf("the subchain superAccounts of genesis is empty")
@@ -503,7 +485,7 @@ func (g *GenesisMState) setSubChainSuperAccountsToState(state *state.StateDB, nu
 	return nil
 }
 
-func (g *GenesisMState) setBlockSuperAccountsToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBlockSuperAccountsToState(state *state.StateDBManage, num uint64) error {
 	if num != 0 {
 		// 超级区块签名账户不可修改
 		return nil
@@ -515,7 +497,7 @@ func (g *GenesisMState) setBlockSuperAccountsToState(state *state.StateDB, num u
 	return nil
 }
 
-func (g *GenesisMState) setBlkCalcToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBlkCalcToState(state *state.StateDBManage, num uint64) error {
 	if g.BlkCalcCfg == nil {
 		if num == 0 {
 			return errors.New("区块奖励算法配置参数为空")
@@ -528,7 +510,7 @@ func (g *GenesisMState) setBlkCalcToState(state *state.StateDB, num uint64) erro
 	return matrixstate.SetBlkCalc(state, *g.BlkCalcCfg)
 }
 
-func (g *GenesisMState) setTxsCalcToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setTxsCalcToState(state *state.StateDBManage, num uint64) error {
 	if g.TxsCalcCfg == nil {
 		if num == 0 {
 			return errors.New("交易费奖励算法配置参数为空")
@@ -541,7 +523,7 @@ func (g *GenesisMState) setTxsCalcToState(state *state.StateDB, num uint64) erro
 	return matrixstate.SetTxsCalc(state, *g.TxsCalcCfg)
 }
 
-func (g *GenesisMState) setInterestCalcToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setInterestCalcToState(state *state.StateDBManage, num uint64) error {
 	if g.InterestCalcCfg == nil {
 		if num == 0 {
 			return errors.New("利息奖励算法配置参数为空")
@@ -553,7 +535,7 @@ func (g *GenesisMState) setInterestCalcToState(state *state.StateDB, num uint64)
 	log.Info("Geneis", "InterestCalcCfg", *g.InterestCalcCfg)
 	return matrixstate.SetInterestCalc(state, *g.InterestCalcCfg)
 }
-func (g *GenesisMState) setLotteryCalcToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setLotteryCalcToState(state *state.StateDBManage, num uint64) error {
 	if g.LotteryCalcCfg == nil {
 		if num == 0 {
 			return errors.New("彩票奖励算法配置参数为空")
@@ -565,7 +547,8 @@ func (g *GenesisMState) setLotteryCalcToState(state *state.StateDB, num uint64) 
 	log.Info("Geneis", "LotteryCalcCfg", *g.LotteryCalcCfg)
 	return matrixstate.SetLotteryCalc(state, *g.LotteryCalcCfg)
 }
-func (g *GenesisMState) setSlashCalcToState(state *state.StateDB, num uint64) error {
+
+func (g *GenesisMState) setSlashCalcToState(state *state.StateDBManage, num uint64) error {
 	if g.SlashCalcCfg == nil {
 		if num == 0 {
 			return errors.New("惩罚算法配置参数为空")
@@ -578,8 +561,7 @@ func (g *GenesisMState) setSlashCalcToState(state *state.StateDB, num uint64) er
 
 	return matrixstate.SetSlashCalc(state, *g.SlashCalcCfg)
 }
-
-func (g *GenesisMState) setBlkRewardCfgToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBlkRewardCfgToState(state *state.StateDBManage, num uint64) error {
 	if g.BlkRewardCfg == nil {
 		if num == 0 {
 			return errors.New("固定区块配置信息为nil")
@@ -604,11 +586,19 @@ func (g *GenesisMState) setBlkRewardCfgToState(state *state.StateDB, num uint64)
 
 		return errors.Errorf("替补固定区块奖励比例配置错误")
 	}
+	if uint64(g.BlkRewardCfg.MinerAttenuationRate) > RewardFullRate {
+		return errors.Errorf("矿工衰减比例配置错误")
+	}
+
+	if uint64(g.BlkRewardCfg.ValidatorAttenuationRate) > RewardFullRate {
+		return errors.Errorf("验证者衰减比例配置错误")
+	}
+
 	log.Info("Geneis", "BlkRewardCfg", g.BlkRewardCfg)
 	return matrixstate.SetBlkRewardCfg(state, g.BlkRewardCfg)
 }
 
-func (g *GenesisMState) setTxsRewardCfgToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setTxsRewardCfgToState(state *state.StateDBManage, num uint64) error {
 	if g.TxsRewardCfg == nil {
 		if num == 0 {
 			return errors.New("交易费区块配置信息为nil")
@@ -641,7 +631,7 @@ func (g *GenesisMState) setTxsRewardCfgToState(state *state.StateDB, num uint64)
 	return matrixstate.SetTxsRewardCfg(state, g.TxsRewardCfg)
 }
 
-func (g *GenesisMState) setLotteryCfgToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setLotteryCfgToState(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.LotteryCfg == nil {
 			return errors.New("利息配置信息为nil")
@@ -657,7 +647,7 @@ func (g *GenesisMState) setLotteryCfgToState(state *state.StateDB, num uint64) e
 	return matrixstate.SetLotteryCfg(state, g.LotteryCfg)
 }
 
-func (g *GenesisMState) setInterestCfgToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setInterestCfgToState(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.InterestCfg == nil {
 			return errors.New("利息配置信息为nil")
@@ -670,11 +660,14 @@ func (g *GenesisMState) setInterestCfgToState(state *state.StateDB, num uint64) 
 			return nil
 		}
 	}
+	if uint64(g.InterestCfg.AttenuationRate) > RewardFullRate {
+		return errors.Errorf("利息衰减比例配置错误")
+	}
 	log.Info("Geneis", "InterestCfg", g.InterestCfg)
 	return matrixstate.SetInterestCfg(state, g.InterestCfg)
 }
 
-func (g *GenesisMState) setSlashCfgToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setSlashCfgToState(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.SlashCfg == nil {
 			return errors.New("惩罚配置信息为nil")
@@ -691,7 +684,7 @@ func (g *GenesisMState) setSlashCfgToState(state *state.StateDB, num uint64) err
 	return matrixstate.SetSlashCfg(state, g.SlashCfg)
 }
 
-func (g *GenesisMState) setVIPCfgToState(state *state.StateDB, number uint64) error {
+func (g *GenesisMState) setVIPCfgToState(state *state.StateDBManage, number uint64) error {
 	if g.VIPCfg == nil {
 		if number == 0 {
 			return errors.New("VIP配置信息为nil")
@@ -718,7 +711,7 @@ func (g *GenesisMState) setVIPCfgToState(state *state.StateDB, number uint64) er
 	return matrixstate.SetVIPConfig(state, *g.VIPCfg)
 }
 
-func (g *GenesisMState) setLeaderCfgToState(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setLeaderCfgToState(state *state.StateDBManage, num uint64) error {
 	if g.LeaderCfg == nil {
 		if num == 0 {
 			return errors.New("leader配置信息为nil")
@@ -745,7 +738,7 @@ func (g *GenesisMState) setLeaderCfgToState(state *state.StateDB, num uint64) er
 	return matrixstate.SetLeaderConfig(state, g.LeaderCfg)
 }
 
-func (g *GenesisMState) SetSuperBlkToState(state *state.StateDB, extra []byte, num uint64) error {
+func (g *GenesisMState) SetSuperBlkToState(state *state.StateDBManage, extra []byte, num uint64) error {
 	var superBlkCfg *mc.SuperBlkCfg
 	if num == 0 {
 		superBlkCfg = &mc.SuperBlkCfg{Seq: 0, Num: 0}
@@ -762,7 +755,7 @@ func (g *GenesisMState) SetSuperBlkToState(state *state.StateDB, extra []byte, n
 	return matrixstate.SetSuperBlockCfg(state, superBlkCfg)
 }
 
-func (g *GenesisMState) setBCIntervalToState(st *state.StateDB, num uint64, oldVersion string) error {
+func (g *GenesisMState) setBCIntervalToState(st *state.StateDBManage, num uint64, oldVersion string) error {
 	var interval *mc.BCIntervalInfo = nil
 	if num == 0 {
 		if nil == g.BCICfg {
@@ -813,7 +806,7 @@ func (g *GenesisMState) setBCIntervalToState(st *state.StateDB, num uint64, oldV
 	}
 	return nil
 }
-func (g *GenesisMState) setBlockProduceSlashCfg(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBlockProduceSlashCfg(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.BlockProduceSlashCfg == nil {
 			return errors.New("区块生产惩罚配置信息为nil")
@@ -827,7 +820,7 @@ func (g *GenesisMState) setBlockProduceSlashCfg(state *state.StateDB, num uint64
 	log.Info("Geneis", "BlockProduceSlashCfg", g.BlockProduceSlashCfg)
 	return matrixstate.SetBlockProduceSlashCfg(state, g.BlockProduceSlashCfg)
 }
-func (g *GenesisMState) setBlockProduceStats(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBlockProduceStats(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.BlockProduceStats == nil {
 			return nil
@@ -841,7 +834,7 @@ func (g *GenesisMState) setBlockProduceStats(state *state.StateDB, num uint64) e
 	log.Info("Geneis", "BlockProduceStats", g.BlockProduceStats)
 	return matrixstate.SetBlockProduceStats(state, g.BlockProduceStats)
 }
-func (g *GenesisMState) setBlockProduceSlashBlkList(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBlockProduceSlashBlkList(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.BlockProduceSlashBlackList == nil {
 			return nil
@@ -855,7 +848,7 @@ func (g *GenesisMState) setBlockProduceSlashBlkList(state *state.StateDB, num ui
 	log.Info("Geneis", "BlockProduceBlackList", g.BlockProduceSlashBlackList)
 	return matrixstate.SetBlockProduceBlackList(state, g.BlockProduceSlashBlackList)
 }
-func (g *GenesisMState) setBlockProduceSlashStatsStatus(state *state.StateDB, num uint64) error {
+func (g *GenesisMState) setBlockProduceSlashStatsStatus(state *state.StateDBManage, num uint64) error {
 	if num == 0 {
 		if g.BlockProduceSlashStatsStatus == nil {
 			return errors.New("区块生产惩状态信息为nil")

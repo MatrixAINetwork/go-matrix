@@ -40,6 +40,7 @@ type Strallyint struct {
 
 type Node struct {
 	Address    common.Address
+	SignAddress common.Address
 	Deposit    *big.Int
 	WithdrawH  *big.Int
 	OnlineTime *big.Int
@@ -90,6 +91,7 @@ func (node *Node) SetVipLevelInfo(VipLevelCfg []mc.VIPConfig) uint64 {
 
 func (node *Node) SetDepositInfo(depsit vm.DepositDetail) {
 	node.Address = depsit.Address
+	node.SignAddress = depsit.SignAddress
 	node.OnlineTime = depsit.OnlineTime
 	node.WithdrawH = depsit.WithdrawH
 	node.Deposit = depsit.Deposit
@@ -178,6 +180,10 @@ func (vip *Electoion) SetChosed(node []Strallyint) {
 func (vip *Electoion) ProcessBlackNode() {
 	for k, v := range vip.NodeList {
 		if FindAddress(v.Address, vip.EleCfg.BlackList) {
+			vip.NodeList[k].SetUsable(false)
+			continue
+		}
+		if FindAddress(v.SignAddress, vip.EleCfg.BlackList) {
 			vip.NodeList[k].SetUsable(false)
 		}
 	}

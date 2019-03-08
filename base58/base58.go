@@ -1,6 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package base58
 
 import (
@@ -152,6 +149,7 @@ func Base58EncodeToString(currency string, b common.Address) string {
 }
 
 func Base58DecodeToAddress(strData string) (common.Address,error) {
+	strData = strings.TrimSpace(strData)
 	if strData == "" {
 		return common.Address{},errors.New("input address invalid")
 	}

@@ -49,9 +49,9 @@ var (
 	qosConfidenceCap = 10   // Number of peers above which not to modify RTT confidence
 	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value
 
-	maxQueuedHeaders  = 800  //lb 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
-	maxHeadersProcess = 1024 //2048      // Number of header download results to import at once into the chain
-	maxResultsProcess = 918  //396  //576      //lb//2048      // Number of content download results to import at once into the chain
+	maxQueuedHeaders  = 800 //lb 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
+	maxHeadersProcess = 512 //1024 //2048      // Number of header download results to import at once into the chain
+	maxResultsProcess = 918 //396  //576      //lb//2048      // Number of content download results to import at once into the chain
 
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
@@ -84,6 +84,8 @@ var (
 	errNoSyncActive            = errors.New("no sync active")
 	errTooOld                  = errors.New("peer doesn't speak recent enough protocol version (need version >= 62)")
 )
+
+type blockQRetrievalFn func(number uint64) *types.Block
 
 type Downloader struct {
 	IpfsMode bool           //liubo ipfs
@@ -156,14 +158,15 @@ type BlockIpfs struct {
 	BlockNum         uint64
 	Headeripfs       *types.Header
 	Unclesipfs       []*types.Header
-	Transactionsipfs []types.SelfTransaction //Transactions//SelfTransaction?????
-	Receipt          types.Receipts
+	Transactionsipfs []types.CurrencyBlock //CoinSelfTransaction //Transactions//SelfTransaction?????
+	Receipt          []types.CoinReceipts
 }
 type BlockIpfsReq struct {
-	ReqPendflg  int
-	Flag        uint64 //int //1 单个, 2 批量 //快照时携带区块number
-	coinstr     string //快照时携带区块Hash
-	HeadReqipfs *types.Header
+	ReqPendflg   int
+	Flag         uint64 //int //1 单个, 2 批量 //快照时携带区块number
+	coinstr      string //快照时携带区块Hash
+	realBeginNum uint64 //实际开始插入节
+	HeadReqipfs  *types.Header
 }
 type SnapshootReq struct {
 	BlockNumber uint64
@@ -217,7 +220,7 @@ type BlockChain interface {
 	InsertChain(types.Blocks) (int, error)
 
 	// InsertReceiptChain inserts a batch of receipts into the local chain.
-	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
+	InsertReceiptChain(types.Blocks) (int, error)
 
 	//lb ipfs
 	SetbSendIpfsFlg(bool)
@@ -244,7 +247,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn) *Downloader {
+func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn, getBlock blockQRetrievalFn) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -254,7 +257,7 @@ func New(mode SyncMode, stateDb mandb.Database, mux *event.TypeMux, chain BlockC
 		mode:           mode,
 		stateDB:        stateDb,
 		mux:            mux,
-		queue:          newQueue(),
+		queue:          newQueue(getBlock),
 		peers:          newPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
 		rttConfidence:  uint64(1000000),
@@ -1643,7 +1646,8 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 	// Start syncing state of the reported head block. This should get us most of
 	// the state of the pivot block.
-	stateSync := d.syncState(latest.Root)
+	root := types.RlpHash(latest.Roots)
+	stateSync := d.syncState(root)
 	defer stateSync.Cancel()
 	go func() {
 		if err := stateSync.Wait(); err != nil && err != errCancelStateFetch {
@@ -1700,8 +1704,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 			// If new pivot block found, cancel old state retrieval and restart
 			if oldPivot != P {
 				stateSync.Cancel()
-
-				stateSync = d.syncState(P.Header.Root)
+				stateSync = d.syncState(types.RlpHash(P.Header.Roots))
 				defer stateSync.Cancel()
 				go func() {
 					if err := stateSync.Wait(); err != nil && err != errCancelStateFetch {
@@ -1769,12 +1772,26 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult, stateSync *state
 		"lastnumn", last.Number, "lasthash", last.Hash(),
 	)
 	blocks := make([]*types.Block, len(results))
-	receipts := make([]types.Receipts, len(results))
+	//receipts := make([]types.Receipts, len(results))
 	for i, result := range results {
-		blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles)
-		receipts[i] = result.Receipts
+		var cbs []types.CurrencyBlock
+
+		for i, ct := range result.Transactions {
+			var ch types.CurrencyHeader
+			for _, coinRoot := range result.Header.Roots {
+				ch = types.CurrencyHeader{
+					Root:        coinRoot.Root,
+					TxHash:      coinRoot.TxHash,
+					ReceiptHash: coinRoot.ReceiptHash}
+			}
+			cbs = append(cbs, types.CurrencyBlock{ct.CurrencyName, ch, types.SetTransactions(ct.Transactions.GetTransactions(),
+				types.TxHashList(ct.Transactions.GetTransactions()), nil), types.SetReceipts(result.Receipts[i].Receiptlist, result.Receipts[i].Receiptlist.HashList(), nil)})
+		}
+		blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(cbs, result.Uncles)
+		//receipts[i] = result.Receipts
+
 	}
-	if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
+	if index, err := d.blockchain.InsertReceiptChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
 		return errInvalidChain
 	}
@@ -1782,9 +1799,21 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult, stateSync *state
 }
 
 func (d *Downloader) commitPivotBlock(result *fetchResult) error {
-	block := types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles)
+	var cbs []types.CurrencyBlock
+	for i, ct := range result.Transactions {
+		var ch types.CurrencyHeader
+		for _, coinRoot := range result.Header.Roots {
+			ch = types.CurrencyHeader{
+				Root:        coinRoot.Root,
+				TxHash:      coinRoot.TxHash,
+				ReceiptHash: coinRoot.ReceiptHash}
+		}
+		cbs = append(cbs, types.CurrencyBlock{ct.CurrencyName, ch, types.SetTransactions(ct.Transactions.GetTransactions(), types.TxHashList(ct.Transactions.GetTransactions()), nil),
+			types.SetReceipts(result.Receipts[i].Receiptlist, result.Receipts[i].Receiptlist.HashList(), nil)})
+	}
+	block := types.NewBlockWithHeader(result.Header).WithBody(cbs, result.Uncles)
 	log.Debug("Committing fast sync pivot as new head", "number", block.Number(), "hash", block.Hash())
-	if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}, []types.Receipts{result.Receipts}); err != nil {
+	if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}); err != nil {
 		return err
 	}
 	if err := d.blockchain.FastSyncCommitHead(block.Hash()); err != nil {
@@ -1801,12 +1830,12 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err err
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string, transactions [][]types.SelfTransaction, uncles [][]*types.Header) (err error) {
+func (d *Downloader) DeliverBodies(id string, transactions [][]types.CurrencyBlock, uncles [][]*types.Header) (err error) {
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, uncles}, bodyInMeter, bodyDropMeter)
 }
 
 // DeliverReceipts injects a new batch of receipts received from a remote node.
-func (d *Downloader) DeliverReceipts(id string, receipts [][]*types.Receipt) (err error) {
+func (d *Downloader) DeliverReceipts(id string, receipts [][]types.CoinReceipts) (err error) {
 	return d.deliver(id, d.receiptCh, &receiptPack{id, receipts}, receiptInMeter, receiptDropMeter)
 }
 
@@ -1961,7 +1990,7 @@ func (d *Downloader) ProcessSnapshoot(number uint64, hash string) error {
 	}
 	sendReq := make([]BlockIpfsReq, 0, 1)
 	stReq := BlockIpfsReq{
-		ReqPendflg:  4, //full同步,
+		ReqPendflg:  4, //下载快照,
 		Flag:        number,
 		coinstr:     hash, //借存状态hash
 		HeadReqipfs: nil,

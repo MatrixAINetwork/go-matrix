@@ -50,6 +50,7 @@ type Contract struct {
 	Args []byte
 
 	DelegateCall bool
+	CoinTyp      string
 }
 
 // AsDelegate sets the contract to be a delegate call and returns the current
@@ -66,8 +67,8 @@ func (c *Contract) AsDelegate() *Contract {
 }
 
 // NewContract returns a new contract environment for the execution of EVM.
-func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uint64) *Contract {
-	c := &Contract{CallerAddress: caller.Address(), caller: caller, self: object, Args: nil}
+func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uint64, typ string) *Contract {
+	c := &Contract{CallerAddress: caller.Address(), caller: caller, self: object, Args: nil, CoinTyp: typ}
 
 	if parent, ok := caller.(*Contract); ok {
 		// Reuse JUMPDEST analysis from parent context if available.

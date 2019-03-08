@@ -3,14 +3,16 @@ package matrixstate
 import (
 	"math/big"
 
+	"encoding/json"
+	"reflect"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params"
-	"github.com/pkg/errors"
-	"reflect"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
+	"github.com/pkg/errors"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -971,39 +973,40 @@ func (opt *operatorTxpoolGasLimit) SetValue(st StateDB, value interface{}) error
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //币种打包限制
-type operatorCurrencyPack struct {
+type operatorCurrencyConfig struct {
 	key common.Hash
 }
 
-func newCurrencyPackOpt() *operatorCurrencyPack {
-	return &operatorCurrencyPack{
-		key: types.RlpHash(matrixStatePrefix + mc.MSCurrencyPack),
+func newCurrencyPackOpt() *operatorCurrencyConfig {
+	return &operatorCurrencyConfig{
+		key: types.RlpHash(matrixStatePrefix + mc.MSCurrencyConfig),
 	}
 }
 
-func (opt *operatorCurrencyPack) KeyHash() common.Hash {
+func (opt *operatorCurrencyConfig) KeyHash() common.Hash {
 	return opt.key
 }
 
-func (opt *operatorCurrencyPack) GetValue(st StateDB) (interface{}, error) {
+func (opt *operatorCurrencyConfig) GetValue(st StateDB) (interface{}, error) {
 	if err := checkStateDB(st); err != nil {
-		return uint64(0), err
+		return nil, err
 	}
 
 	data := st.GetMatrixData(opt.key)
 	if len(data) == 0 {
-		return make([]common.Address, 0), nil
+		return make([]common.CoinConfig, 0), nil
 	}
-	currencylist := make([]string, 0)
-	err := rlp.DecodeBytes(data, &currencylist)
+	currencylist := make([]common.CoinConfig, 0)
+	//err := rlp.DecodeBytes(data, &currencylist)
+	err := json.Unmarshal(data, &currencylist)
 	if err != nil {
-		return nil, errors.Errorf("operatorCurrencyPack json.rlp decode failed: %s", err)
+		return nil, errors.Errorf("operatorCurrencyPack rlp decode  failed: %s", err)
 	}
 
 	return currencylist, nil
 }
 
-func (opt *operatorCurrencyPack) SetValue(st StateDB, value interface{}) error {
+func (opt *operatorCurrencyConfig) SetValue(st StateDB, value interface{}) error {
 	if err := checkStateDB(st); err != nil {
 		return err
 	}
@@ -1014,13 +1017,14 @@ func (opt *operatorCurrencyPack) SetValue(st StateDB, value interface{}) error {
 		st.SetMatrixData(opt.key, nilSlice)
 		return nil
 	}
-	data, OK := value.([]string)
+	data, OK := value.([]common.CoinConfig)
 	if !OK {
 		log.Error(logInfo, "input param(CurrencyPack) err", "reflect failed")
 		return ErrParamReflect
 	}
 
-	encodeData, err := rlp.EncodeToBytes(data)
+	//encodeData, err := rlp.EncodeToBytes(data)
+	encodeData, err := json.Marshal(data)
 	if err != nil {
 		log.Error(logInfo, "operatorCurrencyPack rlp encode failed", err)
 		return err
@@ -1086,15 +1090,6 @@ func (opt *operatorAccountBlackList) SetValue(st StateDB, value interface{}) err
 	if !OK {
 		log.Error(logInfo, "input param(AccountBlackList) err", "reflect failed")
 		return ErrParamReflect
-	}
-
-	mansuperTxAddreslist, err := GetTxsSuperAccounts(st)
-	if err == nil {
-		for _, superAddress := range mansuperTxAddreslist {
-			if IsInBlackList(superAddress, accounts) {
-				return errors.New("the blacklist is invalid")
-			}
-		}
 	}
 
 	data, err := encodeAccounts(accounts)

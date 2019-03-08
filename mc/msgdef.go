@@ -22,7 +22,7 @@ type HdRev struct {
 
 type BlockData struct {
 	Header *types.Header
-	Txs    types.SelfTransactions
+	Txs    []types.CoinSelfTransaction
 }
 
 //Miner Module
@@ -161,10 +161,10 @@ type HD_BlkConsensusReqMsg struct {
 
 type LocalBlockVerifyConsensusReq struct {
 	BlkVerifyConsensusReq *HD_BlkConsensusReqMsg
-	OriginalTxs           types.SelfTransactions // 原始交易列表
-	FinalTxs              types.SelfTransactions // 最终交易列表(含奖励交易)
-	Receipts              []*types.Receipt       // 收据
-	State                 *state.StateDB         // apply state changes here 状态数据库
+	OriginalTxs           []types.CoinSelfTransaction // 原始交易列表
+	FinalTxs              []types.CoinSelfTransaction // 最终交易列表(含奖励交易)
+	Receipts              []types.CoinReceipts        // 收据
+	State                 *state.StateDBManage        // apply state changes here 状态数据库
 }
 
 type BlockPOSFinishedNotify struct {
@@ -177,10 +177,10 @@ type BlockPOSFinishedNotify struct {
 type BlockLocalVerifyOK struct {
 	Header      *types.Header // 包含签名列表的header
 	BlockHash   common.Hash
-	OriginalTxs types.SelfTransactions // 原始交易列表
-	FinalTxs    types.SelfTransactions // 最终交易列表(含奖励交易)
-	Receipts    []*types.Receipt       // 收据
-	State       *state.StateDB         // apply state changes here 状态数据库
+	OriginalTxs []types.CoinSelfTransaction // 原始交易列表
+	FinalTxs    []types.CoinSelfTransaction // 最终交易列表(含奖励交易)
+	Receipts    []types.CoinReceipts        // 收据
+	State       *state.StateDBManage        // apply state changes here 状态数据库
 }
 
 //BolckGenor
@@ -191,7 +191,7 @@ type HD_BlockInsertNotify struct {
 
 type NewBlockReadyMsg struct {
 	Header *types.Header
-	State  *state.StateDB
+	State  *state.StateDBManage
 }
 
 //随机数生成请求
@@ -339,7 +339,7 @@ type HD_FullBlockReqMsg struct {
 
 type HD_FullBlockRspMsg struct {
 	Header *types.Header
-	Txs    types.SelfTransactions
+	Txs    []types.CoinSelfTransaction
 	From   common.Address
 }
 

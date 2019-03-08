@@ -3,25 +3,36 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/p2p"
 	"github.com/MatrixAINetwork/go-matrix/params"
-	"sync"
-	"time"
-	"github.com/MatrixAINetwork/go-matrix/core/state"
 )
 
 var (
 	ErrTxPoolAlreadyExist = errors.New("txpool already exist")
 	ErrTxPoolIsNil        = errors.New("txpool is nil")
 	ErrTxPoolNonexistent  = errors.New("txpool nonexistent")
+
+	blockNumberByfilter = uint64(0)
 )
+
+type CoinPachFilter struct {
+	mu      sync.Mutex
+	coinNum map[string]uint64
+}
+
+var filtercoinnum = CoinPachFilter{coinNum: make(map[string]uint64)}
 
 //
 type RetChan struct {
@@ -235,71 +246,119 @@ func (pm *TxPoolManager) Pending() (map[common.Address]types.SelfTransactions, e
 	}
 	return txser, nil
 }
-func BlackListFilter(tx types.SelfTransaction,state *state.StateDB) bool{
-	//TODO 目前只要求过滤一个币种. 需要去状态树上获取被过滤的币种
-	//state, err := pm.chain.State()
-	//if err != nil {
-	//	log.Error("TxPoolManager:filter", "get state failed", err)
-	//	return nil
-	//}
 
-	blklist, err := matrixstate.GetAccountBlackList(state)
-	if err != nil {
-		//不做处理
-	}
-
-	//黑账户过滤
-	if len(blklist) > 0 {
-		for _, blkAccount := range blklist {
-			if tx.From().Equal(blkAccount) {
-				return false
-			}
+func GetMatrixCoin(state *state.StateDBManage) ([]string, error) {
+	bs := state.GetMatrixData(types.RlpHash(params.COIN_NAME))
+	var tmpcoinlist []string
+	if len(bs) > 0 {
+		err := json.Unmarshal(bs, &tmpcoinlist)
+		if err != nil {
+			log.Trace("get matrix coin", "unmarshal err", err)
+			return nil, err
 		}
 	}
-
-	ct := tx.GetTxCurrency()
-	if ct == "" {
-
+	var coinlist []string
+	for _, coin := range tmpcoinlist {
+		if !common.IsValidityCurrency(coin) {
+			continue
+		}
+		coinlist = append(coinlist, coin)
 	}
+	return coinlist, nil
+}
 
-	//超级交易账户不匹配
-	if tx.GetMatrixType() == common.ExtraSuperTxType {
-		mansuperTxAddreslist, err := matrixstate.GetTxsSuperAccounts(state)
+func BlackListFilter(tx types.SelfTransaction, state *state.StateDBManage, h *big.Int) bool {
+	var (
+		from     common.Address  = tx.From()
+		to       *common.Address = tx.To()
+		txtype   byte            = tx.GetMatrixType()
+		cointype string          = tx.GetTxCurrency()
+	)
+	//blklist, _ := matrixstate.GetAccountBlackList(state)
+	////黑账户过滤(sender)
+	//if len(blklist) > 0 {
+	//	for _, blkAccount := range blklist {
+	//		if from.Equal(blkAccount) {
+	//			return false
+	//		}
+	//	}
+	//}
+	//黑账户过滤(to)
+	if to != nil {
+		if SelfBlackList.FindBlackAddress(*to) {
+			return false
+		}
+	}
+	//创建币种交易验证
+	if txtype == common.ExtraMakeCoinType {
+		mansuperTxAddreslist, err := matrixstate.GetMultiCoinSuperAccounts(state)
 		if err != nil {
-			log.Error("TxPoolManager:filter", "get super tx account failed", err)
+			log.Error("TxPoolManager:filter-check make coin", "get super tx account failed", err)
 			return false
 		}
 		isOK := false
 		for _, superAddress := range mansuperTxAddreslist {
-			if tx.From().Equal(superAddress) {
+			if from.Equal(superAddress) {
 				isOK = true
 				break
 			}
 		}
 		if !isOK {
-			log.Error("超级账户不匹配")
+			log.Error("address err", "unknown send make coin tx address", from.String())
 			return false
 		}
 	}
+	//多币种配置过滤
+	if cointype != params.MAN_COIN {
+		coinf, err := matrixstate.GetCoinConfig(state)
+		if err != nil {
+			log.Error("coin err", "get coin config err", err)
+			return false
+		}
+		if len(coinf) > 0 {
+			var config common.CoinConfig
+			ispach := false
+			for _, cog := range coinf {
+				if cog.CoinType == cointype {
+					config = cog
+					ispach = true
+					break
+				}
+			}
+			if ispach {
+				if config.PackNum > 0 {
+					filtercoinnum.mu.Lock()
+					if blockNumberByfilter != h.Uint64() {
+						blockNumberByfilter = h.Uint64()
+						filtercoinnum.coinNum = make(map[string]uint64)
+					}
+					if filtercoinnum.coinNum[cointype] >= config.PackNum {
+						log.WARN("warning ", "this coin tx count >= pack num.coin type", cointype, "pack num", config.PackNum, "curr tx count", filtercoinnum.coinNum[cointype])
+						filtercoinnum.mu.Unlock()
+						return false
+					}
+					filtercoinnum.coinNum[cointype] = filtercoinnum.coinNum[cointype] + 1
+					filtercoinnum.mu.Unlock()
+				} else if config.PackNum <= 0 {
+					log.WARN("warning ", "this coin tx discard. coin type", cointype)
+					return false
+				}
+			}
+		}
+	}
 
-	//奖励交易账户不匹配
-	if tx.GetMatrixType() == common.ExtraUnGasTxType{
+	//奖励交易账户验证
+	if txtype == common.ExtraUnGasMinerTxType || txtype == common.ExtraUnGasValidatorTxType ||
+		txtype == common.ExtraUnGasInterestTxType || txtype == common.ExtraUnGasTxsType || txtype == common.ExtraUnGasLotteryTxType {
 		isOK := false
-		for _,account := range common.RewardAccounts{
-			if tx.From().Equal(account){
+		for _, account := range common.RewardAccounts {
+			if from.Equal(account) {
 				isOK = true
 				break
 			}
 		}
-		if !isOK{
-			log.Error("奖励交易账户不合法")
-			return false
-		}
-	}
-
-	//黑账户过滤
-	if tx.To() != nil {
-		if SelfBlackList.FindBlackAddress(*tx.To()) {
+		if !isOK {
+			log.Error("address err", "unknown send reward tx address", from.String())
 			return false
 		}
 	}
@@ -423,6 +482,7 @@ func (pm *TxPoolManager) ReturnAllTxsByN(listretctx []*common.RetCallTxN, resqe 
 			}
 			allTxs = append(allTxs, &RetCallTx{txch.Tx_t, txch.Rxs})
 			if len(allTxs) == len(listretctx) {
+
 				retch <- &RetChan{allTxs, nil, resqe}
 				return
 			}

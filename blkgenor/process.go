@@ -245,7 +245,6 @@ func (p *Process) canInsertBlock(bcInterval *mc.BCIntervalInfo, header *types.He
 			log.ERROR(p.logExtraInfo(), "区块插入消息POW验证失败", err)
 			return false
 		}
-
 	}
 	return true
 }

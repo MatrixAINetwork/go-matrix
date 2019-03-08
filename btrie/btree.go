@@ -279,32 +279,32 @@ func (n *bnode) maybeSplitChild(i, maxItems int) bool {
 // be found/replaced by insert, it will be returned.
 func (n *bnode) insert(item Item, maxItems int) Item {
 	i, found := n.items.find(item)
-	log.Info("file btree", "func insert", "begin==========================", "found", found)
-	for aaa, _ := range item.(SpcialTxData).Value_Tx {
-		log.Info("file btree", "func insert:hash", aaa)
+	//log.Info("btree", "insert", "begin==========================", "found", found)
+	for Khash, _ := range item.(SpcialTxData).Value_Tx {
+		log.Trace("btree", "insert:hash", Khash)
 	}
 	if found {
 		n.items[i].InsertTxData(item)
-		log.Info("file btree", "func insert:found", found)
+		log.Trace("btree", "insert:found", found)
 		//n.items[i] = item
 		return n.items[i]
 	}
 	if len(n.children) == 0 {
 		n.items.insertAt(i, item)
-		log.Info("file btree", "func insert:len(n.children)", len(n.children))
+		log.Trace("btree", "insert:len(n.children)", len(n.children))
 		return nil
 	}
 	if n.maybeSplitChild(i, maxItems) {
 		inTree := n.items[i]
 		switch {
 		case item.Less(inTree):
-			log.Info("file btree", "func insert:item.Less(inTree)", "true")
+			log.Trace("btree", "insert:item.Less(inTree)", "true")
 			// no change, we want first split node
 		case inTree.Less(item):
-			log.Info("file btree", "func insert:inTree.Less(item)", "true")
+			log.Trace("btree", "insert:inTree.Less(item)", "true")
 			i++ // we want second split node
 		default:
-			log.Info("file btree", "func insert:default", "true")
+			log.Trace("btree", "insert:default", "true")
 			out := n.items[i]
 			n.items[i] = item
 			return out
@@ -574,7 +574,7 @@ func BtreeSaveHash(node *bnode, db *trie.Database, typ byte, stateDB vm.StateDB)
 		case common.ExtraTimeTxType:
 			keyItem, ok := it.(SpcialTxData)
 			if !ok {
-				log.Error("file btree", "func BtreeSaveHash", "Assert SpcialTxData fail.Serious error.Serious error.Serious error.")
+				log.Error("btree", "BtreeSaveHash", "Assert SpcialTxData fail.Serious error.Serious error.Serious error.")
 				return common.Hash{}
 			}
 			sorted_keys := make([]string, 0)
@@ -593,7 +593,7 @@ func BtreeSaveHash(node *bnode, db *trie.Database, typ byte, stateDB vm.StateDB)
 		case common.ExtraRevocable:
 			keyItem, ok := it.(SpcialTxData)
 			if !ok {
-				log.Error("file btree", "func BtreeSaveHash", "Assert SpcialTxData fail.Serious error.Serious error.Serious error.")
+				log.Error("btree", "BtreeSaveHash", "Assert SpcialTxData fail.Serious error.Serious error.Serious error.")
 				return common.Hash{}
 			}
 			sorted_keys := make([]string, 0)
@@ -642,7 +642,7 @@ func RestoreBtree(btree *BTree, itemNode *bnode, nodeHash common.Hash, db *trie.
 	//err := rlp.DecodeBytes(nodeData,&tmpNodeSave)
 	err := json.Unmarshal(nodeData, &tmpNodeSave)
 	if err != nil {
-		log.Info("file btree", "func RestoreBtree:err", err)
+		log.Info("btree", "RestoreBtree:err", err)
 		return errors.New("RestoreBtree node decode err")
 	}
 	for indexItem, it := range tmpNodeSave.Key {
@@ -778,16 +778,16 @@ func (t *BTree) ReplaceOrInsert(item Item) Item {
 		panic("nil item being added to BTree")
 	}
 	if t.root == nil {
-		log.Info("file btree", "func ReplaceOrInsert:t.root==nil", "if")
+		log.Info("btree", "ReplaceOrInsert:t.root==nil", "if")
 		t.root = t.cow.newNode()
 		t.root.items = append(t.root.items, item)
 		t.length++
 		return nil
 	} else {
 		t.root = t.root.mutableFor(t.cow)
-		log.Info("file btree", "func ReplaceOrInsert:t.root!=nil", "else")
+		log.Info("btree", "ReplaceOrInsert:t.root!=nil", "else")
 		if len(t.root.items) >= t.maxItems() {
-			log.Info("file btree", "func ReplaceOrInsert:t.root!=nil", "else if")
+			log.Info("btree", "ReplaceOrInsert:t.root!=nil", "else if")
 			item2, second := t.root.split(t.maxItems() / 2)
 			oldroot := t.root
 			t.root = t.cow.newNode()
@@ -795,7 +795,7 @@ func (t *BTree) ReplaceOrInsert(item Item) Item {
 			t.root.children = append(t.root.children, oldroot, second)
 		}
 	}
-	log.Info("file btree", "func ReplaceOrInsert:t.root!=nil", "")
+	log.Info("btree", "ReplaceOrInsert:t.root!=nil", "")
 	out := t.root.insert(item, t.maxItems())
 	if out == nil {
 		t.length++
@@ -1000,9 +1000,9 @@ func (a SpcialTxData) Less(b Item) bool {
 
 func (a SpcialTxData) InsertTxData(b Item) bool {
 	for txhash, val := range b.(SpcialTxData).Value_Tx {
-		log.Info("file btree", "func InsertTxData:len()", len(a.Value_Tx), "hash", txhash)
+		log.Trace("btree", "InsertTxData:len()", len(a.Value_Tx), "hash", txhash)
 		a.Value_Tx[txhash] = val
-		log.Info("file btree", "func InsertTxData:len()", len(a.Value_Tx), "a.key", a.Key_Time)
+		log.Trace("btree", "InsertTxData:len()", len(a.Value_Tx), "a.key", a.Key_Time)
 	}
 	return true
 }

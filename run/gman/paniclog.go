@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 )
 
 const panicFile = "/tmp/panic.log"
@@ -17,6 +18,9 @@ func initPanicFile() {
 	if err != nil {
 		fmt.Println("Create panic file err", err)
 	}
+	test := time.Now()
+	timestr := test.Format("2006-01-02 15:04:05")
+	file.Write([]byte(timestr))
 	globalFile = file
 	err = syscall.Dup2(int(file.Fd()), int(os.Stderr.Fd()))
 	if err != nil {

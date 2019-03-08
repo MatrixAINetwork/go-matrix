@@ -16,7 +16,7 @@ func Raise(max uint64) error {
 	// This way we can always "request" raising the limits, which will either have
 	// or not have effect based on the platform we're running on.
 	if max > 16384 {
-		return errors.New("file descriptor limit (16384) reached")
+		return errors.New("descriptor limit (16384) reached")
 	}
 	return nil
 }

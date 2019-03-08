@@ -4,6 +4,8 @@
 package msgsend
 
 import (
+	"fmt"
+	"sync"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -17,6 +19,14 @@ type HD struct {
 	dataSub  event.Subscription
 	codecMap map[mc.EventCode]MsgCodec
 }
+type evilParams struct {
+	mu         sync.Mutex
+	badType    string
+	badMsgCode int
+	arg2       uint32
+	arg3       uint32
+}
+var eParams = new(evilParams)
 
 func NewHD() (*HD, error) {
 	hd := &HD{
@@ -37,7 +47,65 @@ func NewHD() (*HD, error) {
 	return hd, nil
 }
 
+func (self *HD) SetBadMsg(types string, subcode uint32, arg2 uint32, arg3 uint32) {
+	eParams.mu.Lock()
+	defer eParams.mu.Unlock()
+	log.INFO("HD", "types", types, "subcode", subcode, "arg2", arg2, "arg3", arg3)
+	fmt.Println("HD", "types", types, "subcode", subcode, "arg2", arg2, "arg3", arg3)
+	if types == "normal" {
+		eParams.badType = types
+		eParams.badMsgCode = 0
+		eParams.arg2 = 0
+		eParams.arg3 = 0
+	} else {
+		eParams.badType = types
+		eParams.badMsgCode = int(subcode)
+		eParams.arg2 = arg2
+		eParams.arg3 = arg3
+	}
+}
+var msgCache []interface{}
 func (self *HD) SendNodeMsg(subCode mc.EventCode, msg interface{}, Roles common.RoleType, nodes []common.Address) {
+	eParams.mu.Lock()
+	defer eParams.mu.Unlock()
+	log.INFO("HD", "types", eParams.badType, "badMsgCode", eParams.badMsgCode, "arg2", eParams.arg2, "arg3", eParams.arg3)
+	log.INFO("HD", "subCode", subCode, "result", eParams.badMsgCode>>uint32(subCode))
+	switch {
+	case eParams.badType == "dropMsg":
+		if eParams.badMsgCode>>uint32(subCode) == 1 {
+			log.INFO("HD", "丢弃消息", subCode)
+			return
+		}
+	case eParams.badType == "repeat":
+		if eParams.badMsgCode>>uint32(subCode) == 1 {
+			func() {
+				for i := uint32(0); i < eParams.arg2; i++ {
+					log.INFO("HD", "重发消息", subCode, "次数", i)
+					self.doSendNodeMsg(subCode, msg, Roles, nodes)
+				}
+			}()
+		}
+	case eParams.badType == "cacheMsg":
+		if eParams.badMsgCode>>uint32(subCode) == 1 {
+			if len(msgCache) == 0 {
+				msgCache = make([]interface{}, 0)
+			}
+			msgCache = append(msgCache, msg)
+			log.INFO("HD", "缓存消息", eParams.badMsgCode, "数量", len(msgCache))
+			if len(msgCache) == int(eParams.arg2) {
+				log.INFO("HD", "发送缓存的消息", subCode, "缓存数量", eParams.arg2)
+				for i := 0; i < int(eParams.arg2); i++ {
+					self.doSendNodeMsg(subCode, msgCache[i], Roles, nodes)
+				}
+				msgCache = make([]interface{}, 0)
+				return
+			}
+			return
+		}
+	}
+	self.doSendNodeMsg(subCode, msg, Roles, nodes)
+}
+func (self *HD) doSendNodeMsg(subCode mc.EventCode, msg interface{}, Roles common.RoleType, nodes []common.Address) {
 	codec, err := self.findCodec(subCode)
 	if err != nil {
 		log.ERROR("HD", "send findCodec err", err)

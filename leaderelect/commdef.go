@@ -39,7 +39,7 @@ type Matrix interface {
 }
 
 type StateReader interface {
-	vm.StateDB
+	vm.StateDBManager
 }
 
 const defaultBeginTime = int64(0)
@@ -91,7 +91,7 @@ func (self *leaderData) copyData() *leaderData {
 
 type startControllerMsg struct {
 	parentHeader  *types.Header
-	parentStateDB *state.StateDB
+	parentStateDB *state.StateDBManage
 }
 
 func isFirstConsensusTurn(turnInfo *mc.ConsensusTurnInfo) bool {

@@ -23,7 +23,8 @@ type Validator interface {
 	ValidateHeader(header *types.Header) error
 	// ValidateState validates the given statedb and optionally the receipts and
 	// gas used.
-	ValidateState(block, parent *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error
+	//ValidateState(block, parent *types.Block, state *state.StateDBManage, receipts types.Receipts, usedGas uint64) error
+	ValidateState(block, parent *types.Block, statedb *state.StateDBManage, usedGas uint64) error
 }
 
 // Processor is an interface for processing blocks using a given initial state.
@@ -33,9 +34,9 @@ type Validator interface {
 // of gas used in the process and return an error if any of the internal rules
 // failed.
 type Processor interface {
-	ProcessSuperBlk(block *types.Block, statedb *state.StateDB) error
-	ProcessTxs(block *types.Block, statedb *state.StateDB, cfg vm.Config, upTime map[common.Address]uint64) (types.Receipts, []*types.Log, uint64, error)
-	Process(block *types.Block, parent *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
+	ProcessSuperBlk(block *types.Block, statedb *state.StateDBManage) error
+	ProcessTxs(block *types.Block, statedb *state.StateDBManage, cfg vm.Config, upTime map[common.Address]uint64) ([]types.CoinLogs, uint64, error)
+	Process(block *types.Block, parent *types.Block, statedb *state.StateDBManage, cfg vm.Config) ([]types.CoinReceipts,[]types.CoinLogs, uint64, error)
 	SetRandom(random *baseinterface.Random)
-	ProcessReward(state *state.StateDB, header *types.Header, upTime map[common.Address]uint64, from []common.Address, usedGas uint64) []common.RewarTx
+	ProcessReward(state *state.StateDBManage, header *types.Header, upTime map[common.Address]uint64, from []common.Address, usedGas uint64) []common.RewarTx
 }

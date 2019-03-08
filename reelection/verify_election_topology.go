@@ -24,7 +24,7 @@ var (
 	errPrimaryNodeState = errors.New("primary node consensus state not match")
 )
 
-func (p *ReElection) VerifyElection(header *types.Header, state *state.StateDB) error {
+func (p *ReElection) VerifyElection(header *types.Header, state *state.StateDBManage) error {
 	info, err := p.GetElection(state, header.ParentHash)
 	if err != nil {
 		return errGetElection

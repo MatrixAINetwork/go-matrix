@@ -8,6 +8,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 type BlockGenor struct {
@@ -228,7 +229,7 @@ func (self *BlockGenor) minerResultHandle(minerResult *mc.HD_MiningRspMsg) {
 
 func (self *BlockGenor) broadcastMinerResultHandle(result *mc.HD_BroadcastMiningRspMsg) {
 	number := result.BlockMainData.Header.Number.Uint64()
-	log.INFO(self.logExtraInfo(), "广播矿工挖矿结果消息处理", "开始", "高度", number, "交易数量", result.BlockMainData.Txs.Len(), "from", result.From.Hex())
+	log.INFO(self.logExtraInfo(), "广播矿工挖矿结果消息处理", "开始", "高度", number, "交易数量", len(types.GetTX(result.BlockMainData.Txs)), "from", result.From.Hex())
 	defer log.Debug(self.logExtraInfo(), "广播矿工挖矿结果消息处理", "结束", "高度", number)
 
 	process, err := self.pm.GetProcess(number)
@@ -241,8 +242,8 @@ func (self *BlockGenor) broadcastMinerResultHandle(result *mc.HD_BroadcastMining
 
 func (self *BlockGenor) consensusBlockMsgHandle(data *mc.BlockLocalVerifyOK) {
 	log.INFO(self.logExtraInfo(), "共识结果消息处理", "开始", "高度", data.Header.Number, "block hash", data.BlockHash.TerminalString(),
-		"root", data.Header.Root.TerminalString())
-	//defer log.Debug(self.logExtraInfo(), "共识结果消息处理", "结束", "高度", data.Header.Number)
+		"root", data.Header.Roots)
+	//defer log.INFO(self.logExtraInfo(), "共识结果消息处理", "结束", "高度", data.Header.Number)
 	process, err := self.pm.GetProcess(data.Header.Number.Uint64())
 	if err != nil {
 		log.Error(self.logExtraInfo(), "共识结果消息 获取Process失败", err)

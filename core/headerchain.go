@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/core/rawdb"
@@ -21,6 +20,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 )
 
@@ -438,6 +438,43 @@ func (hc *HeaderChain) SetHead(head uint64, delFn DeleteCallback) {
 	}
 	// Roll back the canonical chain numbering
 	for i := height; i > head; i-- {
+		rawdb.DeleteCanonicalHash(hc.chainDb, i)
+	}
+	// Clear out any stale content from the caches
+	hc.headerCache.Purge()
+	hc.tdCache.Purge()
+	hc.numberCache.Purge()
+
+	if hc.CurrentHeader() == nil {
+		hc.currentHeader.Store(hc.genesisHeader)
+	}
+	hc.currentHeaderHash = hc.CurrentHeader().Hash()
+
+	rawdb.WriteHeadHeaderHash(hc.chainDb, hc.currentHeaderHash)
+}
+
+// SetHead rewinds the local chain to a new head. Everything above the new head
+// will be deleted and the new one set.
+func (hc *HeaderChain) SetSBlkHead(oldHead *types.Header, head uint64, delFn DeleteCallback) {
+	height := uint64(0)
+	if hdr := oldHead; hdr != nil {
+		height = hdr.Number.Uint64()
+	}
+
+	for hdr := hc.CurrentHeader(); hdr != nil && hdr.Number.Uint64() > head; hdr = hc.CurrentHeader() {
+		hash := hdr.Hash()
+		num := hdr.Number.Uint64()
+		if delFn != nil {
+			delFn(hash, num)
+		}
+		rawdb.DeleteHeader(hc.chainDb, hash, num)
+		rawdb.DeleteTd(hc.chainDb, hash, num)
+
+		hc.currentHeader.Store(hc.GetHeader(hdr.ParentHash, hdr.Number.Uint64()-1))
+	}
+	// Roll back the canonical chain numbering
+	for i := height; i > head; i-- {
+		log.Info("SetSBlkHead", "delete", i)
 		rawdb.DeleteCanonicalHash(hc.chainDb, i)
 	}
 	// Clear out any stale content from the caches

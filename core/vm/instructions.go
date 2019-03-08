@@ -364,7 +364,7 @@ func opSha3(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	hash := crypto.Keccak256(data)
 
 	if evm.vmConfig.EnablePreimageRecording {
-		evm.StateDB.AddPreimage(common.BytesToHash(hash), data)
+		evm.StateDB.AddPreimage(contract.CoinTyp, contract.Address(), common.BytesToHash(hash), data)
 	}
 	stack.push(evm.interpreter.intPool.get().SetBytes(hash))
 
@@ -380,7 +380,7 @@ func opAddress(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 func opBalance(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	slot := stack.peek()
 	//slot.Set(evm.StateDB.GetBalance(common.BigToAddress(slot))[common.MainAccount])
-	tmp := evm.StateDB.GetBalance(common.BigToAddress(slot))
+	tmp := evm.StateDB.GetBalance(evm.Cointyp, common.BigToAddress(slot))
 	for _, tAccount := range tmp {
 		if tAccount.AccountType == common.MainAccount {
 			slot.Set(tAccount.Balance)
@@ -452,7 +452,7 @@ func opReturnDataCopy(pc *uint64, evm *EVM, contract *Contract, memory *Memory, 
 
 func opExtCodeSize(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	slot := stack.peek()
-	slot.SetUint64(uint64(evm.StateDB.GetCodeSize(common.BigToAddress(slot))))
+	slot.SetUint64(uint64(evm.StateDB.GetCodeSize(evm.Cointyp, common.BigToAddress(slot))))
 
 	return nil, nil
 }
@@ -484,7 +484,7 @@ func opExtCodeCopy(pc *uint64, evm *EVM, contract *Contract, memory *Memory, sta
 		codeOffset = stack.pop()
 		length     = stack.pop()
 	)
-	codeCopy := getDataBig(evm.StateDB.GetCode(addr), codeOffset, length)
+	codeCopy := getDataBig(evm.StateDB.GetCode(evm.Cointyp, addr), codeOffset, length)
 	memory.Set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
 	evm.interpreter.intPool.put(memOffset, codeOffset, length)
@@ -566,7 +566,7 @@ func opMstore8(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 
 func opSload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	loc := common.BigToHash(stack.pop())
-	val := evm.StateDB.GetState(contract.Address(), loc).Big()
+	val := evm.StateDB.GetState(evm.Cointyp, contract.Address(), loc).Big()
 	stack.push(val)
 	return nil, nil
 }
@@ -574,7 +574,7 @@ func opSload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *St
 func opSstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	loc := common.BigToHash(stack.pop())
 	val := stack.pop()
-	evm.StateDB.SetState(contract.Address(), loc, common.BigToHash(val))
+	evm.StateDB.SetState(evm.Cointyp, contract.Address(), loc, common.BigToHash(val))
 
 	evm.interpreter.intPool.put(val)
 	return nil, nil
@@ -674,7 +674,7 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value)
+	ret, returnGas, _, err := evm.Call(contract, toAddr, args, gas, value)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
 	} else {
@@ -789,16 +789,16 @@ func opStop(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 }
 
 func opSuicide(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	balance := evm.StateDB.GetBalance(contract.Address())
+	balance := evm.StateDB.GetBalance(evm.Cointyp, contract.Address())
 	for _, tAccount := range balance {
 		if tAccount.AccountType == common.MainAccount {
-			evm.StateDB.AddBalance(common.MainAccount, common.BigToAddress(stack.pop()), tAccount.Balance)
+			evm.StateDB.AddBalance(evm.Cointyp, common.MainAccount, common.BigToAddress(stack.pop()), tAccount.Balance)
 			break
 		}
 	}
 	//evm.StateDB.AddBalance(common.MainAccount,common.BigToAddress(stack.pop()), balance[common.MainAccount])
 
-	evm.StateDB.Suicide(contract.Address())
+	evm.StateDB.Suicide(evm.Cointyp, contract.Address())
 	return nil, nil
 }
 
@@ -814,7 +814,7 @@ func makeLog(size int) executionFunc {
 		}
 
 		d := memory.Get(mStart.Int64(), mSize.Int64())
-		evm.StateDB.AddLog(&types.Log{
+		evm.StateDB.AddLog(evm.Cointyp, contract.CallerAddress, &types.Log{
 			Address: contract.Address(),
 			Topics:  topics,
 			Data:    d,

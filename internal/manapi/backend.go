@@ -38,22 +38,22 @@ type Backend interface {
 	SetHead(number uint64)
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
 	BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error)
-	StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error)
+	StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDBManage, *types.Header, error)
 	GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error)
-	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
+	GetReceipts(ctx context.Context, blockHash common.Hash) ([]types.CoinReceipts, error)
 	GetTd(blockHash common.Hash) *big.Int
-	GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error)
+	GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDBManage, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error)
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
 	SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription
 	ImportSuperBlock(ctx context.Context, filePath string) (common.Hash, error)
-	GetState() (*state.StateDB, error)
+	GetState() (*state.StateDBManage, error)
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx types.SelfTransaction) error
 	GetPoolTransactions() (types.SelfTransactions, error)
 	GetPoolTransaction(txHash common.Hash) types.SelfTransaction
-	GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error)
+	GetPoolNonce(cointyp string, ctx context.Context, addr common.Address) (uint64, error)
 	Stats() (pending int, queued int)
 	TxPoolContent() (map[common.Address]types.SelfTransactions, map[common.Address]types.SelfTransactions)
 	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription //Y
@@ -69,7 +69,7 @@ type Backend interface {
 	NetRPCService() *PublicNetAPI
 	CurrentBlock() *types.Block
 	GetDepositAccount(signAccount common.Address, blockHash common.Hash) (common.Address, error)
-	GetFutureRewards(*state.StateDB, rpc.BlockNumber) (interface{}, error)
+	GetFutureRewards(*state.StateDBManage, rpc.BlockNumber) (interface{}, error)
 	Genesis() *types.Block
 }
 
@@ -124,12 +124,12 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
+			Service:   NewPublicAccountAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "man",
 			Version:   "1.0",
-			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
+			Service:   NewPublicAccountAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "personal",

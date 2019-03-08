@@ -79,10 +79,10 @@ type headerFilterTask struct {
 // headerFilterTask represents a batch of block bodies (transactions and uncles)
 // needing fetcher filtering.
 type bodyFilterTask struct {
-	peer         string                    // The source peer of block bodies
-	transactions [][]types.SelfTransaction // Collection of transactions per block bodies
-	uncles       [][]*types.Header         // Collection of uncles per block bodies
-	time         time.Time                 // Arrival time of the blocks' contents
+	peer         string                  // The source peer of block bodies
+	transactions [][]types.CurrencyBlock // Collection of transactions per block bodies
+	uncles       [][]*types.Header       // Collection of uncles per block bodies
+	time         time.Time               // Arrival time of the blocks' contents
 }
 
 // inject represents a schedules import operation.
@@ -186,6 +186,7 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time
 	}
 	select {
 	case f.notify <- block:
+		//log.Debug("fetcher notify ", "number", number, "hash", hash.Str(),"hash2",hash.Hex(),"peer",peer)
 		return nil
 	case <-f.quit:
 		return errTerminated
@@ -236,7 +237,7 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, transactions [][]types.SelfTransaction, uncles [][]*types.Header, time time.Time) ([][]types.SelfTransaction, [][]*types.Header) {
+func (f *Fetcher) FilterBodies(peer string, transactions [][]types.CurrencyBlock, uncles [][]*types.Header, time time.Time) ([][]types.CurrencyBlock, [][]*types.Header) {
 	log.Trace("download fetch Filtering bodies", "peer", peer, "txs", len(transactions), "uncles", len(uncles))
 
 	// Send the filter channel to the fetcher
@@ -437,6 +438,7 @@ func (f *Fetcher) loop() {
 					f.completingHook(hashes)
 				}
 				bodyFetchMeter.Mark(int64(len(hashes)))
+
 				go f.completing[hashes[0]].fetchBodies(hashes)
 			}
 			// Schedule the next fetch if blocks are still pending
@@ -473,11 +475,15 @@ func (f *Fetcher) loop() {
 					if f.getBlock(hash) == nil {
 						announce.header = header
 						announce.time = task.time
-
+						isok := false
 						// If the block is empty (header only), short circuit into the final import queue
-						if header.TxHash == types.DeriveSha(types.SelfTransactions{}) && header.UncleHash == types.CalcUncleHash([]*types.Header{}) {
-							log.Trace("fetch header Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash().String())
-
+						for _, coinRoot := range header.Roots {
+							if coinRoot.TxHash != types.DeriveShaHash([]common.Hash{}) {
+								isok = true
+							}
+						}
+						if !isok {
+							log.Trace("fetch header Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash())
 							block := types.NewBlockWithHeader(header)
 							block.ReceivedAt = task.time
 
@@ -539,18 +545,31 @@ func (f *Fetcher) loop() {
 			for i := 0; i < len(task.transactions) && i < len(task.uncles); i++ {
 				// Match up a body to any possible completion request
 				matched := false
-				txnHash := types.DeriveSha(types.SelfTransactions(task.transactions[i]))
-				uncleHash := types.CalcUncleHash(task.uncles[i])
+				tmpmap := make(map[string]common.Hash)
+				for _, txer := range task.transactions[i] {
+					tmpmap[txer.CurrencyName] = types.DeriveShaHash(types.TxHashList(txer.Transactions.GetTransactions()))
+					//log.Trace("download fetch bodyFilter tmpmap", "CurrencyName", txer.CurrencyName, "hash1", tmpmap[txer.CurrencyName], "hash2", types.DeriveShaHash(txer.Transactions.TxHashs))
+				}
 				for hash, announce := range f.completing {
 					if f.queued[hash] == nil {
-						//lb
-						//txnHash := types.DeriveSha(types.SelfTransactions(task.transactions[i]))
-						//uncleHash := types.CalcUncleHash(task.uncles[i])
-						log.Trace("download fetch bodyFilter map", "hash", hash.String(), "number", announce.number, "announce tx", announce.header.TxHash, "txnHash", txnHash, "origin id", announce.origin)
-						if txnHash == announce.header.TxHash && uncleHash == announce.header.UncleHash && announce.origin == task.peer {
+						isok := true
+						for _, coinHeader := range announce.header.Roots {
+							txnHash := tmpmap[coinHeader.Cointyp]
+							if txnHash == (common.Hash{}) {
+								txnHash = types.DeriveShaHash([]common.Hash{})
+							}
+							uncleHash := types.CalcUncleHash(task.uncles[i])
+							log.Trace("download fetch bodyFilter map", "hash", hash, "Cointyp", coinHeader.Cointyp, "announce", coinHeader.TxHash, "txnHash", txnHash, "origin id", announce.origin, "blockNum", announce.number)
+							if txnHash != coinHeader.TxHash || uncleHash != announce.header.UncleHash || announce.origin != task.peer {
+								log.Trace("fetchr err", "fetch body txhash != header txhash.  txnHash", txnHash.String(), "header txHash", coinHeader.TxHash.String(), "uncleHash", uncleHash.String(),
+									"announce.header.UncleHash", announce.header.UncleHash.String(), "announce.origin", announce.origin, "task.peer", task.peer)
+								isok = false
+								break
+							}
+						}
+						if isok {
 							// Mark the body matched, reassemble if still unknown
 							matched = true
-
 							if f.getBlock(hash) == nil {
 								log.Trace("download fetch bodyFilter getBlock")
 								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.uncles[i])
@@ -644,12 +663,12 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 	// Discard any past or too distant blocks
-	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
+	/*if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
 		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash.String(), "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		f.forgetHash(hash)
 		return
-	}
+	}*/
 	// Schedule the block for future importing
 	if _, ok := f.queued[hash]; !ok {
 		op := &inject{

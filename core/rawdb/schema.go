@@ -60,6 +60,7 @@ type TxLookupEntry struct {
 	BlockHash  common.Hash
 	BlockIndex uint64
 	Index      uint64
+	Cointype   string
 }
 
 // encodeBlockNumber encodes a block number as big endian uint64

@@ -25,12 +25,12 @@ type mineReqData struct {
 	headerHash         common.Hash
 	header             *types.Header
 	isBroadcastReq     bool
-	txs                types.SelfTransactions
+	txs               []types.CoinSelfTransaction
 	mineDiff           *big.Int
 	mineResultSendTime int64
 }
 
-func newMineReqData(headerHash common.Hash, header *types.Header, txs types.SelfTransactions, isBroadcastReq bool) *mineReqData {
+func newMineReqData(headerHash common.Hash, header *types.Header, txs []types.CoinSelfTransaction, isBroadcastReq bool) *mineReqData {
 	return &mineReqData{
 		mined:              false,
 		headerHash:         headerHash,
@@ -110,7 +110,7 @@ func (ctrl *mineReqCtrl) SetNewNumber(number uint64, role common.RoleType) {
 	return
 }
 
-func (ctrl *mineReqCtrl) AddMineReq(header *types.Header, txs types.SelfTransactions, isBroadcastReq bool) (*mineReqData, error) {
+func (ctrl *mineReqCtrl) AddMineReq(header *types.Header, txs []types.CoinSelfTransaction, isBroadcastReq bool) (*mineReqData, error) {
 	if nil == header {
 		return nil, errors.New("header为nil")
 	}

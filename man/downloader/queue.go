@@ -24,6 +24,7 @@ var (
 	blockCacheItems      = 1024             //lb 8192             // Maximum number of blocks to cache before throttling the download
 	blockCacheMemory     = 64 * 1024 * 1024 // Maximum amount of memory to use for block caching
 	blockCacheSizeWeight = 0.1              // Multiplier to approximate the average block size based on past ones
+	QSingleBlockStore    = false
 )
 
 var (
@@ -48,8 +49,8 @@ type fetchResult struct {
 
 	Header       *types.Header
 	Uncles       []*types.Header
-	Transactions types.SelfTransactions
-	Receipts     types.Receipts
+	Transactions []types.CurrencyBlock //CoinSelfTransaction
+	Receipts     []types.CoinReceipts
 }
 type ipfsRequest struct {
 	Header  *types.Header
@@ -85,11 +86,12 @@ type queue struct {
 	receiptPendPool  map[string]*fetchRequest      // [man/63] Currently pending receipt retrieval operations
 	receiptDonePool  map[common.Hash]struct{}      // [man/63] Set of the completed receipt fetches
 
-	resultCache  []*fetchResult     // Downloaded but not yet delivered fetch results
-	resultOffset uint64             // Offset of the first cached fetch result in the block chain
-	resultBegin  uint64             //lb
-	recvheadNum  int                //lb
-	resultWait   bool               //lb
+	resultCache  []*fetchResult // Downloaded but not yet delivered fetch results
+	resultOffset uint64         // Offset of the first cached fetch result in the block chain
+	resultBegin  uint64         //lb
+	recvheadNum  int            //lb
+	resultWait   bool           //lb
+	getBlock     blockQRetrievalFn
 	resultSize   common.StorageSize // Approximate size of a block (exponential moving average)
 
 	lock   *sync.Mutex
@@ -98,7 +100,7 @@ type queue struct {
 }
 
 // newQueue creates a new download queue for scheduling block retrieval.
-func newQueue() *queue {
+func newQueue(getBlock blockQRetrievalFn) *queue {
 	lock := new(sync.Mutex)
 	return &queue{
 		headerPendPool:   make(map[string]*fetchRequest),
@@ -114,6 +116,7 @@ func newQueue() *queue {
 		receiptDonePool:  make(map[common.Hash]struct{}),
 		resultCache:      make([]*fetchResult, blockCacheItems),
 		active:           sync.NewCond(lock),
+		getBlock:         getBlock,
 		lock:             lock,
 	}
 }
@@ -425,10 +428,14 @@ func (q *queue) Results(block bool) []*fetchResult {
 				size += uncle.Size()
 			}
 			for _, receipt := range result.Receipts {
-				size += receipt.Size()
+				for _, r := range receipt.Receiptlist {
+					size += r.Size()
+				}
 			}
-			for _, tx := range result.Transactions {
-				size += tx.Size()
+			for _, currblk := range result.Transactions {
+				for _, tx := range currblk.Transactions.GetTransactions() {
+					size += tx.Size()
+				}
 			}
 			q.resultSize = common.StorageSize(blockCacheSizeWeight)*size + (1-common.StorageSize(blockCacheSizeWeight))*q.resultSize
 		}
@@ -491,7 +498,14 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
 // returns a flag whether empty blocks were queued requiring processing.
 func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool, error) {
 	isNoop := func(header *types.Header) bool {
-		return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
+		//flag:=true
+		for _, cr := range header.Roots {
+			if cr.TxHash != types.EmptyRootHash {
+				return false
+			}
+		}
+		return true
+		//return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -504,7 +518,13 @@ func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool
 // also returns a flag whether empty receipts were queued requiring importing.
 func (q *queue) ReserveReceipts(p *peerConnection, count int) (*fetchRequest, bool, error) {
 	isNoop := func(header *types.Header) bool {
-		return header.ReceiptHash == types.EmptyRootHash
+		//return header.ReceiptHash == types.EmptyRootHash
+		for _, cr := range header.Roots {
+			if cr.TxHash != types.EmptyRootHash {
+				return false
+			}
+		}
+		return true
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -516,21 +536,33 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	//var curHeigh uint64
+	if len(recvheader) == 0 {
+		return nil, fmt.Errorf("Reserveipfs nil error")
+	}
 	//RequsetHeader := make([]*types.Header, 0)
 	RequsetHeader := make([]BlockIpfsReq, 0)
 	progress := false
 	isNil := func(header *types.Header) bool {
-		return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
+		isOK := true
+		for _, hr := range header.Roots {
+			if hr.TxHash != types.EmptyRootHash || header.UncleHash != types.EmptyUncleHash {
+				isOK = false
+				break
+			}
+		}
+		return isOK
 	}
 	components := 1
 	if q.mode == FastSync { // fast
 		components = 2
 	}
+	log.Trace("download queue  Reserveipfs begin ", "lenHeader", len(recvheader), "origin", origin, "remote", remote)
 	for _, header := range recvheader {
 		hash := header.Hash()
 		index := int(header.Number.Int64() - int64(q.resultOffset))
 		if index >= len(q.resultCache) || index < 0 {
 			//common.Report("index allocation went beyond available resultCache space")
+			log.Warn("index allocation went beyond available resultCache space")
 			return nil, fmt.Errorf("index allocation went beyond available resultCache space ")
 		}
 		if q.resultCache[index] == nil {
@@ -567,7 +599,8 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 	*/
 
 	//rlen := len(q.resultCache)
-
+	//CurJudgeBlockNum := recvheader[0].Number.Uint64()
+	//先找当前最大的连续resultCache的值的头信息
 	var pMaxRes *fetchResult
 	var maxi int
 	for maxi, pMaxRes = range q.resultCache {
@@ -580,88 +613,204 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 	}
 	q.recvheadNum++
 
-	if pMaxRes != nil {
-		hasbatch := false
-		curHeigh := pMaxRes.Header.Number.Uint64()           //q.resultCache[rlen-1].Header.Number.Uint64()
-		curOrigin := q.resultCache[0].Header.Number.Uint64() //q.resultBegin
-		log.Warn("download queue  enter Reserveipfs len(q.resultCache),", "max resultCache index", maxi, "curOrigin resultCache", curOrigin, "maxnumber resultCache", curHeigh, "origin", origin, "remote", remote)
-		if (remote-origin)/300 >= 1 {
-			if (curHeigh-curOrigin+1) < 300 && (remote-curHeigh+1 > 300) {
-				log.Warn("download queue header too little, wait for next time")
-				return nil, fmt.Errorf("download queue header too little, wait for next time")
+	if QSingleBlockStore == true {
+		if pMaxRes != nil {
+			hasbatch := false
+			curHeigh := pMaxRes.Header.Number.Uint64()           //当前最大的连续resultCache头信息节点高度      //q.resultCache[rlen-1].Header.Number.Uint64()
+			curOrigin := q.resultCache[0].Header.Number.Uint64() //当前待处理resultCache的头信息节点开始值      //q.resultBegin
+			log.Warn("download queue  enter Reserveipfs len(q.resultCache),", "max resultCache index", maxi, "curOrigin resultCache", curOrigin, "maxnumber resultCache", curHeigh, "origin", origin, "remote", remote)
+			if (remote-origin)/300 >= 1 {
+				if (curHeigh-curOrigin+1) < 300 && (remote-curHeigh+1 > 300) {
+					log.Warn("download queue header too little, wait for next time")
+					return nil, fmt.Errorf("download queue header too little, wait for next time")
+				}
+				//if(curOrigin != origin+1)
 			}
-			//if(curOrigin != origin+1)
-		}
-		if maxi >= blockCacheItems-300 {
-			maxi = blockCacheItems - 300 - 1
-		}
-
-		for i := 0; i < maxi; i++ {
-
-			if q.resultCache[i].Flag == 1 {
-				continue
-			}
-			if q.resultCache[i].Flag == 2 {
-				//i += 299
-				continue
+			//blockCacheItems 为 resultCache 的缓存数目
+			if maxi >= blockCacheItems-300 {
+				maxi = blockCacheItems - 300 - 1
 			}
 
-			if (q.resultCache[i].Header.Number.Uint64()%300 == 1) && ((maxi - i) >= 300) {
-				if q.resultCache[i].Flag != 2 {
-					//q.resultCache[i].Flag = 2
-					//q.resultCache[i+299].Flag = 2
-					for n := 0; n < 300; n++ {
-						if q.resultCache[i+n] == nil {
+			for i := 0; i < maxi; i++ {
+
+				if q.resultCache[i].Flag == 1 { //单个
+					continue
+				}
+				if q.resultCache[i].Flag == 2 { //批量的
+					//i += 299
+					continue
+				}
+				//有可以300批量同步的区块
+				if (q.resultCache[i].Header.Number.Uint64()%300 == 1) && ((maxi - i) >= 300) {
+					if q.resultCache[i].Flag != 2 {
+						//q.resultCache[i].Flag = 2
+						//q.resultCache[i+299].Flag = 2
+						for n := 0; n < 300; n++ {
+							if q.resultCache[i+n] == nil {
+								break
+							}
+							q.resultCache[i+n].Flag = 2
+						}
+						//
+						tmpReq := BlockIpfsReq{
+							ReqPendflg:  components, //q.resultCache[i].Pending,
+							Flag:        2,
+							coinstr:     "0",
+							HeadReqipfs: q.resultCache[i].Header,
+						}
+						RequsetHeader = append(RequsetHeader, tmpReq)
+						//q.BlockIpfsInsetPool(header.Number.Uint64(), header)
+						q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 2)
+						q.recvheadNum = 0
+						log.Warn("download queue Reserveipfs continuous begin ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
+						i += 299
+						q.resultWait = false
+					}
+					hasbatch = true
+				} else if hasbatch == false { //单个处理
+					if q.recvheadNum < 6 {
+						if (q.resultCache[i].Header.Number.Uint64()%300 == 1) && (remote-q.resultCache[i].Header.Number.Uint64() >= 300) { //((int(remote) - i) >= 300) {
+							log.Warn("download queue Reserveipfs continuous not - break ", "i", i, "blockNum", q.resultCache[i].Header.Number.Uint64())
+							q.resultWait = false
 							break
 						}
-						q.resultCache[i+n].Flag = 2
 					}
-					//
-					tmpReq := BlockIpfsReq{
-						ReqPendflg:  components, //q.resultCache[i].Pending,
-						Flag:        2,
-						coinstr:     "0",
-						HeadReqipfs: q.resultCache[i].Header,
+					if q.resultCache[i].Pending > 0 { //空hash 不请求body等
+						q.resultCache[i].Flag = 1
+						tmpReq := BlockIpfsReq{
+							ReqPendflg:  components, //q.resultCache[i].Pending,
+							Flag:        1,
+							coinstr:     "0",
+							HeadReqipfs: q.resultCache[i].Header,
+						}
+						RequsetHeader = append(RequsetHeader, tmpReq)
+						q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 1)
+						log.Warn(" download queue Reserveipfs continuous not but is discontinuous ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
 					}
-					RequsetHeader = append(RequsetHeader, tmpReq)
-					//q.BlockIpfsInsetPool(header.Number.Uint64(), header)
-					q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 2)
 					q.recvheadNum = 0
-					log.Warn("download queue Reserveipfs continuous begin ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
-					i += 299
-					q.resultWait = false
-				}
-				hasbatch = true
-			} else if hasbatch == false {
-				if q.recvheadNum < 6 {
-					if (q.resultCache[i].Header.Number.Uint64()%300 == 1) && (remote-q.resultCache[i].Header.Number.Uint64() >= 300) { //((int(remote) - i) >= 300) {
-						log.Warn("download queue Reserveipfs continuous not - break ", "i", i, "blockNum", q.resultCache[i].Header.Number.Uint64())
-						q.resultWait = false
-						break
+					// 延后处理
+					if progress && q.resultWait {
+						// WaitResults
+						log.Warn("download queue  enter Reserveipfs q.active.Signal,")
+						//
+						q.active.Signal()
 					}
-				}
-				if q.resultCache[i].Pending > 0 { //空hash 不请求body等
-					q.resultCache[i].Flag = 1
-					tmpReq := BlockIpfsReq{
-						ReqPendflg:  components, //q.resultCache[i].Pending,
-						Flag:        1,
-						coinstr:     "0",
-						HeadReqipfs: q.resultCache[i].Header,
-					}
-					RequsetHeader = append(RequsetHeader, tmpReq)
-					q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 1)
-					log.Warn(" download queue Reserveipfs continuous not but is discontinuous ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
-				}
-				q.recvheadNum = 0
-				// 延后处理
-				if progress && q.resultWait {
-					// WaitResults
-					log.Warn("download queue  enter Reserveipfs q.active.Signal,")
-					//
-					q.active.Signal()
 				}
 			}
 		}
+	} else {
+		//300个区块批量下载,剩余的接近 remote 的不足300的走原来的下载方式
+		//origin, remote uint64 // CurJudgeBlockNum
+		remoteDiv := remote / 300
+		remoteMod := remote % 300
+		//	originDiv := origin / 300
+		//	originMod := origin % 300
+		MaxBatchreqNum := remoteDiv * 300
+		//maxiDiv := maxi / 300
+		if pMaxRes != nil {
+			CurFethMaxNum := pMaxRes.Header.Number.Uint64()
+			CurFethMaxDiv := CurFethMaxNum / 300
+			if CurFethMaxNum > remote {
+				remoteMod = CurFethMaxNum % 300
+			}
+			log.Warn("download queue Reserveipfs begin", "CurFethMaxNum", CurFethMaxNum, "remoteDiv", remoteDiv, "remoteMod", remoteMod, "MaxBatchreqNum", MaxBatchreqNum)
+			for i := 0; i < maxi; i++ {
+				//遍历有序的resultcache
+				if q.resultCache[i].Flag != 0 { //已请求
+					continue
+				}
+				curDiv := q.resultCache[i].Header.Number.Uint64() / 300
+				//可以批量获取 remoteDiv*300前的数据
+				if MaxBatchreqNum > 0 {
+					//可以批量
+					calcDiv := curDiv
+					for calcDiv = curDiv; calcDiv < CurFethMaxDiv; calcDiv++ {
+						curMod := q.resultCache[i].Header.Number.Uint64() % 300
+						if curMod == 1 {
+
+							for n := 0; n < 300; n++ {
+								if q.resultCache[i+n] == nil {
+									break
+								}
+								q.resultCache[i+n].Flag = 2
+							}
+							tmpReq := BlockIpfsReq{
+								ReqPendflg:   components, //q.resultCache[i].Pending,
+								Flag:         2,
+								coinstr:      "0",
+								realBeginNum: q.resultCache[i].Header.Number.Uint64(),
+								HeadReqipfs:  q.resultCache[i].Header,
+							}
+							RequsetHeader = append(RequsetHeader, tmpReq)
+							q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 2)
+							log.Warn("download queue Reserveipfs continuous begin ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
+						} else {
+							if curMod < 270 {
+								for n := 0; n < (300 - int(curMod) + 1); n++ {
+									if q.resultCache[i+n] == nil {
+										break
+									}
+									q.resultCache[i+n].Flag = 2
+								}
+								tmpBlock := q.getBlock(curDiv*300 + 1) // 取本地链
+								tmpReq := BlockIpfsReq{
+									ReqPendflg:   components, //q.resultCache[i].Pending,
+									Flag:         2,
+									coinstr:      "0",
+									realBeginNum: q.resultCache[i].Header.Number.Uint64(),
+									HeadReqipfs:  tmpBlock.Header(),
+								}
+								log.Warn("download queue Reserveipfs continuous getlocalBlock ", "LocalBlockNum ", tmpBlock.NumberU64(), "hash", tmpBlock.Hash(), "realbeginNum", tmpReq.realBeginNum)
+								RequsetHeader = append(RequsetHeader, tmpReq)
+								q.BlockIpfsInsetPool(q.resultCache[i].Header.Number.Uint64(), q.resultCache[i].Header, components, 2)
+								log.Warn("download queue Reserveipfs continuous begin mod ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
+							} else { //剩余小于 30个 走原来
+								for n := 0; n < (300 - int(curMod) + 1); n++ {
+									if q.resultCache[i+n] == nil {
+										break
+									}
+									q.resultCache[i+n].Flag = 1
+									hash := q.resultCache[i+n].Header.Hash()
+									q.blockTaskPool[hash] = q.resultCache[i+n].Header
+									q.blockTaskQueue.Push(q.resultCache[i+n].Header, -float32(q.resultCache[i+n].Header.Number.Uint64()))
+									if q.resultCache[i+n].Pending > 1 {
+										q.receiptTaskPool[hash] = q.resultCache[i+n].Header
+										q.receiptTaskQueue.Push(q.resultCache[i+n].Header, -float32(q.resultCache[i+n].Header.Number.Uint64()))
+									}
+									log.Warn("download queue Reserveipfs add mod to  quondam download ", "i", i+n, "blockNum", q.resultCache[i+n].Header.Number, "hash", hash.String())
+								}
+							}
+						}
+						i = i + (300 - int(curMod) + 1)
+					}
+
+					if calcDiv == remoteDiv && remoteMod > 0 {
+						q.resultCache[i].Flag = 1
+						hash := q.resultCache[i].Header.Hash()
+						q.blockTaskPool[hash] = q.resultCache[i].Header
+						q.blockTaskQueue.Push(q.resultCache[i].Header, -float32(q.resultCache[i].Header.Number.Uint64()))
+						if q.resultCache[i].Pending > 1 {
+							q.receiptTaskPool[hash] = q.resultCache[i].Header
+							q.receiptTaskQueue.Push(q.resultCache[i].Header, -float32(q.resultCache[i].Header.Number.Uint64()))
+						}
+						log.Warn("download queue Reserveipfs add to  quondam download", "i", i, "blockNum", q.resultCache[i].Header.Number, "hash", hash.String())
+					}
+
+				} else {
+					q.resultCache[i].Flag = 1
+					hash := q.resultCache[i].Header.Hash()
+					q.blockTaskPool[hash] = q.resultCache[i].Header
+					q.blockTaskQueue.Push(q.resultCache[i].Header, -float32(q.resultCache[i].Header.Number.Uint64()))
+					if q.resultCache[i].Pending > 1 {
+						q.receiptTaskPool[hash] = q.resultCache[i].Header
+						q.receiptTaskQueue.Push(q.resultCache[i].Header, -float32(q.resultCache[i].Header.Number.Uint64()))
+					}
+					log.Warn("download queue Reserveipfs add to  quondam download tail", "i", i, "blockNum", q.resultCache[i].Header.Number, "hash", hash.String())
+				}
+
+			}
+		}
+
 	}
 	return RequsetHeader, nil
 }
@@ -963,13 +1112,20 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 // DeliverBodies injects a block body retrieval response into the results queue.
 // The method returns the number of blocks bodies accepted from the delivery and
 // also wakes any threads waiting for data delivery.
-func (q *queue) DeliverBodies(id string, txLists [][]types.SelfTransaction, uncleLists [][]*types.Header) (int, error) {
+func (q *queue) DeliverBodies(id string, txLists [][]types.CurrencyBlock, uncleLists [][]*types.Header) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.Header, index int, result *fetchResult) error {
-		if types.DeriveSha(types.SelfTransactions(txLists[index])) != header.TxHash || types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
-			return errInvalidBody
+		for _, cointx := range txLists[index] {
+			for _, hr := range header.Roots {
+				if hr.Cointyp == cointx.CurrencyName {
+					if types.DeriveShaHash(types.TxHashList(cointx.Transactions.GetTransactions())) != hr.TxHash || types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
+						return errInvalidBody
+					}
+					break
+				}
+			}
 		}
 		result.Transactions = txLists[index]
 		result.Uncles = uncleLists[index]
@@ -982,13 +1138,20 @@ func (q *queue) DeliverBodies(id string, txLists [][]types.SelfTransaction, uncl
 // DeliverReceipts injects a receipt retrieval response into the results queue.
 // The method returns the number of transaction receipts accepted from the delivery
 // and also wakes any threads waiting for data delivery.
-func (q *queue) DeliverReceipts(id string, receiptList [][]*types.Receipt) (int, error) {
+func (q *queue) DeliverReceipts(id string, receiptList [][]types.CoinReceipts) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.Header, index int, result *fetchResult) error {
-		if types.DeriveSha(types.Receipts(receiptList[index])) != header.ReceiptHash {
-			return errInvalidReceipt
+		for _, cointx := range receiptList[index] {
+			for _, hr := range header.Roots {
+				if hr.Cointyp == cointx.CoinType {
+					if types.DeriveShaHash(cointx.Receiptlist.HashList()) != hr.ReceiptHash {
+						return errInvalidReceipt
+					}
+					break
+				}
+			}
 		}
 		result.Receipts = receiptList[index]
 		return nil
@@ -1155,22 +1318,41 @@ func (q *queue) recvIpfsBody(bodyBlock *BlockIpfs) {
 			q.resultCache[index].Uncles = bodyBlock.Unclesipfs
 			q.resultCache[index].Pending--*/
 		if q.resultCache[index].Pending == 1 { //[]*types.Transaction
-			if types.DeriveSha(types.SelfTransactions(bodyBlock.Transactionsipfs)) != q.resultCache[index].Header.TxHash || types.CalcUncleHash(bodyBlock.Unclesipfs) != q.resultCache[index].Header.UncleHash {
-				log.Warn("recvIpfsBody deal tx hash 0error")
-				return
+			for _, cointx := range bodyBlock.Transactionsipfs {
+				for _, hr := range q.resultCache[index].Header.Roots {
+					if hr.Cointyp == cointx.CurrencyName {
+						if types.DeriveShaHash(types.TxHashList(cointx.Transactions.GetTransactions())) != hr.TxHash || types.CalcUncleHash(bodyBlock.Unclesipfs) != q.resultCache[index].Header.UncleHash {
+							log.Warn("recvIpfsBody deal tx hash 0error")
+							return
+						}
+					}
+				}
 			}
 			q.resultCache[index].Transactions = bodyBlock.Transactionsipfs
 			q.resultCache[index].Uncles = bodyBlock.Unclesipfs
 			q.resultCache[index].Pending = 0
 		} else if q.resultCache[index].Pending == 2 {
-			if types.DeriveSha(types.SelfTransactions(bodyBlock.Transactionsipfs)) != q.resultCache[index].Header.TxHash || types.CalcUncleHash(bodyBlock.Unclesipfs) != q.resultCache[index].Header.UncleHash {
-				log.Warn("recvIpfsBody deal tx hash 02error")
-				return
+			for _, cointx := range bodyBlock.Transactionsipfs {
+				for _, hr := range q.resultCache[index].Header.Roots {
+					if hr.Cointyp == cointx.CurrencyName {
+						if types.DeriveShaHash(types.TxHashList(cointx.Transactions.GetTransactions())) != hr.TxHash || types.CalcUncleHash(bodyBlock.Unclesipfs) != q.resultCache[index].Header.UncleHash {
+							log.Warn("recvIpfsBody deal tx hash 02error")
+							return
+						}
+					}
+				}
 			}
-			if types.DeriveSha(types.Receipts(bodyBlock.Receipt)) != q.resultCache[index].Header.ReceiptHash {
-				log.Warn("recvIpfsBody deal receipt hash 02error")
-				return
+			for _, coinre := range bodyBlock.Receipt {
+				for _, hr := range q.resultCache[index].Header.Roots {
+					if hr.Cointyp == coinre.CoinType {
+						if types.DeriveShaHash(coinre.Receiptlist.HashList()) != hr.ReceiptHash {
+							log.Warn("recvIpfsBody deal receipt hash 02error")
+							return
+						}
+					}
+				}
 			}
+
 			q.resultCache[index].Transactions = bodyBlock.Transactionsipfs
 			q.resultCache[index].Uncles = bodyBlock.Unclesipfs
 			q.resultCache[index].Receipts = bodyBlock.Receipt
@@ -1180,19 +1362,32 @@ func (q *queue) recvIpfsBody(bodyBlock *BlockIpfs) {
 
 	case 2:
 		if q.resultCache[index].Pending >= 1 {
-			if types.DeriveSha(types.SelfTransactions(bodyBlock.Transactionsipfs)) != q.resultCache[index].Header.TxHash || types.CalcUncleHash(bodyBlock.Unclesipfs) != q.resultCache[index].Header.UncleHash {
-				log.Warn("recvIpfsBody deal tx hash 2error")
-				return
+			for _, cointx := range bodyBlock.Transactionsipfs {
+				for _, hr := range q.resultCache[index].Header.Roots {
+					if hr.Cointyp == cointx.CurrencyName {
+						if types.DeriveShaHash(types.TxHashList(cointx.Transactions.GetTransactions())) != hr.TxHash || types.CalcUncleHash(bodyBlock.Unclesipfs) != q.resultCache[index].Header.UncleHash {
+							log.Warn("recvIpfsBody deal tx hash 2error")
+							return
+						}
+					}
+				}
 			}
+
 			q.resultCache[index].Transactions = bodyBlock.Transactionsipfs
 			q.resultCache[index].Uncles = bodyBlock.Unclesipfs
 			q.resultCache[index].Pending--
 		}
 	case 3:
 		if q.resultCache[index].Pending >= 1 {
-			if types.DeriveSha(types.Receipts(bodyBlock.Receipt)) != q.resultCache[index].Header.ReceiptHash {
-				log.Warn("recvIpfsBody deal receipt hash 3error")
-				return
+			for _, coinre := range bodyBlock.Receipt {
+				for _, hr := range q.resultCache[index].Header.Roots {
+					if hr.Cointyp == coinre.CoinType {
+						if types.DeriveShaHash(coinre.Receiptlist.HashList()) != hr.ReceiptHash {
+							log.Warn("recvIpfsBody deal receipt hash 3error")
+							return
+						}
+					}
+				}
 			}
 			q.resultCache[index].Receipts = bodyBlock.Receipt
 			q.resultCache[index].Pending--
@@ -1221,11 +1416,14 @@ func (q *queue) checkIpfsPool() (bool, int, []uint64) {
 	}
 	//log.Trace("download queue checkIpfsPool len", "len", q.blockIpfsPool)
 	var blockNumlist []uint64
-	var duration time.Duration = 18 * time.Minute
+	var duration time.Duration = 20 * time.Minute
 	for num, requset := range q.blockIpfsPool {
 		//log.Trace("download queue checkIpfsPool len", "requset number", requset.Header.Number.Uint64())
 		if time.Since(requset.Time) > duration {
-			log.Warn("download queue checkIpfsPool fail", "num", num)
+			if requset.Header == nil {
+				continue
+			}
+			log.Warn("download queue checkIpfsPool fail", "num", num, "blockNum", requset.Header.Number.Uint64())
 			hash := requset.Header.Hash()
 			//q.blockTaskPool[hash] = requset.Header
 			//q.blockTaskQueue.Push(requset.Header, -float32(requset.Header.Number.Uint64()))
@@ -1260,13 +1458,14 @@ func (q *queue) BlockIpfsdeleteBatch(blockNumlist []uint64) {
 		q.BlockIpfsdeletePool(num)
 	}
 }
-func (q *queue) BlockRegetByOldMode(bFlg int, pending int, header *types.Header) {
+func (q *queue) BlockRegetByOldMode(bFlg int, pending int, header *types.Header, realReqNum uint64) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	hash := header.Hash()
 	log.Warn("download queue BlockRegetByOld", "header number", header.Number.Uint64())
 	if 2 == bFlg { //批量请求的
-		q.checkBatchBlockReq(header.Number.Uint64(), pending)
+		//q.checkBatchBlockReq(header.Number.Uint64(), pending)
+		q.checkBatchBlockReq(realReqNum, pending)
 	} else {
 		q.blockTaskPool[hash] = header
 		q.blockTaskQueue.Push(header, -float32(header.Number.Uint64()))
@@ -1275,7 +1474,7 @@ func (q *queue) BlockRegetByOldMode(bFlg int, pending int, header *types.Header)
 			q.receiptTaskQueue.Push(header, -float32(header.Number.Uint64()))
 		}
 	}
-	q.BlockIpfsdeletePool(header.Number.Uint64())
+	q.BlockIpfsdeletePool(realReqNum) //header.Number.Uint64())
 }
 func (q *queue) checkBatchBlockReq(blockNum uint64, pending int) bool {
 	if q.resultCache[0] == nil || q.resultCache[0].Header == nil {
@@ -1293,10 +1492,13 @@ func (q *queue) checkBatchBlockReq(blockNum uint64, pending int) bool {
 		log.Warn("download queue checkBatchBlockReq fail", "index", index, "q.resultCache[index].Header.Number.Uint64()", q.resultCache[index].Header.Number.Uint64())
 		return false
 	}
-	for i := 0; i < 300; i++ {
+	//for i := 0; i < 300; i++ {
+	tailNum := (blockNum/300 + 1) * 300
+	crNum := int(tailNum - blockNum + 1)
+	for i := 0; i < crNum; i++ {
 		if q.resultCache[index+i] == nil {
 			log.Warn("download queue checkBatchBlockReq q.resultCache[index+i] fail", "index", index+i)
-			return false
+			return false //break
 		}
 		hash := q.resultCache[index+i].Header.Hash()
 		q.blockTaskPool[hash] = q.resultCache[index+i].Header

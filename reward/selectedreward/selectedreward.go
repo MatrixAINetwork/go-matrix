@@ -46,17 +46,7 @@ type ChainReader interface {
 	NewTopologyGraph(header *types.Header) (*mc.TopologyGraph, error)
 }
 
-func (sr *SelectedReward) GetTopAndDeposit(chain util.ChainReader, state util.StateDB, currentNum uint64, roleType common.RoleType) ([]common.Address, map[common.Address]uint16, error) {
-	preState, err := chain.StateAtNumber(currentNum - 1)
-	if err != nil {
-		return nil, nil, errors.New("获取父状态失败")
-	}
-
-	currentTop, originElectNodes, err := chain.GetGraphByState(preState)
-	if err != nil {
-		log.Error(PackageName, "获取拓扑图错误", err)
-		return nil, nil, errors.New("获取拓扑图错误")
-	}
+func (sr *SelectedReward) GetTopAndDeposit(chain util.ChainReader, state util.StateDB, currentNum uint64, roleType common.RoleType, currentTop *mc.TopologyGraph, originElectNodes *mc.ElectGraph) ([]common.Address, map[common.Address]uint16, error) {
 
 	if originElectNodes == nil || 0 == len(originElectNodes.ElectList) {
 		log.Error(PackageName, "get获取初选列表为空", "")
@@ -85,7 +75,7 @@ func (sr *SelectedReward) GetTopAndDeposit(chain util.ChainReader, state util.St
 	return topNodes, electNodes, nil
 }
 
-func (sr *SelectedReward) GetSelectedRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, roleType common.RoleType, currentNum uint64, rate uint64) map[common.Address]*big.Int {
+func (sr *SelectedReward) GetSelectedRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, roleType common.RoleType, currentNum uint64, rate uint64, topology *mc.TopologyGraph, elect *mc.ElectGraph) map[common.Address]*big.Int {
 
 	//计算选举的拓扑图的高度
 	if reward.Cmp(big.NewInt(0)) <= 0 {
@@ -94,7 +84,7 @@ func (sr *SelectedReward) GetSelectedRewards(reward *big.Int, state util.StateDB
 	}
 	//log.Debug(PackageName, "参与奖励大家共发放", reward)
 
-	currentTop, originElectNodes, err := sr.GetTopAndDeposit(chain, state, currentNum, roleType)
+	currentTop, originElectNodes, err := sr.GetTopAndDeposit(chain, state, currentNum, roleType, topology, elect)
 	if nil != err {
 		return nil
 	}

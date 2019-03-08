@@ -566,12 +566,12 @@ func (s *Matrix) FetcherNotify(hash common.Hash, number uint64, addr common.Addr
 		nid = p2p.ServerP2p.ConvertAddressToId(addr)
 	}
 	if nid.String() == "" {
-		log.Info("file backend func FetcherNotify", "NodeID is nil", nid.String(), "address", addr)
+		log.Info("backend func FetcherNotify", "NodeID is nil", nid.String(), "address", addr)
 		return
 	}
 	peer := s.protocolManager.Peers.Peer(nid.String()[:16])
 	if peer == nil {
-		log.Info("file backend func FetcherNotify", "get PeerID is nil by Validator ID:id", nid.String()[:16])
+		log.Info("backend func FetcherNotify", "get PeerID is nil by Validator ID:id", nid.String()[:16])
 		return
 	}
 	s.protocolManager.fetcher.Notify(nid.String()[:16], hash, number, time.Now(), peer.RequestOneHeader, peer.RequestBodies)

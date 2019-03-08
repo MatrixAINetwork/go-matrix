@@ -11,7 +11,6 @@ import (
 
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
-	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/event"
@@ -82,7 +81,7 @@ var (
 	ErrRepeatEntrust   = errors.New("Repeat Entrust")
 	ErrWithoutAuth     = errors.New("gas entrust not set ")
 	ErrinterestAmont   = errors.New("Incorrect total interest")
-	ErrSpecialTxFailed = errors.New("Run special tx failed")
+	//ErrSpecialTxFailed = errors.New("Run special tx failed")
 )
 
 var (
@@ -118,7 +117,6 @@ const (
 	TxStatusIncluded
 )
 
-//======struct//
 type mapst struct {
 	slist []*big.Int
 	mlock sync.RWMutex
@@ -137,7 +135,6 @@ type sendst struct {
 	notice chan *big.Int
 }
 
-//global  //
 var gSendst sendst
 
 // blockChain provides the state of blockchain and current gas limit to do
@@ -145,8 +142,8 @@ var gSendst sendst
 type blockChain interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
-	StateAt(root common.Hash) (*state.StateDB, error)
-	State() (*state.StateDB, error)
+	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
+	State() (*state.StateDBManage, error)
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 	GetA0AccountFromAnyAccountAtSignHeight(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error)
 }
@@ -182,32 +179,26 @@ type NormalTxPool struct {
 	chainconfig *params.ChainConfig
 	chain       blockChain
 	gasPrice    *big.Int
-	//txFeed       event.Feed
-	//scope        event.SubscriptionScope
 	chainHeadCh  chan ChainHeadEvent
 	sendTxCh     chan NewTxsEvent
 	chainHeadSub event.Subscription
 	signer       types.Signer
 	mu           sync.RWMutex
 
-	currentState  *state.StateDB      // Current state in the blockchain head
-	pendingState  *state.ManagedState // Pending state tracking virtual nonces
-	currentMaxGas uint64              // Current gas limit for transaction caps
+	currentState  *state.StateDBManage // Current state in the blockchain head
+	pendingState  *state.ManagedState  // Pending state tracking virtual nonces
+	currentMaxGas uint64               // Current gas limit for transaction caps
 
 	pending map[common.Address]*txList // All currently processable transactions
 	all     *txLookup                  // All transactions to allow lookups
-	//=================by  ==================//
+
 	SContainer map[common.Hash]*types.Transaction
 	NContainer map[uint32]*types.Transaction
 	udptxsCh   chan []*types.Transaction_Mx //udp交易订阅
 	quit       chan struct{}
 	udptxsSub  event.Subscription //取消订阅
-	//=================================================//
-	//priced *txPricedList // All transactions sorted by price
 
 	wg sync.WaitGroup // for shutdown sync
-
-	//selfmlk sync.RWMutex //
 
 	mapNs         sync.Map                         //
 	mapCaclErrtxs map[common.Hash][]common.Address //  用来统计错误的交易
@@ -252,27 +243,20 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		mapTxsTiming:  make(map[common.Hash]time.Time),        //  需要做定时删除的交易
 		mapHighttx:    make(map[uint64][]uint32, 0),
 	}
-	//nPool.pool.priced = newTxPricedList(nPool.pool.all)
 	nPool.reset(nil, chain.CurrentBlock().Header())
-
 	// Subscribe events from blockchain
 	nPool.chainHeadSub = nPool.chain.SubscribeChainHeadEvent(nPool.chainHeadCh)
 	nPool.sendTxCh = sendch
-
 	// Start the event loop and return
 	nPool.wg.Add(3)
-
 	gSendst.lst.list = list.New() //
 	gSendst.snlist.slist = make([]*big.Int, 0)
 	gSendst.notice = make(chan *big.Int, 1)
-
 	//udp 交易订阅
 	nPool.udptxsSub, _ = mc.SubscribeEvent(mc.SendUdpTx, nPool.udptxsCh)
-
 	go nPool.loop()
 	go nPool.checkList() //
 	go nPool.ListenUdp()
-
 	return nPool
 }
 
@@ -286,12 +270,10 @@ func (nPool *NormalTxPool) Type() byte {
 // eviction events.
 func (nPool *NormalTxPool) loop() {
 	defer nPool.wg.Done()
-
 	delteTime := time.NewTicker(10 * time.Second)
 	defer delteTime.Stop()
 	// Track the previous head headers for transaction reorgs
 	head := nPool.chain.CurrentBlock()
-
 	// Keep waiting for and reacting to the various events
 	for {
 		select {
@@ -331,7 +313,6 @@ func (nPool *NormalTxPool) sTxValIsNil(s *big.Int, isLock bool) bool {
 		nPool.mu.Lock()
 		defer nPool.mu.Unlock()
 	}
-
 	if tx, ok := nPool.SContainer[common.BigToHash(s)]; ok {
 		return len(tx.N) == 0
 	}
@@ -386,16 +367,15 @@ func (nPool *NormalTxPool) deletsTx(s *big.Int) {
 // packageSNList
 func (nPool *NormalTxPool) packageSNList() {
 	if len(gSendst.snlist.slist) == 0 {
-		log.Trace("txpool:packageSNList_if", "len(gSendst.snlist.slist)", len(gSendst.snlist.slist))
+		//log.Trace("txpool:packageSNList_if", "len(gSendst.snlist.slist)", len(gSendst.snlist.slist))
 		return
 	} else {
-		log.Trace("txpool:packageSNList_else", "len(gSendst.snlist.slist)", len(gSendst.snlist.slist))
+		//log.Trace("txpool:packageSNList_else", "len(gSendst.snlist.slist)", len(gSendst.snlist.slist))
 	}
 	lst := gSendst.snlist.slist
 	gSendst.snlist.slist = make([]*big.Int, 0)
 	go func(lst []*big.Int) {
 		tmpsnlst := make(map[uint32]*big.Int)
-
 		nPool.mu.Lock()
 		for _, s := range lst {
 			if nPool.sTxValIsNil(s, false) {
@@ -412,7 +392,7 @@ func (nPool *NormalTxPool) packageSNList() {
 			}
 		}
 		nPool.mu.Unlock()
-		log.Trace("file tx_pool", "func packageSNList :send tmpsnlst", len(tmpsnlst))
+		log.Trace("tx_pool", "packageSNList :send tmpsnlst", len(tmpsnlst))
 		if len(tmpsnlst) > 0 {
 			bt, _ := json.Marshal(tmpsnlst)
 			nPool.SendMsg(MsgStruct{Msgtype: SendFloodSN, MsgData: bt})
@@ -426,12 +406,10 @@ func (nPool *NormalTxPool) ProcessMsg(m NetworkMsgData) {
 		log.Error("NormalTxPool::ProcessMsg  data is nil")
 		return
 	}
-
 	var (
 		msgData = m.Data[0]
 		err     error
 	)
-
 	switch msgData.Msgtype {
 	case SendFloodSN:
 		snMap := make(map[uint32]*big.Int)
@@ -473,12 +451,6 @@ func (nPool *NormalTxPool) ProcessMsg(m NetworkMsgData) {
 			ntx[val.Key] = val.Value
 		}
 		nPool.RecvConsensusFloodTx(ntx, m.SendAddress)
-		//ntx := make(map[uint32]types.SelfTransaction, 0)
-		//if err = json.Unmarshal(msgData.MsgData, &ntx); err != nil {
-		//	log.Error("func ProcessMsg", "case RecvConsensusTxbyN:Unmarshal_err=", err)
-		//	break
-		//}
-		//nPool.RecvConsensusFloodTx(ntx, m.NodeId)
 	case RecvErrTx:
 		listS := make([]*big.Int, 0)
 		if err = json.Unmarshal(msgData.MsgData, &listS); err != nil {
@@ -516,7 +488,6 @@ func (nPool *NormalTxPool) checkList() {
 		flood.Stop()
 		nPool.wg.Done()
 	}()
-
 	for {
 		select {
 		case <-flood.C:
@@ -538,7 +509,6 @@ func (nPool *NormalTxPool) ListenUdp() {
 		nPool.udptxsSub.Unsubscribe() //udp交易取消订阅
 		nPool.wg.Done()
 	}()
-
 	for {
 		select {
 		//udp接收的交易，此处应该只发给验证节点
@@ -579,7 +549,7 @@ func (nPool *NormalTxPool) reset(oldHead, newHead *types.Header) {
 	if newHead == nil {
 		newHead = nPool.chain.CurrentBlock().Header() // Special case during testing
 	}
-	statedb, err := nPool.chain.StateAt(newHead.Root)
+	statedb, err := nPool.chain.StateAt(newHead.Roots)
 	if err != nil {
 		log.Error("Failed to reset txpool state", "err", err)
 		return
@@ -587,18 +557,16 @@ func (nPool *NormalTxPool) reset(oldHead, newHead *types.Header) {
 	nPool.currentState = statedb
 	nPool.pendingState = state.ManageState(statedb)
 	nPool.currentMaxGas = newHead.GasLimit
-
 	// validate the pool of pending transactions, this will remove
 	// any transactions that have been included in the block or
 	// have been invalidated because of another transaction (e.g.
 	// higher gas price)
 	nPool.DemoteUnexecutables()
-
 	// Update all accounts to the latest known pending nonce
 	for addr, list := range nPool.pending {
-		for _, txs := range list.txs {
+		for cointype, txs := range list.txs {
 			txs := txs.Flatten() // Heavy but will be cached and is needed by the miner anyway
-			nPool.pendingState.SetNonce(addr, txs[len(txs)-1].Nonce()+1)
+			nPool.pendingState.SetNonce(cointype, addr, txs[len(txs)-1].Nonce()+1)
 		}
 	}
 }
@@ -611,21 +579,13 @@ func (nPool *NormalTxPool) Stop() {
 	nPool.quit <- struct{}{}
 	nPool.wg.Wait()
 	close(nPool.quit)
-
 	log.Info("Transaction pool stopped")
 }
-
-// SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
-// starts sending event to the given channel.
-//func (nPool *NormalTxPool) SubscribeNewTxsEvent(ch chan<- NewTxsEvent) event.Subscription {
-//	return nPool.scope.Track(nPool.txFeed.Subscribe(ch))
-//}
 
 // State returns the virtual managed state of the transaction pool.
 func (nPool *NormalTxPool) State() *state.ManagedState {
 	nPool.mu.RLock()
 	defer nPool.mu.RUnlock()
-
 	return nPool.pendingState
 }
 
@@ -634,7 +594,6 @@ func (nPool *NormalTxPool) State() *state.ManagedState {
 func (nPool *NormalTxPool) Stats() (int, int) {
 	nPool.mu.RLock()
 	defer nPool.mu.RUnlock()
-
 	return nPool.stats()
 }
 
@@ -644,7 +603,7 @@ func (nPool *NormalTxPool) stats() (int, int) {
 	pending := 0
 	for _, list := range nPool.pending {
 		for _, txs := range list.txs {
-			pending += txs.Len() //list.Len(typ)
+			pending += txs.Len()
 		}
 	}
 	queued := 0
@@ -664,7 +623,6 @@ func (nPool *NormalTxPool) Content() map[common.Address][]*types.Transaction {
 		}
 		pending[addr] = txlist
 	}
-	//queued := make(map[common.Address][]*types.Transaction)
 	return pending
 }
 
@@ -688,7 +646,7 @@ func (nPool *NormalTxPool) Pending() (map[common.Address][]types.SelfTransaction
 			}
 			nPool.NContainer[tx.N[0]] = tx
 		}
-		pending[addr] = txser //.Flatten()
+		pending[addr] = txser
 	}
 	return pending, nil
 }
@@ -768,19 +726,12 @@ func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe byte, addr comm
 		}
 	}
 	nPool.mu.Unlock()
-	log.Trace("file txpool", "ReturnAllTxsByN:len(ns)", len(ns), "len(txs):", len(txs))
+	log.Trace("txpool", "ReturnAllTxsByN:len(ns)", len(ns), "len(txs):", len(txs))
 	if len(ns) > 0 {
 		txs = make([]types.SelfTransaction, 0)
-		//nid, err1 := ca.ConvertAddressToNodeId(addr)
-		//log.Info("leader node", "addr::", addr, "id::", nid.String())
-		//if err1 != nil {
-		//	log.Error("file txpool", "ReturnAllTxsByN:discover=err", err1)
-		//	retch <- &RetChan_txpool{nil, err1, resqe}
-		//	return
-		//}
 		msData, err2 := json.Marshal(ns)
 		if err2 != nil {
-			log.Error("file txpool", "ReturnAllTxsByN:Marshal=err", err2)
+			log.Error("txpool", "ReturnAllTxsByN:Marshal=err", err2)
 			retch <- &RetChan_txpool{nil, err2, resqe}
 			return
 		}
@@ -804,7 +755,7 @@ func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe byte, addr comm
 				}
 				ns = tmpns
 				if len(ns) == 0 {
-					log.Trace("file txpool", "ReturnAllTxsByN:recvTx Over=", 0)
+					log.Trace("txpool", "ReturnAllTxsByN:recvTx Over=", 0)
 					break forBreak
 				}
 			}
@@ -827,10 +778,10 @@ func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe byte, addr comm
 			nPool.mu.Unlock()
 		}
 		retch <- &RetChan_txpool{txs, txerr, resqe}
-		log.Trace("file txpool end if", "ReturnAllTxsByN:len(ns)", len(ns), "err", txerr)
+		log.Trace("txpool", "ReturnAllTxsByN:len(ns)", len(ns), "err", txerr)
 	} else {
 		retch <- &RetChan_txpool{txs, nil, resqe}
-		log.Trace("file txpool end else", "ReturnAllTxsByN", "return success")
+		log.Trace("txpool", "ReturnAllTxsByN", "return success")
 	}
 }
 
@@ -878,7 +829,6 @@ func (nPool *NormalTxPool) GetConsensusTxByN(listN []uint32, nid common.Address)
 		}
 	}
 	nPool.mu.Unlock()
-	//msData, _ := json.Marshal(mapNtx)
 	msData, err := rlp.EncodeToBytes(mapNtx)
 	if err == nil {
 		nPool.SendMsg(MsgStruct{Msgtype: RecvConsensusTxbyN, SendAddr: nid, MsgData: msData})
@@ -912,9 +862,8 @@ func (nPool *NormalTxPool) GetTxByN(listN []uint32, nid common.Address) {
 
 //此接口传的交易带s(modi  )
 func (nPool *NormalTxPool) RecvConsensusFloodTx(mapNtx map[uint32]types.SelfTransaction, nid common.Address) {
-	//nPool.selfmlk.Lock()
-	//log.Info("txpool msg_RecvConsensusFloodTx", "len(mapNtx)=", len(mapNtx))
-	//defer log.Info("txpool msg_RecvConsensusFloodTx defer ", "len(mapNtx)=", 0)
+	log.Trace("msg_RecvConsensusFloodTx", "len(mapNtx)=", len(mapNtx))
+	defer log.Trace("msg_RecvConsensusFloodTx defer ", "len(mapNtx)=", 0)
 	errorTxs := make([]*big.Int, 0)
 	txs := make([]*types.Transaction, 0)
 	tmpNtx := make(map[uint32]*types.Transaction)
@@ -973,10 +922,7 @@ func (nPool *NormalTxPool) RecvConsensusFloodTx(mapNtx map[uint32]types.SelfTran
 		nPool.mapHighttx[nPool.chain.CurrentBlock().Number().Uint64()] = nlist
 	}
 	nPool.mu.Unlock()
-	//nPool.selfmlk.Unlock()
-
 	if len(errorTxs) > 0 {
-		//TODO S在这如何进行签名？？如何获得本节点账户信息
 		msData, err := json.Marshal(errorTxs)
 		if err != nil {
 			log.Error("txpool msg_RecvConsensusFloodTx", "send error Tx,Marshal err:", err)
@@ -989,9 +935,8 @@ func (nPool *NormalTxPool) RecvConsensusFloodTx(mapNtx map[uint32]types.SelfTran
 
 // 接收洪泛的交易（根据N请求到的交易）
 func (nPool *NormalTxPool) RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid common.Address) {
-	//nPool.selfmlk.Lock()
-	log.Info("txpool msg_RecvFloodTx", "len(mapNtx)=", len(mapNtx))
-	//defer log.Info("func msg_RecvFloodTx defer ", "msg_RecvFloodTx: len(mapNtx)=", 0)
+	log.Trace("msg_RecvFloodTx", "msg_RecvFloodTx: len(mapNtx)=", len(mapNtx))
+	defer log.Trace("msg_RecvFloodTx defer ", "msg_RecvFloodTx: len(mapNtx)=", 0)
 	errorTxs := make([]*big.Int, 0)
 	txs := make([]*types.Transaction, 0)
 	tmpNtx := make(map[uint32]*types.Transaction)
@@ -1042,7 +987,7 @@ func (nPool *NormalTxPool) RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid
 		}
 		_, err := nPool.add(tx, false)
 		if err != nil && err != ErrKnownTransaction {
-			log.Error("file txpool", "msg_RecvFloodTx::Error=", err)
+			log.Error("txpool", "msg_RecvFloodTx::Error=", err)
 			if _, ok := nPool.mapErrorTxs[s]; !ok {
 				errorTxs = append(errorTxs, s)
 				nPool.mapErrorTxs[s] = tx
@@ -1053,7 +998,6 @@ func (nPool *NormalTxPool) RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid
 		}
 	}
 	nPool.mu.Unlock()
-	//nPool.selfmlk.Unlock()
 	if len(errorTxs) > 0 {
 		//TODO S在这如何进行签名？？如何获得本节点账户信息
 		msData, err := json.Marshal(errorTxs)
@@ -1068,8 +1012,6 @@ func (nPool *NormalTxPool) RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid
 
 // 接收错误交易
 func (nPool *NormalTxPool) RecvErrTx(addr common.Address, listS []*big.Int) {
-	//nPool.selfmlk.Lock()
-	//defer nPool.selfmlk.Unlock()
 	nPool.mu.Lock()
 	for _, s := range listS {
 		tmptx := nPool.getTxbyS(s, false)
@@ -1127,7 +1069,6 @@ func (nPool *NormalTxPool) addBlockTiming(hash common.Hash) {
 // 20个区块定时删除(每次收到新区快头广播时触发)
 func (nPool *NormalTxPool) blockTiming() {
 	//外侧已经有锁在此不用再加锁
-	//blockNum := nPool.chain.CurrentBlock().Number()
 	listHash := make([]common.Hash, 0)
 	for hash, t := range nPool.mapTxsTiming {
 		if time.Since(t) > nPool.config.txTimeout {
@@ -1180,7 +1121,6 @@ func (nPool *NormalTxPool) checkTxFrom(tx *types.Transaction) (common.Address, e
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
-	// add if
 	txEx := tx.GetMatrix_EX()
 	var txcount uint64
 	if len(txEx) > 0 {
@@ -1225,7 +1165,6 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Value().Sign() < 0 {
 		return ErrNegativeValue
 	}
-
 	// Ensure the transaction doesn't exceed the current block limit gas.
 	if nPool.currentMaxGas < tx.Gas() {
 		return ErrGasLimit
@@ -1235,78 +1174,53 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 	if addrerr != nil {
 		return addrerr
 	}
-	// 验证当V值大于128时，如果扩展交易为空则直接丢弃该交易并返回交易不合法
-	//if tx.GetTxV().Cmp(big.NewInt(128)) > 0 && len(txEx) <= 0 {
-	//	return ErrTXWrongful
-	//}
 	// Drop non-local transactions under our own minimal accepted gas price
-	gasprice, err := matrixstate.GetTxpoolGasLimit(nPool.currentState)
-	if err != nil {
-		return errors.New("get txpool gasPrice err")
-	}
-	nPool.gasPrice.Set(gasprice)
+	//gasprice, err := matrixstate.GetTxpoolGasLimit(nPool.currentState)
+	//if err != nil {
+	//	return errors.New("get txpool gasPrice err")
+	//}
+	//nPool.gasPrice.Set(gasprice)
 	if nPool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
 	// Ensure the transaction adheres to nonce ordering
-	if nPool.currentState.GetNonce(from) > tx.Nonce() {
+	if nPool.currentState.GetNonce(tx.Currency, from) > tx.Nonce() {
 		return ErrNonceTooLow
 	}
-	// add if
-	var balance *big.Int
-	var entrustbalance *big.Int
+	balance := big.NewInt(0)
+	manCoinBalance := big.NewInt(0)
 	//当前账户余额
-	for _, tAccount := range nPool.currentState.GetBalance(from) {
+	for _, tAccount := range nPool.currentState.GetBalance(tx.Currency, from) {
 		if tAccount.AccountType == common.MainAccount {
 			balance = tAccount.Balance
 			break
 		}
 	}
-	//委托账户的余额
-	if tx.IsEntrustGas {
-		for _, tAccount := range nPool.currentState.GetBalance(tx.AmontFrom()) {
+
+	if tx.Currency != params.MAN_COIN {
+		for _, tAccount := range nPool.currentState.GetBalance(params.MAN_COIN, tx.AmontFrom()) {
 			if tAccount.AccountType == common.MainAccount {
-				entrustbalance = tAccount.Balance
+				manCoinBalance = tAccount.Balance
 				break
 			}
 		}
-	}
-	if len(txEx) > 0 && len(txEx[0].ExtraTo) > 0 {
-		//如果是委托gas，检查授权人的账户余额是否大于gas;委托人的余额是否大于转账金额
-		if tx.IsEntrustGas {
-			totalGas := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
-			if entrustbalance.Cmp(totalGas) < 0 {
-				return ErrEntrustInsufficientFunds
-			}
-			if balance.Cmp(tx.TotalAmount()) < 0 {
-				return ErrInsufficientFunds
-			}
-		} else {
-			if balance.Cmp(tx.CostALL()) < 0 {
-				return ErrInsufficientFunds
-			}
+		totalGas := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
+		if manCoinBalance.Cmp(totalGas) < 0{
+			return ErrInsufficientFunds
 		}
-	} else {
-		if tx.IsEntrustGas {
-			totalGas := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
-			if entrustbalance.Cmp(totalGas) < 0 {
-				return ErrEntrustInsufficientFunds
-			}
-			if balance.Cmp(tx.Value()) < 0 {
-				return ErrInsufficientFunds
-			}
-		} else {
-			if balance.Cmp(tx.Cost()) < 0 {
-				return ErrInsufficientFunds
+		if balance.Cmp(tx.TotalAmount()) < 0 {
+			return ErrInsufficientFunds
+		}
+	}else{
+		if balance.Cmp(tx.CostALL()) < 0 {
+			return ErrInsufficientFunds
+		}
+	}
 
-			}
-		}
-	}
 	intrGas, err := IntrinsicGas(tx.Data())
 	if err != nil {
 		return err
 	}
-	// add if
 	if len(txEx) > 0 && len(txEx[0].ExtraTo) > 0 {
 		for _, tx_list := range txEx {
 			for _, txs := range tx_list.ExtraTo {
@@ -1328,13 +1242,12 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 	if tx.IsEntrustTx() {
 		//通过from获得的数据为授权人marsha1过的数据
 		from := tx.From()
-		//from = base58.Base58DecodeToAddress("MAN.3oW6eUV7MmQcHiD4WGQcRnsN8ho1aFTWPaYADwnqu2wW3WcJzbEfZNw2") //******测试用，要删除
-		entrustFrom := nPool.currentState.GetGasAuthFrom(from, nPool.chain.CurrentBlock().NumberU64()+1) //当前块高加1，因为该笔交易要上到下一个区块
+		entrustFrom := nPool.currentState.GetGasAuthFrom(tx.Currency, from, nPool.chain.CurrentBlock().NumberU64()+1) //当前块高加1，因为该笔交易要上到下一个区块
 		if !entrustFrom.Equal(common.Address{}) {
 			tx.Setentrustfrom(entrustFrom)
 			tx.IsEntrustGas = true
 		} else {
-			entrustFrom := nPool.currentState.GetGasAuthFromByTime(from, uint64(time.Now().Unix()))
+			entrustFrom := nPool.currentState.GetGasAuthFromByTime(tx.Currency, from, uint64(time.Now().Unix()))
 			if !entrustFrom.Equal(common.Address{}) {
 				tx.Setentrustfrom(entrustFrom)
 				tx.IsEntrustGas = true
@@ -1345,7 +1258,6 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 			}
 		}
 	}
-
 	//普通交易
 	hash := tx.Hash()
 	// If the transaction is already known, discard it
@@ -1353,7 +1265,6 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 		log.Trace("Discarding already known transaction", "hash", hash)
 		return false, ErrKnownTransaction
 	}
-
 	// If the transaction fails basic validation, discard it
 	if err := nPool.validateTx(tx, local); err != nil {
 		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
@@ -1371,7 +1282,6 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 	if addrerr != nil {
 		return false, addrerr
 	}
-
 	if list := nPool.pending[from]; list != nil && list.Overlaps(tx) {
 		return false, ErrTXNonceSame
 	}
@@ -1381,23 +1291,21 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 	}
 	nPool.pending[from].Add(tx, 0)
 	nPool.all.Add(tx)
-	nPool.pendingState.SetNonce(from, tx.Nonce()+1)
+	nPool.pendingState.SetNonce(tx.Currency, from, tx.Nonce()+1)
 	selfRole := ca.GetRole()
 	if selfRole == common.RoleMiner || selfRole == common.RoleValidator {
 		tx_s := tx.GetTxS()
 		nPool.setsTx(tx_s, tx)
 		if len(tx.N) == 0 {
-			log.Trace("txpool:add()", "gSendst.notice", "")
 			gSendst.notice <- tx.GetTxS()
-		} else {
-			log.Trace("txpool:add()", "gSendst.notice::tx N ", tx.N)
+		//} else {
+		//	log.Trace("txpool:add()", "gSendst.notice::tx N ", tx.N)
 		}
 	} else if selfRole == common.RoleDefault || selfRole == common.RoleBucket {
 		promoted := make([]types.SelfTransaction, 0)
 		promoted = append(promoted, tx)
 		nPool.sendTxCh <- NewTxsEvent{promoted, types.NormalTxIndex}
-		//nPool.txFeed.Send(NewTxsEvent{promoted, types.NormalTxIndex})
-		log.Trace("txpool:add()", "selfRole == common.RoleDefault", selfRole)
+		//log.Trace("txpool:add()", "selfRole == common.RoleDefault", selfRole)
 	} else {
 		log.Trace("txpool:add()", "unknown selfRole ", selfRole)
 	}
@@ -1417,9 +1325,7 @@ func (nPool *NormalTxPool) AddTxPool(txer types.SelfTransaction) error {
 
 // addTxs attempts to queue a batch of transactions if they are valid.
 func (nPool *NormalTxPool) addTxs(txs []*types.Transaction, local bool) error {
-	//nPool.selfmlk.Lock()
 	nPool.getFromByTx(txs) //
-	//nPool.selfmlk.Unlock()
 	nPool.mu.Lock()
 	err := nPool.addTxsLocked(txs, local)
 	nPool.mu.Unlock()
@@ -1473,13 +1379,9 @@ func (nPool *NormalTxPool) removeTx(hash common.Hash, outofbound bool) {
 	}
 	// 如果交易中已经有了from就不需要在做解签
 	addr, _ := nPool.checkTxFrom(tx)
-
 	// Remove it from the list of known transactions
 	nPool.all.Remove(hash)
-
-	// ========begin=========
 	nPool.deleteMap(tx)
-	//===========end===========
 	// Remove the transaction from the pending lists and reset the account nonce
 	if pending := nPool.pending[addr]; pending != nil {
 		if removed, _ := pending.Remove(tx); removed {
@@ -1488,8 +1390,8 @@ func (nPool *NormalTxPool) removeTx(hash common.Hash, outofbound bool) {
 				delete(nPool.pending, addr)
 			}
 			// Update the account nonce if needed
-			if nonce := tx.Nonce(); nPool.pendingState.GetNonce(addr) > nonce {
-				nPool.pendingState.SetNonce(addr, nonce)
+			if nonce := tx.Nonce(); nPool.pendingState.GetNonce(tx.Currency, addr) > nonce {
+				nPool.pendingState.SetNonce(tx.Currency, addr, nonce)
 			}
 			return
 		}
@@ -1503,20 +1405,17 @@ func (nPool *NormalTxPool) DemoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range nPool.pending {
 		for typ, txs := range list.txs {
-			nonce := nPool.currentState.GetNonce(addr)
+			nonce := nPool.currentState.GetNonce(typ, addr)
 			// Drop all transactions that are deemed too old (low nonce)
 			for _, tx := range txs.Forward(nonce) {
-				// ========begin=========
 				nPool.deleteMap(tx)
-				//===========end===========
 				hash := tx.Hash()
 				//log.Trace("Removed old pending transaction", "hash", hash)
 				nPool.all.Remove(hash)
-				//nPool.priced.Removed()
 			}
 			// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
 			tBalance := new(big.Int)
-			for _, tAccount := range nPool.currentState.GetBalance(addr) {
+			for _, tAccount := range nPool.currentState.GetBalance(typ, addr) {
 				if tAccount.AccountType == common.MainAccount {
 					tBalance = tAccount.Balance
 					break
@@ -1524,13 +1423,10 @@ func (nPool *NormalTxPool) DemoteUnexecutables() {
 			}
 			drops, _ := list.Filter(tBalance, nPool.currentMaxGas, typ)
 			for _, tx := range drops {
-				// ========begin=========
 				nPool.deleteMap(tx)
-				//===========end===========
 				hash := tx.Hash()
 				log.Trace("Removed unpayable pending transaction", "hash", hash)
 				nPool.all.Remove(hash)
-				//nPool.priced.Removed()
 				pendingNofundsCounter.Inc(1)
 			}
 			// Delete the entire queue entry if it became empty.
@@ -1566,7 +1462,6 @@ func newTxLookup() *txLookup {
 func (t *txLookup) Range(f func(hash common.Hash, tx *types.Transaction) bool) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
-
 	for key, value := range t.all {
 		if !f(key, value) {
 			break
@@ -1586,7 +1481,6 @@ func (t *txLookup) Get(hash common.Hash) *types.Transaction {
 func (t *txLookup) Count() int {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
-
 	return len(t.all)
 }
 
@@ -1603,6 +1497,5 @@ func (t *txLookup) Add(tx *types.Transaction) {
 func (t *txLookup) Remove(hash common.Hash) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-
 	delete(t.all, hash)
 }

@@ -155,18 +155,21 @@ func (gpo *Oracle) getBlockPrices(ctx context.Context, signer types.Signer, bloc
 		return
 	}
 
-	blockTxs := block.Transactions()
-	txs := make([]types.SelfTransaction, len(blockTxs))
-	copy(txs, blockTxs)
-	sort.Sort(transactionsByGasPrice(txs))
+	//blockTxs := block.Transactions()
+	for _,curr := range block.Currencies(){
+		txs := make([]types.SelfTransaction, len(curr.Transactions.GetTransactions()))
+		copy(txs, curr.Transactions.GetTransactions())
+		sort.Sort(transactionsByGasPrice(txs))
 
-	for _, tx := range txs {
-		sender, err := types.Sender(signer, tx)
-		if err == nil && sender != block.Coinbase() {
-			ch <- getBlockPricesResult{tx.GasPrice(), nil}
-			return
+		for _, tx := range txs {
+			sender, err := types.Sender(signer, tx)
+			if err == nil && sender != block.Coinbase() {
+				ch <- getBlockPricesResult{tx.GasPrice(), nil}
+				return
+			}
 		}
 	}
+
 	ch <- getBlockPricesResult{nil, nil}
 }
 

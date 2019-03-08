@@ -135,7 +135,7 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 			log.INFO("CA", "leader", header.Leader, "height", header.Number.Uint64(), "block hash", hash)
 
 			// init current height deposit
-			ide.deposit, _ = GetElectedByHeightWithdraw(header.Number)
+			ide.deposit, _ = GetElectedByHeightWithdrawByHash(header.Hash())
 
 			// get broadcast interval
 			bcInterval, err := manparams.GetBCIntervalInfoByHash(hash)
@@ -198,7 +198,7 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 			initNowTopologyResult()
 
 			// get nodes in buckets
-			nodesInBuckets := getNodesInBuckets(header.Number)
+			nodesInBuckets := getNodesInBuckets(header.Hash())
 
 			// send role message to elect
 			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), BlockHash: hash, Leader: header.Leader, IsSuperBlock: header.IsSuperHeader()})
@@ -341,6 +341,12 @@ func GetHeight() *big.Int {
 
 	return ide.currentHeight
 }
+func GetHash() common.Hash {
+	ide.lock.RLock()
+	defer ide.lock.RUnlock()
+
+	return ide.hash
+}
 
 // InDuration
 func InDuration() bool {
@@ -363,6 +369,21 @@ func GetElectedByHeight(height *big.Int) ([]vm.DepositDetail, error) {
 // GetElectedByHeightWithdraw get all info in deposit.
 func GetElectedByHeightWithdraw(height *big.Int) ([]vm.DepositDetail, error) {
 	return depoistInfo.GetDepositAndWithDrawList(height)
+}
+
+// GetElectedByHeightAndRole get elected node, miner or validator by block height and type.
+func GetElectedByHeightAndRoleByHash(hash common.Hash, roleType common.RoleType) ([]vm.DepositDetail, error) {
+	return depoistInfo.GetDepositListByHash(hash, roleType)
+}
+
+// GetElectedByHeight get all elected node by height.
+func GetElectedByHeightByHash(hash common.Hash) ([]vm.DepositDetail, error) {
+	return depoistInfo.GetAllDepositByHash(hash)
+}
+
+// GetElectedByHeightWithdraw get all info in deposit.
+func GetElectedByHeightWithdrawByHash(hash common.Hash) ([]vm.DepositDetail, error) {
+	return depoistInfo.GetDepositAndWithDrawListByHash(hash)
 }
 
 // GetNodeNumber
@@ -400,8 +421,8 @@ func GetGapValidator() (rlt []common.Address) {
 }
 
 // getNodesInBuckets get miner nodes that should be in buckets.
-func getNodesInBuckets(height *big.Int) (result []common.Address) {
-	electedMiners, _ := GetElectedByHeightAndRole(height, common.RoleMiner)
+func getNodesInBuckets(hash common.Hash) (result []common.Address) {
+	electedMiners, _ := GetElectedByHeightAndRoleByHash(hash, common.RoleMiner)
 
 	msMap := make(map[common.Address]struct{})
 	for _, m := range electedMiners {

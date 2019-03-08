@@ -446,7 +446,7 @@ func (s *Service) reportLatency(conn *websocket.Conn) error {
 // blockStats is the information to report about individual blocks.
 type blockStats struct {
 	Number     *big.Int       `json:"number"`
-	Hash       common.Hash    `json:"hash"`
+	Hash       common.Hash    `json:"hash"` //BBBBBBBBB
 	ParentHash common.Hash    `json:"parentHash"`
 	Timestamp  *big.Int       `json:"timestamp"`
 	Miner      common.Address `json:"miner"`
@@ -455,9 +455,9 @@ type blockStats struct {
 	Diff       string         `json:"difficulty"`
 	TotalDiff  string         `json:"totalDifficulty"`
 	Txs        []txStats      `json:"transactions"`
-	TxHash     common.Hash    `json:"transactionsRoot"`
-	Root       common.Hash    `json:"stateRoot"`
-	Uncles     uncleStats     `json:"uncles"`
+	//TxHash     common.Hash    `json:"transactionsRoot"`
+	Root   []common.CoinRoot `json:"stateRoot"`
+	Uncles uncleStats        `json:"uncles"`
 
 	Leader            common.Address     `json:"leader"            `
 	Elect             []common.Elect     `json:"elect"        `
@@ -470,7 +470,8 @@ type blockStats struct {
 
 // txStats is the information to report about individual transactions.
 type txStats struct {
-	Hash common.Hash `json:"hash"`
+	Currency string
+	Hashes []common.Hash `json:"hash"`
 }
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
@@ -519,11 +520,15 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		}
 		header = block.Header()
 		td = s.man.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
-
-		txs = make([]txStats, len(block.Transactions()))
-		for i, tx := range block.Transactions() {
-			txs[i].Hash = tx.Hash()
+		txs = make([]txStats, 0)
+		for _,curr := range block.Currencies(){
+			hashs := make([]common.Hash,0)
+			for _, tx := range curr.Transactions.GetTransactions() {
+				hashs = append(hashs,tx.Hash())
+			}
+			txs = append(txs,txStats{Currency:curr.CurrencyName,Hashes:hashs})
 		}
+
 		uncles = block.Uncles()
 	}
 	// Assemble and return the block stats
@@ -540,8 +545,8 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		Diff:              header.Difficulty.String(),
 		TotalDiff:         td.String(),
 		Txs:               txs,
-		TxHash:            header.TxHash,
-		Root:              header.Root,
+		//TxHash:            header.TxHash,
+		Root:              header.Roots,
 		Uncles:            uncles,
 		Leader:            header.Leader,
 		Elect:             header.Elect,

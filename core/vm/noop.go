@@ -12,10 +12,10 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
-func NoopCanTransfer(db StateDB, from common.Address, balance *big.Int) bool {
+func NoopCanTransfer(db StateDBManager, from common.Address, balance *big.Int) bool {
 	return true
 }
-func NoopTransfer(db StateDB, from, to common.Address, amount *big.Int) {}
+func NoopTransfer(db StateDBManager, from, to common.Address, amount *big.Int) {}
 
 type NoopEVMCallContext struct{}
 

@@ -16,6 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/params"
+
 	"github.com/MatrixAINetwork/go-matrix/accounts/keystore"
 	"github.com/MatrixAINetwork/go-matrix/crypto/aes"
 	"github.com/MatrixAINetwork/go-matrix/man/wizard"
@@ -502,7 +504,7 @@ func copyDb(ctx *cli.Context) error {
 	chain, chainDb := utils.MakeChain(ctx, stack)
 
 	syncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*downloader.SyncMode)
-	dl := downloader.New(syncmode, chainDb, new(event.TypeMux), chain, nil, nil)
+	dl := downloader.New(syncmode, chainDb, new(event.TypeMux), chain, nil, nil, nil)
 
 	// Create a source peer to satisfy downloader requests from
 	db, err := mandb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256)
@@ -587,11 +589,11 @@ func dump(ctx *cli.Context) error {
 			fmt.Println("{}")
 			utils.Fatalf("block not found")
 		} else {
-			state, err := state.New(block.Root(), state.NewDatabase(chainDb))
+			state, err := state.NewStateDBManage(block.Root(), chainDb, state.NewDatabase(chainDb))
 			if err != nil {
 				utils.Fatalf("could not create new state: %v", err)
 			}
-			fmt.Printf("%s\n", state.Dump())
+			fmt.Printf("%s\n", state.Dump(params.MAN_COIN, common.Address{})) //TODO
 		}
 	}
 	chainDb.Close()
@@ -726,7 +728,7 @@ func signBlock(ctx *cli.Context) error {
 	//core.ManGenesisToEthGensis(matrixGenesis, genesis)
 	genesis = matrixGenesis
 	//todo 签名的时候必须有链数据，没有链数据无法签名，后续考虑做成签名工具，链数据检查
-	superBlock := genesis.GenSuperBlock(parent, state.NewDatabase(chainDB), chain.Config())
+	superBlock := genesis.GenSuperBlock(parent, chainDB, state.NewDatabase(chainDB), chain.Config())
 	if nil == superBlock {
 		utils.Fatalf("genesis super block err")
 	}
@@ -756,8 +758,9 @@ func signBlock(ctx *cli.Context) error {
 	}
 
 	sign := common.BytesToSignature(signBytes)
-	matrixGenesis.Root = superBlock.Root()
-	matrixGenesis.TxHash = superBlock.TxHash()
+	matrixGenesis.Roots = make([]common.CoinRoot, len(superBlock.Root()))
+	copy(matrixGenesis.Roots, superBlock.Root())
+	//matrixGenesis.TxHash = superBlock.TxHash()
 	matrixGenesis.Signatures = append(genesis.Signatures, sign)
 	pathSplit := strings.Split(genesisPath, ".json")
 	out, _ := json.MarshalIndent(matrixGenesis, "", "  ")
@@ -861,7 +864,7 @@ func aesEncrypt(ctx *cli.Context) error {
 	//写入文件
 	err = ioutil.WriteFile(outPath, []byte(pass64), 0666)
 	if err == nil {
-		fmt.Println("Write into "+outPath+" successfully", )
+		fmt.Println("Write into " + outPath + " successfully")
 	}
 
 	return nil

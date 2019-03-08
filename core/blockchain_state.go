@@ -11,16 +11,16 @@ import (
 )
 
 // State returns a new mutable state based on the current HEAD block.
-func (bc *BlockChain) State() (*state.StateDB, error) {
+func (bc *BlockChain) State() (*state.StateDBManage, error) {
 	return bc.StateAt(bc.CurrentBlock().Root())
 }
 
 // StateAt returns a new mutable state based on a particular point in time.
-func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
-	return state.New(root, bc.stateCache)
+func (bc *BlockChain) StateAt(root []common.CoinRoot) (*state.StateDBManage, error) {
+	return state.NewStateDBManage(root, bc.db, bc.stateCache)
 }
 
-func (bc *BlockChain) StateAtNumber(number uint64) (*state.StateDB, error) {
+func (bc *BlockChain) StateAtNumber(number uint64) (*state.StateDBManage, error) {
 	block := bc.GetBlockByNumber(number)
 	if block == nil {
 		return nil, errors.Errorf("can't find block by number(%d)", number)
@@ -28,7 +28,7 @@ func (bc *BlockChain) StateAtNumber(number uint64) (*state.StateDB, error) {
 	return bc.StateAt(block.Root())
 }
 
-func (bc *BlockChain) StateAtBlockHash(hash common.Hash) (*state.StateDB, error) {
+func (bc *BlockChain) StateAtBlockHash(hash common.Hash) (*state.StateDBManage, error) {
 	block := bc.GetBlockByHash(hash)
 	if block == nil {
 		return nil, errors.New("can't find block by hash")
@@ -40,11 +40,11 @@ func (bc *BlockChain) RegisterMatrixStateDataProducer(key string, producer Produ
 	bc.matrixProcessor.RegisterProducer(key, producer)
 }
 
-func (bc *BlockChain) ProcessStateVersion(version []byte, st *state.StateDB) error {
+func (bc *BlockChain) ProcessStateVersion(version []byte, st *state.StateDBManage) error {
 	return bc.matrixProcessor.ProcessStateVersion(version, st)
 }
 
-func (bc *BlockChain) ProcessMatrixState(block *types.Block, preVersion string, state *state.StateDB) error {
+func (bc *BlockChain) ProcessMatrixState(block *types.Block, preVersion string, state *state.StateDBManage) error {
 	return bc.matrixProcessor.ProcessMatrixState(block, preVersion, state)
 }
 
@@ -124,14 +124,6 @@ func (bc *BlockChain) GetVersionSuperAccounts(blockHash common.Hash) ([]common.A
 	return matrixstate.GetVersionSuperAccounts(st)
 }
 
-func (bc *BlockChain) GetTxsSuperAccounts(blockHash common.Hash) ([]common.Address, error) {
-	st, err := bc.StateAtBlockHash(blockHash)
-	if err != nil {
-		return nil, errors.Errorf("get state by hash(%s) err(%v)", blockHash.Hex(), err)
-	}
-	return matrixstate.GetTxsSuperAccounts(st)
-}
-
 func (bc *BlockChain) GetMultiCoinSuperAccounts(blockHash common.Hash) ([]common.Address, error) {
 	st, err := bc.StateAtBlockHash(blockHash)
 	if err != nil {
@@ -194,6 +186,14 @@ func (bc *BlockChain) GetSuperBlockInfo() (*mc.SuperBlkCfg, error) {
 	log.Trace("blockChain", "超级区块高度", superBlkCfg.Num, "超级区块序号", superBlkCfg.Seq)
 	return superBlkCfg, nil
 }
+
+/*func (bc *BlockChain) GetVersionByHash(blockHash common.Hash) (string, error) {
+	st, err := bc.StateAtBlockHash(blockHash)
+	if err != nil {
+		return "", errors.Errorf("get state by hash(%s) err(%v)", blockHash.Hex(), err)
+	}
+	return matrixstate.GetVersionInfo(st), nil
+}*/
 
 func ProduceBroadcastIntervalData(block *types.Block, readFn PreStateReadFn) (interface{}, error) {
 	bciData, err := readFn(mc.MSKeyBroadcastInterval)

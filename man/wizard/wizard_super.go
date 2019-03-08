@@ -155,7 +155,7 @@ func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num ui
 			//depositBalance := stateDB.GetBalance(common.ContractAddress)
 			//depositBalance := stateDB.sets(common.ContractAddress)
 
-			stateDB.RawAccount(common.ContractAddress)
+			//stateDB.RawAccount(common.ContractAddress)
 
 		} else {
 			genesis.NextElect = make([]common.Elect, 0)

@@ -39,10 +39,10 @@ type reqData struct {
 	reqType           reqType
 	req               *mc.HD_BlkConsensusReqMsg
 	hash              common.Hash
-	originalTxs       types.SelfTransactions
-	finalTxs          types.SelfTransactions
-	receipts          []*types.Receipt
-	stateDB           *state.StateDB
+	originalTxs       []types.CoinSelfTransaction
+	finalTxs          []types.CoinSelfTransaction
+	receipts          []types.CoinReceipts
+	stateDB           *state.StateDBManage
 	localVerifyResult verifyResult
 	posFinished       bool
 	votes             []*common.VerifiedSign

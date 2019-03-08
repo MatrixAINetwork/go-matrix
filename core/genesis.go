@@ -56,11 +56,12 @@ type Genesis struct {
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
-	Number     uint64      `json:"number"`
-	GasUsed    uint64      `json:"gasUsed"`
-	ParentHash common.Hash `json:"parentHash"`
-	Root       common.Hash `json:"stateRoot,omitempty"`
-	TxHash     common.Hash `json:"transactionsRoot,omitempty"`
+	Number     uint64            `json:"number"`
+	GasUsed    uint64            `json:"gasUsed"`
+	ParentHash common.Hash       `json:"parentHash"`
+	Roots      []common.CoinRoot `json:"stateRoot"        gencodec:"required"`
+	Sharding   []common.Coinbyte `json:"sharding,omitempty"`
+	//TxHash     common.Hash `json:"transactionsRoot,omitempty"`			//BBBBBBBB
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -237,20 +238,13 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 	if db == nil {
 		db = mandb.NewMemDatabase()
 	}
-
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	statedb, _ := state.NewStateDBManage(nil, db, state.NewDatabase(db))
 	for addr, account := range g.Alloc {
-		statedb.AddBalance(common.MainAccount, addr, account.Balance)
-		///*******************************************************/
-		////  应该是通过发特殊交易添加账户
-		//statedb.AddBalance(common.LockAccount,addr, account.Balance)
-		//statedb.AddBalance(common.EntrustAccount,addr, account.Balance)
-		//statedb.AddBalance(common.FreezeAccount,addr, account.Balance)
-		///*******************************************************/
-		statedb.SetCode(addr, account.Code)
-		statedb.SetNonce(addr, account.Nonce)
+		statedb.AddBalance(params.MAN_COIN, common.MainAccount, addr, account.Balance)
+		statedb.SetCode(params.MAN_COIN, addr, account.Code)
+		statedb.SetNonce(params.MAN_COIN, addr, account.Nonce)
 		for key, value := range account.Storage {
-			statedb.SetState(addr, key, value)
+			statedb.SetState(params.MAN_COIN, addr, key, value)
 		}
 	}
 	if nil == g.MState {
@@ -266,7 +260,7 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 		log.Error("genesis", "MState.SetSuperBlkToState err", err)
 		return nil, err
 	}
-	root := statedb.IntermediateRoot(false)
+	roots, sharding := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:            new(big.Int).SetUint64(g.Number),
 		Nonce:             types.EncodeNonce(g.Nonce),
@@ -285,8 +279,11 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 		Difficulty:        g.Difficulty,
 		MixDigest:         g.Mixhash,
 		Coinbase:          g.Coinbase,
-		Root:              root,
+		Roots:             make([]common.CoinRoot, len(roots)),
+		Sharding:          make([]common.Coinbyte, len(sharding)),
 	}
+	copy(head.Roots, roots)
+	copy(head.Sharding, sharding)
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	} else if g.GasLimit < params.MinGasLimit {
@@ -296,33 +293,25 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 		head.Difficulty = params.GenesisDifficulty
 	}
 	statedb.Commit(false)
-	statedb.Database().TrieDB().Commit(root, true)
+	statedb.Database().TrieDB().CommitRoots(roots, true)
 
-	return types.NewBlock(head, nil, nil, nil), nil
+	return types.NewBlock(head, nil, nil), nil
 }
 
-func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Database, chainCfg *params.ChainConfig) *types.Block {
-	if nil == parentHeader || nil == stateCache {
+func (g *Genesis) GenSuperBlock(parentHeader *types.Header, mdb mandb.Database, sdb state.Database, chainCfg *params.ChainConfig) *types.Block {
+	if nil == parentHeader || nil == sdb {
 		log.ERROR("genesis super block", "param err", "nil")
 		return nil
 	}
 
-	stateDB, err := state.New(parentHeader.Root, stateCache)
+	stateDB, err := state.NewStateDBManage(parentHeader.Roots, mdb, sdb)
 	if err != nil {
 		log.Error("genesis super block", "get parent state db err", err)
 		return nil
 	}
 
-	for addr, account := range g.Alloc {
-		stateDB.SetBalance(common.MainAccount, addr, account.Balance)
-		stateDB.SetCode(addr, account.Code)
-		stateDB.SetNonce(addr, account.Nonce)
-		for key, value := range account.Storage {
-			stateDB.SetState(addr, key, value)
-		}
-	}
 	if nil != g.MState {
-		if err := g.MState.setMatrixState(stateDB, g.NetTopology, g.NextElect, g.Version, string(parentHeader.Version),g.Number); err != nil {
+		if err := g.MState.setMatrixState(stateDB, g.NetTopology, g.NextElect, g.Version, string(parentHeader.Version), g.Number); err != nil {
 			log.Error("genesis super block", "设置matrix状态树错误", err)
 			return nil
 		}
@@ -356,8 +345,7 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Dat
 		Coinbase:          g.Coinbase,
 	}
 
-	head.Root = stateDB.IntermediateRoot(chainCfg.IsEIP158(head.Number))
-
+	head.Roots, head.Sharding = stateDB.IntermediateRoot(chainCfg.IsEIP158(head.Number))
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
@@ -367,12 +355,13 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Dat
 
 	// 创建超级区块交易
 	txs := make([]types.SelfTransaction, 0)
+	g.Alloc = make(GenesisAlloc)
 	data, err := json.Marshal(g.Alloc)
 	if err != nil {
 		log.ERROR("genesis super block", "marshal alloc info err", err)
 		return nil
 	}
-	tx0 := types.NewTransaction(g.Number, common.Address{}, nil, 0, nil, data, nil, nil, nil, common.ExtraSuperBlockTx, 0, "MAN", 0)
+	tx0 := types.NewTransaction(g.Number, common.Address{}, nil, 0, nil, data, nil, nil, nil, common.ExtraSuperBlockTx, 0, params.MAN_COIN, 0)
 	if tx0 == nil {
 		log.ERROR("genesis super block", "create super block tx err", "NewTransaction return nil")
 		return nil
@@ -387,14 +376,18 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, stateCache state.Dat
 			return nil
 		}
 	}
-	txMState := types.NewTransaction(g.Number, common.Address{}, nil, 1, nil, msData, nil, nil, nil, common.ExtraSuperBlockTx, 0, "MAN", 0)
+	txMState := types.NewTransaction(g.Number, common.Address{}, nil, 1, nil, msData, nil, nil, nil, common.ExtraSuperBlockTx, 0, params.MAN_COIN, 0)
 	if txMState == nil {
 		log.ERROR("genesis super block", "create super block matrix state tx err", "NewTransaction return nil")
 		return nil
 	}
 	txs = append(txs, txMState)
 
-	return types.NewBlock(head, txs, nil, nil)
+	var cts []types.CoinSelfTransaction
+	ct := types.CoinSelfTransaction{params.MAN_COIN, txs}
+	cts = append(cts, ct)
+
+	return types.NewBlock(head, types.MakeCurencyBlock(cts, nil, nil), nil)
 }
 
 // Commit writes the block and state of a genesis specification to the database.

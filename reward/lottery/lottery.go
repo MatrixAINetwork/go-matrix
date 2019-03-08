@@ -62,14 +62,14 @@ type LotterySeed interface {
 	GetRandom(hash common.Hash, Type string) (*big.Int, error)
 }
 
-func New(chain ChainReader, st util.StateDB, seed LotterySeed) *TxsLottery {
-	bcInterval, err := matrixstate.GetBroadcastInterval(st)
+func New(chain ChainReader, st util.StateDB, seed LotterySeed, preSt util.StateDB) *TxsLottery {
+	bcInterval, err := matrixstate.GetBroadcastInterval(preSt)
 	if err != nil {
 		log.ERROR(PackageName, "获取广播周期失败", err)
 		return nil
 	}
 
-	data, err := matrixstate.GetLotteryCalc(st)
+	data, err := matrixstate.GetLotteryCalc(preSt)
 	if nil != err {
 		log.ERROR(PackageName, "获取状态树配置错误")
 		return nil
@@ -80,7 +80,7 @@ func New(chain ChainReader, st util.StateDB, seed LotterySeed) *TxsLottery {
 		return nil
 	}
 
-	cfg, err := matrixstate.GetLotteryCfg(st)
+	cfg, err := matrixstate.GetLotteryCfg(preSt)
 	if nil != err || nil == cfg {
 		log.ERROR(PackageName, "获取状态树配置错误", "")
 		return nil
@@ -190,7 +190,7 @@ func (tlr *TxsLottery) canChooseLottery(num uint64) bool {
 		return false
 	}
 
-	balance := tlr.state.GetBalance(common.LotteryRewardAddress)
+	balance := tlr.state.GetBalance(params.MAN_COIN, common.LotteryRewardAddress)
 	if len(balance) == 0 {
 		log.ERROR(PackageName, "状态树获取彩票账户余额错误", "")
 		//return false

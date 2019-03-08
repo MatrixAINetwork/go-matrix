@@ -81,9 +81,17 @@ const (
 	TxGasPrice           uint64 = 18000000000        //交易费
 	EntrustByHeight      byte   = 0                  //按块高委托
 	EntrustByTime        byte   = 1                  //按时间委托
+	CallTxPachNum        uint64 = 9999               //币种打包交易数量限制
+	CoinTypeUnit         uint64 = 1000000000000000000//*big.Int = new(big.Int).SetString("0xDE0B6B3A7640000",0)//new(big.Int).SetString("0xDE0B6B3A7640000",0)
 
 	// Udp buffer
 	MaxUdpBuf uint32 = 1024 * 64
+)
+const (
+	MAN_COIN     string = "MAN"
+	RANGE_MOUNTS int    = 256
+	COIN_NAME    string = "COIN_TYPE"
+	//COINPREFIX   string = "MATRIX"
 )
 
 var (

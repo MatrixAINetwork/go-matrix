@@ -16,6 +16,5 @@ type Reward interface {
 	CalcMinerRewards(num uint64, parentHash common.Hash) map[common.Address]*big.Int
 	CalcMinerRateMount(blockReward *big.Int) (*big.Int, *big.Int, *big.Int)
 	CalcValidatorRateMount(blockReward *big.Int) (*big.Int, *big.Int, *big.Int)
-	CalcRewardMountByNumber(blockReward *big.Int, num uint64, halfNum uint64, address common.Address) *big.Int
 	GetRewardCfg() *cfg.RewardCfg
 }

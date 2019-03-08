@@ -1005,8 +1005,8 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.NoDiscovery = true
 	}
 	if manAddr := ctx.GlobalString(ManAddressFlag.Name); manAddr != "" {
-		innerAddr, err := base58.Base58DecodeToAddress(manAddr)
-		if err == nil {
+		innerAddr ,err := base58.Base58DecodeToAddress(manAddr)
+		if err == nil{
 			cfg.ManAddress = innerAddr
 		}
 	}

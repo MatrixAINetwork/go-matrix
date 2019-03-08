@@ -10,7 +10,6 @@ import (
 
 	"fmt"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/MatrixAINetwork/go-matrix/accounts/keystore"
 	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/common"
@@ -19,6 +18,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/btcsuite/btcd/btcec"
 )
 
 type VoteData struct {
@@ -118,7 +118,7 @@ func GetAncestorHash(hash common.Hash, height uint64, support baseinterface.Rand
 	return aimHash, nil
 }
 
-func getKeyTransInfo(root common.Hash, types string, support baseinterface.RandomChainSupport) map[common.Address][]byte {
+func getKeyTransInfo(root []common.CoinRoot, types string, support baseinterface.RandomChainSupport) map[common.Address][]byte {
 	ans, err := core.GetBroadcastTxMap(support.BlockChain(), root, types)
 	if err != nil {
 		log.Error(ModeleRandomCommon, "获取特殊交易失败 root", root, "types", types)
@@ -127,13 +127,8 @@ func getKeyTransInfo(root common.Hash, types string, support baseinterface.Rando
 }
 
 func GetValidVoteSum(hash common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error) {
-	height, err := GetNumberByHash(hash, support)
-	if err != nil {
-		log.Error(ModeleRandomCommon, "计算种子失败 err", err, "hash", hash.String())
-		return nil, errors.New("计算hash高度失败")
-	}
 
-	preBroadcastRoot, err := readstatedb.GetPreBroadcastRoot(support.BlockChain(), height)
+	preBroadcastRoot, err := readstatedb.GetPreBroadcastRoot(support.BlockChain(), hash)
 	if err != nil {
 		log.Error(ModeleRandomCommon, "计算种子阶段,获取root值失败 err", err)
 		return nil, fmt.Errorf("从状态树获取前2个广播区块root失败")

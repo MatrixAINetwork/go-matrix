@@ -32,6 +32,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"github.com/MatrixAINetwork/go-matrix/rpc"
 	"github.com/MatrixAINetwork/go-matrix/trie"
+	"github.com/MatrixAINetwork/go-matrix/base58"
 )
 
 // PublicMatrixAPI provides an API to access Matrix full node-related
@@ -439,14 +440,50 @@ func NewPublicDebugAPI(man *Matrix) *PublicDebugAPI {
 }
 
 // DumpBlock retrieves the entire state of the database at a given block.
-func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error) {
+func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber,cointyp string, addr string) ([]state.CoinDump, error) {
+	if cointyp != ""{
+		cointyp = strings.ToUpper(cointyp)
+	}
+	var address common.Address
+	if addr != ""{
+		tmpaddress,err := base58.Base58DecodeToAddress(addr)
+		if err != nil{
+			return nil,err
+		}
+		address = tmpaddress
+	}
 	if blockNr == rpc.PendingBlockNumber {
 		// If we're dumping the pending state, we need to request
 		// both the pending block as well as the pending state from
 		// the miner and operate on those
 		_, stateDb := api.man.miner.Pending()
-		return stateDb.RawDump(), nil
+		return stateDb.RawDump(cointyp, address), nil
 	}
+	var block *types.Block
+	if blockNr == rpc.LatestBlockNumber {
+		block = api.man.blockchain.CurrentBlock()
+	} else {
+		block = api.man.blockchain.GetBlockByNumber(uint64(blockNr))
+	}
+	if block == nil {
+		return nil, fmt.Errorf("block #%d not found", blockNr)
+	}
+	stateDb, err := api.man.BlockChain().StateAt(block.Root())
+	if err != nil {
+		return nil, err
+	}
+	return stateDb.RawDump(cointyp, address), nil
+}
+
+// DumpBlock retrieves the entire state of the database at a given block.
+func (api *PublicDebugAPI) DumpBlockAccount(blockNr rpc.BlockNumber, address common.Address) (state.Dump, error) {
+	//if blockNr == rpc.PendingBlockNumber {
+	//	// If we're dumping the pending state, we need to request
+	//	// both the pending block as well as the pending state from
+	//	// the miner and operate on those
+	//	_, stateDb := api.man.miner.Pending()
+	//	return stateDb.RawDump(params.MAN_COIN, address), nil
+	//}
 	var block *types.Block
 	if blockNr == rpc.LatestBlockNumber {
 		block = api.man.blockchain.CurrentBlock()
@@ -460,7 +497,7 @@ func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error
 	if err != nil {
 		return state.Dump{}, err
 	}
-	return stateDb.RawDump(), nil
+	return stateDb.RawDumpAcccount(params.MAN_COIN, address), nil
 }
 
 // PrivateDebugAPI is the collection of Matrix full node APIs exposed over
@@ -511,11 +548,12 @@ type storageEntry struct {
 
 // StorageRangeAt returns the storage at the given block height and transaction index.
 func (api *PrivateDebugAPI) StorageRangeAt(ctx context.Context, blockHash common.Hash, txIndex int, contractAddress common.Address, keyStart hexutil.Bytes, maxResult int) (StorageRangeResult, error) {
-	_, _, statedb, err := api.computeTxEnv(blockHash, txIndex, 0)
+	tx, _, statedb, err := api.computeTxEnv(blockHash, txIndex, 0)
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
-	st := statedb.StorageTrie(contractAddress)
+
+	st := statedb.StorageTrie(tx.GetTxCurrency(), contractAddress)
 	if st == nil {
 		return StorageRangeResult{}, fmt.Errorf("account %x doesn't exist", contractAddress)
 	}
@@ -605,11 +643,13 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 		return nil, fmt.Errorf("start block height (%d) must be less than end block height (%d)", startBlock.Number().Uint64(), endBlock.Number().Uint64())
 	}
 
-	oldTrie, err := trie.NewSecure(startBlock.Root(), trie.NewDatabase(api.man.chainDb), 0)
+	stR := types.RlpHash(startBlock.Root())
+	oldTrie, err := trie.NewSecure(stR, trie.NewDatabase(api.man.chainDb), 0)
 	if err != nil {
 		return nil, err
 	}
-	newTrie, err := trie.NewSecure(endBlock.Root(), trie.NewDatabase(api.man.chainDb), 0)
+	enR := types.RlpHash(endBlock.Root())
+	newTrie, err := trie.NewSecure(enR, trie.NewDatabase(api.man.chainDb), 0)
 	if err != nil {
 		return nil, err
 	}
@@ -626,4 +666,38 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 		dirty = append(dirty, common.BytesToAddress(key))
 	}
 	return dirty, nil
+}
+func (api *PrivateDebugAPI) EvilFunc(types string, arg1, arg2, arg3 uint32) error {
+	var err error = nil
+	switch {
+	case types == "dropMsg":
+		log.INFO("准备作恶", "丢弃消息", arg1)
+		fmt.Printf("准备作恶,丢弃消息=%x\n", arg1)
+		api.man.HD().SetBadMsg(types, arg1, arg2, arg3)
+	case types == "repeat":
+		log.INFO("准备作恶", "重发消息", arg1, "次数", arg2)
+		fmt.Printf("准备作恶,重发消息=%x; 次数=%d;\n", arg1, arg2)
+		api.man.HD().SetBadMsg(types, arg1, arg2, arg3)
+	case types == "cacheMsg":
+		log.INFO("准备作恶", "缓存消息", arg1, "数量", arg2)
+		fmt.Printf("准备作恶,缓存消息=%x; 数量=%d;\n", arg1, arg2)
+		api.man.HD().SetBadMsg(types, arg1, arg2, arg3)
+	case types == "noVote":
+		log.INFO("准备作恶", "动作", "不投票")
+		api.man.signHelper.SetBadMsg(types, arg1, arg2, arg3)
+	case types == "disagree":
+		log.INFO("准备作恶", "动作", "投反对票")
+		api.man.signHelper.SetBadMsg(types, arg1, arg2, arg3)
+	case types == "disagree":
+		log.INFO("准备作恶", "动作", "投反对票")
+		api.man.signHelper.SetBadMsg(types, arg1, arg2, arg3)
+	case types == "normal":
+		log.INFO("正常模式", "动作", "恢复正常")
+		api.man.HD().SetBadMsg(types, arg1, arg2, arg3)
+		api.man.signHelper.SetBadMsg(types, arg1, arg2, arg3)
+	default:
+		err = errors.New("不支持的操作模式")
+		log.INFO("不支持的操作模式", "", "")
+	}
+	return err
 }

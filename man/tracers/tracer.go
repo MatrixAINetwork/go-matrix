@@ -165,18 +165,18 @@ func (sw *stackWrapper) pushObject(vm *duktape.Context) {
 
 // dbWrapper provides a JavaScript wrapper around vm.Database.
 type dbWrapper struct {
-	db vm.StateDB
+	db vm.StateDBManager
 }
 
 // pushObject assembles a JSVM object wrapping a swappable database and pushes it
 // onto the VM stack.
-func (dw *dbWrapper) pushObject(vm *duktape.Context) {
+func (dw *dbWrapper) pushObject(cointyp string, vm *duktape.Context) {
 	obj := vm.PushObject()
 
 	// Push the wrapper for statedb.GetBalance
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
 		//pushBigInt(dw.db.GetBalance(common.BytesToAddress(popSlice(ctx))), ctx)
-		tmp := dw.db.GetBalance(common.BytesToAddress(popSlice(ctx)))
+		tmp := dw.db.GetBalance(cointyp, common.BytesToAddress(popSlice(ctx)))
 		for _, tAccount := range tmp {
 			if tAccount.AccountType == common.MainAccount {
 				pushBigInt(tAccount.Balance, ctx)
@@ -189,14 +189,14 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 
 	// Push the wrapper for statedb.GetNonce
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		ctx.PushInt(int(dw.db.GetNonce(common.BytesToAddress(popSlice(ctx)))))
+		ctx.PushInt(int(dw.db.GetNonce(cointyp, common.BytesToAddress(popSlice(ctx)))))
 		return 1
 	})
 	vm.PutPropString(obj, "getNonce")
 
 	// Push the wrapper for statedb.GetCode
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		code := dw.db.GetCode(common.BytesToAddress(popSlice(ctx)))
+		code := dw.db.GetCode(cointyp, common.BytesToAddress(popSlice(ctx)))
 
 		ptr := ctx.PushFixedBuffer(len(code))
 		copy(makeSlice(ptr, uint(len(code))), code[:])
@@ -209,7 +209,7 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 		hash := popSlice(ctx)
 		addr := popSlice(ctx)
 
-		state := dw.db.GetState(common.BytesToAddress(addr), common.BytesToHash(hash))
+		state := dw.db.GetState(cointyp, common.BytesToAddress(addr), common.BytesToHash(hash))
 
 		ptr := ctx.PushFixedBuffer(len(state))
 		copy(makeSlice(ptr, uint(len(state))), state[:])
@@ -219,7 +219,7 @@ func (dw *dbWrapper) pushObject(vm *duktape.Context) {
 
 	// Push the wrapper for statedb.Exists
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		ctx.PushBoolean(dw.db.Exist(common.BytesToAddress(popSlice(ctx))))
+		ctx.PushBoolean(dw.db.Exist(cointyp, common.BytesToAddress(popSlice(ctx))))
 		return 1
 	})
 	vm.PutPropString(obj, "exists")
@@ -301,11 +301,12 @@ type Tracer struct {
 // New instantiates a new tracer instance. code specifies a Javascript snippet,
 // which must evaluate to an expression returning an object with 'step', 'fault'
 // and 'result' functions.
-func New(code string) (*Tracer, error) {
+func New(cointyp string, code string) (*Tracer, error) {
 	// Resolve any tracers by name and assemble the tracer object
 	if tracer, ok := tracer(code); ok {
 		code = tracer
 	}
+
 	tracer := &Tracer{
 		vm:              duktape.New(),
 		ctx:             make(map[string]interface{}),
@@ -449,7 +450,7 @@ func New(code string) (*Tracer, error) {
 
 	tracer.vm.PutPropString(tracer.stateObject, "log")
 
-	tracer.dbWrapper.pushObject(tracer.vm)
+	tracer.dbWrapper.pushObject(cointyp, tracer.vm)
 	tracer.vm.PutPropString(tracer.stateObject, "db")
 
 	return tracer, nil

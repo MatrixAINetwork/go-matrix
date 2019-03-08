@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for
@@ -247,7 +248,7 @@ func newTxList(strict bool, str string) *txList {
 		costcap: new(big.Int),
 	}
 	if str == "" {
-		str = "MAN"
+		str = params.MAN_COIN
 	}
 	tl.txs[str] = sortmap //主币种
 	return tl

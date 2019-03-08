@@ -96,11 +96,13 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 	if head.UncleHash != types.EmptyUncleHash && len(body.UncleHashes) == 0 {
 		return nil, fmt.Errorf("server returned empty uncle list but block header indicates uncles")
 	}
-	if head.TxHash == types.EmptyRootHash && len(body.Transactions) > 0 {
-		return nil, fmt.Errorf("server returned non-empty transaction list but block header indicates no transactions")
-	}
-	if head.TxHash != types.EmptyRootHash && len(body.Transactions) == 0 {
-		return nil, fmt.Errorf("server returned empty transaction list but block header indicates transactions")
+	for _, coinRoot := range head.Roots {
+		if coinRoot.TxHash == types.EmptyRootHash && len(body.Transactions) > 0 {
+			return nil, fmt.Errorf("server returned non-empty transaction list but block header indicates no transactions")
+		}
+		if coinRoot.TxHash != types.EmptyRootHash && len(body.Transactions) == 0 {
+			return nil, fmt.Errorf("server returned empty transaction list but block header indicates transactions")
+		}
 	}
 	// Load uncles because they are not included in the block response.
 	var uncles []*types.Header
@@ -132,7 +134,18 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 		setSenderFromServer(tx.tx, tx.From, body.Hash)
 		txs[i] = tx.tx
 	}
-	return types.NewBlockWithHeader(head).WithBody(txs, uncles), nil
+
+	 mm :=make( map[string][]types.SelfTransaction) //BB
+	for _, tx := range txs {
+		cointype := tx.GetTxCurrency()
+		mm[cointype] = append(mm[cointype], tx)
+	}
+	cs := []types.CoinSelfTransaction{}
+	for k, v := range mm {
+		cs = append(cs, types.CoinSelfTransaction{k, v})
+	}
+	cb := types.MakeCurencyBlock(cs, nil, nil)
+	return types.NewBlockWithHeader(head).WithBody(cb, uncles), nil
 }
 
 // HeaderByHash returns the block header with the given hash.

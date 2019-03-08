@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"math/big"
 	"sort"
 
@@ -59,15 +60,17 @@ type ChainReader interface {
 
 	// GetBlock retrieves a block sfrom the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block
-	StateAt(root common.Hash) (*state.StateDB, error)
-	State() (*state.StateDB, error)
-	StateAtNumber(number uint64) (*state.StateDB, error)
+	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
+	State() (*state.StateDBManage, error)
 	GetSuperBlockNum() (uint64, error)
 	GetGraphByState(state matrixstate.StateDB) (*mc.TopologyGraph, *mc.ElectGraph, error)
+	StateAtBlockHash(hash common.Hash) (*state.StateDBManage, error)
+	StateAtNumber(number uint64) (*state.StateDBManage, error)
+	GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error)
 }
 
 type StateDB interface {
-	GetBalance(common.Address) common.BalanceType
+	GetBalance(typ string, addr common.Address) common.BalanceType
 	GetMatrixData(hash common.Hash) (val []byte)
 	SetMatrixData(hash common.Hash, val []byte)
 }
@@ -101,62 +104,6 @@ func CalcRateReward(rewardAmount *big.Int, rate uint64) *big.Int {
 	return new(big.Int).Div(temp, new(big.Int).SetUint64(RewardFullRate))
 }
 
-func CalcDepositRate(reward *big.Int, depositNodes map[common.Address]DepositInfo) map[common.Address]*big.Int {
-
-	if 0 == len(depositNodes) {
-		log.ERROR(PackageName, "抵押列表为空", "")
-		return nil
-	}
-	totalDeposit := new(big.Int)
-
-	depositNodesFix := make(map[common.Address]*big.Int)
-
-	for k, v := range depositNodes {
-		depositTemp := new(big.Int).Div(v.Deposit, big.NewInt(1e18))
-		if depositTemp.Cmp(big.NewInt(0)) <= 0 {
-			log.ERROR(PackageName, "定点化的抵押值错误", depositTemp)
-			return nil
-		}
-		depositNodesFix[k] = depositTemp
-		totalDeposit.Add(totalDeposit, depositTemp)
-	}
-	if totalDeposit.Cmp(big.NewInt(0)) <= 0 {
-		log.ERROR(PackageName, "定点化抵押值为非法", totalDeposit)
-		return nil
-	}
-	log.INFO(PackageName, "计算抵押总额,账户总抵押", totalDeposit, "定点化抵押", totalDeposit)
-
-	rewardFixed := new(big.Int).Div(reward, Precision)
-
-	if 0 == rewardFixed.Cmp(big.NewInt(0)) {
-		log.ERROR(PackageName, "定点化奖励金额为0", "")
-		return nil
-	}
-	sortedKeys := make([]string, 0)
-
-	for k := range depositNodesFix {
-		sortedKeys = append(sortedKeys, k.String())
-	}
-	sort.Strings(sortedKeys)
-	rewards := make(map[common.Address]*big.Int)
-	for _, k := range sortedKeys {
-		rateTemp := new(big.Int).Mul(depositNodesFix[common.HexToAddress(k)], big.NewInt(1e10))
-		rate := new(big.Int).Div(rateTemp, totalDeposit)
-		if rate.Cmp(big.NewInt(0)) < 0 {
-			log.ERROR(PackageName, "定点化比例非法", rate)
-			continue
-		}
-		log.Debug(PackageName, "计算比例,账户", k, "定点化比例", rate)
-
-		rewardTemp := new(big.Int).Mul(rewardFixed, rate)
-		rewardTemp1 := new(big.Int).Div(rewardTemp, big.NewInt(1e10))
-		oneNodeReward := new(big.Int).Mul(rewardTemp1, Precision)
-		rewards[common.HexToAddress(k)] = oneNodeReward
-		log.Debug(PackageName, "计算奖励金额,账户", k, "定点化金额", rewards[common.HexToAddress(k)])
-	}
-	return rewards
-}
-
 func CalcStockRate(reward *big.Int, depositNodes map[common.Address]DepositInfo) map[common.Address]*big.Int {
 
 	if 0 == len(depositNodes) {
@@ -188,6 +135,37 @@ func CalcStockRate(reward *big.Int, depositNodes map[common.Address]DepositInfo)
 	return rewards
 }
 
+func CalcInterestReward(reward *big.Int, interest map[common.Address]*big.Int) map[common.Address]*big.Int {
+
+	if 0 == len(interest) {
+		log.ERROR(PackageName, "利息列表为空", "")
+		return nil
+	}
+	totalInterest := new(big.Int)
+
+	for _, v := range interest {
+
+		totalInterest.Add(totalInterest, v)
+	}
+	if totalInterest.Cmp(big.NewInt(0)) <= 0 {
+		log.ERROR(PackageName, "计算的总利息值非法", totalInterest)
+		return nil
+	}
+	log.Trace(PackageName, "计算的总利息值", totalInterest)
+
+	if 0 == reward.Cmp(big.NewInt(0)) {
+		log.ERROR(PackageName, "定点化奖励金额为0", "")
+		return nil
+	}
+
+	rewards := make(map[common.Address]*big.Int)
+	for k, v := range interest {
+		temp := new(big.Int).Mul(reward, v)
+		rewards[k] = new(big.Int).Div(temp, totalInterest)
+		log.Trace(PackageName, "计算奖励金额,账户", k, "金额", rewards[k])
+	}
+	return rewards
+}
 func MergeReward(dst map[common.Address]*big.Int, src map[common.Address]*big.Int) {
 	if 0 == len(src) {
 		return
@@ -201,4 +179,159 @@ func MergeReward(dst map[common.Address]*big.Int, src map[common.Address]*big.In
 		SetAccountRewards(dst, account, reward)
 	}
 
+}
+func CalcN(halfNum uint64, num uint64) uint64 {
+	n := uint64(0)
+	if 0 != halfNum {
+		n = num / halfNum
+	}
+	return n
+}
+
+func CalcRewardMount(blockReward *big.Int, n uint64, x uint16) *big.Int {
+	var reward *big.Int
+	if 0 == n {
+		reward = blockReward
+	} else {
+		rate := new(big.Int).Exp(new(big.Int).SetUint64(uint64(x)), new(big.Int).SetUint64(n), big.NewInt(0))
+		tmp := new(big.Int).Mul(blockReward, rate)
+		base := new(big.Int).Exp(new(big.Int).SetUint64(mc.RewardFullRate), new(big.Int).SetUint64(n), big.NewInt(0))
+		reward := new(big.Int).Div(tmp, base)
+		return reward
+	}
+	return reward
+}
+
+func CalcRewardMountByNumber(st StateDB, blockReward *big.Int, num uint64, halfNum uint64, address common.Address, attenuationRate uint16) *big.Int {
+
+	if blockReward.Cmp(big.NewInt(0)) < 0 {
+		log.WARN(PackageName, "折半计算的奖励金额不合法", blockReward)
+		return big.NewInt(0)
+	}
+
+	balance, err := getBalance(st, address)
+	if nil != err {
+		log.ERROR(PackageName, "账户余额获取错误，账户为", address.Hex())
+		return big.NewInt(0)
+	}
+
+	n := CalcN(halfNum, num)
+
+	reward := CalcRewardMount(blockReward, n, attenuationRate)
+	log.Debug(PackageName, "计算衰减奖励金额:", reward.String())
+	if balance[common.MainAccount].Balance.Cmp(reward) < 0 {
+		log.ERROR(PackageName, "账户余额不足，余额为", balance[common.MainAccount].Balance.String())
+		return big.NewInt(0)
+	} else {
+		return reward
+	}
+
+}
+
+func getBalance(st StateDB, address common.Address) (common.BalanceType, error) {
+
+	balance := st.GetBalance(params.MAN_COIN, address)
+	if len(balance) == 0 {
+		log.ERROR(PackageName, "账户余额获取不到", "")
+		return nil, errors.New("账户余额获取不到")
+	}
+	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) < 0 {
+		log.WARN(PackageName, "发送账户余额不合法，地址", address.Hex(), "余额", balance[common.MainAccount].Balance)
+		return nil, errors.New("发送账户余额不合法")
+	}
+	return balance, nil
+}
+func Accumulator(st StateDB, rewardIn []common.RewarTx) []common.RewarTx {
+
+	ValidatorBalance, _ := getBalance(st, common.BlkMinerRewardAddress)
+	minerBalance, _ := getBalance(st, common.BlkValidatorRewardAddress)
+	interestBalance, _ := getBalance(st, common.InterestRewardAddress)
+	lotteryBalance, _ := getBalance(st, common.LotteryRewardAddress)
+	allValidator := new(big.Int).SetUint64(0)
+	allMiner := new(big.Int).SetUint64(0)
+	allInterest := new(big.Int).SetUint64(0)
+	allLottery := new(big.Int).SetUint64(0)
+	for _, v := range rewardIn {
+		if v.Fromaddr == common.BlkMinerRewardAddress {
+			for account, Amount := range v.To_Amont {
+				if !account.Equal(common.ContractAddress) {
+					allMiner = new(big.Int).Add(allMiner, Amount)
+				}
+			}
+		}
+		if v.Fromaddr == common.BlkValidatorRewardAddress {
+			for account, Amount := range v.To_Amont {
+				if !account.Equal(common.ContractAddress) {
+					allValidator = new(big.Int).Add(allValidator, Amount)
+				}
+			}
+		}
+
+		if v.Fromaddr == common.InterestRewardAddress {
+			for account, Amount := range v.To_Amont {
+				if !account.Equal(common.ContractAddress) {
+					allInterest = new(big.Int).Add(allInterest, Amount)
+				}
+
+			}
+		}
+		if v.Fromaddr == common.LotteryRewardAddress {
+			for account, Amount := range v.To_Amont {
+				if !account.Equal(common.ContractAddress) {
+					allLottery = new(big.Int).Add(allLottery, Amount)
+				}
+			}
+		}
+	}
+
+	rewardOut := make([]common.RewarTx, 0)
+
+	if allMiner.Cmp(minerBalance[common.MainAccount].Balance) <= 0 {
+		for _, v := range rewardIn {
+			if v.RewardTyp == common.RewardMinerType {
+				rewardOut = append(rewardOut, v)
+			}
+		}
+
+	} else {
+		log.Error(PackageName, "矿工账户余额不足,余额", allMiner.String())
+	}
+	if allValidator.Cmp(ValidatorBalance[common.MainAccount].Balance) <= 0 {
+		for _, v := range rewardIn {
+			if v.RewardTyp == common.RewardValidatorType {
+				rewardOut = append(rewardOut, v)
+			}
+		}
+	} else {
+		log.Error(PackageName, "验证者账户余额不足", allValidator.String())
+	}
+
+	for _, v := range rewardIn {
+		if v.RewardTyp == common.RewardTxsType {
+			rewardOut = append(rewardOut, v)
+		}
+	}
+
+	if allInterest.Cmp(interestBalance[common.MainAccount].Balance) <= 0 {
+		for _, v := range rewardIn {
+			if v.RewardTyp == common.RewardInterestType {
+				rewardOut = append(rewardOut, v)
+			}
+		}
+	} else {
+		log.Error(PackageName, "利息账户余额不足", allInterest.String())
+	}
+
+	if allLottery.Cmp(lotteryBalance[common.MainAccount].Balance) <= 0 {
+		for _, v := range rewardIn {
+			//通过类型判断
+			if v.RewardTyp == common.RewardLotteryType {
+				rewardOut = append(rewardOut, v)
+			}
+		}
+	} else {
+		log.Error(PackageName, "彩票账户余额不足", allLottery.String())
+	}
+
+	return rewardOut
 }

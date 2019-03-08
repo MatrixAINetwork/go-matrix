@@ -4,8 +4,10 @@ import (
 	"math/big"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/readstatedb"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
 	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
@@ -19,13 +21,12 @@ type BlockSlash struct {
 	eleMaxOnlineTime uint64
 	SlashRate        uint64
 	bcInterval       *mc.BCIntervalInfo
-	preElectRoot     common.Hash
-	preElectList     []mc.ElectNodeInfo
+	preBroadcastRoot *mc.PreBroadStateRoot
 }
 
-func New(chain util.ChainReader, st util.StateDB) *BlockSlash {
+func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB) *BlockSlash {
 
-	data, err := matrixstate.GetSlashCalc(st)
+	data, err := matrixstate.GetSlashCalc(preSt)
 	if nil != err {
 		log.ERROR(PackageName, "获取状态树配置错误")
 		return nil
@@ -36,7 +37,7 @@ func New(chain util.ChainReader, st util.StateDB) *BlockSlash {
 		return nil
 	}
 
-	SC, err := matrixstate.GetSlashCfg(st)
+	SC, err := matrixstate.GetSlashCfg(preSt)
 	if nil != err || nil == SC {
 		log.ERROR(PackageName, "获取状态树配置错误", "")
 		return nil
@@ -50,16 +51,37 @@ func New(chain util.ChainReader, st util.StateDB) *BlockSlash {
 		SlashRate = SC.SlashRate
 	}
 
-	bcInterval, err := matrixstate.GetBroadcastInterval(st)
+	bcInterval, err := matrixstate.GetBroadcastInterval(preSt)
 	if err != nil {
 		log.ERROR(PackageName, "获取广播周期数据结构失败", err)
 		return nil
 	}
 	return &BlockSlash{chain: chain, eleMaxOnlineTime: bcInterval.GetBroadcastInterval() - 3, SlashRate: SlashRate, bcInterval: bcInterval} //todo 周期固定3倍关系
 }
+func (bp *BlockSlash) GetCurrentInterest(preState *state.StateDBManage, currentState vm.StateDBManager, num uint64) map[common.Address]*big.Int {
+	allInterest := depoistInfo.GetAllInterest(currentState)
+	interestMap := make(map[common.Address]*big.Int)
+	latestNum, err := matrixstate.GetInterestPayNum(currentState)
+	if nil != err {
+		log.ERROR(PackageName, "状态树获取前一计算利息高度错误", err)
+		return nil
+	}
+	//前一个广播周期支付利息，利息会清空，直接用当前值,其它时间点用差值
+	if num-bp.bcInterval.BCInterval <= latestNum && num > latestNum {
+		interestMap = allInterest
+	} else {
+		for account, currentInterest := range allInterest {
+			preInterest, _ := depoistInfo.GetInterest(preState, account)
+			interestMap[account] = new(big.Int).Sub(currentInterest, preInterest)
+		}
+	}
+	for account, interest := range interestMap {
+		log.Debug(PackageName, "账户", account, "利息", interest)
+	}
 
-func (bp *BlockSlash) CalcSlash(currentState *state.StateDB, num uint64, upTimeMap map[common.Address]uint64, interestCalcMap map[common.Address]*big.Int) {
-
+	return interestMap
+}
+func (bp *BlockSlash) CalcSlash(currentState *state.StateDBManage, num uint64, upTimeMap map[common.Address]uint64, parentHash common.Hash) {
 	if bp.bcInterval.IsBroadcastNumber(num) {
 		log.WARN(PackageName, "广播周期不处理", "")
 		return
@@ -78,7 +100,18 @@ func (bp *BlockSlash) CalcSlash(currentState *state.StateDB, num uint64, upTimeM
 	if err := matrixstate.SetSlashNum(currentState, num); err != nil {
 		log.Error(PackageName, "设置惩罚状态失败", err)
 	}
-
+	preBroadcastRoot, err := readstatedb.GetPreBroadcastRoot(bp.chain, parentHash)
+	if err != nil {
+		log.Error(PackageName, "获取之前广播区块的root值失败 err", err)
+		return
+	}
+	beforeLastStateRoot := preBroadcastRoot.LastStateRoot
+	preState, err := bp.chain.StateAt(beforeLastStateRoot)
+	if err != nil {
+		log.Error("GetBroadcastTxMap StateAt err")
+		return
+	}
+	interestCalcMap := bp.GetCurrentInterest(preState, currentState, num)
 	if 0 == len(interestCalcMap) {
 		log.WARN(PackageName, "获取到利息为空", "")
 		return
@@ -89,7 +122,12 @@ func (bp *BlockSlash) CalcSlash(currentState *state.StateDB, num uint64, upTimeM
 	}
 	//计算选举的拓扑图的高度
 	eleNum := bp.bcInterval.GetLastBroadcastNumber() - 2
-	st, err := bp.chain.StateAtNumber(eleNum)
+	ancetorHash, err := bp.chain.GetAncestorHash(parentHash, eleNum)
+	if err != nil {
+		log.Error(PackageName, "获取制动高度hash失败", err, "eleNum", eleNum)
+		return
+	}
+	st, err := bp.chain.StateAtBlockHash(ancetorHash)
 	if err != nil {
 		log.Error(PackageName, "获取选举高度的状态树失败", err, "eleNum", eleNum)
 		return

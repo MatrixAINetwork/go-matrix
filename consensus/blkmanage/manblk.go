@@ -146,7 +146,7 @@ func (bd *ManBlkBasePlug) setParentHash(chain ChainReader, header *types.Header,
 	return parent, nil
 }
 
-func (bd *ManBlkBasePlug) setElect(support BlKSupport, stateDB *state.StateDB, header *types.Header) error {
+func (bd *ManBlkBasePlug) setElect(support BlKSupport, stateDB *state.StateDBManage, header *types.Header) error {
 	// 运行完状态树后，才能获取elect
 	Elect := support.ReElection().GenElection(stateDB, header.ParentHash)
 	if Elect == nil {
@@ -204,10 +204,10 @@ func (bd *ManBlkBasePlug) Prepare(version string, support BlKSupport, interval *
 	return originHeader, onlineConsensusResults, nil
 }
 
-func (bd *ManBlkBasePlug) ProcessState(support BlKSupport, header *types.Header, args interface{}) ([]*common.RetCallTxN, *state.StateDB, []*types.Receipt, []types.SelfTransaction, []types.SelfTransaction, interface{}, error) {
+func (bd *ManBlkBasePlug) ProcessState(support BlKSupport, header *types.Header, args interface{}) ([]*common.RetCallTxN, *state.StateDBManage, []types.CoinReceipts, []types.CoinSelfTransaction, []types.CoinSelfTransaction, interface{}, error) {
 	work, err := matrixwork.NewWork(support.BlockChain().Config(), support.BlockChain(), nil, header)
 	if err != nil {
-		log.ERROR(LogManBlk, "区块验证请求生成,交易部分", "NewWork创建失败", "err", err)
+		log.ERROR(LogManBlk, "区块验证请求生成,交易部分", "Work创建失败", "err", err)
 		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err = support.BlockChain().ProcessStateVersion(header.Version, work.State); err != nil {
@@ -225,24 +225,27 @@ func (bd *ManBlkBasePlug) ProcessState(support BlKSupport, header *types.Header,
 		return nil, nil, nil, nil, nil, nil, err
 	}
 	txsCode, originalTxs, finalTxs := work.ProcessTransactions(support.EventMux(), support.TxPool(), upTimeMap)
-	block := types.NewBlock(header, finalTxs, nil, work.Receipts)
-	log.Debug(LogManBlk, "区块验证请求生成，交易部分,完成 tx hash", block.TxHash())
+
+	block := types.NewBlock(header, types.MakeCurencyBlock(types.GetCoinTX(finalTxs), work.Receipts, nil), nil)
+	log.Debug(LogManBlk, "区块验证请求生成，交易部分,完成 tx hash", types.TxHashList(finalTxs))
 	parent := support.BlockChain().GetBlockByHash(header.ParentHash)
 	err = support.BlockChain().ProcessMatrixState(block, string(parent.Version()), work.State)
 	if err != nil {
 		log.Error(LogManBlk, "运行matrix状态树失败", err)
 		return nil, nil, nil, nil, nil, nil, err
 	}
-	return txsCode, work.State, work.Receipts, originalTxs, finalTxs, nil, nil
+
+	return txsCode, work.State, work.Receipts, types.GetCoinTX(originalTxs), types.GetCoinTX(finalTxs), nil, nil
 }
 
-func (bd *ManBlkBasePlug) Finalize(support BlKSupport, header *types.Header, state *state.StateDB, txs []types.SelfTransaction, uncles []*types.Header, receipts []*types.Receipt, args interface{}) (*types.Block, interface{}, error) {
+func (bd *ManBlkBasePlug) Finalize(support BlKSupport, header *types.Header, state *state.StateDBManage, txs []types.CoinSelfTransaction, uncles []*types.Header, receipts []types.CoinReceipts, args interface{}) (*types.Block, interface{}, error) {
 	err := bd.setElect(support, state, header)
 	if err != nil {
 		log.Error(LogManBlk, "设置选举信息失败", err)
 		return nil, nil, err
 	}
-	block, err := support.BlockChain().Engine(header.Version).Finalize(support.BlockChain(), header, state, txs, uncles, receipts)
+
+	block, err := support.BlockChain().Engine(header.Version).Finalize(support.BlockChain(), header, state, uncles, types.MakeCurencyBlock(txs, receipts, nil))
 	if err != nil {
 		log.Error(LogManBlk, "最终finalize错误", err)
 		return nil, nil, err
@@ -293,8 +296,8 @@ func (bd *ManBlkBasePlug) VerifyHeader(version string, support BlKSupport, heade
 
 	return nil, nil
 }
-
-func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *types.Header, verifyTxs types.SelfTransactions, args interface{}) (*state.StateDB, types.SelfTransactions, []*types.Receipt, interface{}, error) {
+func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *types.Header, verifyTxs []types.CoinSelfTransaction, args interface{}) (*state.StateDBManage, []types.CoinSelfTransaction,
+	[]types.CoinReceipts, interface{}, error) {
 	//log.INFO(LogManBlk, "开始交易验证, 数量", len(verifyTxs), "高度", verifyHeader.Number.Uint64())
 
 	//跑交易交易验证， Root TxHash ReceiptHash Bloom GasLimit GasUsed
@@ -326,7 +329,8 @@ func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *ty
 		return nil, nil, nil, nil, err
 	}
 	finalTxs := work.GetTxs()
-	localBlock := types.NewBlock(localHeader, finalTxs, nil, work.Receipts)
+
+	localBlock := types.NewBlock(localHeader, types.MakeCurencyBlock(finalTxs, work.Receipts, nil), nil)
 	// process matrix state
 	parent := support.BlockChain().GetBlockByHash(verifyHeader.ParentHash)
 	if parent == nil {
@@ -340,17 +344,23 @@ func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *ty
 	}
 
 	// 运行完matrix state后，生成root
-	localBlock, err = support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), localHeader, work.State, finalTxs, nil, work.Receipts)
+	localBlock, err = support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), localHeader, work.State, nil, types.MakeCurencyBlock(finalTxs, work.Receipts, nil))
 	if err != nil {
 		log.ERROR(LogManBlk, "matrix状态验证,错误", "Failed to finalize block for sealing", "err", err)
 		return nil, nil, nil, nil, err
 	}
-
-	if !localBlock.TxHash().Equal(verifyHeader.TxHash) {
-		log.WARN(LogManBlk, "共识后的交易本地hash", localBlock.TxHash().String(), "共识后的交易远程hash", verifyHeader.TxHash.String())
-	}
-	if !localBlock.Root().Equal(verifyHeader.Root) {
-		log.WARN(LogManBlk, "finalize root", localBlock.Root().Hex(), "remote root", verifyHeader.Root.Hex())
+	for _, curr := range localBlock.Header().Roots {
+		for _, he := range verifyHeader.Roots {
+			if curr.Cointyp == he.Cointyp {
+				if !curr.TxHash.Equal(he.TxHash) {
+					log.WARN(LogManBlk, "共识后的交易本地hash", curr.TxHash.String(), "共识后的交易远程hash", he.TxHash.String(), "coin type", curr.Cointyp)
+				}
+				if !curr.Root.Equal(he.Root) {
+					log.WARN(LogManBlk, "finalize root", curr.Root.Hex(), "remote root", he.Root.Hex(), "coin type", curr.Cointyp)
+				}
+				break
+			}
+		}
 	}
 
 	// verify election info
@@ -366,10 +376,10 @@ func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *ty
 	if localHash != verifyHeaderHash {
 		log.ERROR(LogManBlk, "交易验证及状态，错误", "block hash不匹配",
 			"local hash", localHash.TerminalString(), "remote hash", verifyHeaderHash.TerminalString(),
-			"local root", localHeader.Root.TerminalString(), "remote root", verifyHeader.Root.TerminalString(),
-			"local txHash", localHeader.TxHash.TerminalString(), "remote txHash", verifyHeader.TxHash.TerminalString(),
-			"local ReceiptHash", localHeader.ReceiptHash.TerminalString(), "remote ReceiptHash", verifyHeader.ReceiptHash.TerminalString(),
-			"local Bloom", localHeader.Bloom.Big(), "remote Bloom", verifyHeader.Bloom.Big(),
+			"local root", localHeader.Roots, "remote root", verifyHeader.Roots,
+			//"local txHash", localHeader.TxHash.TerminalString(), "remote txHash", verifyHeader.TxHash.TerminalString(),
+			//"local ReceiptHash", localHeader.ReceiptHash.TerminalString(), "remote ReceiptHash", verifyHeader.ReceiptHash.TerminalString(),
+			//"local Bloom", localHeader.Bloom.Big(), "remote Bloom", verifyHeader.Bloom.Big(),
 			"local GasLimit", localHeader.GasLimit, "remote GasLimit", verifyHeader.GasLimit,
 			"local GasUsed", localHeader.GasUsed, "remote GasUsed", verifyHeader.GasUsed)
 		return nil, nil, nil, nil, errors.New("hash 不一致")

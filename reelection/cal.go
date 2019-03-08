@@ -16,10 +16,10 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 )
 
-func (self *ReElection) GetElectGenTimes(height uint64) (*mc.ElectGenTimeStruct, error) {
-	st, err := self.bc.StateAtNumber(height)
+func (self *ReElection) GetElectGenTimes(hash common.Hash) (*mc.ElectGenTimeStruct, error) {
+	st, err := self.bc.StateAtBlockHash(hash)
 	if err != nil {
-		log.Error("GetElectGenTimes", "获取state失败", err, "number", height)
+		log.Error("GetElectGenTimes", "获取state失败", err, "hash", hash)
 		return nil, err
 	}
 	electGenConfig, err := matrixstate.GetElectGenTime(st)
@@ -29,10 +29,10 @@ func (self *ReElection) GetElectGenTimes(height uint64) (*mc.ElectGenTimeStruct,
 	}
 	return electGenConfig, nil
 }
-func (self *ReElection) GetElectConfig(height uint64) (*mc.ElectConfigInfo_All, error) {
-	st, err := self.bc.StateAtNumber(height)
+func (self *ReElection) GetElectConfig(hash common.Hash) (*mc.ElectConfigInfo_All, error) {
+	st, err := self.bc.StateAtBlockHash(hash)
 	if err != nil {
-		log.Error("GetElectInfo", "获取state失败", err, "number", height)
+		log.Error("GetElectInfo", "获取state失败", err, "hash", hash)
 		return nil, err
 	}
 	electInfo, err := matrixstate.GetElectConfigInfo(st)
@@ -49,19 +49,19 @@ func (self *ReElection) GetElectConfig(height uint64) (*mc.ElectConfigInfo_All, 
 
 	blackList, err := matrixstate.GetElectBlackList(st)
 	if err != nil {
-		log.Error("MSKeyElectBlackList", "MSKeyElectBlackList", "反射失败", "高度", height)
+		log.Error("MSKeyElectBlackList", "MSKeyElectBlackList", "反射失败", "hash", hash)
 		return nil, err
 	}
 
 	whiteList, err := matrixstate.GetElectWhiteList(st)
 	if err != nil {
-		log.Error("MSKeyElectWhiteList", "MSKeyElectWhiteList", "反射失败", "高度", height)
+		log.Error("MSKeyElectWhiteList", "MSKeyElectWhiteList", "反射失败", "hash", hash)
 		return nil, err
 	}
 
 	whiteListSwitcher, err := matrixstate.GetElectWhiteListSwitcher(st)
 	if err != nil {
-		log.Error("MSKeyElectWhiteList", "MSKeyElectWhiteList", "反射失败", "高度", height)
+		log.Error("MSKeyElectWhiteList", "MSKeyElectWhiteList", "反射失败", "hash", hash)
 		return nil, err
 	}
 	elect := &mc.ElectConfigInfo_All{
@@ -76,10 +76,10 @@ func (self *ReElection) GetElectConfig(height uint64) (*mc.ElectConfigInfo_All, 
 
 	return elect, nil
 }
-func (self *ReElection) GetViPList(height uint64) ([]mc.VIPConfig, error) {
-	st, err := self.bc.StateAtNumber(height)
+func (self *ReElection) GetViPList(hash common.Hash) ([]mc.VIPConfig, error) {
+	st, err := self.bc.StateAtBlockHash(hash)
 	if err != nil {
-		log.Error("GetViPList", "获取state失败", err, "number", height)
+		log.Error("GetViPList", "获取state失败", err, "number", hash)
 		return nil, err
 	}
 	vipList, err := matrixstate.GetVIPConfig(st)
@@ -90,10 +90,10 @@ func (self *ReElection) GetViPList(height uint64) ([]mc.VIPConfig, error) {
 	return vipList, nil
 }
 
-func (self *ReElection) GetElectPlug(height uint64) (baseinterface.ElectionInterface, error) {
-	st, err := self.bc.StateAtNumber(height)
+func (self *ReElection) GetElectPlug(hash common.Hash) (baseinterface.ElectionInterface, error) {
+	st, err := self.bc.StateAtBlockHash(hash)
 	if err != nil {
-		log.Error("GetElectPlug", "获取state失败", err, "number", height)
+		log.Error("GetElectPlug", "获取state失败", err, "number", hash)
 		return nil, err
 	}
 	electInfo, err := matrixstate.GetElectConfigInfo(st)

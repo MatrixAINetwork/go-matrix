@@ -99,6 +99,10 @@ func (b *ManAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 	return b.man.blockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
 
+func (b *ManAPIBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	return b.man.blockchain.GetHeaderByHash(hash), nil
+}
+
 func (b *ManAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
@@ -112,7 +116,7 @@ func (b *ManAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	return b.man.blockchain.GetBlockByNumber(uint64(blockNr)), nil
 }
 
-func (b *ManAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
+func (b *ManAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDBManage, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block, state := b.man.miner.Pending()
@@ -123,24 +127,34 @@ func (b *ManAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 	if header == nil || err != nil {
 		return nil, nil, err
 	}
-	stateDb, err := b.man.BlockChain().StateAt(header.Root)
+	stateDb, err := b.man.BlockChain().StateAt(header.Roots)
+	return stateDb, header, err
+}
+
+func (b *ManAPIBackend) StateAndHeaderByHash(ctx context.Context, hash common.Hash) (*state.StateDBManage, *types.Header, error) {
+	// Otherwise resolve the block number and return its state
+	header, err := b.HeaderByHash(ctx, hash)
+	if header == nil || err != nil {
+		return nil, nil, err
+	}
+	stateDb, err := b.man.BlockChain().StateAt(header.Roots)
 	return stateDb, header, err
 }
 
 func (b *ManAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return b.man.blockchain.GetBlockByHash(hash), nil
 }
-func (b *ManAPIBackend) GetState() (*state.StateDB, error) {
+func (b *ManAPIBackend) GetState() (*state.StateDBManage, error) {
 	return b.man.BlockChain().State()
 }
-func (b *ManAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
+func (b *ManAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) ([]types.CoinReceipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.man.chainDb, hash); number != nil {
 		return rawdb.ReadReceipts(b.man.chainDb, hash, *number), nil
 	}
 	return nil, nil
 }
 
-func (b *ManAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
+func (b *ManAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([]types.CoinLogs, error) {
 	number := rawdb.ReadHeaderNumber(b.man.chainDb, hash)
 	if number == nil {
 		return nil, nil
@@ -149,9 +163,15 @@ func (b *ManAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*typ
 	if receipts == nil {
 		return nil, nil
 	}
-	logs := make([][]*types.Log, len(receipts))
-	for i, receipt := range receipts {
-		logs[i] = receipt.Logs
+	logs := make([]types.CoinLogs, len(receipts))
+	mm := make(map[string][]*types.Log)
+	for _, cr := range receipts {
+		for _, receipt := range cr.Receiptlist {
+			mm[cr.CoinType] = append(mm[cr.CoinType], receipt.Logs...)
+		}
+	}
+	for k, v := range mm {
+		logs = append(logs, types.CoinLogs{k, v})
 	}
 	return logs, nil
 }
@@ -160,12 +180,12 @@ func (b *ManAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.man.blockchain.GetTdByHash(blockHash)
 }
 
-func (b *ManAPIBackend) GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
-	state.SetBalance(common.MainAccount, msg.From(), math.MaxBig256)
+func (b *ManAPIBackend) GetEVM(ctx context.Context, msg txinterface.Message, state *state.StateDBManage, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
+	state.SetBalance(msg.GetTxCurrency(), common.MainAccount, msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
 	context := core.NewEVMContext(msg.From(), msg.GasPrice(), header, b.man.BlockChain(), nil)
-	return vm.NewEVM(context, state, b.man.chainConfig, vmCfg), vmError, nil
+	return vm.NewEVM(context, state, b.man.chainConfig, vmCfg, msg.GetTxCurrency()), vmError, nil
 }
 
 func (b *ManAPIBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
@@ -184,7 +204,7 @@ func (b *ManAPIBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) e
 	return b.man.BlockChain().SubscribeChainSideEvent(ch)
 }
 
-func (b *ManAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (b *ManAPIBackend) SubscribeLogsEvent(ch chan<- []types.CoinLogs) event.Subscription {
 	return b.man.BlockChain().SubscribeLogsEvent(ch)
 }
 
@@ -253,12 +273,12 @@ func (b *ManAPIBackend) GetPoolTransaction(hash common.Hash) types.SelfTransacti
 	return nil
 }
 
-func (b *ManAPIBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
+func (b *ManAPIBackend) GetPoolNonce(cointyp string, ctx context.Context, addr common.Address) (uint64, error) {
 	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
 	if nerr == nil {
 		npool, ok := npooler.(*core.NormalTxPool)
 		if ok {
-			return npool.State().GetNonce(addr), nil
+			return npool.State().GetNonce(cointyp, addr), nil
 		} else {
 			return 0, errors.New("GetPoolNonce() unknown txpool")
 		}
@@ -417,9 +437,9 @@ type AllReward struct {
 	Interest  []InterestReward
 }
 
-func (b *ManAPIBackend) GetFutureRewards(state *state.StateDB, number rpc.BlockNumber) (interface{}, error) {
+func (b *ManAPIBackend) GetFutureRewards(state *state.StateDBManage, number rpc.BlockNumber) (interface{}, error) {
 
-	bcInterval, err := manparams.GetBCIntervalInfoByNumber(uint64(number))
+	bcInterval, err := manparams.GetBCIntervalInfoByNumber(uint64(number - 1))
 	if nil != err {
 		return nil, err
 	}
@@ -454,7 +474,7 @@ func (b *ManAPIBackend) GetFutureRewards(state *state.StateDB, number rpc.BlockN
 	}
 	minerRewardList := make([]RewardMount, 0)
 	for k, v := range RewardMap {
-		obj := RewardMount{Account: base58.Base58EncodeToString("MAN", k), Reward: v}
+		obj := RewardMount{Account: base58.Base58EncodeToString(params.MAN_COIN, k), Reward: v}
 		for _, d := range originElectNodes.ElectList {
 			if d.Account.Equal(k) {
 				obj.VipLevel = d.VIPLevel
@@ -470,7 +490,7 @@ func (b *ManAPIBackend) GetFutureRewards(state *state.StateDB, number rpc.BlockN
 	}
 	ValidatorRewardList := make([]RewardMount, 0)
 	for k, v := range validatorMap {
-		obj := RewardMount{Account: base58.Base58EncodeToString("MAN", k), Reward: v}
+		obj := RewardMount{Account: base58.Base58EncodeToString(params.MAN_COIN, k), Reward: v}
 		for _, d := range originElectNodes.ElectList {
 			if d.Account.Equal(k) {
 				obj.VipLevel = d.VIPLevel
@@ -480,16 +500,13 @@ func (b *ManAPIBackend) GetFutureRewards(state *state.StateDB, number rpc.BlockN
 		ValidatorRewardList = append(ValidatorRewardList, obj)
 	}
 	allReward.Validator = ValidatorRewardList
-	interestReward := interest.New(state)
-	if nil == interestReward {
+	interestCalcMap, err := b.calcFutureInterest(state, latestElectNum+1, bcInterval)
+	if nil != err {
 		return nil, err
 	}
-	interestCalcMap := interestReward.GetInterest(state, latestElectNum)
-	interestNum := bcInterval.GetReElectionInterval() / interestReward.CalcInterval
 	interestRewardList := make([]InterestReward, 0)
 	for k, v := range interestCalcMap {
-		allInterest := new(big.Int).Mul(v, new(big.Int).SetUint64(interestNum))
-		obj := InterestReward{Account: base58.Base58EncodeToString("MAN", k), Reward: allInterest}
+		obj := InterestReward{Account: base58.Base58EncodeToString("MAN", k), Reward: v}
 
 		for _, d := range depositNodes {
 			if d.Address.Equal(k) {
@@ -508,49 +525,68 @@ func (b *ManAPIBackend) GetFutureRewards(state *state.StateDB, number rpc.BlockN
 	return allReward, nil
 }
 
-func (b *ManAPIBackend) calcFutureBlkReward(state *state.StateDB, latestElectNum uint64, bcInterval *mc.BCIntervalInfo, roleType common.RoleType, originElectNodes *mc.ElectGraph) (map[common.Address]*big.Int, error) {
+func (b *ManAPIBackend) calcFutureInterest(state *state.StateDBManage, latestElectNum uint64, bcInterval *mc.BCIntervalInfo) (map[common.Address]*big.Int, error) {
+	interestReward := interest.New(state, state)
+	if nil == interestReward {
+		return nil, errors.New("interest创建失败")
+	}
+	interestCalcMap := make(map[common.Address]*big.Int)
+	parentHash := b.man.BlockChain().GetBlockByNumber(latestElectNum + 1).Hash()
+	for num := latestElectNum; num < bcInterval.GetNextReElectionNumber(latestElectNum); num++ {
+
+		if bcInterval.IsBroadcastNumber(num) {
+			continue
+		}
+
+		retMap := interestReward.GetReward(state, latestElectNum+1, parentHash)
+		util.MergeReward(interestCalcMap, retMap)
+	}
+	return interestCalcMap, nil
+}
+func (b *ManAPIBackend) calcFutureBlkReward(state *state.StateDBManage, latestElectNum uint64, bcInterval *mc.BCIntervalInfo, roleType common.RoleType, originElectNodes *mc.ElectGraph) (map[common.Address]*big.Int, error) {
 	selected := selectedreward.SelectedReward{}
 
-	br := blkreward.New(b.man.BlockChain(), state)
+	br := blkreward.New(b.man.BlockChain(), state, state, state)
+
 	RewardMap := make(map[common.Address]*big.Int)
+
 	var rewardAddr common.Address
 	var rewardIn *big.Int
 	var halfNum uint64
+	var attenuationRate uint16
 	if roleType == common.RoleMiner {
-		halfNum = br.GetRewardCfg().RewardMount.MinerHalf
+		halfNum = br.GetRewardCfg().RewardMount.MinerAttenuationNum
+		attenuationRate = br.GetRewardCfg().RewardMount.MinerAttenuationRate
 		rewardIn = new(big.Int).Mul(new(big.Int).SetUint64(br.GetRewardCfg().RewardMount.MinerMount), util.ManPrice)
 		rewardAddr = common.BlkMinerRewardAddress
 	} else {
-		halfNum = br.GetRewardCfg().RewardMount.ValidatorHalf
+		halfNum = br.GetRewardCfg().RewardMount.ValidatorAttenuationNum
+		attenuationRate = br.GetRewardCfg().RewardMount.ValidatorAttenuationRate
 		rewardIn = new(big.Int).Mul(new(big.Int).SetUint64(br.GetRewardCfg().RewardMount.ValidatorMount), util.ManPrice)
 		rewardAddr = common.BlkValidatorRewardAddress
 	}
-
 	topNodes := make([]common.Address, 0)
 	for _, node := range originElectNodes.ElectList {
 		if node.Type == node.Type&roleType {
 			topNodes = append(topNodes, node.Account)
 		}
 	}
-
 	electNodes := make(map[common.Address]uint16, 0)
 	for _, node := range originElectNodes.ElectList {
 		if node.Type == node.Type&roleType {
 			electNodes[node.Account] = node.Stock
 		}
 	}
-
 	for num := latestElectNum; num < bcInterval.GetNextReElectionNumber(latestElectNum); num++ {
 
 		if bcInterval.IsBroadcastNumber(num) {
 			continue
 		}
-		rewardOut := br.CalcRewardMountByNumber(rewardIn, uint64(num), halfNum, rewardAddr)
+		rewardOut := util.CalcRewardMountByNumber(state, rewardIn, uint64(num), halfNum, rewardAddr, attenuationRate)
 
 		var roleOutAmount, electedMount *big.Int
 		if roleType == common.RoleMiner {
 			roleOutAmount, electedMount, _ = br.CalcMinerRateMount(rewardOut)
-
 		} else {
 			roleOutAmount, electedMount, _ = br.CalcValidatorRateMount(rewardOut)
 		}

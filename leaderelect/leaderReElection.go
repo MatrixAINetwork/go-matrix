@@ -171,7 +171,7 @@ func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
 	}
 
 	//获取状态树
-	parentState, err := self.matrix.BlockChain().StateAt(header.Root)
+	parentState, err := self.matrix.BlockChain().StateAt(header.Roots)
 	if err != nil {
 		log.ERROR(self.extraInfo, "CA身份通知消息处理", "获取区块状态树失败", "err", err, "高度", msg.BlockNum)
 		return

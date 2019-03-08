@@ -5,6 +5,7 @@ package commonsupport
 
 import (
 	"fmt"
+
 	"github.com/MatrixAINetwork/go-matrix"
 	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/ca"
@@ -13,24 +14,19 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/vm"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"math/big"
 )
 
 const (
 	ModeleRandomCommon = "随机数服务公共组件"
 )
 
-func GetElectGenTimes(support matrix.StateReader, height uint64) (*mc.ElectGenTimeStruct, error) {
-	return readstatedb.GetElectGenTimes(support, height)
+func GetElectGenTimes(support matrix.StateReader, hash common.Hash) (*mc.ElectGenTimeStruct, error) {
+	return readstatedb.GetElectGenTimes(support, hash)
 }
 
 func getRandomInfo(hash common.Hash, support baseinterface.RandomChainSupport) (*mc.RandomInfoStruct, error) {
-	height, err := GetNumberByHash(hash, support)
-	if err != nil {
-		log.Error(ModeleRandomCommon, "获取随机数信息失败", err, "hash", hash.String())
-		return nil, fmt.Errorf("获取随机数信息失败 %v", hash)
-	}
-	randonInfo, err := readstatedb.GetRandomInfo(support.BlockChain(), height)
+
+	randonInfo, err := readstatedb.GetRandomInfo(support.BlockChain(), hash)
 	if err != nil {
 		log.Error(ModeleRandomCommon, "获取随机数信息失败,从状态树获取信息失败 err", err)
 		return nil, fmt.Errorf("获取随机数信息失败,从状态树获取信息失败 %v", err)
@@ -59,8 +55,8 @@ func GetMaxNonce(hash common.Hash, support baseinterface.RandomChainSupport) (ui
 	return randomInfo.MaxNonce, nil
 }
 
-func GetDepositListByHeightAndRole(height *big.Int, role common.RoleType) ([]vm.DepositDetail, error) {
-	return ca.GetElectedByHeightAndRole(height, role)
+func GetDepositListByHeightAndRole(hash common.Hash, role common.RoleType) ([]vm.DepositDetail, error) {
+	return ca.GetElectedByHeightAndRoleByHash(hash, role)
 }
 
 func GetSelfAddress() common.Address {

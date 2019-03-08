@@ -526,13 +526,13 @@ func (manash *Manash) Prepare(chain consensus.ChainReader, header *types.Header)
 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
 // setting the final state and assembling the block.
-func (manash *Manash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []types.SelfTransaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (manash *Manash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDBManage, uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	//	accumulateRewards(chain.Config(), state, header, uncles)
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.Roots, header.Sharding = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock(header, txs, uncles, receipts), nil
+	return types.NewBlock(header, currencyBlock, uncles), nil
 }
 
 // Some weird constants to avoid constant memory allocs for them.
@@ -567,7 +567,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 func (manash *Manash) verifyCoinbaseRole(chain consensus.ChainReader, header *types.Header) error {
-	log.DEBUG("seal coinbase", "开始验证coinbase", header.Coinbase.Hex(), "高度", header.Number, "hash", header.Hash().Hex())
+	//log.DEBUG("seal coinbase", "开始验证coinbase", header.Coinbase.Hex(), "高度", header.Number, "hash", header.Hash().Hex())
 	preTopology, _, err := chain.GetGraphByHash(header.ParentHash)
 	if err != nil {
 		log.Error("seal coinbase", "get pre topology graph err", err)

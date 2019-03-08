@@ -74,7 +74,6 @@ func newManger(version string) *Manager {
 				mc.MSKeyAccountFoundation:      newFoundationAccountOpt(),
 				mc.MSKeyAccountVersionSupers:   newVersionSuperAccountsOpt(),
 				mc.MSKeyAccountBlockSupers:     newBlockSuperAccountsOpt(),
-				mc.MSKeyAccountTxsSupers:       newTxsSuperAccountsOpt(),
 				mc.MSKeyAccountMultiCoinSupers: newMultiCoinSuperAccountsOpt(),
 				mc.MSKeyAccountSubChainSupers:  newSubChainSuperAccountsOpt(),
 				mc.MSKeyVIPConfig:              newVIPConfigOpt(),
@@ -104,7 +103,7 @@ func newManger(version string) *Manager {
 				mc.MSKeySlashCalc:    newSlashCalcOpt(),
 
 				mc.MSTxpoolGasLimitCfg: newTxpoolGasLimitOpt(),
-				mc.MSCurrencyPack:      newCurrencyPackOpt(),
+				mc.MSCurrencyConfig:    newCurrencyPackOpt(),
 				mc.MSAccountBlackList:  newAccountBlackListOpt(),
 
 				mc.MSKeyBlockProduceStatsStatus: newBlockProduceStatsStatusOpt(),

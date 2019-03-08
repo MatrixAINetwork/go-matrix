@@ -4,6 +4,10 @@
 package blkgenor
 
 import (
+	"math/big"
+
+	"time"
+
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus/blkmanage"
@@ -12,8 +16,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-	"math/big"
-	"time"
 )
 
 func (p *Process) ProcessRecoveryMsg(msg *mc.RecoveryStateMsg) {
@@ -93,14 +95,14 @@ func (p *Process) ProcessFullBlockReq(req *mc.HD_FullBlockReqMsg) {
 		Header: blockData.block.Header,
 		Txs:    blockData.block.OriginalTxs,
 	}
-	log.Debug(p.logExtraInfo(), "处理完整区块请求", "发送响应消息", "to", req.From, "hash", rspMsg.Header.Hash(), "交易数量", rspMsg.Txs.Len())
+	log.Debug(p.logExtraInfo(), "处理完整区块请求", "发送响应消息", "to", req.From, "hash", rspMsg.Header.Hash(), "交易", rspMsg.Txs)
 	p.pm.hd.SendNodeMsg(mc.HD_FullBlockRsp, rspMsg, common.RoleNil, []common.Address{req.From})
 }
 
 func (p *Process) ProcessFullBlockRsp(rsp *mc.HD_FullBlockRspMsg) {
 	fullHash := rsp.Header.Hash()
 	headerHash := rsp.Header.HashNoSignsAndNonce()
-	log.INFO(p.logExtraInfo(), "处理完整区块响应", "开始", "区块 hash", fullHash.TerminalString(), "交易数量", rsp.Txs.Len(), "root", rsp.Header.Root.Hex(), "高度", p.number)
+	log.INFO(p.logExtraInfo(), "处理完整区块响应", "开始", "区块 hash", fullHash.TerminalString(), "交易", rsp.Txs, "root", rsp.Header.Roots, "高度", p.number)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -385,9 +387,9 @@ func (p *Process) insertAndBcBlock(isSelf bool, leader common.Address, header *t
 	txs := blockData.block.FinalTxs
 	receipts := blockData.block.Receipts
 	state := blockData.block.State
-	block := types.NewBlockWithTxs(insertHeader, txs)
+	block := types.NewBlockWithTxs(insertHeader, types.MakeCurencyBlock(txs, receipts, nil))
 
-	stat, err := p.blockChain().WriteBlockWithState(block, receipts, state)
+	stat, err := p.blockChain().WriteBlockWithState(block, state)
 	if err != nil {
 		log.ERROR(p.logExtraInfo(), "插入区块失败", err)
 		return common.Hash{}, err

@@ -37,7 +37,7 @@ func (a *GenesisAddress) UnmarshalJSON(input []byte) error {
 //}
 // MarshalText returns the hex representation of a.
 func (a GenesisAddress) MarshalText() ([]byte, error) {
-	buff := base58.Base58EncodeToString("MAN", common.Address(a))
+	buff := base58.Base58EncodeToString(params.MAN_COIN, common.Address(a))
 	return []byte(buff), nil
 }
 
@@ -69,8 +69,9 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 		Number            math.HexOrDecimal64               `json:"number"`
 		GasUsed           math.HexOrDecimal64               `json:"gasUsed"`
 		ParentHash        common.Hash                       `json:"parentHash"`
-		Root              common.Hash                       `json:"stateRoot,omitempty"`
-		TxHash            common.Hash                       `json:"transactionsRoot,omitempty"`
+		Roots             []common.CoinRoot                 `json:"stateRoot,omitempty"`
+		Sharding          []common.Coinbyte                 `json:"sharding,omitempty"`
+		//TxHash            common.Hash                       `json:"transactionsRoot,omitempty"`		//BBBBBBBB
 	}
 	var enc Genesis
 	enc.Config = g.Config
@@ -101,8 +102,9 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 	enc.Number = math.HexOrDecimal64(g.Number)
 	enc.GasUsed = math.HexOrDecimal64(g.GasUsed)
 	enc.ParentHash = g.ParentHash
-	enc.Root = g.Root
-	enc.TxHash = g.TxHash
+	enc.Roots = g.Roots
+	enc.Sharding = g.Sharding
+	//enc.TxHash = g.TxHash
 	return json.Marshal(&enc)
 }
 
@@ -184,8 +186,8 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		Number            *math.HexOrDecimal64              `json:"number"`
 		GasUsed           *math.HexOrDecimal64              `json:"gasUsed"`
 		ParentHash        *common.Hash                      `json:"parentHash"`
-		Root              *common.Hash                      `json:"stateRoot,omitempty"`
-		TxHash            *common.Hash                      `json:"transactionsRoot,omitempty"`
+		Roots             *[]common.CoinRoot                          `json:"stateRoot,omitempty"`
+		Sharding          *[]common.Coinbyte                          `json:"sharding,omitempty"`
 	}
 	var dec Genesis
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -261,11 +263,12 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 	if dec.ParentHash != nil {
 		g.ParentHash = *dec.ParentHash
 	}
-	if dec.Root != nil {
-		g.Root = *dec.Root
+	if dec.Roots != nil {
+		g.Roots = *dec.Roots
 	}
-	if dec.TxHash != nil {
-		g.TxHash = *dec.TxHash
+	if dec.Sharding != nil {
+		g.Sharding = *dec.Sharding
 	}
+
 	return nil
 }

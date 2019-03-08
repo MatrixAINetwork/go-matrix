@@ -2,13 +2,13 @@ package types
 
 import (
 	"errors"
+	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"io"
 	"math/big"
 	"sync/atomic"
 	"time"
-
-	"github.com/MatrixAINetwork/go-matrix/common"
-	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
 type TransactionBroad struct {
@@ -83,6 +83,18 @@ func (tx *TransactionBroad) CheckNonce() bool   { return true }
 func (tx *TransactionBroad) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
 }
+func (tx *TransactionBroad) GetMakeHashfield(chid *big.Int )[]interface{}{
+	return []interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			tx.data.Extra,
+			chid, uint(0), uint(0),
+	}
+}
 func (tx *TransactionBroad) IsEntrustTx() bool { return tx.data.IsEntrustTx == 1 }
 func (tx *TransactionBroad) Setentrustfrom(x interface{}) {
 
@@ -135,7 +147,7 @@ func (tx *TransactionBroad) SetTxCurrency(currency string) {
 
 }
 func (tx *TransactionBroad) GetTxCurrency() string {
-	return ""
+	return params.MAN_COIN
 }
 
 //

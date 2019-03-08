@@ -12,6 +12,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus/blkmanage"
 	"github.com/MatrixAINetwork/go-matrix/core"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
@@ -251,7 +252,8 @@ func (p *Process) AddVerifiedBlock(block *verifiedBlock) {
 		log.Info(p.logExtraInfo(), "AddVerifiedBlock", "添加缓存失败", "err", err, "高度", p.number)
 		return
 	}
-	reqData.originalTxs = block.txs
+	ctx := types.GetCoinTX(block.txs)
+	reqData.originalTxs = ctx
 	return
 }
 
@@ -359,7 +361,7 @@ func (p *Process) startReqVerifyCommon() {
 	req, err := p.reqCache.GetLeaderReq(p.leaderCache.Leader, p.leaderCache.ConsensusTurn)
 	if err != nil {
 		log.Debug(p.logExtraInfo(), "请求验证阶段,寻找leader的请求错误,继续等待请求", err,
-			"Leader", p.leaderCache.Leader.Hex(), "轮次", p.leaderCache.ConsensusTurn, "高度", p.number)
+			"Leader", p.leaderCache.Leader.Hex(), "轮次", p.leaderCache.ConsensusTurn.String(), "高度", p.number)
 		return
 	}
 
@@ -498,8 +500,10 @@ func (p *Process) StartVerifyTxsAndState(result *core.RetChan) {
 		p.startDPOSVerify(localVerifyResultFailedButCanRecover)
 		return
 	}
+
 	for _, listN := range result.AllTxs {
-		p.curProcessReq.originalTxs = append(p.curProcessReq.originalTxs, listN.Txser...)
+		ctx := types.GetCoinTX(listN.Txser)
+		p.curProcessReq.originalTxs = append(p.curProcessReq.originalTxs, ctx...)
 	}
 
 	p.verifyTxsAndState()
@@ -573,7 +577,7 @@ func (p *Process) startDPOSVerify(lvResult verifyResult) {
 		}
 
 		if len(p.curProcessReq.originalTxs) > 0 {
-			txpoolCache.MakeStruck(p.curProcessReq.originalTxs, p.curProcessReq.hash, p.number)
+			txpoolCache.MakeStruck(types.GetTX(p.curProcessReq.originalTxs), p.curProcessReq.hash, p.number)
 		}
 	}
 	p.curProcessReq.localVerifyResult = lvResult

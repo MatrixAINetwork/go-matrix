@@ -19,6 +19,7 @@ type VipCfg struct {
 }
 type NodeList struct {
 	Address string
+	SignAddress string
 	Account string
 }
 
@@ -63,7 +64,7 @@ func ValidatorElectProcess(vectorPath string) (bool, error) {
 	ValidatorList := make([]vm.DepositDetail, 0)
 	for _, v := range cfg.NodeList {
 		deposit, _ := new(big.Int).SetString(v.Account, 0)
-		ValidatorList = append(ValidatorList, vm.DepositDetail{Address: common.HexToAddress(v.Address), Deposit: deposit})
+		ValidatorList = append(ValidatorList, vm.DepositDetail{Address: common.HexToAddress(v.Address), SignAddress: common.HexToAddress(v.SignAddress), Deposit: deposit})
 	}
 	Vip := make([]mc.VIPConfig, 0)
 	Vip = append(Vip, mc.VIPConfig{MinMoney: 0, ElectUserNum: 0, StockScale: 1000})
@@ -145,7 +146,7 @@ func MinerElectProcess(vectorPath string) (bool, error) {
 	minerList := make([]vm.DepositDetail, 0)
 	for _, v := range cfg.NodeList {
 		deposit, _ := new(big.Int).SetString(v.Account, 0)
-		minerList = append(minerList, vm.DepositDetail{Address: common.HexToAddress(v.Address), Deposit: deposit})
+		minerList = append(minerList, vm.DepositDetail{Address: common.HexToAddress(v.Address), SignAddress:common.HexToAddress(v.SignAddress), Deposit: deposit})
 	}
 	Vip := make([]mc.VIPConfig, 0)
 	Vip = append(Vip, mc.VIPConfig{MinMoney: 0, ElectUserNum: 0, StockScale: 1000})
@@ -311,6 +312,11 @@ func TestValidatorCase21(t *testing.T) {
 		t.Error(err)
 	}
 }
+func TestValidatorCase22(t *testing.T) {
+	if status, err := ValidatorElectProcess(".\\testdata\\testvectorV\\case22.json"); !status {
+		t.Error(err)
+	}
+}
 func TestMinerCase1(t *testing.T) {
 	if status, err := MinerElectProcess(".\\testdata\\testvectorM\\case1.json"); !status {
 		t.Error(err)
@@ -418,6 +424,11 @@ func TestMinerCase21(t *testing.T) {
 }
 func TestMinerCase22(t *testing.T) {
 	if status, err := MinerElectProcess(".\\testdata\\testvectorM\\case22.json"); !status {
+		t.Error(err)
+	}
+}
+func TestMinerCase23(t *testing.T) {
+	if status, err := MinerElectProcess(".\\testdata\\testvectorM\\case23.json"); !status {
 		t.Error(err)
 	}
 }

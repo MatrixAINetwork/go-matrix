@@ -35,7 +35,6 @@ func IsCorrectVersion(version []byte) bool {
 	}
 	return false
 }
-
 func GetVersionSignature(parentBlock *types.Block, version []byte) []common.Signature {
 	if len(version) == 0 {
 		return nil

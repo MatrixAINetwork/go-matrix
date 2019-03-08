@@ -52,7 +52,7 @@ func New(bc *core.BlockChain, random *baseinterface.Random, topNode TopNodeServi
 	return reelection, nil
 }
 
-func (self *ReElection) GetElection(state *state.StateDB, hash common.Hash) (*ElectReturnInfo, error) {
+func (self *ReElection) GetElection(state *state.StateDBManage, hash common.Hash) (*ElectReturnInfo, error) {
 	log.Trace(Module, "GetElection", "start", "hash", hash)
 	defer log.Trace(Module, "GetElection", "end", "hash", hash)
 	preElectGraph, err := matrixstate.GetElectGraph(state)
@@ -120,7 +120,7 @@ func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address
 	}
 
 	headerPos := self.bc.GetHeaderByHash(hash)
-	stateDB, err := self.bc.StateAt(headerPos.Root)
+	stateDB, err := self.bc.StateAt(headerPos.Roots)
 
 	electState, err := matrixstate.GetElectGraph(stateDB)
 	if err != nil || nil == electState {
@@ -140,7 +140,11 @@ func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address
 		return []mc.Alternative{}, err
 	}
 	antive := GetAllNativeDataForUpdate(*electState, *electOnlineState, TopoGrap)
-	DiffValidatot, err := self.TopoUpdate(antive, TopoGrap, height-1)
+	block := self.bc.GetBlockByHash(hash)
+	if block == nil {
+		log.ERROR(Module, "获取区块失败,hash", hash)
+	}
+	DiffValidatot, err := self.TopoUpdate(antive, TopoGrap, block.ParentHash())
 	if err != nil {
 		log.ERROR(Module, "拓扑更新失败 err", err, "高度", height)
 	}

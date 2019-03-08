@@ -33,7 +33,7 @@ func (mp *MatrixProcessor) RegisterProducer(key string, producer ProduceMatrixSt
 	mp.producerMap[key] = producer
 }
 
-func (mp *MatrixProcessor) ProcessStateVersion(version []byte, state *state.StateDB) error {
+func (mp *MatrixProcessor) ProcessStateVersion(version []byte, state *state.StateDBManage) error {
 	if len(version) == 0 || state == nil {
 		return errors.New("param is nil")
 	}
@@ -51,7 +51,7 @@ func (mp *MatrixProcessor) ProcessStateVersion(version []byte, state *state.Stat
 	return nil
 }
 
-func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, preVersion string, state *state.StateDB) error {
+func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, preVersion string, state *state.StateDBManage) error {
 	if block == nil || state == nil {
 		return errors.New("param is nil")
 	}

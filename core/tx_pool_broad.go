@@ -10,7 +10,7 @@ import (
 
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
-	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	//"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/event"
@@ -19,6 +19,9 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/p2p"
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	//"github.com/MatrixAINetwork/go-matrix/trie"
+	//"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 )
 
 type BroadCastTxPool struct {
@@ -75,7 +78,10 @@ func ProduceMatrixStateData(block *types.Block, readFn PreStateReadFn) (interfac
 	tempMap[mc.Heartbeat] = make(map[common.Address][]byte)
 	tempMap[mc.Privatekey] = make(map[common.Address][]byte)
 	tempMap[mc.CallTheRoll] = make(map[common.Address][]byte)
-	txs := block.Transactions()
+	txs := make(types.SelfTransactions, 0)
+	for _, curr := range block.Currencies() {
+		txs = append(txs, curr.Transactions.GetTransactions()...)
+	}
 	for _, tx := range txs {
 		if len(tx.GetMatrix_EX()) > 0 && tx.GetMatrix_EX()[0].TxType == 1 {
 			temp := make(map[string][]byte)
@@ -118,10 +124,10 @@ func ProduceMatrixStateData(block *types.Block, readFn PreStateReadFn) (interfac
 }
 
 type ChainReader interface {
-	StateAt(root common.Hash) (*state.StateDB, error)
+	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
 }
 
-func GetBroadcastTxMap(bc ChainReader, root common.Hash, txtype string) (reqVal map[common.Address][]byte, err error) {
+func GetBroadcastTxMap(bc ChainReader, root []common.CoinRoot, txtype string) (reqVal map[common.Address][]byte, err error) {
 	state, err := bc.StateAt(root)
 	if err != nil {
 		log.Error("GetBroadcastTxMap StateAt err")
@@ -159,8 +165,6 @@ func (bPool *BroadCastTxPool) ProcessMsg(m NetworkMsgData) {
 	}
 
 	tx := types.SetTransactionMx(txMx)
-	//txs := make([]types.SelfTransaction, 0)
-	//txs = append(txs, tx)
 	bPool.AddTxPool(tx)
 }
 
@@ -174,12 +178,6 @@ func (bPool *BroadCastTxPool) SendMsg(data MsgStruct) {
 
 // Stop terminates the transaction pool.
 func (bPool *BroadCastTxPool) Stop() {
-	// Unsubscribe subscriptions registered from blockchain
-	//bPool.chainHeadSub.Unsubscribe()
-	//bPool.wg.Wait()
-	//if ldb != nil {
-	//	ldb.Close()
-	//}
 	log.Info("Broad Transaction pool stopped")
 }
 
@@ -187,8 +185,6 @@ func (bPool *BroadCastTxPool) Stop() {
 func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (reerr error) {
 	bPool.mu.Lock()
 	defer bPool.mu.Unlock()
-	//TODO 过滤交易（白名单）
-	//for _, tx := range txs {
 	if uint64(tx.Size()) > params.TxSize {
 		log.Error("add broadcast tx pool", "tx size is too big", tx.Size())
 		return reerr
@@ -217,7 +213,7 @@ func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (reerr error) 
 				continue
 			}
 			bPool.special[hash] = tx
-			log.Info("file tx_pool_broad", "func AddTxPool", "broadCast transaction add txpool success")
+			log.Info("tx_pool_broad", "AddTxPool", "broadCast transaction add txpool success")
 		}
 	} else {
 		reerr = errors.New("BroadCastTxPool:AddTxPool  Transaction type is error")
@@ -228,10 +224,6 @@ func (bPool *BroadCastTxPool) AddTxPool(tx types.SelfTransaction) (reerr error) 
 		}
 		return reerr
 	}
-	//}
-	//if len(txs) <= 0 {
-	//	log.Trace("transfer txs is nil")
-	//}
 	return reerr //bPool.addTxs(txs, false)
 }
 func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok bool) {
@@ -288,7 +280,7 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 			return false
 		}
 
-		nodelist, err := ca.GetElectedByHeight(height)
+		nodelist, err := ca.GetElectedByHeightByHash(blockHash)
 		if err != nil {
 			log.Error("getElected error (func filter()   BroadCastTxPool)", "error", err)
 			return false
@@ -312,7 +304,7 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 			log.Error("BroadCastTxPool", "convert from account to deposit account err", err, "from", from.Hex())
 			return false
 		}
-		nodelist, err := ca.GetElectedByHeightAndRole(height, common.RoleValidator)
+		nodelist, err := ca.GetElectedByHeightAndRoleByHash(blockHash, common.RoleValidator)
 		if err != nil {
 			log.Error("broadCastTxPool filter getElected error", "error", err)
 			return false

@@ -16,17 +16,34 @@ import (
 )
 
 const (
-	DPOSTargetSignCountRatio   = 0.66667
-	DPOSTargetStockRatio       = 0 // 暂时关闭股权的要求
-	DPOSMinStockCount          = 3
-	DPOSFullSignThreshold      = 7
-	SuperNodeFullSignThreshold = 3
-	DPOSDefStock               = 1 // 默认股权值
+	DPOSDefStock = 1 // 默认股权值
 )
 
-var (
-	errInputHeaderErr = errors.New("input param header err")
+type Config struct {
+	TargetSignCountRatio       float64
+	TargetStockRatio           float64
+	MinStockCount              int
+	FullSignThreshold          int
+	SuperNodeFullSignThreshold int
+}
 
+var defaultConfig = Config{
+	TargetSignCountRatio:       0.66667,
+	TargetStockRatio:           0,
+	MinStockCount:              3,
+	FullSignThreshold:          7,
+	SuperNodeFullSignThreshold: 3,
+}
+
+var simpleConfig = Config{
+	TargetSignCountRatio:       0.66667,
+	TargetStockRatio:           0,
+	MinStockCount:              1,
+	FullSignThreshold:          7,
+	SuperNodeFullSignThreshold: 3,
+}
+
+var (
 	errSignHashLenErr = errors.New("hash is required to be exactly 32 bytes")
 
 	errStockCountErr = errors.New("stock count is less then min count")
@@ -64,10 +81,15 @@ type dposTarget struct {
 }
 
 type MtxDPOS struct {
+	config Config
 }
 
-func NewMtxDPOS() *MtxDPOS {
-	return &MtxDPOS{}
+func NewMtxDPOS(simpleMode bool) *MtxDPOS {
+	if simpleMode {
+		return &MtxDPOS{config: simpleConfig}
+	} else {
+		return &MtxDPOS{config: defaultConfig}
+	}
 }
 
 func (md *MtxDPOS) VerifyVersionSigns(reader consensus.StateReader, header *types.Header) error {
@@ -101,10 +123,10 @@ func (md *MtxDPOS) VerifyVersionSigns(reader consensus.StateReader, header *type
 
 func (md *MtxDPOS) calcSuperNodeTarget(totalCount int) int {
 	targetCount := 0
-	if totalCount <= SuperNodeFullSignThreshold {
+	if totalCount <= md.config.SuperNodeFullSignThreshold {
 		targetCount = totalCount
 	} else {
-		targetCount = int(math.Ceil(float64(totalCount) * DPOSTargetSignCountRatio))
+		targetCount = int(math.Ceil(float64(totalCount) * md.config.TargetSignCountRatio))
 	}
 	return targetCount
 }
@@ -118,13 +140,13 @@ func (md *MtxDPOS) CheckSuperBlock(reader consensus.StateReader, header *types.H
 
 	targetCount := md.calcSuperNodeTarget(len(accounts))
 	if len(header.Signatures) < targetCount {
-		log.ERROR("共识引擎", "版本号签名数量不足 size", len(header.Version), "target", targetCount)
-		return errSignCountErr
+		log.Error("共识引擎", "超级区块签名数量不足 size", len(header.Version), "target", targetCount)
+		return errSuperBlockSignCount
 	}
 	verifiedSigh := md.verifyHashWithSuperNodes(header.HashNoSigns(), header.Signatures, accounts)
 	if len(verifiedSigh) < targetCount {
-		log.ERROR("共识引擎", "验证版本,验证后的签名数量不足 size", len(verifiedSigh), "target", targetCount, "hash", header.HashNoSigns().TerminalString())
-		return errSignCountErr
+		log.Error("共识引擎", "验证超级区块,验证后的签名数量不足 size", len(verifiedSigh), "target", targetCount, "hash", header.HashNoSigns().TerminalString())
+		return errSuperBlockVerifySign
 	}
 	return nil
 }
@@ -160,7 +182,7 @@ func (md *MtxDPOS) VerifyBlock(reader consensus.StateReader, header *types.Heade
 		return errors.New("header is nil")
 	}
 	if err := md.VerifyVersionSigns(reader, header); err != nil {
-		log.INFO("共识引擎", "验证版本号签名失败", "err", err)
+		log.INFO("共识引擎", "验证版本号签名失败", err)
 		return err
 	}
 
@@ -184,8 +206,7 @@ func (md *MtxDPOS) VerifyBlock(reader consensus.StateReader, header *types.Heade
 	}
 
 	hash := header.HashNoSignsAndNonce()
-	log.Trace("共识引擎", "VerifyBlock, 签名总数", len(header.Signatures), "hash", hash, "txhash:", header.TxHash.TerminalString())
-
+	log.Trace("共识引擎", "VerifyBlock, 签名总数", len(header.Signatures), "hash", hash, "txhash:", header.Roots)
 	_, err = md.VerifyHashWithStocks(reader, hash, header.Signatures, stocks, header.ParentHash)
 	return err
 }
@@ -259,7 +280,7 @@ func (md *MtxDPOS) VerifyHashWithVerifiedSignsAndBlock(reader consensus.StateRea
 func (md *MtxDPOS) calculateDPOSTarget(stocks map[common.Address]uint16) (*dposTarget, error) {
 	totalCount := len(stocks)
 	//check total count
-	if totalCount < DPOSMinStockCount {
+	if totalCount < md.config.MinStockCount {
 		return nil, errStockCountErr
 	}
 
@@ -271,12 +292,12 @@ func (md *MtxDPOS) calculateDPOSTarget(stocks map[common.Address]uint16) (*dposT
 
 	//calculate target
 	target := &dposTarget{totalCount: totalCount, totalStock: totalStock}
-	if totalCount <= DPOSFullSignThreshold {
+	if totalCount <= md.config.FullSignThreshold {
 		target.targetCount = totalCount
 		target.targetStock = totalStock
 	} else {
-		target.targetCount = int(math.Ceil(float64(totalCount) * DPOSTargetSignCountRatio))
-		target.targetStock = uint64(math.Ceil(float64(totalStock) * DPOSTargetStockRatio))
+		target.targetCount = int(math.Ceil(float64(totalCount) * md.config.TargetSignCountRatio))
+		target.targetStock = uint64(math.Ceil(float64(totalStock) * md.config.TargetStockRatio))
 	}
 	target.maxDisagreeCount = target.totalCount - target.targetCount
 	target.maxDisagreeStock = target.totalStock - target.targetStock

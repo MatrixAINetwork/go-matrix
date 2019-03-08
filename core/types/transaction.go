@@ -35,15 +35,6 @@ func init() {
 	}
 }
 
-// deriveSigner makes a *best* guess about which signer to use.
-//func deriveSigner(V *big.Int) Signer {
-//	if V.Sign() != 0 && isProtectedV(V) {
-//		return NewEIP155Signer(deriveChainId(V))
-//	} else {
-//		return HomesteadSigner{}
-//	}
-//}
-
 type Transaction struct {
 	data txdata
 	// caches
@@ -51,7 +42,6 @@ type Transaction struct {
 	size        atomic.Value
 	from        atomic.Value
 	entrustfrom atomic.Value
-	//Mtype       bool
 	Currency    string //币种
 	// by
 	N               []uint32
@@ -67,7 +57,6 @@ func (tc *TransactionCall) CheckNonce() bool { return false }
 //
 type Transaction_Mx struct {
 	Data       txdata
-	//Mtype      bool //
 	Currency   string
 	TxType_Mx  byte
 	LockHeight uint64  `json:"lockHeight" gencodec:"required"`
@@ -92,7 +81,6 @@ type Tx_to struct {
 type Matrix_Extra struct {
 	TxType     byte   `json:"txType" gencodec:"required"`
 	LockHeight uint64 `json:"lockHeight" gencodec:"required"`
-	//ExtraTo    []Tx_to `json:"extra_to" gencodec:"required"`
 	ExtraTo []Tx_to ` rlp:"tail"` //
 }
 
@@ -104,7 +92,6 @@ type Floodtxdata struct {
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
-	//Mtype        bool            //
 	Currency     string
 	// Signature values
 	V           *big.Int       `json:"v" gencodec:"required"`
@@ -135,8 +122,6 @@ type txdata struct {
 	CommitTime  uint64         `json:"CommitTime" gencodec:"required"`  //创建交易时间
 	Extra       []Matrix_Extra ` rlp:"tail"`                            //
 }
-
-//==================================zhenghe==========================================//
 func TxdataAddresToString(currency string, data *txdata, data1 *txdata1) {
 	data1.AccountNonce = data.AccountNonce
 	data1.Price = data.Price
@@ -155,7 +140,6 @@ func TxdataAddresToString(currency string, data *txdata, data1 *txdata1) {
 		to := *data.Recipient
 		*data1.Recipient = base58.Base58EncodeToString(currency, to)
 	}
-
 	if len(data.Extra) > 0 {
 		tmpEx1 := make([]Matrix_Extra1, 0)
 		for _, er := range data.Extra {
@@ -194,7 +178,7 @@ func TxdataStringToAddres(data1 *txdata1, data *txdata) {
 	data.TxEnterType = data1.TxEnterType
 	data.IsEntrustTx = data1.IsEntrustTx
 	data.CommitTime = data1.CommitTime
-	if data1.Recipient != nil {
+	if data1.Recipient != nil{
 		data.Recipient = new(common.Address)
 		*data.Recipient ,_ = base58.Base58DecodeToAddress(*data1.Recipient)
 	}
@@ -234,7 +218,6 @@ type Matrix_Extra1 struct {
 	TxType     byte     `json:"txType" gencodec:"required"`
 	LockHeight uint64   `json:"lockHeight" gencodec:"required"`
 	ExtraTo    []Tx_to1 `json:"extra_to" gencodec:"required"`
-	//ExtraTo    []Tx_to1  ` rlp:"tail"` //
 }
 
 //to地址为string类型
@@ -257,8 +240,6 @@ type txdata1 struct {
 	CommitTime  uint64          `json:"CommitTime" gencodec:"required"`  //创建交易时间
 	Extra       []Matrix_Extra1 ` rlp:"tail"`                            //
 }
-
-//============================================================================//
 
 type txdataMarshaling struct {
 	AccountNonce hexutil.Uint64
@@ -331,20 +312,12 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 				input = *extro.Input_tr
 			}
 			txto := new(Tx_to)
-
 			txto.Amount = (*big.Int)(extro.Value_tr)
 			txto.Recipient = extro.To_tr
 			txto.Payload = input
 			arrayTx = append(arrayTx, *txto)
 		}
 	}
-	//if txType == common.ExtraRevocable {
-	//	d.CommitTime = uint64(time.Now().Unix()) + uint64(300)
-	//} else if txType == common.ExtraTimeTxType {
-	//	d.CommitTime = uint64(time.Now().Unix()) + uint64(600)
-	//} else {
-	//	d.CommitTime = committime
-	//}
 	d.CommitTime = committime
 	matrixEx.TxType = txType
 	matrixEx.LockHeight = localtime
@@ -372,13 +345,6 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		IsEntrustTx:  isEntrustTx,
 		CommitTime:   committime,
 	}
-	/*
-	if typ > 0 {
-		mx := new(Matrix_Extra)
-		mx.TxType = typ
-		d.Extra = append(d.Extra, *mx)
-	}
-	*/
 	mx := new(Matrix_Extra)
 	mx.TxType = typ
 	d.Extra = append(d.Extra, *mx)
@@ -406,11 +372,6 @@ func (tx *Transaction) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
 }
 
-// Protected returns whether the transaction is protected from replay protection.
-//func (tx *Transaction) Protected() bool {
-//	return isProtectedV(tx.data.V)
-//}
-
 func isProtectedV(V *big.Int) bool {
 	if V.BitLen() <= 8 {
 		v := V.Uint64()
@@ -423,14 +384,14 @@ func isProtectedV(V *big.Int) bool {
 type extTransaction struct {
 	Data     txdata
 	Currency string
-	//Mtype    bool
 	From     common.Address
 }
 
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	etx := &extTransaction{Data: tx.data, Currency: tx.Currency}
-	if tx.GetMatrixType() == common.ExtraUnGasTxType {
+	if tx.GetMatrixType() == common.ExtraUnGasMinerTxType || tx.GetMatrixType() == common.ExtraUnGasValidatorTxType ||
+		tx.GetMatrixType() == common.ExtraUnGasInterestTxType || tx.GetMatrixType() == common.ExtraUnGasTxsType || tx.GetMatrixType() == common.ExtraUnGasLotteryTxType {
 		etx.From = tx.From()
 	}
 	return rlp.Encode(w, etx)
@@ -444,7 +405,8 @@ func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
 	err = s.Decode(&extData)
 	tx.data = extData.Data
 	tx.Currency = extData.Currency
-	if tx.GetMatrixType() == common.ExtraUnGasTxType {
+	if tx.GetMatrixType() == common.ExtraUnGasMinerTxType || tx.GetMatrixType() == common.ExtraUnGasValidatorTxType ||
+		tx.GetMatrixType() == common.ExtraUnGasInterestTxType || tx.GetMatrixType() == common.ExtraUnGasTxsType || tx.GetMatrixType() == common.ExtraUnGasLotteryTxType {
 		tx.SetFromLoad(extData.From)
 	}
 	if err == nil {
@@ -512,7 +474,23 @@ func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Pri
 func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
-
+func (tx *Transaction) GetMakeHashfield(chid *big.Int) []interface{}{
+	var data1 txdata1
+	TxdataAddresToString(tx.Currency, &tx.data, &data1)
+	return []interface{}{
+		data1.AccountNonce,
+		data1.Price,
+		data1.GasLimit,
+		data1.Recipient,
+		data1.Amount,
+		data1.Payload,
+		chid, uint(0), uint(0),
+		data1.TxEnterType,
+		data1.IsEntrustTx,
+		data1.CommitTime,
+		data1.Extra,
+	}
+}
 func (tx *Transaction) GetTxHashStruct() {
 
 }
@@ -624,8 +602,11 @@ func (tx *Transaction) GetTxFrom() (from common.Address, err error) {
 
 func (tx *Transaction) TotalAmount() *big.Int {
 	total := tx.data.Amount
-	for _, extra := range tx.data.Extra[0].ExtraTo {
-		total.Add(total, extra.Amount)
+	txEx := tx.GetMatrix_EX()
+	if len(txEx) > 0{
+		for _, extra := range tx.data.Extra[0].ExtraTo {
+			total.Add(total, extra.Amount)
+		}
 	}
 	return total
 }
@@ -634,8 +615,11 @@ func (tx *Transaction) TotalAmount() *big.Int {
 func (tx *Transaction) CostALL() *big.Int {
 	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
 	total.Add(total, tx.data.Amount)
-	for _, extra := range tx.data.Extra[0].ExtraTo {
-		total.Add(total, extra.Amount)
+	txEx := tx.GetMatrix_EX()
+	if len(txEx) > 0{
+		for _, extra := range tx.data.Extra[0].ExtraTo {
+			total.Add(total, extra.Amount)
+		}
 	}
 	return total
 }
@@ -686,7 +670,6 @@ func GetFloodData(tx *Transaction) *Floodtxdata {
 		Recipient:    tx.data.Recipient,
 		Amount:       tx.data.Amount,
 		Payload:      tx.data.Payload,
-		//Mtype:        tx.Mtype, //
 		Currency:     tx.Currency,
 		// Signature values
 		V:           tx.data.V,
@@ -715,7 +698,6 @@ func SetFloodData(floodtx *Floodtxdata) *Transaction {
 	tx.data.IsEntrustTx = floodtx.IsEntrustTx
 	tx.data.CommitTime = floodtx.CommitTime
 	tx.data.Extra = floodtx.Extra
-	//tx.Mtype = floodtx.Mtype //
 	tx.Currency = floodtx.Currency
 	return tx
 }
@@ -740,9 +722,7 @@ func ConvTxtoMxtx(txer SelfTransaction) *Transaction_Mx {
 	tx_Mx.Data.IsEntrustTx = tx.data.IsEntrustTx
 	tx_Mx.Data.CommitTime = tx.data.CommitTime
 	tx_Mx.Data.Extra = tx.data.Extra
-	//tx_Mx.Mtype = tx.Mtype //
 	tx_Mx.Currency = tx.Currency
-	//tx_Mx.Data.Extra = append(tx_Mx.Data.Extra,tx.data.Extra[])
 	if len(tx.data.Extra) > 0 {
 		tx_Mx.TxType_Mx = tx.data.Extra[0].TxType
 		tx_Mx.LockHeight = tx.data.Extra[0].LockHeight
@@ -771,14 +751,6 @@ func ConvMxtotx(tx_Mx *Transaction_Mx) *Transaction {
 		CommitTime:  tx_Mx.Data.CommitTime,
 		Extra:       tx_Mx.Data.Extra,
 	}
-	//mx := Matrix_Extra{
-	//	TxType:     tx_Mx.TxType_Mx,
-	//	LockHeight: tx_Mx.LockHeight,
-	//}
-	//if len(tx_Mx.ExtraTo) > 0 {
-	//	mx.ExtraTo = tx_Mx.ExtraTo
-	//}
-	//txd.Extra = append(txd.Extra, mx)
 	tx := &Transaction{Currency: tx_Mx.Currency, data: txd}
 	return tx
 }
@@ -789,13 +761,12 @@ func (tx *Transaction) SetTxCurrency(currency string) {
 	tx.Currency = currency
 }
 func (tx *Transaction) GetTxCurrency() string {
-	return tx.Currency
+	str := tx.Currency
+	if str == "" {
+		str = params.MAN_COIN
+	}
+	return str
 }
-
-//func (tx *Transaction) SetTxN(N uint32) {tx.data.N = N}
-//func (tx *Transaction) GetTxN() uint32{return tx.data.N}
-//func (tx *Transaction) GetTxIsFlood() bool{return tx.data.IsFlood}
-
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {
@@ -842,10 +813,6 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (SelfTransaction
 	}
 	cpy := &Transaction{Currency:tx.Currency,data: tx.data}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
-	////
-	//if len(cpy.data.Extra) > 0 {
-	//	cpy.data.V.Add(cpy.data.V, big.NewInt(128))
-	//}
 	return cpy, nil
 }
 
@@ -902,7 +869,6 @@ func (s TxByNonce) Len() int           { return len(s) }
 func (s TxByNonce) Less(i, j int) bool { return s[i].Nonce() < s[j].Nonce() }
 func (s TxByNonce) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s *TxByNonce) Push(x interface{}) {
-	//*s = append(*s, x.(*Transaction))
 }
 
 func (s *TxByNonce) Pop() interface{} {
@@ -922,7 +888,6 @@ func (s TxByPrice) Less(i, j int) bool { return s[i].GasPrice().Cmp(s[j].GasPric
 func (s TxByPrice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (s *TxByPrice) Push(x interface{}) {
-	//*s = append(*s, x.(*Transaction))
 }
 
 func (s *TxByPrice) Pop() interface{} {
@@ -938,7 +903,6 @@ func (s *TxByPrice) Pop() interface{} {
 // entire batches of transactions for non-executable accounts.
 type TransactionsByPriceAndNonce struct {
 	txs map[common.Address]SelfTransactions // Per account nonce-sorted list of transactions
-	//heads  TxByPrice                       // Next transaction for each unique account (price heap)
 	heads  TxByNonce
 	signer Signer // Signer for the set of transactions
 }
@@ -960,8 +924,6 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]SelfTr
 			delete(txs, from)
 		}
 	}
-	//heap.Init(&heads)
-
 	// Assemble and return the transaction set
 	return &TransactionsByPriceAndNonce{
 		txs:    txs,

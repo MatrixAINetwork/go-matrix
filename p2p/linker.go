@@ -296,8 +296,8 @@ func GetTopNodeAliveInfo(roleType common.RoleType) (result []NodeAliveInfo) {
 
 func (l *Linker) ToLink() {
 	l.linkMap = make(map[common.Address]uint32)
-	h := ca.GetHeight()
-	elects, _ := ca.GetElectedByHeight(h)
+	h := ca.GetHash()
+	elects, _ := ca.GetElectedByHeightByHash(h)
 
 	if len(elects) <= MaxLinkers {
 		for _, elect := range elects {

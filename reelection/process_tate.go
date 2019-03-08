@@ -184,8 +184,8 @@ func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, readFn 
 	height := block.Header().Number.Uint64()
 	if height == 1 {
 		firstData := &mc.PreBroadStateRoot{
-			LastStateRoot:       common.Hash{},
-			BeforeLastStateRoot: common.Hash{},
+			LastStateRoot:       make([]common.CoinRoot, 0),
+			BeforeLastStateRoot: make([]common.CoinRoot, 0),
 		}
 		return firstData, nil
 	}
@@ -208,10 +208,12 @@ func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, readFn 
 		log.ERROR(Module, "根据hash算区块头失败 高度", block.Number().Uint64())
 		return nil, errors.New("header is nil")
 	}
+	preBroadcast.BeforeLastStateRoot = make([]common.CoinRoot, len(preBroadcast.LastStateRoot))
+	copy(preBroadcast.BeforeLastStateRoot, preBroadcast.LastStateRoot)
+	preBroadcast.LastStateRoot = make([]common.CoinRoot, len(header.Roots))
+	copy(preBroadcast.LastStateRoot, header.Roots)
+	//log.INFO(Module, "高度", block.Number().Uint64(), "ProducePreBroadcastStateData beforelast", preBroadcast.BeforeLastStateRoot, "last", preBroadcast.LastStateRoot)
 
-	preBroadcast.BeforeLastStateRoot = preBroadcast.LastStateRoot
-	preBroadcast.LastStateRoot = header.Root
-	//log.INFO(Module, "高度", block.Number().Uint64(), "ProducePreBroadcastStateData beforelast", preBroadcast.BeforeLastStateRoot.String(), "last", preBroadcast.LastStateRoot.String())
 	return preBroadcast, nil
 
 }
@@ -289,8 +291,8 @@ func (self *ReElection) ProduceMinHashData(block *types.Block, readFn core.PreSt
 		return nil, errors.New("header is nil")
 	}
 	preAllTop := &mc.PreAllTopStruct{}
-	preAllTop.PreAllTopRoot = header.Root
-	log.INFO("高度", block.Number().Uint64(), "ProducePreAllTopData", "preAllTop.PreAllTopRoot", preAllTop.PreAllTopRoot.String())
+	preAllTop.PreAllTopRoot = header.Roots
+	log.INFO("高度", block.Number().Uint64(), "ProducePreAllTopData", "preAllTop.PreAllTopRoot", preAllTop.PreAllTopRoot)
 	return preAllTop, nil
 }
 */

@@ -13,6 +13,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 // Account represents an Matrix account located at a specific location defined
@@ -24,7 +25,7 @@ type Account struct {
 }
 
 func (Ac *Account) ManAddress() string {
-	return base58.Base58EncodeToString("MAN", Ac.Address)
+	return base58.Base58EncodeToString(params.MAN_COIN, Ac.Address)
 }
 
 // Wallet represents a software or hardware wallet that might contain one or more
@@ -84,9 +85,7 @@ type Wallet interface {
 	// SignHash requests the wallet to sign the given hash.
 	//
 	// It looks up the account specified either solely via its address contained within,
-	// or optionally with the aid of any location metadata from the embedded URL field.
-	//
-	// If the wallet requires additional authentication to sign the request (e.g.
+	// or optionally with the aid of any location metantication to sign the request (e.g.
 	// a password to decrypt the account, or a PIN code o verify the transaction),
 	// an AuthNeededError instance will be returned, containing infos for the user
 	// about which fields or actions are needed. The user may retry by providing

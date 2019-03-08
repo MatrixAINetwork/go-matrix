@@ -161,6 +161,9 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 	// Write the encoded header
 	data, err := rlp.EncodeToBytes(header)
 	if err != nil {
+		log.Error("", "", err)
+	}
+	if err != nil {
 		log.Crit("Failed to RLP encode header", "err", err)
 	}
 	key = append(append(headerPrefix, encoded...), hash...)
@@ -218,7 +221,15 @@ func ReadBody(db DatabaseReader, hash common.Hash, number uint64) *types.Body {
 
 // WriteBody storea a block body into the database.
 func WriteBody(db DatabaseWriter, hash common.Hash, number uint64, body *types.Body) {
-	data, err := rlp.EncodeToBytes(body)
+	var tempBody types.Body
+	tempBody.CurrencyBody = make([]types.CurrencyBlock,len(body.CurrencyBody))
+	tempBody.Uncles = make([]*types.Header,len(body.Uncles))
+	copy(tempBody.CurrencyBody,body.CurrencyBody)
+	copy(tempBody.Uncles,body.Uncles)
+	for i,_ := range tempBody.CurrencyBody{
+		tempBody.CurrencyBody[i].Receipts = types.BodyReceipts{}
+	}
+	data, err := rlp.EncodeToBytes(tempBody)
 	if err != nil {
 		log.Crit("Failed to RLP encode body", "err", err)
 	}
@@ -266,33 +277,43 @@ func DeleteTd(db DatabaseDeleter, hash common.Hash, number uint64) {
 }
 
 // ReadReceipts retrieves all the transaction receipts belonging to a block.
-func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) types.Receipts {
+func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) []types.CoinReceipts {
 	// Retrieve the flattened receipt slice
 	data, _ := db.Get(append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash[:]...))
 	if len(data) == 0 {
 		return nil
 	}
 	// Convert the revceipts from their storage form to their internal representation
-	storageReceipts := []*types.ReceiptForStorage{}
-	if err := rlp.DecodeBytes(data, &storageReceipts); err != nil {
+
+	var cr []types.CurrencyReceipts
+	//storageReceipts := []*types.ReceiptForStorage{}
+	if err := rlp.DecodeBytes(data, &cr); err != nil {
 		log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
 		return nil
 	}
-	receipts := make(types.Receipts, len(storageReceipts))
-	for i, receipt := range storageReceipts {
-		receipts[i] = (*types.Receipt)(receipt)
+	creceipts := make([]types.CoinReceipts,0)
+	for _, receipt := range cr {
+		receipts :=make(types.Receipts,0)
+		for _,r := range receipt.StorageReceipts{
+			receipts = append(receipts,(*types.Receipt)(r))
+		}
+		creceipts = append(creceipts,types.CoinReceipts{CoinType:receipt.Currency,Receiptlist:receipts})
 	}
-	return receipts
+	return creceipts
 }
 
 // WriteReceipts stores all the transaction receipts belonging to a block.
-func WriteReceipts(db DatabaseWriter, hash common.Hash, number uint64, receipts types.Receipts) {
+func WriteReceipts(db DatabaseWriter, hash common.Hash, number uint64, receipts []types.CoinReceipts) {
 	// Convert the receipts into their storage form and serialize them
-	storageReceipts := make([]*types.ReceiptForStorage, len(receipts))
-	for i, receipt := range receipts {
-		storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
+	currRcps:=make([]types.CurrencyReceipts,0)
+	for _,cr := range receipts{
+		storageReceipts := make([]*types.ReceiptForStorage, len(cr.Receiptlist))
+		for i, receipt := range cr.Receiptlist {
+			storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
+		}
+		currRcps = append(currRcps,types.CurrencyReceipts{Currency:cr.CoinType,StorageReceipts:storageReceipts})
 	}
-	bytes, err := rlp.EncodeToBytes(storageReceipts)
+	bytes, err := rlp.EncodeToBytes(currRcps)
 	if err != nil {
 		log.Crit("Failed to encode block receipts", "err", err)
 	}
@@ -325,7 +346,7 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.Block 
 	if body == nil {
 		return nil
 	}
-	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Uncles)
+	return types.NewBlockWithHeader(header).WithBody(body.CurrencyBody, body.Uncles)
 }
 
 // WriteBlock serializes a block into the database, header and body separately.

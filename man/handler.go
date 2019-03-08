@@ -160,7 +160,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return nil, errIncompatibleConfig
 	}
 	// Construct the different synchronisation mechanisms
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
+	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer, blockchain.GetBlockByNumber)
 
 	validator := func(header *types.Header) error {
 		//todo 无法连续验证，下载的区块全部不验证pow
@@ -568,21 +568,30 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver them all to the downloader for queuing
-		transactions := make([][]types.SelfTransaction, len(request))
+		//transactions := make([][]types.SelfTransaction, len(request))
+		//transactions := make([][]types.CoinSelfTransaction, len(request))
+		transCrBlock := make([][]types.CurrencyBlock, len(request))
 		uncles := make([][]*types.Header, len(request))
 
 		for i, body := range request {
-			transactions[i] = body.Transactions
+			/*
+				cointx := make([]types.CoinSelfTransaction,0)
+				for _,curr := range body.Transactions{
+					cointx = append(cointx,types.CoinSelfTransaction{CoinType:curr.CurrencyName,Txser:curr.Transactions.GetTransactions()})
+				}
+				transactions[i] = cointx//.GetTransactions()*/
+			transCrBlock[i] = body.Transactions
 			uncles[i] = body.Uncles
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0 || len(uncles) > 0
+		filter := len(transCrBlock) > 0 || len(uncles) > 0
 		if filter {
-			transactions, uncles = pm.fetcher.FilterBodies(p.id, transactions, uncles, time.Now())
+			transCrBlock, uncles = pm.fetcher.FilterBodies(p.id, transCrBlock, uncles, time.Now())
 		}
-		p.Log().Trace("download handleMsg BlockBodiesMsg after filter", "len transaction", len(transactions), "!filter", !filter)
-		if len(transactions) > 0 || len(uncles) > 0 || !filter {
-			err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
+
+		p.Log().Trace("download handleMsg BlockBodiesMsg after filter", "len transaction", len(transCrBlock), "!filter", !filter)
+		if len(transCrBlock) > 0 || len(uncles) > 0 || !filter {
+			err := pm.downloader.DeliverBodies(p.id, transCrBlock, uncles)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
@@ -623,7 +632,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver all to the downloader
 		if err := pm.downloader.DeliverNodeData(p.id, data); err != nil {
-			log.Debug("Failed to deliver node state data", "err", err)
+			p.Log().Debug("Failed to deliver node state data", "err", err)
 		}
 
 	case p.version >= man63 && msg.Code == GetReceiptsMsg:
@@ -648,13 +657,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// Retrieve the requested block's receipts, skipping if unknown to us
 			results := pm.blockchain.GetReceiptsByHash(hash)
 			if results == nil {
-				if header := pm.blockchain.GetHeaderByHash(hash); header == nil || header.ReceiptHash != types.EmptyRootHash {
-					continue
-				}
+				p.Log().Info("Get receipt err", "Get receipt err", "Get receipt err")
+				continue
 			}
 			// If known, encode and queue for response packet
 			if encoded, err := rlp.EncodeToBytes(results); err != nil {
-				log.Error("Failed to encode receipt", "err", err)
+				p.Log().Error("Failed to encode receipt", "err", err)
 			} else {
 				receipts = append(receipts, encoded)
 				bytes += len(encoded)
@@ -664,13 +672,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case p.version >= man63 && msg.Code == ReceiptsMsg:
 		// A batch of receipts arrived to one of our previous requests
-		var receipts [][]*types.Receipt
+		var receipts [][]types.CoinReceipts
 		if err := msg.Decode(&receipts); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver all to the downloader
 		if err := pm.downloader.DeliverReceipts(p.id, receipts); err != nil {
-			log.Debug("Failed to deliver receipts", "err", err)
+			p.Log().Debug("Failed to deliver receipts", "err", err)
 		}
 
 	case msg.Code == NewBlockHashesMsg:
@@ -681,6 +689,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
 			p.MarkBlock(block.Hash)
+		}
+		if len(announces) > 0 {
+			p.Log().Trace("download fetch handleMsg receive NewBlockHashesMsg0", "BlockNum", announces[0].Number, "hash", announces[0].Hash.String())
 		}
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
@@ -705,7 +716,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkBlock(request.Block.Hash())
-		log.Trace("download fetch handleMsg receive NewBlockMsg", "number", request.Block.NumberU64())
+		p.Log().Trace("download fetch handleMsg receive NewBlockMsg", "number", request.Block.NumberU64(), "request.TD", request.TD)
 		pm.fetcher.Enqueue(p.id, request.Block)
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
@@ -717,7 +728,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		)
 		// Update the peers total difficulty if better than the previous
 		_, td, sbs, _ := p.Head()
-		log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs)
+		p.Log().Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs, "trueTD", trueTD)
 		if trueSBS < sbs {
 			//todo:日志
 			break
@@ -770,17 +781,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			hash := tx.Hash()
 			p.MarkTransaction(hash)
-			log.INFO("==tcp tx hash","from",tx.From().String(),"tx.Nonce",tx.Nonce(),"hash",hash.String())
+			log.INFO("==tcp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", hash.String())
 		}
-
 		pm.txpool.AddRemotes(txs)
 	case msg.Code == common.NetworkMsg:
 		var m []*core.MsgStruct
 		if err := msg.Decode(&m); err != nil {
-			log.Info("file handler", "mag NetworkMsg err", err)
+			log.Info("handler", "mag NetworkMsg err", err)
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		log.Info("file handler", "msg NetworkMsg ", "ProcessMsg")
+		log.Info("handler", "msg NetworkMsg ", "ProcessMsg")
 
 		addr := p2p.ServerP2p.ConvertIdToAddress(p.ID())
 		go pm.txpool.ProcessMsg(core.NetworkMsgData{SendAddress: addr, Data: m})
@@ -871,9 +881,21 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 		}
 
 	default:
+		//roles ,_:=ca.GetElectedByHeightAndRole(new(big.Int).Sub(block.Header().Number,big.NewInt(1)),common.RoleValidator)
+		//isgoon := false
+		//for _,role := range roles{
+		//	if role.SignAddress == ca.GetAddress(){
 		for _, peer := range peers {
 			pairOfPeer[false] = append(pairOfPeer[false], peer)
 		}
+		//		isgoon = true
+		//		break
+		//	}
+		//}
+		//if !isgoon{
+		//	return
+		//}
+
 	}
 
 	if peerSender, ok := pairOfPeer[true]; ok {
@@ -981,6 +1003,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.SelfTransactions) {
 		}
 		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
+	// udp send
 	if ca.GetRole() == common.RoleDefault {
 		SendUdpTransactions(txs)
 	}

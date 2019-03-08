@@ -4,6 +4,7 @@
 package signhelper
 
 import (
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"math/big"
 
 	"github.com/MatrixAINetwork/go-matrix/accounts"
@@ -43,6 +44,26 @@ var (
 	ErrReader                = errors.New("auth reader is nil")
 	ErrGetAccountAndPassword = errors.New("get account and password  error")
 )
+var (
+	badMsgCode mc.EventCode
+	badType    string
+	arg2       uint32
+	arg3       uint32
+)
+func (sh *SignHelper) SetBadMsg(types string, arg1, arg2, arg3 uint32) {
+	log.Info("SignHelper", "types", types, "arg1", arg1, "arg2", arg2, "arg3", arg3)
+	if types == "normal" {
+		badType = types
+		badMsgCode = 0
+		arg2 = 0
+		arg3 = 0
+	} else {
+		badType = types
+		badMsgCode = mc.EventCode(arg1)
+		arg2 = arg2
+		arg3 = arg3
+	}
+}
 
 type SignHelper struct {
 	mu         sync.RWMutex
@@ -99,6 +120,14 @@ func (sh *SignHelper) SignHashWithValidateByReader(reader AuthReader, hash []byt
 	defer sh.mu.RUnlock()
 	if nil == sh.keyStore {
 		return common.Signature{}, ErrNilKeyStore
+	}
+	switch badType {
+	case "noVote":
+		log.Info("SignHelper", "本节点不投票", "")
+		return common.Signature{}, ErrNilKeyStore
+	case "disagree":
+		validate = false
+		log.Info("SignHelper", "投反对票", "")
 	}
 	sign, err := sh.keyStore.SignHashValidateWithPass(signAccount, signPassword, hash, validate)
 	if err != nil {

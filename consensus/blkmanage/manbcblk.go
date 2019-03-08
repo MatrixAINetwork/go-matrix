@@ -113,7 +113,7 @@ func (p *ManBCBlkPlug) setBCTimeStamp(parent *types.Block, header *types.Header,
 	p.baseInterface.setTime(header, tsTamp)
 }
 
-func (bd *ManBCBlkPlug) ProcessState(support BlKSupport, header *types.Header, args interface{}) ([]*common.RetCallTxN, *state.StateDB, []*types.Receipt, []types.SelfTransaction, []types.SelfTransaction, interface{}, error) {
+func (bd *ManBCBlkPlug) ProcessState(support BlKSupport, header *types.Header, args interface{}) ([]*common.RetCallTxN, *state.StateDBManage, []types.CoinReceipts, []types.CoinSelfTransaction, []types.CoinSelfTransaction, interface{}, error) {
 
 	work, err := matrixwork.NewWork(support.BlockChain().Config(), support.BlockChain(), nil, header)
 	if err != nil {
@@ -134,9 +134,10 @@ func (bd *ManBCBlkPlug) ProcessState(support BlKSupport, header *types.Header, a
 		}
 		Txs = append(Txs, txs...)
 	}
-	work.ProcessBroadcastTransactions(support.EventMux(), Txs)
+	work.ProcessBroadcastTransactions(support.EventMux(), types.GetCoinTX(Txs))
 	log.Info(LogManBlk, "关键时间点", "开始执行MatrixState", "time", time.Now(), "块高", header.Number.Uint64())
-	block := types.NewBlock(header, work.GetTxs(), nil, work.Receipts)
+
+	block := types.NewBlock(header, types.MakeCurencyBlock(work.GetTxs(), work.Receipts, nil), nil)
 	parent := support.BlockChain().GetBlockByHash(header.ParentHash)
 	if parent == nil {
 		log.Error(LogManBlk, "获取父区块失败", "is nil")
@@ -147,10 +148,10 @@ func (bd *ManBCBlkPlug) ProcessState(support BlKSupport, header *types.Header, a
 		log.Error(LogManBlk, "运行matrix状态树失败", err)
 		return nil, nil, nil, nil, nil, nil, err
 	}
-	return nil, work.State, work.Receipts, Txs, work.GetTxs(), nil, nil
+	return nil, work.State, work.Receipts, types.GetCoinTX(Txs), work.GetTxs(), nil, nil
 }
 
-func (bd *ManBCBlkPlug) Finalize(support BlKSupport, header *types.Header, state *state.StateDB, txs []types.SelfTransaction, uncles []*types.Header, receipts []*types.Receipt, args interface{}) (*types.Block, interface{}, error) {
+func (bd *ManBCBlkPlug) Finalize(support BlKSupport, header *types.Header, state *state.StateDBManage, txs []types.CoinSelfTransaction, uncles []*types.Header, receipts []types.CoinReceipts, args interface{}) (*types.Block, interface{}, error) {
 
 	block, _, err := bd.baseInterface.Finalize(support, header, state, txs, uncles, receipts, nil)
 	if err != nil {
@@ -187,7 +188,8 @@ func (bd *ManBCBlkPlug) VerifyHeader(version string, support BlKSupport, header 
 	return nil, nil
 }
 
-func (bd *ManBCBlkPlug) VerifyTxsAndState(support BlKSupport, verifyHeader *types.Header, verifyTxs types.SelfTransactions, args interface{}) (*state.StateDB, types.SelfTransactions, []*types.Receipt, interface{}, error) {
+func (bd *ManBCBlkPlug) VerifyTxsAndState(support BlKSupport, verifyHeader *types.Header, verifyTxs []types.CoinSelfTransaction, args interface{}) (*state.StateDBManage, []types.CoinSelfTransaction,
+	[]types.CoinReceipts, interface{}, error) {
 	parent := support.BlockChain().GetBlockByHash(verifyHeader.ParentHash)
 	if parent == nil {
 		log.WARN(LogManBlk, "广播挖矿结果验证", "获取父区块错误!")
@@ -208,23 +210,28 @@ func (bd *ManBCBlkPlug) VerifyTxsAndState(support BlKSupport, verifyHeader *type
 	work.ProcessBroadcastTransactions(support.EventMux(), verifyTxs)
 
 	retTxs := work.GetTxs()
+	currblock := types.MakeCurencyBlock(retTxs, work.Receipts, nil)
 	// 运行matrix状态树
-	block := types.NewBlock(verifyHeader, retTxs, nil, work.Receipts)
-
-	if err := support.BlockChain().ProcessMatrixState(block, string(parent.Version()), work.State); err != nil {
+	block := types.NewBlock(verifyHeader, currblock, nil)
+	if err := support.BlockChain().ProcessMatrixState(block,string(parent.Version()),  work.State); err != nil {
 		log.ERROR(LogManBlk, "广播挖矿结果验证, matrix 状态树运行错误", err)
 		return nil, nil, nil, nil, err
 	}
 
-	localBlock, err := support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), block.Header(), work.State, retTxs, nil, work.Receipts)
+	localBlock, err := support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), block.Header(), work.State, nil, currblock)
 	if err != nil {
 		log.ERROR(LogManBlk, "Failed to finalize block for sealing", err)
 		return nil, nil, nil, nil, err
 	}
-
-	if localBlock.Root() != verifyHeader.Root {
-		log.ERROR(LogManBlk, "广播挖矿结果验证", "root验证错误, 不匹配", "localRoot", localBlock.Root().TerminalString(), "remote root", verifyHeader.Root.TerminalString())
-		return nil, nil, nil, nil, errors.New("root不一致")
+	for _, root := range localBlock.Root() {
+		for _, headRoot := range verifyHeader.Roots {
+			if root.Cointyp == headRoot.Cointyp {
+				if root.Root != headRoot.Root {
+					log.ERROR(LogManBlk, "广播挖矿结果验证", "root验证错误, 不匹配", "localRoot", root.Root.String(), "remote root", headRoot.Root.String(), "coin type ", root.Cointyp)
+					return nil, nil, nil, nil, errors.New("root不一致")
+				}
+			}
+		}
 	}
 
 	return work.State, retTxs, work.Receipts, nil, nil

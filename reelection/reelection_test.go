@@ -9,10 +9,11 @@ import (
 	"testing"
 
 	"encoding/json"
-	"github.com/MatrixAINetwork/go-matrix/common"
 	"io/ioutil"
 	"log"
 	"os"
+
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 //func Post() {
@@ -57,7 +58,7 @@ func TestT(t *testing.T) {
 
 }
 func TestCase(t *testing.T) {
-	ans1, ans2 := GetAllElectedByHeight(big.NewInt(100), common.RoleMiner)
+	ans1, ans2 := GetAllElectedByHash(big.NewInt(100), common.RoleMiner)
 	fmt.Println(ans1, ans2)
 }
 

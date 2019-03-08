@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 // errSectionOutOfBounds is returned if the user tried to add more bloom filters
@@ -37,7 +38,7 @@ func NewGenerator(sections uint) (*Generator, error) {
 
 // AddBloom takes a single bloom filter and sets the corresponding bit column
 // in memory accordingly.
-func (b *Generator) AddBloom(index uint, bloom types.Bloom) error {
+func (b *Generator) AddBloom(index uint, root []common.CoinRoot) error {
 	// Make sure we're not adding more bloom filters than our capacity
 	if b.nextBit >= b.sections {
 		return errSectionOutOfBounds
@@ -49,12 +50,15 @@ func (b *Generator) AddBloom(index uint, bloom types.Bloom) error {
 	byteIndex := b.nextBit / 8
 	bitMask := byte(1) << byte(7-b.nextBit%8)
 
-	for i := 0; i < types.BloomBitLength; i++ {
-		bloomByteIndex := types.BloomByteLength - 1 - i/8
-		bloomBitMask := byte(1) << byte(i%8)
+	for _,bl := range root{
+		bloom := bl.Bloom
+		for i := 0; i < types.BloomBitLength; i++ {
+			bloomByteIndex := types.BloomByteLength - 1 - i/8
+			bloomBitMask := byte(1) << byte(i%8)
 
-		if (bloom[bloomByteIndex] & bloomBitMask) != 0 {
-			b.blooms[i][byteIndex] |= bitMask
+			if (bloom[bloomByteIndex] & bloomBitMask) != 0 {
+				b.blooms[i][byteIndex] |= bitMask
+			}
 		}
 	}
 	b.nextBit++

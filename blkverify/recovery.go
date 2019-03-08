@@ -53,7 +53,8 @@ type verifiedBlock struct {
 	txs  types.SelfTransactions
 }
 
-func saveVerifiedBlockToDB(db mandb.Database, hash common.Hash, req *mc.HD_BlkConsensusReqMsg, txs types.SelfTransactions) error {
+func saveVerifiedBlockToDB(db mandb.Database, hash common.Hash, req *mc.HD_BlkConsensusReqMsg, txs []types.CoinSelfTransaction) error {
+
 	data, err := encodeVerifiedBlock(req, txs)
 	if err != nil {
 		return err
@@ -149,13 +150,13 @@ func decodeVerifiedBlockIndex(data []byte) (*VerifiedBlockIndex, error) {
 	return index, nil
 }
 
-func encodeVerifiedBlock(req *mc.HD_BlkConsensusReqMsg, txs types.SelfTransactions) ([]byte, error) {
+func encodeVerifiedBlock(req *mc.HD_BlkConsensusReqMsg, txs []types.CoinSelfTransaction) ([]byte, error) {
 	if req == nil {
 		return nil, errors.New("req msg is nil")
 	}
-
-	txSize := txs.Len()
-	if req.TxsCodeCount() != txs.Len() {
+	txss:=types.GetTX(txs)
+	txSize := req.TxsCodeCount()
+	if txSize != len(txss) {
 		return nil, errors.New("txs count is not match txCodes count")
 	}
 
@@ -166,7 +167,7 @@ func encodeVerifiedBlock(req *mc.HD_BlkConsensusReqMsg, txs types.SelfTransactio
 
 	marshalTxs := make([]*types.Transaction_Mx, txSize)
 	for i := 0; i < txSize; i++ {
-		tx := txs[i]
+		tx := txss[i]
 		if mtx := types.SetTransactionToMx(tx); mtx == nil {
 			return nil, errors.Errorf("tx(%d/%d) transfer to mtx err,tx=%v", i+1, txSize, tx)
 		} else {
