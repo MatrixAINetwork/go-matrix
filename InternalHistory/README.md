@@ -46,3 +46,7 @@
     495dd4c7: 解决超级区块回滚，低概率出现leader重选无法完成导致卡顿的bug
     d29f9ca0: Revert "增加作恶接口"
     ...
+
+    jerry.liu pushed to branch sharding0123 at repository go-matrix
+    e58dac92: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
+    ef380b97: fetch增加loop周期例行检查功能，防止fetch阻塞区块入库
