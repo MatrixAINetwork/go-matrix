@@ -63,7 +63,7 @@ wget https://github.com/MatrixAINetwork/go-matrix/archive/master.zip
 
 - Branch: Master
 
-- Tag: 
+- Tag: v1.1.2
 
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command 
 
