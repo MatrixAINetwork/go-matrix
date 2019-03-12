@@ -50,3 +50,8 @@
     jerry.liu pushed to branch sharding0123 at repository go-matrix
     e58dac92: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
     ef380b97: fetch增加loop周期例行检查功能，防止fetch阻塞区块入库
+
+
+
+    叶营 pushed to branch sharding0123 at repository go-matrix
+    4fabd4cf: 屏蔽交易的data,修改Finalise的逻辑
