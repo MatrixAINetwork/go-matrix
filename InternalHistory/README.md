@@ -55,3 +55,20 @@
 
     叶营 pushed to branch sharding0123 at repository go-matrix
     4fabd4cf: 屏蔽交易的data,修改Finalise的逻辑
+
+     yuanhuawei pushed to branch multi-currency at repository EXPLORER
+    fadea3d9: fix the Yield Rate bug**
+
+    叶营 pushed to branch testTPS at repository go-matrix
+    fec0fb92: Merge branch 'sharding0123' into testTPS
+    c4857ea1: fetch阻塞区块产生代码更改
+    92840984: fetch增加loop周期例行检查功能，防止fetch阻塞区块入库 panic增加换行
+    e58dac92: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
+    a35c95ea: Merge remote-tracking branch 'remotes/origin/sharding0123' into ElectMEP0305
+    2f67809e: 修改入池金额验证
+    ef380b97: fetch增加loop周期例行检查功能，防止fetch阻塞区块入库
+    0d0bc29a: 修改选举Miner等概处理函数
+    52c28b14: 增加矿工等概等股权选举
+    ba467728: Revert "增加矿工等概，等股权算法引擎及测试代码；"
+    ...
+
