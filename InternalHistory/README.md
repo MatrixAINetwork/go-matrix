@@ -72,3 +72,7 @@
     ba467728: Revert "增加矿工等概，等股权算法引擎及测试代码；"
     ...
 
+
+    lijie pushed to branch dev at repository Wallet2.0
+    95b9aa6b: Merge branch 'dev' of gitlab2.matrix.com:MatrixAINetwork/Wallet2.0 into dev
+    2c77b4be: 03-13
