@@ -76,3 +76,8 @@
     lijie pushed to branch dev at repository Wallet2.0
     95b9aa6b: Merge branch 'dev' of gitlab2.matrix.com:MatrixAINetwork/Wallet2.0 into dev
     2c77b4be: 03-13
+
+    zhangwen pushed to branch sharding0304 at repository go-matrix
+    fec474fe: 交易费奖励增加币种所在分区参数
+
+
