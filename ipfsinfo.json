@@ -1,0 +1,8 @@
+{"Downloadflg":true,
+"IpfsPath":"",
+"StrIPFSServerInfo":"/ip4/104.131.131.82/tcp/4001/ipfs/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+"StrIPFSServer2Info":"/ip4/104.236.76.40/tcp/4001/ipfs/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64",
+"StrIPFSServer3Info":"/ip4/178.62.158.247/tcp/4001/ipfs/QmSoLer265NRgSp2LA3dPaeykiS1J6DifTC88f5uVQKNAd",
+"StrIPFSServer4Info":"/ip4/47.74.182.111/tcp/4001/ipfs/QmfQvJmnW8g138fzNQtjvRTRaYeTV7Pw4LkGgG2yXbA9wF",
+"PrimaryDescription":" 要改为广播节点的 ipfs id，如类似 QmfQvJmnW8g138fzNQtjvRTRaYeTV7Pw4LkGgG2yXbA9wF",
+"SecondaryDescription":""}
