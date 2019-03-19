@@ -81,3 +81,18 @@
     fec474fe: 交易费奖励增加币种所在分区参数
 
 
+    zhenghe pushed to branch sharding0304 at repository go-matrix
+    5f1031cd: Merge branch 'sharding0123' into sharding0304
+    31b17e38: Revert "Revert "增加作恶接口""
+    95bcedb7: 修正ipfs 多余的publish及log
+    82d32899: Revert "自动删除历史区块功能添加"
+    7a8a1721: 自动删除历史区块功能添加
+    4fabd4cf: 屏蔽交易的data,修改Finalise的逻辑
+    fec0fb92: Merge branch 'sharding0123' into testTPS
+    c4857ea1: fetch阻塞区块产生代码更改
+    92840984: fetch增加loop周期例行检查功能，防止fetch阻塞区块入库 panic增加换行
+    e58dac92: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
+    ...
+
+    yuanhuawei pushed to branch multi-currency at repository EXPLORER
+    0f3c0efd: Coin Creation Transaction
