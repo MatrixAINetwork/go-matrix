@@ -88,7 +88,7 @@ Step 2: Run Initiate command
 
 Step 3: Visit our web wallet to create a new wallet address, and save your keystore file as well as password.
 
-Please refer to ['Guide to Web Wallet'](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_Web_Wallet/MATRIX%20Web%20Wallet.md)
+Please refer to [['Guide to Web Wallet']](https://github.com/MatrixAINetwork/MATRIX_docs/blob/master/ENGLISH_DOCS/MATRIX_Web_Wallet/MATRIX%20Online%20Wallet%20Manual.pdf)
 
 Carry out your deposit actions if you want to run for a miner or validator node (you can find steps on the above guide)
 
