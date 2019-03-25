@@ -128,3 +128,17 @@
     06d9f1af: 删除hash文件
     92f20ed4: Merge branch 'sharding_black0319' into sharding0123
     ...
+
+
+    hemao pushed to branch sharding0123SealMemTest at repository go-matrix
+    4b5f297b: 同步增加保护
+    7eac401e: modify log
+    cd7b6ccb: 区块同步临时注掉fast模式并调整部分singal
+    c827cb29: 处理多币种情况下超级区块插入失败问题
+    8bd90976: 修改结构成员类型
+    83f65201: Merge branch 'sharding0123' of http://192.168.4.91//MatrixAINetwork/go-matrix into sharding0123
+    ca193b76: 实现创世区块添加多币种
+    73273aa6: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
+    762485e8: ipfs发布增加定时开关功能，防止publish长期挂住
+    b3f1e604: 删除无效的签名
+    ...
