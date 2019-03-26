@@ -142,3 +142,6 @@
     762485e8: ipfs发布增加定时开关功能，防止publish长期挂住
     b3f1e604: 删除无效的签名
     ...
+
+    jerry.liu pushed to branch sharding0123 at repository go-matrix
+    1b944ea7: 修改同步时节点unregister后导致同步挂住问题
