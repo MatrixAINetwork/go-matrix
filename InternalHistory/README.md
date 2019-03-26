@@ -145,3 +145,11 @@
 
     jerry.liu pushed to branch sharding0123 at repository go-matrix
     1b944ea7: 修改同步时节点unregister后导致同步挂住问题
+
+    zhenghe pushed to branch sharding0123 at repository go-matrix
+    eab87509: 创建币种增加to地址限制，销毁金额衰减机制
+
+    zhenghe pushed to branch sharding_black0319 at repository go-matrix
+    7b60ba66: Merge branch 'sharding0123' into sharding_black0319
+    f3e7be4e: log打印
+    8135f1b4: 区块同步调整参数及相关参数初值修改
