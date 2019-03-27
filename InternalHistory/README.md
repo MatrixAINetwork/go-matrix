@@ -153,3 +153,10 @@
     7b60ba66: Merge branch 'sharding0123' into sharding_black0319
     f3e7be4e: log打印
     8135f1b4: 区块同步调整参数及相关参数初值修改
+
+
+     zhangwen pushed to branch layer-blkgen at repository go-matrix
+    662d7e7e: 区块验证和生成process合并
+
+    zhangwen pushed to branch layer-blkgen at repository go-matrix
+    cf2199ec: pos和power合并后正常出块
