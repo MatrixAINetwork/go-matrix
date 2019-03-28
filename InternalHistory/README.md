@@ -160,3 +160,16 @@
 
     zhangwen pushed to branch layer-blkgen at repository go-matrix
     cf2199ec: pos和power合并后正常出块
+
+    huyuankai pushed to branch layer-msg at repository go-matrix
+    8bd90976: 修改结构成员类型
+    83f65201: Merge branch 'sharding0123' of http://192.168.4.91//MatrixAINetwork/go-matrix into sharding0123
+    ca193b76: 实现创世区块添加多币种
+    73273aa6: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
+    762485e8: ipfs发布增加定时开关功能，防止publish长期挂住
+    b3f1e604: 删除无效的签名
+    28365d83: 清空批量文件
+    995a976e: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
+    06d9f1af: 删除hash文件
+    92f20ed4: Merge branch 'sharding_black0319' into sharding0123
+    ...
