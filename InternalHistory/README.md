@@ -186,3 +186,16 @@
     995a976e: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
     06d9f1af: 删除hash文件
     ...
+
+    zhenghe pushed to branch master-maptoken at repository ethereum
+    63ddc5a5: 修改写文件位置
+    4c3ade92: 打印101交易
+    b39171f6: 11
+    283259be: 写文件增加读写权限
+    9cae4be0: 添加日志
+    52cbe3a8: 增加写入文件
+    cc61a3fb: 循环增加break
+    7cc04636: add switch
+    ba955810: add nil panic
+    7c0cc066: fmt
+    ...
