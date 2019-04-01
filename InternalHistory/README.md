@@ -199,3 +199,30 @@
     ba955810: add nil panic
     7c0cc066: fmt
     ...
+
+
+    zhenghe pushed to branch child-maptoken at repository ethereum
+    5435b449: 存储文件
+    6e8a83db: 代码优化，打印修改
+    8ebca5e4: 104 105 修改
+    105fba53: add log
+    1321e248: add white list
+    c454c880: Merge branch 'master' into master-child
+    27d42a73: update password file
+    7a676feb: update password file
+    9bf695b4: chain id
+    1b5010ed: 修改交易发送为sendargs1对象
+    ...
+
+    zhangwen pushed to branch longest_link_0329 at repository go-matrix
+    5bac27fb: 出块时间修改为1s
+    443f8326: utime获取选举图通过hash获取
+    478e09a7: uptime超级区块高度由当前高度修改为使用对应处理高度状态树获取
+    7a27401c: ipfs 区块插入出差导致同步挂住
+    3e99f003: Revert "Revert "Revert "增加作恶接口"""
+    14305577: 创建币种nonce多加了一次
+    65bb8351: 去log
+    99f47d15: Merge branch 'sharding0123' of http://192.168.3.91/MatrixAINetwork/go-matrix into sharding0123
+    eb423b71: 修正ipfs未存储但需要按原来方式下
+    eab87509: 创建币种增加to地址限制，销毁金额衰减机制
+    ...
