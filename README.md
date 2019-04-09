@@ -46,12 +46,12 @@ This MATRIX repository introduced so many distinct features and implements the M
 Welcome! This guide is intended to get you running on the MATRIX network. To ensure your client behaves gracefully throughout the setup process, please check your system meets the following requirements:
 
 
-| OS      | Windows, Linux                               |
-|---------|----------------------------------------------|
-| CPU     | 6 Core (Intel(R) Xeon(R) CPU X5670 @2.93GHz) |
-| RAM     | 8G                                           |
-| Free HD | 500G                                         |
-
+| OS        | Windows, Linux                               |
+|-------  --|----------------------------------------------|
+| CPU       | 8 Core (Intel(R) Xeon(R) CPU X5670 @2.93GHz) |
+| RAM       | 12G                                           |
+| Free HD   | 300G                                         |
+| Bandwidth | 20M                                         |
 
 ### Build from Source
 
