@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -109,4 +109,16 @@ func (ts *TopologyStore) GetInnerMinersAccount(blockHash common.Hash) ([]common.
 		return nil, err
 	}
 	return matrixstate.GetInnerMinerAccounts(st)
+}
+
+func (ts *TopologyStore) GetSuperSeq(blockHash common.Hash) (uint64, error) {
+	st, err := ts.bc.StateAtBlockHash(blockHash)
+	if err != nil {
+		return 0, err
+	}
+	supBlkState, err := matrixstate.GetSuperBlockCfg(st)
+	if err != nil {
+		return 0, err
+	}
+	return supBlkState.Seq, nil
 }

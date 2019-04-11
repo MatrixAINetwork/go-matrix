@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -13,7 +13,7 @@ type Putter interface {
 	Put(key []byte, value []byte) error
 }
 
-// Database wraps all database operations. All methods are safe for concurrent use.
+// Database wraps all database operations. All methods are safe for concurrent use.(并行使用)
 type Database interface {
 	Putter
 	Get(key []byte) ([]byte, error)

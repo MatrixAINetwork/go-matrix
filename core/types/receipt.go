@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -204,9 +204,10 @@ func (r Receipts) GetRlp(i int) []byte {
 	}
 	return bytes
 }
-func (r Receipts)HashList()(list []common.Hash)  {
+func (r Receipts)HashList()([]common.Hash)  {
+	list := make([]common.Hash,0,len(r))
 	for _,re := range r {
 		list = append(list,re.Hash())
 	}
-	return
+	return list
 }

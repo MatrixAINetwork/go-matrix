@@ -15,6 +15,7 @@ var versionOpt MatrixOperator
 
 func init() {
 	mangerAlpha = newManger(manparams.VersionAlpha)
+	mangerBeta = newManger(manparams.VersionBeta)
 	versionOpt = newVersionInfoOpt()
 }
 
@@ -33,6 +34,8 @@ func GetManager(version string) *Manager {
 	switch version {
 	case manparams.VersionAlpha:
 		return mangerAlpha
+	case manparams.VersionBeta:
+		return mangerBeta
 	default:
 		log.Error(logInfo, "get Manger err", "version not exist", "version", version)
 		return nil
@@ -89,6 +92,64 @@ func newManger(version string) *Manager {
 				mc.MSKeySlashCfg:          newSlashCfgOpt(),
 				mc.MSKeyPreMinerBlkReward: newPreMinerBlkRewardOpt(),
 				mc.MSKeyPreMinerTxsReward: newPreMinerTxsRewardOpt(),
+				mc.MSKeyUpTimeNum:         newUpTimeNumOpt(),
+				mc.MSKeyLotteryNum:        newLotteryNumOpt(),
+				mc.MSKeyLotteryAccount:    newLotteryAccountOpt(),
+				mc.MSKeyInterestCalcNum:   newInterestCalcNumOpt(),
+				mc.MSKeyInterestPayNum:    newInterestPayNumOpt(),
+				mc.MSKeySlashNum:          newSlashNumOpt(),
+
+				mc.MSKeyBlkCalc:      newBlkCalcOpt(),
+				mc.MSKeyTxsCalc:      newTxsCalcOpt(),
+				mc.MSKeyInterestCalc: newInterestCalcOpt(),
+				mc.MSKeyLotteryCalc:  newLotteryCalcOpt(),
+				mc.MSKeySlashCalc:    newSlashCalcOpt(),
+
+				mc.MSTxpoolGasLimitCfg: newTxpoolGasLimitOpt(),
+				mc.MSCurrencyConfig:    newCurrencyPackOpt(),
+				mc.MSAccountBlackList:  newAccountBlackListOpt(),
+
+				mc.MSKeyBlockProduceStatsStatus: newBlockProduceStatsStatusOpt(),
+				mc.MSKeyBlockProduceSlashCfg:    newBlockProduceSlashCfgOpt(),
+				mc.MSKeyBlockProduceStats:       newBlockProduceStatsOpt(),
+				mc.MSKeyBlockProduceBlackList:   newBlockProduceBlackListOpt(),
+			},
+		}
+	case manparams.VersionBeta:
+		return &Manager{
+			version: version,
+			operators: map[string]MatrixOperator{
+				mc.MSKeyBroadcastTx:            newBroadcastTxOpt(),
+				mc.MSKeyTopologyGraph:          newTopologyGraphOpt(),
+				mc.MSKeyElectGraph:             newELectGraphOpt(),
+				mc.MSKeyElectOnlineState:       newELectOnlineStateOpt(),
+				mc.MSKeyBroadcastInterval:      newBroadcastIntervalOpt(),
+				mc.MSKeyElectGenTime:           newElectGenTimeOpt(),
+				mc.MSKeyElectMinerNum:          newElectMinerNumOpt(),
+				mc.MSKeyElectConfigInfo:        newElectConfigInfoOpt(),
+				mc.MSKeyElectBlackList:         newElectBlackListOpt(),
+				mc.MSKeyElectWhiteList:         newElectWhiteListOpt(),
+				mc.MSKeyElectWhiteListSwitcher: newElectWhiteListSwitcherOpt(),
+				mc.MSKeyAccountBroadcasts:      newBroadcastAccountsOpt(),
+				mc.MSKeyAccountInnerMiners:     newInnerMinerAccountsOpt(),
+				mc.MSKeyAccountFoundation:      newFoundationAccountOpt(),
+				mc.MSKeyAccountVersionSupers:   newVersionSuperAccountsOpt(),
+				mc.MSKeyAccountBlockSupers:     newBlockSuperAccountsOpt(),
+				mc.MSKeyAccountMultiCoinSupers: newMultiCoinSuperAccountsOpt(),
+				mc.MSKeyAccountSubChainSupers:  newSubChainSuperAccountsOpt(),
+				mc.MSKeyVIPConfig:              newVIPConfigOpt(),
+				mc.MSKeyPreBroadcastRoot:       newPreBroadcastRootOpt(),
+				mc.MSKeyLeaderConfig:           newLeaderConfigOpt(),
+				mc.MSKeyMinHash:                newMinHashOpt(),
+				mc.MSKeySuperBlockCfg:          newSuperBlockCfgOpt(),
+
+				mc.MSKeyBlkRewardCfg:      newBlkRewardCfgOpt(),
+				mc.MSKeyTxsRewardCfg:      newTxsRewardCfgOpt(),
+				mc.MSKeyInterestCfg:       newInterestCfgOpt(),
+				mc.MSKeyLotteryCfg:        newLotteryCfgOpt(),
+				mc.MSKeySlashCfg:          newSlashCfgOpt(),
+				mc.MSKeyPreMinerBlkReward: newPreMinerBlkRewardOpt(),
+				mc.MSKeyPreMinerTxsReward: newPreMinerMultiCoinTxsRewardOpt(),
 				mc.MSKeyUpTimeNum:         newUpTimeNumOpt(),
 				mc.MSKeyLotteryNum:        newLotteryNumOpt(),
 				mc.MSKeyLotteryAccount:    newLotteryAccountOpt(),

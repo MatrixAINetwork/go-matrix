@@ -1,18 +1,12 @@
 {
   "config": {
-    "chainId": 1,
-    "homesteadBlock": 0,
-    "byzantiumBlock": 0,
-    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "eip155Block": 0,
-    "eip158Block": 0
+    "chainId": 1
   },
   "nonce": "0x0",
   "timestamp": "0x5c7778e0",
-  "extraData": "0x",
-  "version": "1.0.0.0",
+  "version": "1.0.0.1",
   "versionSignatures": [
-    "0xdb416bf265442d49fcb5d2b87ba5dc6902d7da8639dcda232107fc5d1939cf6f0aff48fbec07c759159a77154a090fca74edf96d500c99d5454730acc04f5aa400"
+    "0xeca73ed139b6390516a541be22251c525331e0364da86ba934be5b23f294921e5b99bc89c6bda1042fe52674686a96b256545bff7304c8e99573b72342d8368100"
   ],
   "vrfvalue": "0x",
   "leader": "MAN.3uUeFkPb1SWfx4vdqQMDztGQLDLcv",
@@ -278,13 +272,13 @@
       "balance": "0x18d0bf423c03d8de000000"
     },
     "MAN.2nRsUetjWAaYUizRkgBxGETimfUTz": {
-      "balance": "0x14adf4b7320334b90000000"
+	  "balance": "0x147fe60458df98141000000"
     },
-    "MAN.2wNbtfKAANYTTfYkKLREg5dkcbEDx": {
-      "balance": "0x21e19e0c9bab2400000"
-    },
+	"MAN.s7jf4pkbZdfnUaZyDL4EGZprWrHm": {
+	 "balance": "0x2e0eb2d9239ca4f000000"
+	},
     "MAN.3NathapfRegJQRzU7jRnabE769f7n": {
-      "balance": "0xb5f8b1cbd7527ba9c00000"
+      "balance": "0xb5facfe5b81c365c000000"
     },
     "MAN.PEbibUWzTgL1tEFdLmqujf9Xn3S8": {
       "balance": "0x121836204bc2ce21e000000"
@@ -310,12 +304,17 @@
     "BlockSuperAccounts": [
       "MAN.2zJVZ6nSa8ck19g1XG7tiukV7QiEM"
     ],
-    "MultiCoinSuperAccounts": [
-      "MAN.43fubRmnYDvyKnc1wpyG8h2ZfFMNn"
-    ],
     "SubChainSuperAccounts": [
       "MAN.AE3ZGRKppRUhVxZjHntiJxPmpZLh"
     ],
+	"EleInfo": {
+			"ValidatorNum": 19,
+			"BackValidator": 5,
+			"ElectPlug": "layerd_MEP"
+		},
+	"ElectMinerNum": {
+			"MinerNum": 32
+		},
     "CurElect": [
       {
         "Account": "MAN.4M29vNSn7jG1dwLs7bxG2RHYLikWG",
@@ -480,6 +479,50 @@
         "VIP": 0
       }
     ]
+  },
+  "currencys":{
+		"MBN":[
+		{
+			"Account":"MBN.DeapASk2PmiPcJ9WbaL6XG4jsMLM",
+			"Quant":"1000000000000000000000000000"
+		}
+	],
+		"MCN":[
+		{
+			"Account":"MCN.sfbxuUQRU166w4zUZbsQDNAc1PUD",
+			"Quant":"10000000000000000000000000000"
+		}
+	],
+		"MDN":[
+		{
+			"Account":"MDN.2kikPFbFxt7aGSCWtK38XUCrr3FmA",
+			"Quant":"10000000000000000000000000000"
+		}
+	],
+		"MEN":[
+		{
+			"Account":"MEN.mxgW4G95FzQncP57QAZBCjxXun7j",
+			"Quant":"1000000000000000000000000000"
+		}
+	],
+		"MUSD":[
+		{
+			"Account":"MUSD.3wYTUs7pJjDdEgZzhh1mAHgZeJwSg",
+			"Quant":"10000000000000000000000000000"
+		}
+	],
+		"MSN":[
+		{
+			"Account":"MSN.3RNSLdtn9GLvZxGu6dsiPks6VfWQH",
+			"Quant":"10000000000000000000000000000"
+		}
+	],
+		"MIN":[
+		{
+			"Account":"MIN.3YbFCLjoodPtSVgL16ThrFfwVcCGu",
+			"Quant":"10000000000000000000000000000"
+		}
+	]	
   },
   "number": "0x0",
   "gasUsed": "0x0",

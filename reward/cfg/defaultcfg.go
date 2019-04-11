@@ -84,8 +84,8 @@ type ChainReader interface {
 }
 type SetRewardsExec interface {
 	SetLeaderRewards(reward *big.Int, Leader common.Address, num uint64) map[common.Address]*big.Int
-	SetMinerOutRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, innerMiners []common.Address, rewardType uint8) map[common.Address]*big.Int
-	GetSelectedRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, roleType common.RoleType, number uint64, rate uint64, topology *mc.TopologyGraph, elect *mc.ElectGraph) map[common.Address]*big.Int //todo 金额
+	SetMinerOutRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, coinType string) map[common.Address]*big.Int
+	GetSelectedRewards(reward *big.Int, state util.StateDB, roleType common.RoleType, number uint64, rate uint64, topology *mc.TopologyGraph, elect *mc.ElectGraph) map[common.Address]*big.Int //todo 金额
 }
 type DefaultSetRewards struct {
 	leader   leaderreward.LeaderReward
@@ -93,10 +93,10 @@ type DefaultSetRewards struct {
 	selected selectedreward.SelectedReward
 }
 
-func DefaultSetRewardNew() *DefaultSetRewards {
+func DefaultSetRewardNew(preMiner []mc.MultiCoinMinerOutReward, innerMiners []common.Address, rewardType uint8) *DefaultSetRewards {
 	return &DefaultSetRewards{
 		leader:   leaderreward.LeaderReward{},
-		miner:    mineroutreward.MinerOutReward{},
+		miner:    mineroutreward.MinerOutReward{PreReward: preMiner, InnerMiners: innerMiners, RewardType: rewardType},
 		selected: selectedreward.SelectedReward{},
 	}
 
@@ -106,20 +106,20 @@ func (str *DefaultSetRewards) SetLeaderRewards(reward *big.Int, Leader common.Ad
 
 	return str.leader.SetLeaderRewards(reward, Leader, num)
 }
-func (str *DefaultSetRewards) GetSelectedRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, roleType common.RoleType, number uint64, rate uint64, topology *mc.TopologyGraph, elect *mc.ElectGraph) map[common.Address]*big.Int {
+func (str *DefaultSetRewards) GetSelectedRewards(reward *big.Int, state util.StateDB, roleType common.RoleType, number uint64, rate uint64, topology *mc.TopologyGraph, elect *mc.ElectGraph) map[common.Address]*big.Int {
 
-	return str.selected.GetSelectedRewards(reward, state, chain, roleType, number, rate, topology, elect)
+	return str.selected.GetSelectedRewards(reward, state, roleType, number, rate, topology, elect)
 }
-func (str *DefaultSetRewards) SetMinerOutRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, innerMiners []common.Address, rewardType uint8) map[common.Address]*big.Int {
+func (str *DefaultSetRewards) SetMinerOutRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, coinType string) map[common.Address]*big.Int {
 
-	return str.miner.SetMinerOutRewards(reward, state, num, parentHash, chain, innerMiners, rewardType)
+	return str.miner.SetMinerOutRewards(reward, state, num, parentHash, chain, coinType)
 }
 
-func New(RewardMount *mc.BlkRewardCfg, SetReward SetRewardsExec) *RewardCfg {
+func New(RewardMount *mc.BlkRewardCfg, SetReward SetRewardsExec, preMiner []mc.MultiCoinMinerOutReward, innerMiners []common.Address, rewardType uint8) *RewardCfg {
 	//默认配置
 	if nil == SetReward {
 
-		SetReward = DefaultSetRewardNew()
+		SetReward = DefaultSetRewardNew(preMiner, innerMiners, rewardType)
 	}
 
 	return &RewardCfg{

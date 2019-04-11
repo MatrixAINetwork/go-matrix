@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -269,6 +269,7 @@ func (f *Fetcher) loop() {
 	// Iterate the block fetching until a quit is requested
 	fetchTimer := time.NewTimer(0)
 	completeTimer := time.NewTimer(0)
+	updateQueueTimer := time.NewTicker(1 * time.Minute)
 
 	for {
 		// Clean up any expired block fetches
@@ -304,6 +305,7 @@ func (f *Fetcher) loop() {
 			}
 			// Otherwise if fresh and still unknown, try and import
 			hash := op.block.Hash()
+			log.Trace("fetch queue update", "blockNumber", number, "hash", hash.String(), "curHeight", height)
 			if number+maxUncleDist < height || f.getBlock(hash) != nil {
 				f.forgetBlock(hash)
 				continue
@@ -315,6 +317,8 @@ func (f *Fetcher) loop() {
 		case <-f.quit:
 			// Fetcher terminating, abort all operations
 			return
+		case <-updateQueueTimer.C:
+			log.Trace("fetch update operate which is before select will rebegin")
 
 		case notification := <-f.notify:
 			// A block was announced, make sure the peer isn't DOSing us
@@ -342,7 +346,7 @@ func (f *Fetcher) loop() {
 				break
 			}
 			//lb
-			if len(f.announced[notification.hash]) > 6 {
+			if len(f.announced[notification.hash]) > 10 {
 				log.Debug("fetch f.announced[] too big,discard ", "hash", notification.hash.String(), "peer", notification.origin, "Number", notification.number)
 				break
 			}

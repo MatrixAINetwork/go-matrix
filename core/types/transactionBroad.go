@@ -96,9 +96,7 @@ func (tx *TransactionBroad) GetMakeHashfield(chid *big.Int )[]interface{}{
 	}
 }
 func (tx *TransactionBroad) IsEntrustTx() bool { return tx.data.IsEntrustTx == 1 }
-func (tx *TransactionBroad) Setentrustfrom(x interface{}) {
-
-}
+func (tx *TransactionBroad) Setentrustfrom(x interface{}) {}
 func (tx *TransactionBroad) GasFrom() common.Address {
 	return common.Address{}
 }
@@ -180,7 +178,11 @@ func (tx *TransactionBroad) SetIsEntrustGas(b bool) {
 }
 func (tx *TransactionBroad) SetIsEntrustByTime(b bool) {
 }
-
+func (tx *TransactionBroad) SetIsEntrustByCount(b bool) {
+}
+func (tx *TransactionBroad) GetIsEntrustByCount()bool{
+	return false
+}
 //
 func (tx *TransactionBroad) SetTxS(S *big.Int) { tx.data.S = S }
 func (tx *TransactionBroad) To() *common.Address {

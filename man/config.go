@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -23,7 +23,7 @@ import (
 
 // DefaultConfig contains default settings for use on the Matrix main net.
 var DefaultConfig = Config{
-	SyncMode: downloader.FastSync,
+	SyncMode: downloader.FullSync, //FastSync,
 	Manash: manash.Config{
 		CacheDir:       "manash",
 		CachesInMem:    2,

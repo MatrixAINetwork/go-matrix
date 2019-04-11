@@ -661,6 +661,7 @@ var (
 			"BlackList" : []
 		}
     },
+	"Currencys":{},
   "config": {
 					"chainID": 1,           
 					"byzantiumBlock": 0,

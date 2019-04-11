@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -13,6 +13,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
+	"sync"
 )
 
 var emptyCodeHash = crypto.Keccak256(nil)
@@ -64,6 +65,7 @@ type stateObject struct {
 	data     Account
 	db       *StateDB
 
+	readMu   sync.Mutex
 	// DB error.
 	// State objects are used by the consensus core and VM which are
 	// unable to deal with database-level errors. Any error that occurs
@@ -183,6 +185,8 @@ func (c *stateObject) getTrie(db Database) Trie {
 
 // GetState returns a value in account storage.
 func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
+	self.readMu.Lock()
+	defer self.readMu.Unlock()
 	value, exists := self.cachedStorage[key]
 	if exists {
 		return value
@@ -205,6 +209,8 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 }
 
 func (self *stateObject) GetStateByteArray(db Database, key common.Hash) []byte {
+	self.readMu.Lock()
+	defer self.readMu.Unlock()
 	value, exists := self.cachedStorageByteArray[key]
 	if exists {
 		return value

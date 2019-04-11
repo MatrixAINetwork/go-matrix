@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -265,6 +265,30 @@ var (
 				"2. 增加区块压缩存储ipfs功能",
 				"3. 增加区块大小统计",
 				"4. panic增加时间 ",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.33",
+			Submitter: "lb",
+			Commit: []string{
+				"fetch增加loop周期例行检查功能，防止fetch阻塞区块入库",
+				"panic增加换行",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.34",
+			Submitter: "zhenghe",
+			Commit: []string{
+				"修改多币种奖励",
+				"增加黑名单机制",
+				"委托交易增加按次数委托",
+			},
+		},
+		{
+			Version:   "Gman_Alg_0.0.35",
+			Submitter: "zhenghe",
+			Commit: []string{
+				"创建币种增加to地址限制，销毁金额衰减机制",
 			},
 		},
 	}

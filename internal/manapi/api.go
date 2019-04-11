@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -679,6 +679,37 @@ func (s *PublicBlockChainAPI) GetMatrixCoin(ctx context.Context, blockNr rpc.Blo
 	}
 	return coinlist, nil
 }
+func (s *PublicBlockChainAPI) GetDestroyBalance(ctx context.Context, blockNr rpc.BlockNumber) (*big.Int, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	bs := state.GetMatrixData(types.RlpHash(params.COIN_NAME))
+	var tmpcoinlist []string
+	if len(bs) > 0 {
+		err := json.Unmarshal(bs, &tmpcoinlist)
+		if err != nil {
+			log.Trace("get matrix coin", "unmarshal err", err)
+			return nil, err
+		}
+	}
+	var coinlist []string
+	for _, coin := range tmpcoinlist {
+		if !common.IsValidityCurrency(coin) {
+			continue
+		}
+		coinlist = append(coinlist, coin)
+	}
+
+	value,_ := new(big.Int).SetString(params.DestroyBalance,0)
+	for i := 0; i< len(coinlist)/params.CoinDampingNum; i++{
+		tmpa := big.NewInt(95)
+		tmpb := big.NewInt(100)
+		value.Mul(value,tmpa)
+		value.Quo(value,tmpb)
+	}
+	return value, nil
+}
 func (s *PublicBlockChainAPI) GetMatrixCoinConfig(ctx context.Context, cointpy string, blockNr rpc.BlockNumber) ([]common.CoinConfig, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
@@ -813,14 +844,22 @@ func (s *PublicBlockChainAPI) GetEntrustList(strAuthFrom string) []common.Entrus
 			if s.b.CurrentBlock().NumberU64() <= entrustData.EndHeight {
 				validEntrustList = append(validEntrustList, entrustData)
 			}
-		} else {
+		} else if entrustData.EnstrustSetType == params.EntrustByTime{
 			if s.b.CurrentBlock().Time().Uint64() <= entrustData.EndTime {
+				validEntrustList = append(validEntrustList, entrustData)
+			}
+		}else if entrustData.EnstrustSetType == params.EntrustByCount{
+			if entrustData.EntrustCount > 0{
 				validEntrustList = append(validEntrustList, entrustData)
 			}
 		}
 	}
 
 	return validEntrustList
+}
+
+func (s *PublicBlockChainAPI) GetBlackList() []string {
+	return common.BlackListString
 }
 
 func (s *PublicBlockChainAPI) GetIPFSfirstcache() {
@@ -954,6 +993,9 @@ func (s *PublicBlockChainAPI) GetMatrixStateByNum(ctx context.Context, key strin
 	}
 
 	version := matrixstate.GetVersionInfo(state)
+	if key == mc.MSKeyVersionInfo {
+		return version, nil
+	}
 	mgr := matrixstate.GetManager(version)
 	if mgr == nil {
 		return nil, nil
@@ -975,7 +1017,7 @@ func (s *PublicBlockChainAPI) GetMatrixStateByNum(ctx context.Context, key strin
 	return dataval, nil
 }
 
-func (s *PublicBlockChainAPI) GetGasPrice() *big.Int  {
+func (s *PublicBlockChainAPI) GetGasPrice() *big.Int {
 	return big.NewInt(int64(params.TxGasPrice))
 }
 
@@ -1103,6 +1145,7 @@ type CallArgs struct {
 	GasPrice hexutil.Big     `json:"gasPrice"`
 	Value    hexutil.Big     `json:"value"`
 	Data     hexutil.Bytes   `json:"data"`
+	ExtraTo     []*ExtraTo_Mx `json:"extra_to"` //
 }
 type ManCallArgs struct {
 	From     string         `json:"from"`
@@ -1112,6 +1155,7 @@ type ManCallArgs struct {
 	GasPrice hexutil.Big    `json:"gasPrice"`
 	Value    hexutil.Big    `json:"value"`
 	Data     hexutil.Bytes  `json:"data"`
+	ExtraTo     []*ExtraTo_Mx1 `json:"extra_to"` //
 }
 
 func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) ([]byte, uint64, bool, error) {
@@ -1141,7 +1185,18 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 
 	// Create new call message
 	//msg := new(types.Transaction) //types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false)
-	msg := &types.TransactionCall{types.NewTransaction(params.NonceAddOne, *args.To, args.Value.ToInt(), gas, gasPrice, args.Data, nil, nil, nil, 0, 0, "MAN", 0)}
+	//msg := &types.TransactionCall{types.NewTransaction(params.NonceAddOne, *args.To, args.Value.ToInt(), gas, gasPrice, args.Data, nil, nil, nil, 0, 0, "MAN", 0)}
+	extra := make([]*types.ExtraTo_tr, 0)
+	if len(args.ExtraTo) > 0{
+		var tmpExtra types.ExtraTo_tr
+		for _, ar := range args.ExtraTo {
+			tmpExtra.To_tr = ar.To2
+			tmpExtra.Input_tr = ar.Input2
+			tmpExtra.Value_tr = ar.Value2
+			extra = append(extra,&tmpExtra)
+		}
+	}
+	msg := &types.TransactionCall{types.NewTransactions(params.NonceAddOne, *args.To, args.Value.ToInt(), gas, gasPrice, args.Data, nil, nil, nil, extra,0, 0,0,"MAN", 0)}
 	msg.SetFromLoad(addr)
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -1199,6 +1254,26 @@ func ManArgsToCallArgs(manargs ManCallArgs) (args CallArgs, err error) {
 	args.Gas = manargs.Gas
 	args.Value = manargs.Value
 	args.Data = manargs.Data
+	if len(manargs.ExtraTo) > 0 {
+		extra := make([]*ExtraTo_Mx, 0)
+		for _, ar := range manargs.ExtraTo {
+			if ar.To2 != nil {
+				tmp := *ar.To2
+				tmp = strings.TrimSpace(tmp)
+				tmExtra := new(ExtraTo_Mx)
+				tmExtra.To2 = new(common.Address)
+				*tmExtra.To2, err = base58.Base58DecodeToAddress(tmp)
+				if err != nil {
+					return CallArgs{}, err
+				}
+				tmExtra.Input2 = ar.Input2
+				tmExtra.Value2 = ar.Value2
+				extra = append(extra, tmExtra)
+			}
+		}
+		args.ExtraTo = extra
+	}
+
 	return args, nil
 }
 
@@ -1229,8 +1304,9 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, manargs ManCallAr
 	if uint64(args.Gas) >= params.TxGas {
 		hi = uint64(args.Gas)
 	} else {
+		//hi = params.MinGasLimit
 		// Retrieve the current pending block to act as the gas ceiling
-		block, err := s.b.BlockByNumber(ctx, rpc.PendingBlockNumber)
+		block, err := s.b.BlockByNumber(ctx, rpc.LatestBlockNumber)
 		if err != nil {
 			return 0, err
 		}
@@ -1242,7 +1318,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, manargs ManCallAr
 	executable := func(gas uint64) bool {
 		args.Gas = hexutil.Uint64(gas)
 
-		_, _, failed, err := s.doCall(ctx, args, rpc.PendingBlockNumber, vm.Config{}, 0)
+		_, _, failed, err := s.doCall(ctx, args, rpc.LatestBlockNumber, vm.Config{}, 0)
 		if err != nil || failed {
 			return false
 		}
@@ -1263,6 +1339,9 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, manargs ManCallAr
 			return 0, fmt.Errorf("gas required exceeds allowance or always failing transaction")
 		}
 	}
+	//if len(args.ExtraTo) > 0{
+	//	hi += 21000*uint64(len(args.ExtraTo))
+	//}
 	return hexutil.Uint64(hi), nil
 }
 
@@ -2265,10 +2344,7 @@ func CheckCrc8(strData string) bool {
 }
 func CheckCurrency(strData string) bool {
 	currency := strings.Split(strData, ".")[0]
-	if len(currency) < 2 || len(currency) > 8 {
-		return false
-	}
-	return true
+	return common.IsValidityManCurrency(currency)
 }
 func CheckFormat(strData string) bool {
 	if !strings.Contains(strData, ".") {

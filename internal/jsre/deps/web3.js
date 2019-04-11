@@ -5596,6 +5596,13 @@ var methods = function () {
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         //outputFormatter: formatters.outputNewBigNumberFormatter
     });
+    var getBlackList = new Method({
+        name: 'getBlackList',
+        call: 'eth_getBlackList',
+        params: 0,
+        //inputFormatter: [formatters.inputAddressFormatter],
+        //outputFormatter: formatters.outputBigNumberFormatter
+    });
     var getGasPrice = new Method({
         name: 'getGasPrice',
         call: 'eth_getGasPrice',
@@ -5789,6 +5796,12 @@ var methods = function () {
         params: 1,
         inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
     });
+    var getDestroyBalance = new Method({
+        name: 'getDestroyBalance',
+        call: 'eth_getDestroyBalance',
+        params: 1,
+        inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+    });
     var getMatrixCoinConfig = new Method({
         name: 'getMatrixCoinConfig',
         call: 'eth_getMatrixCoinConfig',
@@ -5809,6 +5822,7 @@ var methods = function () {
         getAuthFromByTime,
         getEntrustFromByTime,
         getAuthGasAddress,
+        getBlackList,
         getGasPrice,
         getStorageAt,
         getCode,
@@ -5836,6 +5850,7 @@ var methods = function () {
         getSelfLevel,
         importSuperBlock,
         getMatrixCoin,
+        getDestroyBalance,
         getMatrixCoinConfig,
         getTopologyStatus
     ];

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -7,6 +7,9 @@ package types
 import (
 	"math/big"
 	"testing"
+	"time"
+	"fmt"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 func TestBloom(t *testing.T) {
@@ -20,7 +23,12 @@ func TestBloom(t *testing.T) {
 		"tes",
 		"lo",
 	}
-
+	time1 := time.Now().UnixNano()
+	for i:=0;i<10000;i++{
+		DeriveShaHash([]common.Hash{})
+	}
+	time2 := time.Now().UnixNano()
+	fmt.Println(time2-time1)
 	var bloom Bloom
 	for _, data := range positive {
 		bloom.Add(new(big.Int).SetBytes([]byte(data)))

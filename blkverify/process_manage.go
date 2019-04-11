@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
@@ -14,7 +14,9 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core"
 	"github.com/MatrixAINetwork/go-matrix/event"
+	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/msgsend"
 	"github.com/MatrixAINetwork/go-matrix/reelection"
 	"github.com/pkg/errors"
@@ -22,7 +24,7 @@ import (
 
 type ProcessManage struct {
 	mu             sync.Mutex
-	curNumber      uint64
+	curChainState  mc.ChainState
 	processMap     map[uint64]*Process
 	hd             *msgsend.HD
 	signHelper     *signhelper.SignHelper
@@ -38,7 +40,7 @@ type ProcessManage struct {
 
 func NewProcessManage(matrix Matrix) *ProcessManage {
 	return &ProcessManage{
-		curNumber:      0,
+		curChainState:  mc.ChainState{},
 		processMap:     make(map[uint64]*Process),
 		hd:             matrix.HD(),
 		signHelper:     matrix.SignHelper(),
@@ -63,14 +65,23 @@ func (pm *ProcessManage) AddVerifiedBlock(block *verifiedBlock) {
 	pm.verifiedBlocks[block.hash] = block
 }
 
-func (pm *ProcessManage) SetCurNumber(number uint64, preSuperBlock bool) {
+func (pm *ProcessManage) SetCurNumber(number uint64, superSeq uint64) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	pm.curNumber = number
-	if preSuperBlock {
-		pm.clearProcessMap()
-	} else {
+	switch pm.curChainState.Cmp(superSeq, number) {
+	case 1: //cur > input
+		log.Debug(pm.logExtraInfo(), "SetCurNumber", "超级序号或高度低于当前值,不处理",
+			"curNumber", pm.curChainState.CurNumber(), "number", number,
+			"curSuperSeq", pm.curChainState.SuperSeq(), "superSeq", superSeq)
+		return
+	case -1: // cur < input
+		if pm.curChainState.SuperSeq() < superSeq {
+			log.Debug(pm.logExtraInfo(), "SetCurNumber", "超级区块序号变更,清空之前状态",
+				"curSuperSeq", pm.curChainState.SuperSeq(), "superSeq", superSeq)
+			pm.clearProcessMap()
+		}
+		pm.curChainState.Reset(superSeq, number)
 		pm.fixProcessMap()
 	}
 	pm.checkVerifiedBlocksCache()
@@ -80,7 +91,7 @@ func (pm *ProcessManage) GetCurrentProcess() *Process {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	return pm.getProcess(pm.curNumber)
+	return pm.getProcess(pm.curChainState.CurNumber())
 }
 
 func (pm *ProcessManage) GetProcess(number uint64) (*Process, error) {
@@ -113,7 +124,7 @@ func (pm *ProcessManage) fixProcessMap() {
 
 	delKeys := make([]uint64, 0)
 	for key, process := range pm.processMap {
-		if key < pm.curNumber {
+		if key < pm.curChainState.CurNumber() {
 			process.Close()
 			delKeys = append(delKeys, key)
 		}
@@ -125,31 +136,22 @@ func (pm *ProcessManage) fixProcessMap() {
 }
 
 func (pm *ProcessManage) clearProcessMap() {
-	if pm.curNumber == 0 {
-		return
-	}
 	if len(pm.processMap) == 0 {
 		return
 	}
-
-	delKeys := make([]uint64, 0)
-	for key, process := range pm.processMap {
+	for _, process := range pm.processMap {
 		process.Close()
-		delKeys = append(delKeys, key)
 	}
-
-	for _, delKey := range delKeys {
-		delete(pm.processMap, delKey)
-	}
+	pm.processMap = make(map[uint64]*Process)
 }
 
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
-	if number < pm.curNumber {
-		return errors.Errorf("number(%d) is less than current number(%d)", number, pm.curNumber)
+	if number < pm.curChainState.CurNumber() {
+		return errors.Errorf("number(%d) is less than current number(%d)", number, pm.curChainState.CurNumber())
 	}
 
-	if number > pm.curNumber+2 {
-		return errors.Errorf("number(%d) is too big than current number(%d)", number, pm.curNumber)
+	if number > pm.curChainState.CurNumber()+2 {
+		return errors.Errorf("number(%d) is too big than current number(%d)", number, pm.curChainState.CurNumber())
 	}
 
 	return nil
@@ -168,15 +170,15 @@ func (pm *ProcessManage) checkVerifiedBlocksCache() {
 	if len(pm.verifiedBlocks) <= 0 {
 		return
 	}
-	curProcess := pm.getProcess(pm.curNumber)
+	curProcess := pm.getProcess(pm.curChainState.CurNumber())
 	del := make([]common.Hash, 0)
 	for key, block := range pm.verifiedBlocks {
 		number := block.req.Header.Number.Uint64()
-		if number > pm.curNumber {
+		if number > pm.curChainState.CurNumber() {
 			continue
 		}
 
-		if number == pm.curNumber {
+		if number == pm.curChainState.CurNumber() {
 			curProcess.AddVerifiedBlock(block)
 		}
 		del = append(del, key)

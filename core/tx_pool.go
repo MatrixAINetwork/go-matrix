@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"runtime"
+
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
@@ -21,7 +23,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"github.com/MatrixAINetwork/go-matrix/txpoolCache"
-	"runtime"
 )
 
 //
@@ -175,10 +176,10 @@ var DefaultTxPoolConfig = TxPoolConfig{
 }
 
 type NormalTxPool struct {
-	config      TxPoolConfig
-	chainconfig *params.ChainConfig
-	chain       blockChain
-	gasPrice    *big.Int
+	config       TxPoolConfig
+	chainconfig  *params.ChainConfig
+	chain        blockChain
+	gasPrice     *big.Int
 	chainHeadCh  chan ChainHeadEvent
 	sendTxCh     chan NewTxsEvent
 	chainHeadSub event.Subscription
@@ -523,7 +524,7 @@ func (nPool *NormalTxPool) ListenUdp() {
 						nc = nc | params.NonceAddOne
 						tx.SetNonce(nc)
 					}
-					log.INFO("==udp tx hash","from",tx.From().String(),"tx.Nonce",tx.Nonce(),"hash",tx.Hash().String())
+					log.INFO("==udp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", tx.Hash().String())
 					tmptxs = append(tmptxs, tx)
 				}
 				nPool.getFromByTx(tmptxs)
@@ -629,24 +630,24 @@ func (nPool *NormalTxPool) Content() map[common.Address][]*types.Transaction {
 // Pending retrieves all currently processable transactions, groupped by origin
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
-func (nPool *NormalTxPool) Pending() (map[common.Address][]types.SelfTransaction, error) {
+func (nPool *NormalTxPool) Pending() (map[string]map[common.Address]types.SelfTransactions, error) {
 	nPool.mu.Lock()
 	defer nPool.mu.Unlock()
-	pending := make(map[common.Address][]types.SelfTransaction)
+	pending := make(map[string]map[common.Address]types.SelfTransactions)
 	for addr, list := range nPool.pending {
-		txlist := make([]*types.Transaction, 0)
-		for _, txs := range list.txs {
-			txlist = append(txlist, txs.Flatten()...)
-		}
-		var txser types.SelfTransactions
-		for _, tx := range txlist {
-			txser = append(txser, tx)
-			if len(tx.N) <= 0 {
-				continue
+		for coin, txs := range list.txs {
+			txlist := make([]*types.Transaction, 0)
+			txlist = txs.Flatten()
+			txsmap := make(map[common.Address]types.SelfTransactions)
+			for _,tx := range txlist{
+				if len(tx.N) <= 0 {
+					continue
+				}
+				nPool.NContainer[tx.N[0]] = tx
+				txsmap[addr] = append(txsmap[addr],tx)
 			}
-			nPool.NContainer[tx.N[0]] = tx
+			pending[coin] = txsmap
 		}
-		pending[addr] = txser
 	}
 	return pending, nil
 }
@@ -1091,15 +1092,25 @@ func (nPool *NormalTxPool) blockTiming() {
 // 根据交易获取交易中的from
 func (nPool *NormalTxPool) getFromByTx(txs []*types.Transaction) {
 	var waitG = &sync.WaitGroup{}
-	maxProcs := runtime.NumCPU() //获取cpu个数
-	if maxProcs >= 2 {
-		runtime.GOMAXPROCS(maxProcs - 1) //限制同时运行的goroutines数量
+	routineNum := len(txs)/100+1
+	if routineNum > 1{
+		maxProcs := runtime.GOMAXPROCS(0)  //获取cpu个数
+		if maxProcs > 2 {
+			maxProcs /= 2
+		}
+		if maxProcs<routineNum{
+			routineNum = maxProcs
+		}
+	}
+	routChan := make(chan types.SelfTransaction,0)
+	for i:=0;i<routineNum;i++ {
+		waitG.Add(1)
+		go types.Sender_sub(nPool.signer,routChan,waitG)
 	}
 	for _, tx := range txs {
-		waitG.Add(1)
-		ttx := tx
-		go types.Sender_self(nPool.signer, ttx, waitG)
+			routChan <- tx
 	}
+	close(routChan)
 	waitG.Wait()
 }
 
@@ -1188,7 +1199,7 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrNonceTooLow
 	}
 	balance := big.NewInt(0)
-	manCoinBalance := big.NewInt(0)
+	entrustbalance := big.NewInt(0)
 	//当前账户余额
 	for _, tAccount := range nPool.currentState.GetBalance(tx.Currency, from) {
 		if tAccount.AccountType == common.MainAccount {
@@ -1197,16 +1208,16 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 	}
 
-	if tx.Currency != params.MAN_COIN {
-		for _, tAccount := range nPool.currentState.GetBalance(params.MAN_COIN, tx.AmontFrom()) {
+	if tx.IsEntrustGas{
+		for _, tAccount := range nPool.currentState.GetBalance(tx.Currency,tx.AmontFrom()) {
 			if tAccount.AccountType == common.MainAccount {
-				manCoinBalance = tAccount.Balance
+				entrustbalance = tAccount.Balance
 				break
 			}
 		}
 		totalGas := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
-		if manCoinBalance.Cmp(totalGas) < 0{
-			return ErrInsufficientFunds
+		if entrustbalance.Cmp(totalGas) < 0 {
+			return ErrEntrustInsufficientFunds
 		}
 		if balance.Cmp(tx.TotalAmount()) < 0 {
 			return ErrInsufficientFunds
@@ -1216,6 +1227,7 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 			return ErrInsufficientFunds
 		}
 	}
+
 
 	intrGas, err := IntrinsicGas(tx.Data())
 	if err != nil {
@@ -1253,8 +1265,15 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 				tx.IsEntrustGas = true
 				tx.IsEntrustByTime = true
 			} else {
-				log.Error("该用户没有被授权过委托Gas")
-				return false, ErrWithoutAuth
+				entrustFrom := nPool.currentState.GetGasAuthFromByCount(tx.Currency,from)
+				if !entrustFrom.Equal(common.Address{}) {
+					tx.Setentrustfrom(entrustFrom)
+					tx.IsEntrustGas = true
+					tx.IsEntrustByCount = true
+				} else {
+					log.Error("该用户没有被授权过委托gas或授权gas失效")
+					return false, ErrWithoutAuth
+				}
 			}
 		}
 	}
@@ -1298,8 +1317,8 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 		nPool.setsTx(tx_s, tx)
 		if len(tx.N) == 0 {
 			gSendst.notice <- tx.GetTxS()
-		//} else {
-		//	log.Trace("txpool:add()", "gSendst.notice::tx N ", tx.N)
+			//} else {
+			//	log.Trace("txpool:add()", "gSendst.notice::tx N ", tx.N)
 		}
 	} else if selfRole == common.RoleDefault || selfRole == common.RoleBucket {
 		promoted := make([]types.SelfTransaction, 0)
@@ -1431,7 +1450,7 @@ func (nPool *NormalTxPool) DemoteUnexecutables() {
 			}
 			// Delete the entire queue entry if it became empty.
 			if list.Empty(typ) {
-				delete(nPool.pending, addr)
+				delete(nPool.pending[addr].txs, typ)
 			}
 		}
 	}

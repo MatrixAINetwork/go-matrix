@@ -5,8 +5,8 @@ import (
 
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
-	"github.com/pkg/errors"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
+	"github.com/pkg/errors"
 )
 
 func encodeAccount(account common.Address) ([]byte, error) {
@@ -40,7 +40,6 @@ func decodeAccounts(data []byte) ([]common.Address, error) {
 	if err != nil {
 		return nil, errors.Errorf("rlp decode failed: %s", err)
 	}
-	//todo 测试 data为空切片时， msg返回什么
 	return msg, nil
 }
 

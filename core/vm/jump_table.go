@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -47,7 +47,7 @@ var (
 
 // NewConstantinopleInstructionSet returns the frontier, homestead
 // byzantium and contantinople instructions.
-func NewConstantinopleInstructionSet() [256]operation {
+func NewConstantinopleInstructionSet() *[256]operation {
 	// instructions that can be executed during the byzantium phase.
 	instructionSet := NewByzantiumInstructionSet()
 	instructionSet[SHL] = operation{
@@ -73,7 +73,7 @@ func NewConstantinopleInstructionSet() [256]operation {
 
 // NewByzantiumInstructionSet returns the frontier, homestead and
 // byzantium instructions.
-func NewByzantiumInstructionSet() [256]operation {
+func NewByzantiumInstructionSet() *[256]operation {
 	// instructions that can be executed during the homestead phase.
 	instructionSet := NewHomesteadInstructionSet()
 	instructionSet[STATICCALL] = operation{
@@ -111,7 +111,7 @@ func NewByzantiumInstructionSet() [256]operation {
 
 // NewHomesteadInstructionSet returns the frontier and homestead
 // instructions that can be executed during the homestead phase.
-func NewHomesteadInstructionSet() [256]operation {
+func NewHomesteadInstructionSet() *[256]operation {
 	instructionSet := NewFrontierInstructionSet()
 	instructionSet[DELEGATECALL] = operation{
 		execute:       opDelegateCall,
@@ -126,8 +126,8 @@ func NewHomesteadInstructionSet() [256]operation {
 
 // NewFrontierInstructionSet returns the frontier instructions
 // that can be executed during the frontier phase.
-func NewFrontierInstructionSet() [256]operation {
-	return [256]operation{
+func NewFrontierInstructionSet() *[256]operation {
+	return &[256]operation{
 		STOP: {
 			execute:       opStop,
 			gasCost:       constGasFunc(0),

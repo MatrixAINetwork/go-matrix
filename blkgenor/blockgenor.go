@@ -1,14 +1,14 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
 
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 type BlockGenor struct {
@@ -166,7 +166,7 @@ func (self *BlockGenor) roleUpdatedMsgHandle(roleMsg *mc.RoleUpdatedMsg) error {
 
 	role := roleMsg.Role
 	curNumber := roleMsg.BlockNum + 1
-	self.pm.SetCurNumber(curNumber, roleMsg.IsSuperBlock)
+	self.pm.SetCurNumber(curNumber, roleMsg.SuperSeq)
 	if role == common.RoleValidator || role == common.RoleBroadcast {
 		curProcess := self.pm.GetCurrentProcess()
 		curProcess.StartRunning(role, bcInterval)

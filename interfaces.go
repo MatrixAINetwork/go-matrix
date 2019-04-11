@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -201,6 +201,6 @@ type PendingStateEventer interface {
 type StateReader interface {
 	State() (*state.StateDBManage, error)
 	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
-	StateAtNumber(number uint64) (*state.StateDBManage, error)
+	//StateAtNumber(number uint64) (*state.StateDBManage, error)
 	StateAtBlockHash(hash common.Hash) (*state.StateDBManage, error)
 }

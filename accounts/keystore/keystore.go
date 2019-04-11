@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -26,8 +26,9 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/event"
 
-	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"sync"
+
+	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 )
 
 var (
@@ -356,7 +357,7 @@ func (ks *KeyStore) SignHashVersionWithPass(a accounts.Account, passphrase strin
 		ks.mu.Unlock()
 	}
 
-	return crypto.SignWithVersion(hash, key.PrivateKey)
+	return crypto.Sign(hash, key.PrivateKey)
 }
 
 func (ks *KeyStore) SignTxWithPassAndTemp(a accounts.Account, passphrase string, tx types.SelfTransaction, chainID *big.Int) (signTx types.SelfTransaction, err error) {
@@ -587,6 +588,14 @@ func (ks *KeyStore) CheckAccountAndPassword(a accounts.Account, passphrase strin
 	}
 	zeroKey(key.PrivateKey)
 	return nil
+}
+
+func (ks *KeyStore) GetKey(a accounts.Account, passphrase string) (error, *Key) {
+	_, key, err := ks.getDecryptedKey(a, passphrase)
+	if err != nil {
+		return err, nil
+	}
+	return nil, key
 }
 
 // zeroKey zeroes a private key in memory.

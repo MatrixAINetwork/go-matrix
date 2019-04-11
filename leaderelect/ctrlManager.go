@@ -1,63 +1,62 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
 
 import (
 	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/pkg/errors"
 	"sync"
 )
 
 type ControllerManager struct {
-	mu        sync.Mutex
-	curNumber uint64
-	ctrlMap   map[uint64]*controller
-	matrix    Matrix
-	logInfo   string
+	mu            sync.Mutex
+	curChainState mc.ChainState
+	ctrlMap       map[uint64]*controller
+	matrix        Matrix
+	logInfo       string
 }
 
 func NewControllerManager(matrix Matrix, logInfo string) *ControllerManager {
 	return &ControllerManager{
-		curNumber: 0,
-		ctrlMap:   make(map[uint64]*controller),
-		matrix:    matrix,
-		logInfo:   logInfo,
+		curChainState: mc.ChainState{},
+		ctrlMap:       make(map[uint64]*controller),
+		matrix:        matrix,
+		logInfo:       logInfo,
 	}
 }
 
-func (cm *ControllerManager) ClearController() {
+func (cm *ControllerManager) StartController(number uint64, superBlkSeq uint64, msg *startControllerMsg) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	cm.curNumber = 0
-	for _, ctrl := range cm.ctrlMap {
-		ctrl.Close()
-	}
-	cm.ctrlMap = make(map[uint64]*controller)
-}
-
-func (cm *ControllerManager) StartController(number uint64, msg *startControllerMsg) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	if cm.curNumber > number {
-		log.Debug(cm.logInfo, "处理start controller消息", "高度低于当前高度,不处理", "curNumber", cm.curNumber, "number", number)
+	switch cm.curChainState.Cmp(superBlkSeq, number) {
+	case 1: //cur > input
+		log.Debug(cm.logInfo, "处理start controller消息", "超级序号或高度低于当前值,不处理",
+			"curNumber", cm.curChainState.CurNumber(), "number", number,
+			"curSuperSeq", cm.curChainState.SuperSeq(), "superSeq", superBlkSeq)
 		return
-	} else if cm.curNumber < number {
-		cm.curNumber = number
+	case -1: // cur < input
+		if cm.curChainState.SuperSeq() < superBlkSeq {
+			log.Debug(cm.logInfo, "处理start controller消息", "超级区块序号变更,清空之前状态",
+				"curSuperSeq", cm.curChainState.SuperSeq(), "superSeq", superBlkSeq)
+			cm.clearCtrlMap()
+		}
+		cm.curChainState.Reset(superBlkSeq, number)
 		cm.fixCtrlMap()
 	}
+
 	cm.getController(number).ReceiveMsg(msg)
 }
 
 func (cm *ControllerManager) ReceiveMsgByCur(msg interface{}) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	if cm.curNumber <= 0 {
+	if cm.curChainState.CurNumber() <= 0 {
 		return
 	}
-	ctrl := cm.getController(cm.curNumber)
+	ctrl := cm.getController(cm.curChainState.CurNumber())
 	ctrl.ReceiveMsg(msg)
 }
 
@@ -91,12 +90,22 @@ func (cm *ControllerManager) fixCtrlMap() {
 	}
 }
 
-func (cm *ControllerManager) isLegalNumber(number uint64) error {
-	if number < cm.curNumber {
-		return errors.Errorf("number(%d) is less than current number(%d)", number, cm.curNumber)
+func (cm *ControllerManager) clearCtrlMap() {
+	if len(cm.ctrlMap) == 0 {
+		return
 	}
-	if number > cm.curNumber+mangerCacheMax {
-		return errors.Errorf("number(%d) is too big than current number(%d)", number, cm.curNumber)
+	for _, ctrl := range cm.ctrlMap {
+		ctrl.Close()
+	}
+	cm.ctrlMap = make(map[uint64]*controller)
+}
+
+func (cm *ControllerManager) isLegalNumber(number uint64) error {
+	if number < cm.curChainState.CurNumber() {
+		return errors.Errorf("number(%d) is less than current number(%d)", number, cm.curChainState.CurNumber())
+	}
+	if number > cm.curChainState.CurNumber()+mangerCacheMax {
+		return errors.Errorf("number(%d) is too big than current number(%d)", number, cm.curChainState.CurNumber())
 	}
 	return nil
 }

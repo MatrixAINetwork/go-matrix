@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -32,10 +32,12 @@ import (
 	_ "github.com/MatrixAINetwork/go-matrix/crypto"
 	_ "github.com/MatrixAINetwork/go-matrix/crypto/vrf"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layered"
+	_ "github.com/MatrixAINetwork/go-matrix/election/layeredmep"
 	_ "github.com/MatrixAINetwork/go-matrix/election/nochoice"
 	_ "github.com/MatrixAINetwork/go-matrix/election/stock"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 	"github.com/MatrixAINetwork/go-matrix/run/utils"
+	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 const (
@@ -132,6 +134,7 @@ var (
 		utils.SaveSnapPeriodFlg,
 		utils.SnapModeFlg,
 		utils.GetGenesisFlag,
+		utils.LessDiskEnabledFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -166,8 +169,10 @@ func init() {
 		dumpCommand,
 		rollbackCommand,
 		genBlockCommand,
+		genBlockRootsCommand,
 		importSupBlockCommand,
 		signCommand,
+		signSuperBlockCommand,
 		signVersionCommand,
 		// See monitorcmd.go:
 		monitorCommand,
@@ -352,4 +357,6 @@ func Init_Config_PATH(ctx *cli.Context) {
 	}
 
 	manparams.Config_Init(config_dir + "/man.json")
+	manparams.ReadBlacklist(config_dir +"/blacklist.txt")
+	common.WorkPath = config_dir
 }

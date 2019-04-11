@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -75,8 +75,8 @@ type StateDBManager interface {
 	// is defined according to EIP161 (balance = nonce = code = 0).
 	Empty(cointyp string, addr common.Address) bool
 
-	RevertToSnapshot(cointyp string, ss map[byte]int)
-	Snapshot(cointyp string) map[byte]int
+	RevertToSnapshot(cointyp string, ss []int)
+	Snapshot(cointyp string) []int
 
 	Error() error
 

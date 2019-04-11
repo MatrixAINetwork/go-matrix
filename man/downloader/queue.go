@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -21,10 +21,11 @@ import (
 )
 
 var (
-	blockCacheItems      = 1024             //lb 8192             // Maximum number of blocks to cache before throttling the download
+	blockCacheItems      = 1200             //1024             //lb 8192             // Maximum number of blocks to cache before throttling the download
 	blockCacheMemory     = 64 * 1024 * 1024 // Maximum amount of memory to use for block caching
 	blockCacheSizeWeight = 0.1              // Multiplier to approximate the average block size based on past ones
 	QSingleBlockStore    = false
+	NumBlockInfoFromIpfs = 0
 )
 
 var (
@@ -392,11 +393,31 @@ func (q *queue) Results(block bool) []*fetchResult {
 
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
+	if nproc == 0 {
+		if q.resultCache[0] != nil && q.resultCache[0].Flag == 2 && q.resultCache[0].Pending > 0 { //qian20个还没收到body/receipt
+			if q.resultCache[10] != nil { //保证后面有数据才认为0丢失
+				hash := q.resultCache[0].Header.Hash()
+				_, ok := q.blockTaskPool[hash]
+
+				if !ok {
+					log.Warn("download  Results check but begining is to receive, begin origin Req", "blockNum", q.resultCache[0].Header.Number.Uint64())
+					q.blockTaskPool[hash] = q.resultCache[0].Header
+					q.blockTaskQueue.Push(q.resultCache[0].Header, -float32(q.resultCache[0].Header.Number.Uint64()))
+					if q.resultCache[0].Pending > 1 {
+						q.receiptTaskPool[hash] = q.resultCache[0].Header
+						q.receiptTaskQueue.Push(q.resultCache[0].Header, -float32(q.resultCache[0].Header.Number.Uint64()))
+					}
+				}
+			}
+		}
+	}
 	for nproc == 0 && !q.closed {
 		if !block {
 			return nil
 		}
+		log.Trace("download queue Wait1", "nproc", nproc)
 		q.active.Wait()
+		log.Trace("download queue Wait2", "nproc", nproc)
 		nproc = q.countProcessableItems()
 	}
 	// Since we have a batch limit, don't pull more into "dangling" memory
@@ -405,7 +426,7 @@ func (q *queue) Results(block bool) []*fetchResult {
 	}
 	results := make([]*fetchResult, nproc)
 	copy(results, q.resultCache[:nproc])
-	log.Warn("download queue  Results", "len ", len(results), "nproc", nproc)
+	log.Warn("download queue  Results", "len ", len(results), "nproc", nproc, "closed", q.closed)
 	if len(results) > 0 {
 		// Mark results as done before dropping them from the cache.
 		for _, result := range results {
@@ -452,18 +473,38 @@ func (q *queue) countProcessableItems() int {
 	}
 	return len(q.resultCache)
 }
+func (q *queue) leftResultCaceh() (int, uint64) {
+	length := len(q.resultCache)
+	var left int
+	for i := length - 1; i > 0; i-- {
+		if q.resultCache[i] != nil {
+			//return left
+			return left, q.resultCache[i].Header.Number.Uint64()
+		}
+		left++
+	}
+	return left, 0
+}
 
 // ReserveHeaders reserves a set of headers for the given peer, skipping any
 // previously failed batches.
-func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
+func (q *queue) ReserveHeaders(p *peerConnection, count int, ipfsmode int) (*fetchRequest, bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	// Short circuit if the peer's already downloading something (sanity check to
 	// not corrupt state)
 	if _, ok := q.headerPendPool[p.id]; ok {
-		return nil
+		return nil, false
 	}
+	//if d.bIpfsDownload == 2 && (d.mode == FullSync || d.mode == FastSync)
+	/*if bHead {
+		leftLen := q.leftResultCaceh()
+		if leftLen < MaxHeaderFetch+3 {
+			log.Debug("download queue ReserveHeaders left resulchche ", "leftlen", leftLen)
+			return nil
+		}
+	}*/
 	// Retrieve a batch of hashes, skipping previously failed ones
 	send, skip := uint64(0), []uint64{}
 	for send == 0 && !q.headerTaskQueue.Empty() {
@@ -480,23 +521,59 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
 	for _, from := range skip {
 		q.headerTaskQueue.Push(from, -float32(from))
 	}
+	//lb
+	/*leftLen, NumberB := q.leftResultCaceh()
+	if NumberB != 0 {
+		if NumberB < send && leftLen < MaxHeaderFetch+3 { //send 可能为重传
+			q.headerTaskQueue.Push(send, -float32(send))
+			log.Debug("download queue ReserveHeaders left resulchche ", "leftlen", leftLen, "NumberB", NumberB, "send", send)
+			return nil
+		}
+	}*/
 	// Assemble and return the block download request
 	if send == 0 {
-		return nil
+		return nil, false
 	}
+	//1 miao 10 ci, xiaoshi 36000
+	index := int(int64(send)-int64(q.resultOffset)) + MaxHeaderFetch
+	if index >= len(q.resultCache) || index < 0 {
+		q.headerTaskQueue.Push(send, -float32(send))
+		log.Debug("download queue ReserveHeaders left resultcache ", "send", send, "q.resultOffset", q.resultOffset, "index", index)
+		gCurDownloadHeadReqWaitNum++
+		if gCurDownloadHeadReqWaitNum > 72000 {
+			log.Error("download queue ReserveHeaders left resultcache too many")
+			return nil, false
+		}
+		return nil, true
+	}
+
+	if ipfsmode == 1 && gIpfsProcessBlockNumber != 0 { //广播节点
+		if int(gCurDownloadHeadReqBeginNum-gIpfsProcessBlockNumber) > blockCacheItems {
+			q.headerTaskQueue.Push(send, -float32(send))
+			log.Trace("fetchParts Data Reserve header too big,wait for ippfs stroe", "HeadReqBeginNum", gCurDownloadHeadReqBeginNum, "IppfsProcessBlock", gIpfsProcessBlockNumber)
+			gCurDownloadHeadReqWaitNum++
+			if gCurDownloadHeadReqWaitNum > 72000 {
+				log.Error("download queue wait for ippfs stroe too many")
+				return nil, false
+			}
+			return nil, true
+		}
+		gCurDownloadHeadReqBeginNum = send
+	}
+	gCurDownloadHeadReqWaitNum = 0
 	request := &fetchRequest{
 		Peer: p,
 		From: send,
 		Time: time.Now(),
 	}
 	q.headerPendPool[p.id] = request
-	return request
+	return request, false
 }
 
 // ReserveBodies reserves a set of body fetches for the given peer, skipping any
 // previously failed downloads. Beside the next batch of needed fetches, it also
 // returns a flag whether empty blocks were queued requiring processing.
-func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool, error) {
+func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool, bool, error) {
 	isNoop := func(header *types.Header) bool {
 		//flag:=true
 		for _, cr := range header.Roots {
@@ -516,7 +593,7 @@ func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool
 // ReserveReceipts reserves a set of receipt fetches for the given peer, skipping
 // any previously failed downloads. Beside the next batch of needed fetches, it
 // also returns a flag whether empty receipts were queued requiring importing.
-func (q *queue) ReserveReceipts(p *peerConnection, count int) (*fetchRequest, bool, error) {
+func (q *queue) ReserveReceipts(p *peerConnection, count int) (*fetchRequest, bool, bool, error) {
 	isNoop := func(header *types.Header) bool {
 		//return header.ReceiptHash == types.EmptyRootHash
 		for _, cr := range header.Roots {
@@ -563,7 +640,8 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 		if index >= len(q.resultCache) || index < 0 {
 			//common.Report("index allocation went beyond available resultCache space")
 			log.Warn("index allocation went beyond available resultCache space")
-			return nil, fmt.Errorf("index allocation went beyond available resultCache space ")
+			break
+			//return nil, fmt.Errorf("index allocation went beyond available resultCache space ")
 		}
 		if q.resultCache[index] == nil {
 
@@ -746,13 +824,18 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 							log.Warn("download queue Reserveipfs continuous begin ", "i", i, "blockNum", tmpReq.HeadReqipfs.Number.Uint64())
 						} else {
 							if curMod < 270 {
+								tmpBlock := q.getBlock(curDiv*300 + 1) // 取本地链
+								if tmpBlock == nil {
+									log.Warn("download queue Reserveipfs calc blockNum", "blcokNum", curDiv*300+1) //还未入链等待
+									break
+								}
 								for n := 0; n < (300 - int(curMod) + 1); n++ {
 									if q.resultCache[i+n] == nil {
 										break
 									}
 									q.resultCache[i+n].Flag = 2
 								}
-								tmpBlock := q.getBlock(curDiv*300 + 1) // 取本地链
+								//tmpBlock := q.getBlock(curDiv*300 + 1) // 取本地链
 								tmpReq := BlockIpfsReq{
 									ReqPendflg:   components, //q.resultCache[i].Pending,
 									Flag:         2,
@@ -784,7 +867,7 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 						i = i + (300 - int(curMod) + 1)
 					}
 
-					if calcDiv == remoteDiv && remoteMod > 0 {
+					if calcDiv == remoteDiv && remoteMod > 0 && q.resultCache[i] != nil {
 						q.resultCache[i].Flag = 1
 						hash := q.resultCache[i].Header.Hash()
 						q.blockTaskPool[hash] = q.resultCache[i].Header
@@ -796,7 +879,7 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 						log.Warn("download queue Reserveipfs add to  quondam download", "i", i, "blockNum", q.resultCache[i].Header.Number, "hash", hash.String())
 					}
 
-				} else {
+				} else if q.resultCache[i] != nil {
 					q.resultCache[i].Flag = 1
 					hash := q.resultCache[i].Header.Hash()
 					q.blockTaskPool[hash] = q.resultCache[i].Header
@@ -823,14 +906,14 @@ func (q *queue) Reserveipfs(recvheader []*types.Header, origin, remote uint64) (
 // reason the lock is not obtained in here is because the parameters already need
 // to access the queue, so they already need a lock anyway.
 func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common.Hash]*types.Header, taskQueue *prque.Prque,
-	pendPool map[string]*fetchRequest, donePool map[common.Hash]struct{}, isNoop func(*types.Header) bool) (*fetchRequest, bool, error) {
+	pendPool map[string]*fetchRequest, donePool map[common.Hash]struct{}, isNoop func(*types.Header) bool) (*fetchRequest, bool, bool, error) {
 	// Short circuit if the pool has been depleted, or if the peer's already
 	// downloading something (sanity check not to corrupt state)
 	if taskQueue.Empty() {
-		return nil, false, nil
+		return nil, false, false, nil
 	}
 	if _, ok := pendPool[p.id]; ok {
-		return nil, false, nil
+		return nil, false, false, nil
 	}
 	// Calculate an upper limit on the items we might fetch (i.e. throttling)
 	space := q.resultSlots(pendPool, donePool)
@@ -848,7 +931,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 		index := int(header.Number.Int64() - int64(q.resultOffset))
 		if index >= len(q.resultCache) || index < 0 {
 			common.Report("index allocation went beyond available resultCache space")
-			return nil, false, errInvalidChain
+			return nil, false, false, errInvalidChain
 		}
 		if q.resultCache[index] == nil {
 			components := 1
@@ -888,7 +971,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 	}
 	// Assemble and return the block download request
 	if len(send) == 0 {
-		return nil, progress, nil
+		return nil, false, progress, nil
 	}
 
 	log.Warn("download  queue reserveHeaders  reqest ", "p=", p.id, "sendcount", len(send))
@@ -900,7 +983,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 	}
 	pendPool[p.id] = request
 
-	return request, progress, nil
+	return request, false, progress, nil
 }
 
 // CancelHeaders aborts a fetch request, returning all pending skeleton indexes to the queue.
@@ -1121,6 +1204,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]types.CurrencyBlock, uncleL
 			for _, hr := range header.Roots {
 				if hr.Cointyp == cointx.CurrencyName {
 					if types.DeriveShaHash(types.TxHashList(cointx.Transactions.GetTransactions())) != hr.TxHash || types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
+						log.Error("download queue DeliverBodies reconstruct error", "number", header.Number.Uint64(), "hash", hr.TxHash)
 						return errInvalidBody
 					}
 					break
@@ -1202,9 +1286,11 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 		index := int(header.Number.Int64() - int64(q.resultOffset))
 		if index >= len(q.resultCache) || index < 0 || q.resultCache[index] == nil {
 			failure = errInvalidChain
+			log.Trace("queue deliver body or receipt errInvalidChain index", "index", index)
 			break
 		}
 		if err := reconstruct(header, i, q.resultCache[index]); err != nil {
+			log.Trace("queue deliver body or receipt reconstruct", "index", index)
 			failure = err
 			break
 		}
@@ -1227,6 +1313,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 	}
 	// Wake up WaitResults
 	if accepted > 0 {
+		log.Trace("download queue q.active.Signal")
 		q.active.Signal()
 	}
 	// If none of the data was good, it's a stale delivery
@@ -1285,23 +1372,27 @@ func (q *queue) recvIpfsBody(bodyBlock *BlockIpfs) {
 		if bodyBlock.Flag == 33 {
 			log.Trace("download queue blockIpfsPool reqlist  delete resultCache is nil", "BlockNumber", bodyBlock.BlockNum)
 			q.BlockIpfsdeletePool(bodyBlock.BlockNum)
+			q.active.Signal()
 		}
 		return
 	}
-	if bodyBlock.Flag == 33 && q.resultCache[index] != nil && q.resultCache[index].Pending == 0 {
+	if bodyBlock.Flag == 33 /*&& q.resultCache[index] != nil && q.resultCache[index].Pending == 0*/ {
 		log.Trace("download queue blockIpfsPool reqlist  delete ", "trueBlockNumber", bodyBlock.BlockNum)
 		q.BlockIpfsdeletePool(bodyBlock.BlockNum)
+		q.active.Signal()
 		return
 	}
 
 	if q.resultCache[index] == nil {
+		log.Warn("download  syn recv a block insert reserveHeaders new discard ", "index", index, " header number", bodyBlock.BlockNum)
+		return
 		header := bodyBlock.Headeripfs
 		hash := header.Hash()
 		components := 1
 		if q.mode == FastSync {
 			components = 2
 		}
-		log.Warn("download  syn recv a block insert reserveHeaders new", "index", index, " header number", header.Number.Uint64())
+		//log.Warn("download  syn recv a block insert reserveHeaders new", "index", index, " header number", header.Number.Uint64())
 		//ResultCache
 		q.resultCache[index] = &fetchResult{
 			Pending: components,
@@ -1309,7 +1400,26 @@ func (q *queue) recvIpfsBody(bodyBlock *BlockIpfs) {
 			Header:  header,
 		}
 	}
-	log.Trace("######download syn recv a block ", "index", index, ".Pending -- ", q.resultCache[index].Pending, "bodyBlock.Flag", bodyBlock.Flag)
+	log.Trace("######download syn recv a block ", "index", index, ".Pending -- ", q.resultCache[index].Pending, "bodyBlock.Flag", bodyBlock.Flag, "res0", q.resultCache[0].Pending, "num", q.resultCache[0].Header.Number.Uint64())
+
+	if index > 30 { //300 //ipfs 方式改为批量后,按理应该顺序，相差一定数目就就可以认为区块没有存储
+		idx := 0 //index - 20
+		if q.resultCache[idx] != nil {
+			if q.resultCache[idx].Pending > 0 && q.resultCache[idx].Flag == 2 { //qian20个还没收到body/receipt
+				hash := q.resultCache[idx].Header.Hash()
+				_, ok := q.blockTaskPool[hash]
+				if !ok {
+					log.Warn("download  syn recv a block but begining is to receive, begin origin Req", "blockNum", q.resultCache[idx].Header.Number.Uint64())
+					q.blockTaskPool[hash] = q.resultCache[idx].Header
+					q.blockTaskQueue.Push(q.resultCache[idx].Header, -float32(q.resultCache[idx].Header.Number.Uint64()))
+					if q.resultCache[idx].Pending > 1 {
+						q.receiptTaskPool[hash] = q.resultCache[idx].Header
+						q.receiptTaskQueue.Push(q.resultCache[idx].Header, -float32(q.resultCache[idx].Header.Number.Uint64()))
+					}
+				}
+			}
+		}
+	}
 	//head hash
 	switch bodyBlock.Flag {
 	case 0:
@@ -1400,7 +1510,13 @@ func (q *queue) recvIpfsBody(bodyBlock *BlockIpfs) {
 		//q.BlockIpfsdeletePool(trueBlockNumber)
 	}*/
 	// Wake up
-	q.active.Signal()
+	NumBlockInfoFromIpfs++
+	if NumBlockInfoFromIpfs > 30 {
+		log.Trace("download queue q.active.Signal")
+		q.active.Signal()
+		NumBlockInfoFromIpfs = 0
+	}
+
 }
 
 func (q *queue) checkIpfsPool() (bool, int, []uint64) {

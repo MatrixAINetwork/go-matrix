@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -320,11 +320,15 @@ type Rules struct {
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158 bool
 	IsByzantium                               bool
 }
-
-func (c *ChainConfig) Rules(num *big.Int) Rules {
-	chainId := c.ChainId
-	if chainId == nil {
-		chainId = new(big.Int)
+var grules Rules
+func (c *ChainConfig) Rules(num *big.Int) *Rules {
+	if grules.ChainId == nil{
+		chainId := c.ChainId
+		if chainId == nil {
+			chainId = new(big.Int)
+		}
+		grules.ChainId = new(big.Int).Set(chainId)
 	}
-	return Rules{ChainId: new(big.Int).Set(chainId), IsHomestead: c.IsHomestead(num), IsEIP150: c.IsEIP150(num), IsEIP155: c.IsEIP155(num), IsEIP158: c.IsEIP158(num), IsByzantium: c.IsByzantium(num)}
+	return &grules
+	//return Rules{ChainId: new(big.Int).Set(chainId), IsHomestead: true, IsEIP150: true, IsEIP155: true, IsEIP158: true, IsByzantium: true}
 }

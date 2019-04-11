@@ -59,6 +59,7 @@ type testStruct struct {
 }
 
 func TestDecodeInterface1(t *testing.T) {
+
 	testRlp := testStruct{&testStruct1{100, 100, 100}, &testStruct2{100, 100, 100, 100}}
 	b, _ := EncodeToBytes(testRlp)
 	t.Log(b)

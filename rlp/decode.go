@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -500,41 +500,46 @@ func decodeInterfaceRLP(s *Stream, val reflect.Value) error {
 	if !val.Type().Implements(typerInterface) {
 		return decodeInterface(s, val)
 	}
-	valRLP := InterfaceRLP{}
-	val1 := reflect.ValueOf(&valRLP).Elem()
-	typ := reflect.TypeOf(valRLP)
-	typeCacheMutex.Lock()
-	fields, err := structFields(typ)
-	typeCacheMutex.Unlock()
-	if err != nil {
-		return err
-	}
+//	valRLP := InterfaceRLP{}
+//	val1 := reflect.ValueOf(&valRLP).Elem()
+//	typ := reflect.TypeOf(valRLP)
+//	typeCacheMutex.Lock()
+//	fields, err := structFields(typ)
+//	typeCacheMutex.Unlock()
+//	if err != nil {
+//		return err
+//	}
+
 	if _, err := s.List(); err != nil {
-		return wrapStreamError(err, typ)
+		return wrapStreamError(err, val.Type())
 	}
-	valueField := fields[0]
-	err = valueField.info.decoder(s, val1.Field(0))
+	var typeKind uint16
+	val1 := reflect.ValueOf(&typeKind).Elem()
+//	valueField := fields[0]
+//	err = valueField.info.decoder(s, val1.Field(0))
+	err := decodeUint(s,val1)
 	if err == EOL {
-		return &decodeError{msg: "too few elements", typ: typ}
+		return &decodeError{msg: "too few elements", typ: val.Type()}
 	} else if err != nil {
-		return addErrorContext(err, "."+typ.Field(0).Name)
+		return addErrorContext(err, "."+val.Type().Name())
 	}
-	if creater, exist := InterfaceConstructorMap[valRLP.TypeKind]; exist {
-		valRLP.Value = creater()
+	var value1 interface{}
+	if creater, exist := InterfaceConstructorMap[typeKind]; exist {
+		value1 = creater()
 	} else {
-		log.Info("interface constructor Error:", "typeKind", valRLP.TypeKind)
-		return &decodeError{msg: "interface constructor cannot find", typ: typ}
+		log.Info("interface constructor Error:", "typeKind", typeKind)
+		return &decodeError{msg: "interface constructor cannot find", typ: val.Type()}
 	}
-	info, err := cachedTypeInfo(reflect.ValueOf(valRLP.Value).Elem().Type(), tags{})
-	err = info.decoder(s, reflect.ValueOf(valRLP.Value).Elem())
+	info, err := cachedTypeInfo(reflect.ValueOf(value1).Elem().Type(), tags{})
+	err = info.decoder(s, reflect.ValueOf(value1).Elem())
 	if err == EOL {
-		return &decodeError{msg: "too few elements", typ: typ}
+		return &decodeError{msg: "too few elements", typ: val.Type()}
 	} else if err != nil {
-		return addErrorContext(err, "."+typ.Field(1).Name)
+		return addErrorContext(err, "."+val.Type().Name())
 	}
 	//	reflect.SliceOf
-	val.Set(reflect.ValueOf(valRLP.Value))
-	return wrapStreamError(s.ListEnd(), typ)
+	val.Set(reflect.ValueOf(value1))
+	return wrapStreamError(s.ListEnd(), val.Type())
 
 }
 

@@ -6,6 +6,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"encoding/json"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 func GetVersionInfo(st StateDB) string {
@@ -396,19 +398,31 @@ func GetAccountBlackList(st StateDB) ([]common.Address, error) {
 	}
 	return value.([]common.Address), nil
 }
+//func GetCoinConfig(st StateDB) ([]common.CoinConfig, error) {
+//	version := GetVersionInfo(st)
+//	mgr := GetManager(version)
+//	if mgr == nil {
+//		return nil, ErrFindManager
+//	}
+//	opt, err := mgr.FindOperator(mc.MSCurrencyConfig)
+//	if err != nil {
+//		return nil, err
+//	}
+//	value, err := opt.GetValue(st)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return value.([]common.CoinConfig), nil
+//}
 func GetCoinConfig(st StateDB) ([]common.CoinConfig, error) {
-	version := GetVersionInfo(st)
-	mgr := GetManager(version)
-	if mgr == nil {
-		return nil, ErrFindManager
+	coinconfig := st.GetMatrixData(types.RlpHash(common.COINPREFIX + mc.MSCurrencyConfig))
+	var coincfglist []common.CoinConfig
+	if len(coinconfig) > 0 {
+		err := json.Unmarshal(coinconfig, &coincfglist)
+		if err != nil {
+			log.Trace("get coin config list", "unmarshal err", err)
+			return nil,err
+		}
 	}
-	opt, err := mgr.FindOperator(mc.MSCurrencyConfig)
-	if err != nil {
-		return nil, err
-	}
-	value, err := opt.GetValue(st)
-	if err != nil {
-		return nil, err
-	}
-	return value.([]common.CoinConfig), nil
+	return coincfglist, nil
 }

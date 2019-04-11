@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -29,6 +29,7 @@ type TopologyGraphReader interface {
 	GetNextElectByHash(blockHash common.Hash) ([]common.Elect, error)
 	GetBroadcastAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetInnerMinersAccount(blockHash common.Hash) ([]common.Address, error)
+	GetSuperSeq(blockHash common.Hash) (uint64, error)
 }
 
 // Identity stand for node's identity.
@@ -182,6 +183,12 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 				ide.log.Error("get next elect", "error", err)
 				continue
 			}
+			// get super seq
+			superSeq, err := ide.topologyReader.GetSuperSeq(hash)
+			if err != nil {
+				ide.log.Error("get super seq", "error", err)
+				continue
+			}
 			newElect := make([]common.Elect, 0)
 			for _, val := range elect {
 				sAddr, err := ConvertDepositToSignAddress(val.Account)
@@ -201,8 +208,8 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 			nodesInBuckets := getNodesInBuckets(header.Hash())
 
 			// send role message to elect
-			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), BlockHash: hash, Leader: header.Leader, IsSuperBlock: header.IsSuperHeader()})
-			log.Info("ca publish identity", "data", mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), Leader: header.Leader})
+			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), BlockHash: hash, Leader: header.Leader, SuperSeq: superSeq})
+			log.Info("ca publish identity", "data", mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), Leader: header.Leader, SuperSeq: superSeq})
 			// get nodes in buckets and send to buckets
 			mc.PublishEvent(mc.BlockToBuckets, mc.BlockToBucket{Ms: nodesInBuckets, Height: block.Header().Number, Role: ide.currentRole})
 			// send identity to linker

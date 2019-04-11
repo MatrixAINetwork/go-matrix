@@ -87,10 +87,10 @@ func (bc *BlockChain) getUpTimeData(root []common.CoinRoot, num uint64, parentHa
 	}
 	return calltherollMap, headerBeatMap, nil
 }
-func (bc *BlockChain) handleUpTime(BeforeLastStateRoot []common.CoinRoot, state *state.StateDBManage, accounts []common.Address, calltherollRspAccounts map[common.Address]uint32, heatBeatAccounts map[common.Address][]byte, blockNum uint64, bcInterval *mc.BCIntervalInfo) (map[common.Address]uint64, error) {
+func (bc *BlockChain) handleUpTime(BeforeLastStateRoot []common.CoinRoot, state *state.StateDBManage, accounts []common.Address, calltherollRspAccounts map[common.Address]uint32, heatBeatAccounts map[common.Address][]byte, blockNum uint64, bcInterval *mc.BCIntervalInfo, parentHash common.Hash) (map[common.Address]uint64, error) {
 	HeartBeatMap := bc.getHeatBeatAccount(BeforeLastStateRoot, bcInterval, blockNum, accounts, heatBeatAccounts)
 
-	originValidatorMap, originMinerMap, err := bc.getElectMap(blockNum, bcInterval)
+	originValidatorMap, originMinerMap, err := bc.getElectMap(parentHash, bcInterval)
 	if nil != err {
 		return nil, err
 	}
@@ -98,9 +98,14 @@ func (bc *BlockChain) handleUpTime(BeforeLastStateRoot []common.CoinRoot, state 
 	return bc.calcUpTime(accounts, calltherollRspAccounts, HeartBeatMap, bcInterval, state, originValidatorMap, originMinerMap), nil
 }
 
-func (bc *BlockChain) getElectMap(blockNum uint64, bcInterval *mc.BCIntervalInfo) (map[common.Address]uint32, map[common.Address]uint32, error) {
+func (bc *BlockChain) getElectMap(parentHash common.Hash, bcInterval *mc.BCIntervalInfo) (map[common.Address]uint32, map[common.Address]uint32, error) {
 	eleNum := bcInterval.GetLastBroadcastNumber() - 2
-	st, err := bc.StateAtNumber(eleNum)
+	stHash, err := bc.GetAncestorHash(parentHash, eleNum)
+	if err != nil {
+		log.Error(ModuleName, "获取选举高度的hash败", err, "eleNum", eleNum)
+		return nil, nil, err
+	}
+	st, err := bc.StateAtBlockHash(stHash)
 	if err != nil {
 		log.Error(ModuleName, "获取选举高度的状态树失败", err, "eleNum", eleNum)
 		return nil, nil, err
@@ -273,10 +278,11 @@ func (bc *BlockChain) ProcessUpTime(state *state.StateDBManage, header *types.He
 	if header.Number.Uint64() < bcInterval.GetBroadcastInterval() {
 		return nil, err
 	}
-	sbh, err := bc.GetSuperBlockNum()
-	if nil != err {
+	superBlkCfg, err := matrixstate.GetSuperBlockCfg(state)
+	if err != nil {
 		return nil, errors.Errorf("get super seq error")
 	}
+	sbh := superBlkCfg.Num
 	if latestNum < bcInterval.GetLastBroadcastNumber()+1 {
 		//log.Debug(ModuleName, "区块插入验证", "完成创建work, 开始执行uptime", "高度", header.Number.Uint64())
 		matrixstate.SetUpTimeNum(state, header.Number.Uint64())
@@ -304,7 +310,7 @@ func (bc *BlockChain) ProcessUpTime(state *state.StateDBManage, header *types.He
 			if err != nil {
 				log.WARN("core", "获取心跳交易错误!", err, "高度", header.Number.Uint64())
 			}
-			upTimeMap, err := bc.handleUpTime(BeforeLastStateRoot, state, upTimeAccounts, calltherollMap, heatBeatUnmarshallMMap, header.Number.Uint64(), bcInterval)
+			upTimeMap, err := bc.handleUpTime(BeforeLastStateRoot, state, upTimeAccounts, calltherollMap, heatBeatUnmarshallMMap, header.Number.Uint64(), bcInterval, header.ParentHash)
 			if nil != err {
 				log.ERROR("core", "处理uptime错误", err)
 				return nil, err

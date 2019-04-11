@@ -1,10 +1,11 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package leaderelect
 
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
@@ -141,11 +142,18 @@ func (self *LeaderIdentity) newBlockReadyBCHandle(msg *mc.NewBlockReadyMsg) {
 	curNumber := msg.Header.Number.Uint64()
 	log.Debug(self.extraInfo, "NewBlockReady消息处理", "开始", "高度", curNumber)
 
+	// 获取超级区块序号
+	supBlkState, err := matrixstate.GetSuperBlockCfg(msg.State)
+	if err != nil {
+		log.ERROR(self.extraInfo, "NewBlockReady消息处理", "获取超级区块序号失败", "err", err, "高度", curNumber)
+		return
+	}
+
 	startMsg := &startControllerMsg{
 		parentHeader:  msg.Header,
 		parentStateDB: msg.State,
 	}
-	self.ctrlManager.StartController(curNumber+1, startMsg)
+	self.ctrlManager.StartController(curNumber+1, supBlkState.Seq, startMsg)
 }
 
 func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
@@ -159,11 +167,6 @@ func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
 	}
 
 	log.Debug(self.extraInfo, "CA身份通知消息处理", "开始", "高度", msg.BlockNum, "身份", msg.Role, "block hash", msg.BlockHash.TerminalString())
-	if msg.IsSuperBlock {
-		log.Info(self.extraInfo, "CA身份通知消息处理", "超级区块，清空状态", "高度", msg.BlockNum)
-		self.ctrlManager.ClearController()
-	}
-
 	header := self.matrix.BlockChain().GetHeaderByHash(msg.BlockHash)
 	if nil == header {
 		log.ERROR(self.extraInfo, "CA身份通知消息处理", "获取区块header失败", "block hash", msg.BlockHash.TerminalString())
@@ -181,7 +184,7 @@ func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
 		parentHeader:  header,
 		parentStateDB: parentState,
 	}
-	self.ctrlManager.StartController(msg.BlockNum+1, startMsg)
+	self.ctrlManager.StartController(msg.BlockNum+1, msg.SuperSeq, startMsg)
 }
 
 func (self *LeaderIdentity) blockPOSFinishedMsgHandle(msg *mc.BlockPOSFinishedNotify) {

@@ -18,8 +18,19 @@ func (bc *BlockChain) State() (*state.StateDBManage, error) {
 // StateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) StateAt(root []common.CoinRoot) (*state.StateDBManage, error) {
 	return state.NewStateDBManage(root, bc.db, bc.stateCache)
+    //return bc.getStateCache(root)
 }
-
+func (bc *BlockChain) getStateCache(root []common.CoinRoot)(*state.StateDBManage, error){
+	hash := types.RlpHash(root)
+	if stCache,exist := bc.depCache.Get(hash);exist{
+		return stCache.(*state.StateDBManage),nil
+	}
+	st, err := state.NewStateDBManage(root, bc.db, bc.stateCache)
+	if err == nil {
+		bc.depCache.Add(hash,st)
+	}
+	return st,err
+}
 func (bc *BlockChain) StateAtNumber(number uint64) (*state.StateDBManage, error) {
 	block := bc.GetBlockByNumber(number)
 	if block == nil {

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -57,6 +57,7 @@ import (
 	"time"
 
 	"github.com/MatrixAINetwork/go-matrix/leaderelect"
+	"github.com/MatrixAINetwork/go-matrix/lessdisk"
 	"github.com/MatrixAINetwork/go-matrix/olconsensus"
 	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 )
@@ -119,6 +120,7 @@ type Matrix struct {
 	manBlkManage *blkmanage.ManBlkManage
 	blockVerify  *blkverify.BlockVerify
 	leaderServer *leaderelect.LeaderIdentity
+	lessDiskSvr  *lessdisk.Server
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and manbase)
 }
@@ -252,7 +254,9 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	man.broadTx = broadcastTx.NewBroadCast(man.APIBackend) //
 
 	man.leaderServer, err = leaderelect.NewLeaderIdentityService(man, "leader服务")
-
+	if err != nil {
+		return nil, err
+	}
 	man.manBlkManage, err = blkmanage.New(man)
 	if err != nil {
 		return nil, err
@@ -261,11 +265,12 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	man.blockVerify, err = blkverify.NewBlockVerify(man)
 	if err != nil {
 		return nil, err
 	}
+	man.lessDiskSvr = lessdisk.NewLessDiskSvr(params.DefLessDiskConfig, chainDb, man.blockchain)
+	man.lessDiskSvr.FuncSwitch(ctx.GetConfig().LessDisk)
 
 	return man, nil
 

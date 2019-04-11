@@ -323,7 +323,7 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 }
 
 // Pending
-func (bPool *BroadCastTxPool) Pending() (map[common.Address][]types.SelfTransaction, error) {
+func (bPool *BroadCastTxPool) Pending() (map[string]map[common.Address]types.SelfTransactions, error) {
 	return nil, nil
 }
 

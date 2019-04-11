@@ -6,8 +6,8 @@ import (
 	"sort"
 
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
-
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 
 	"github.com/MatrixAINetwork/go-matrix/log"
 
@@ -43,29 +43,23 @@ var (
 
 type ChainReader interface {
 	// Config retrieves the blockchain's chain configuration.
-	Config() *params.ChainConfig
+	//Config() *params.ChainConfig
 
 	// CurrentHeader retrieves the current header from the local chain.
-	CurrentHeader() *types.Header
 
 	// GetHeader retrieves a block header from the database by hash and number.
-	GetHeader(hash common.Hash, number uint64) *types.Header
+	//GetHeader(hash common.Hash, number uint64) *types.Header
 
 	// GetHeaderByNumber retrieves a block header from the database by number.
 
 	// GetHeaderByHash retrieves a block header from the database by its hash.
 	GetHeaderByHash(hash common.Hash) *types.Header
 
-	GetBlockByNumber(number uint64) *types.Block
-
 	// GetBlock retrieves a block sfrom the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
 	State() (*state.StateDBManage, error)
-	GetSuperBlockNum() (uint64, error)
 	GetGraphByState(state matrixstate.StateDB) (*mc.TopologyGraph, *mc.ElectGraph, error)
 	StateAtBlockHash(hash common.Hash) (*state.StateDBManage, error)
-	StateAtNumber(number uint64) (*state.StateDBManage, error)
 	GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error)
 }
 
@@ -241,7 +235,56 @@ func getBalance(st StateDB, address common.Address) (common.BalanceType, error) 
 	}
 	return balance, nil
 }
-func Accumulator(st StateDB, rewardIn []common.RewarTx) []common.RewarTx {
+func getBalanceByCoinType(st StateDB, address common.Address, cointype string) (common.BalanceType, error) {
+
+	balance := st.GetBalance(cointype, address)
+	if len(balance) == 0 {
+		log.ERROR(PackageName, "账户余额获取不到", "")
+		return nil, errors.New("账户余额获取不到")
+	}
+	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) < 0 {
+		log.WARN(PackageName, "发送账户余额不合法，地址", address.Hex(), "余额", balance[common.MainAccount].Balance)
+		return nil, errors.New("发送账户余额不合法")
+	}
+	return balance, nil
+}
+
+func getRewardSum(reardMap map[common.Address]*big.Int) *big.Int {
+	sum := big.NewInt(0)
+	for _, v := range reardMap {
+		sum.Add(sum, v)
+	}
+	return sum
+}
+
+func CointypeCheck(st StateDB, rewardIn []common.RewarTx) []common.RewarTx {
+	rewardMap := make(map[string]*big.Int)
+
+	for _, v := range rewardIn {
+		if v.RewardTyp == common.RewardTxsType {
+			if _, ok := rewardMap[v.CoinType]; ok {
+				rewardMap[v.CoinType] = new(big.Int).Add(rewardMap[v.CoinType], getRewardSum(v.To_Amont))
+			} else {
+				rewardMap[v.CoinType] = getRewardSum(v.To_Amont)
+			}
+		}
+	}
+
+	for coinType, all := range rewardMap {
+		balance, err := getBalanceByCoinType(st, common.TxGasRewardAddress, coinType)
+		log.Info(PackageName, "发放币种", coinType, "计算的奖励总额为", all, "账户余额为", balance[common.MainAccount].Balance)
+		if nil != err {
+			continue
+		}
+		if all.Cmp(balance[common.MainAccount].Balance) > 0 {
+			log.Crit(PackageName, "发放币种", coinType, "交易费奖励余额不足，计算的奖励总额为", all, "账户余额为", balance[common.MainAccount].Balance)
+			return nil
+		}
+	}
+	return rewardIn
+}
+
+func AccumulatorCheck(st StateDB, rewardIn []common.RewarTx) []common.RewarTx {
 
 	ValidatorBalance, _ := getBalance(st, common.BlkMinerRewardAddress)
 	minerBalance, _ := getBalance(st, common.BlkValidatorRewardAddress)
@@ -334,4 +377,44 @@ func Accumulator(st StateDB, rewardIn []common.RewarTx) []common.RewarTx {
 	}
 
 	return rewardOut
+}
+
+func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutReward, error) {
+	var currentReward *mc.MinerOutReward
+	var err error
+	if TxsReward == rewardType {
+		version := matrixstate.GetVersionInfo(state)
+		if version == manparams.VersionAlpha {
+			currentReward, err = matrixstate.GetPreMinerTxsReward(state)
+			if err != nil {
+				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
+				return nil, errors.New("获取矿工交易金额错误")
+			}
+		} else if version == manparams.VersionBeta {
+			multiCoin, err := matrixstate.GetPreMinerMultiCoinTxsReward(state)
+			if err != nil {
+				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
+				return make([]mc.MultiCoinMinerOutReward, 0), errors.New("获取矿工交易金额错误")
+			}
+			for _, v := range multiCoin {
+				log.Trace(PackageName, "获取前一个矿工奖励值为", v.Reward, "type", v.CoinType)
+			}
+
+			return multiCoin, nil
+		} else {
+			log.Error(PackageName, "获取前矿工奖励值版本号错误", version)
+		}
+	} else {
+		currentReward, err = matrixstate.GetPreMinerBlkReward(state)
+		if err != nil {
+			log.Error(PackageName, "获取矿工区块奖励金额错误", err)
+			return nil, errors.New("获取矿工区块金额错误")
+		}
+	}
+	multiCoinMinerOut := make([]mc.MultiCoinMinerOutReward, 0)
+	minerOutReward := mc.MultiCoinMinerOutReward{CoinType: params.MAN_COIN, Reward: currentReward.Reward}
+	log.INFO(PackageName, "获取前一个矿工奖励值为", currentReward.Reward, "type", rewardType)
+	multiCoinMinerOut = append(multiCoinMinerOut, minerOutReward)
+	return multiCoinMinerOut, nil
+
 }

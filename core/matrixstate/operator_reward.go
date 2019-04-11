@@ -364,6 +364,59 @@ func (opt *operatorPreMinerTxsReward) SetValue(st StateDB, value interface{}) er
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
+// 上一矿工交易奖励金额
+type operatorPreMinerMultiCoinTxsReward struct {
+	key common.Hash
+}
+
+func newPreMinerMultiCoinTxsRewardOpt() *operatorPreMinerMultiCoinTxsReward {
+	return &operatorPreMinerMultiCoinTxsReward{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyPreMinerTxsReward),
+	}
+}
+
+func (opt *operatorPreMinerMultiCoinTxsReward) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorPreMinerMultiCoinTxsReward) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return make([]mc.MultiCoinMinerOutReward, 0), nil
+	}
+
+	value := make([]mc.MultiCoinMinerOutReward, 0)
+	err := rlp.DecodeBytes(data, &value)
+	if err != nil {
+		log.Error(logInfo, "operatorPreMinerMultiCoinTxsReward rlp decode failed", err)
+		return nil, err
+	}
+	return value, nil
+}
+
+func (opt *operatorPreMinerMultiCoinTxsReward) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+	preMiner, OK := value.([]mc.MultiCoinMinerOutReward)
+	if !OK {
+		log.Error(logInfo, "input param(MultiCoinMinerOutReward) err", "reflect failed")
+		return ErrParamReflect
+	}
+	data, err := rlp.EncodeToBytes(preMiner)
+	if err != nil {
+		log.Error(logInfo, "operatorPreMinerMultiCoinTxsReward rlp encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
 // upTime状态
 type operatorUpTimeNum struct {
 	key common.Hash

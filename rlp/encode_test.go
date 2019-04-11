@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -18,7 +18,17 @@ import (
 type testEncoder struct {
 	err error
 }
-
+func TestEncodeUint(t *testing.T){
+	for i:=uint64(100353345353445453);i<10000000000000000000;i+=24957 {
+		buff,_ := EncodeUint(i)
+		buff1,_ := EncodeToBytes(i)
+		if bytes.Compare(buff1,buff) != 0{
+			t.Error("Encode Error")
+			t.Fail()
+		}
+		fmt.Println(buff,buff1)
+	}
+}
 func (e *testEncoder) EncodeRLP(w io.Writer) error {
 	if e == nil {
 		w.Write([]byte{0, 0, 0, 0})

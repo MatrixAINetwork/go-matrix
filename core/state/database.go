@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -21,6 +21,7 @@ const (
 	// Number of past tries to keep. This value is chosen such that
 	// reasonable chain reorg depths will hit an existing trie.
 	maxPastTries = 12
+	PastTriesSize = 1024
 
 	// Number of codehash->size associations to keep.
 	codeSizeCacheSize = 100000
@@ -65,8 +66,10 @@ type Trie interface {
 // high level trie abstraction.
 func NewDatabase(db mandb.Database) Database {
 	csc, _ := lru.New(codeSizeCacheSize)
+	past, _ := lru.New(PastTriesSize)
 	return &cachingDB{
 		db:            trie.NewDatabase(db),
+		pastTries:     past,
 		codeSizeCache: csc,
 	}
 }
@@ -74,7 +77,8 @@ func NewDatabase(db mandb.Database) Database {
 type cachingDB struct {
 	db            *trie.Database
 	mu            sync.Mutex
-	pastTries     []*trie.SecureTrie
+	pastTries	  *lru.Cache
+//	pastTries     []*trie.SecureTrie
 	codeSizeCache *lru.Cache
 }
 
@@ -82,7 +86,17 @@ type cachingDB struct {
 func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-
+	if pastTree,exist := db.pastTries.Get(root);exist{
+		return cachedTrie{pastTree.(*trie.SecureTrie).Copy(), db}, nil
+	}else{
+		tr, err := trie.NewSecure(root, db.db, MaxTrieCacheGen)
+		if err != nil {
+			return nil, err
+		}
+		db.pastTries.Add(root,tr)
+		return cachedTrie{tr.Copy(), db}, nil
+	}
+	/*
 	for i := len(db.pastTries) - 1; i >= 0; i-- {
 		if db.pastTries[i].Hash() == root {
 			return cachedTrie{db.pastTries[i].Copy(), db}, nil
@@ -93,18 +107,21 @@ func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
 		return nil, err
 	}
 	return cachedTrie{tr, db}, nil
+	*/
 }
 
 func (db *cachingDB) pushTrie(t *trie.SecureTrie) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-
+	db.pastTries.Add(t.Hash(),t)
+/*
 	if len(db.pastTries) >= maxPastTries {
 		copy(db.pastTries, db.pastTries[1:])
 		db.pastTries[len(db.pastTries)-1] = t
 	} else {
 		db.pastTries = append(db.pastTries, t)
 	}
+*/
 }
 
 // OpenStorageTrie opens the storage trie of an account.

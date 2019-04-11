@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package reelection
@@ -52,6 +52,13 @@ func (self *ReElection) GetElectConfig(hash common.Hash) (*mc.ElectConfigInfo_Al
 		log.Error("MSKeyElectBlackList", "MSKeyElectBlackList", "反射失败", "hash", hash)
 		return nil, err
 	}
+
+	innerMiners, err := matrixstate.GetInnerMinerAccounts(st)
+	if err != nil{
+		log.Error("MSKeyInnerList", "MSKeyAccountInnerMiners", "反射失败", "hash", hash)
+		return nil, err
+	}
+	blackList = append(blackList, innerMiners...)
 
 	whiteList, err := matrixstate.GetElectWhiteList(st)
 	if err != nil {

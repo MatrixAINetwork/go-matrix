@@ -396,6 +396,34 @@ func GetBlkCalc(st StateDB) (string, error) {
 	return value.(string), nil
 }
 
+func SetPreMinerMultiCoinTxsReward(st StateDB, reward []mc.MultiCoinMinerOutReward) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyPreMinerTxsReward)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, reward)
+}
+
+func GetPreMinerMultiCoinTxsReward(st StateDB) ([]mc.MultiCoinMinerOutReward, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyPreMinerTxsReward)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.([]mc.MultiCoinMinerOutReward), nil
+}
+
 func SetBlkCalc(st StateDB, Calc string) error {
 	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {

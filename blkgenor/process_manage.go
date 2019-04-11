@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
@@ -11,6 +11,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/consensus/blkmanage"
 	"github.com/MatrixAINetwork/go-matrix/core"
 	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/msgsend"
 	"github.com/MatrixAINetwork/go-matrix/olconsensus"
 	"github.com/MatrixAINetwork/go-matrix/reelection"
@@ -18,44 +19,53 @@ import (
 )
 
 type ProcessManage struct {
-	mu          sync.Mutex
-	curNumber   uint64
-	processMap  map[uint64]*Process
-	matrix      Backend
-	hd          *msgsend.HD
-	signHelper  *signhelper.SignHelper
-	bc          *core.BlockChain
-	txPool      *core.TxPoolManager //Y
-	reElection  *reelection.ReElection
-	olConsensus *olconsensus.TopNodeService
-	random      *baseinterface.Random
-	manblk      *blkmanage.ManBlkManage
+	mu            sync.Mutex
+	curChainState mc.ChainState
+	processMap    map[uint64]*Process
+	matrix        Backend
+	hd            *msgsend.HD
+	signHelper    *signhelper.SignHelper
+	bc            *core.BlockChain
+	txPool        *core.TxPoolManager //Y
+	reElection    *reelection.ReElection
+	olConsensus   *olconsensus.TopNodeService
+	random        *baseinterface.Random
+	manblk        *blkmanage.ManBlkManage
 }
 
 func NewProcessManage(matrix Backend) *ProcessManage {
 	return &ProcessManage{
-		curNumber:   0,
-		processMap:  make(map[uint64]*Process),
-		matrix:      matrix,
-		hd:          matrix.HD(),
-		signHelper:  matrix.SignHelper(),
-		bc:          matrix.BlockChain(),
-		txPool:      matrix.TxPool(),
-		reElection:  matrix.ReElection(),
-		olConsensus: matrix.OLConsensus(),
-		random:      matrix.Random(),
-		manblk:      matrix.ManBlkDeal(),
+		curChainState: mc.ChainState{},
+		processMap:    make(map[uint64]*Process),
+		matrix:        matrix,
+		hd:            matrix.HD(),
+		signHelper:    matrix.SignHelper(),
+		bc:            matrix.BlockChain(),
+		txPool:        matrix.TxPool(),
+		reElection:    matrix.ReElection(),
+		olConsensus:   matrix.OLConsensus(),
+		random:        matrix.Random(),
+		manblk:        matrix.ManBlkDeal(),
 	}
 }
 
-func (pm *ProcessManage) SetCurNumber(number uint64, preSuperBlock bool) {
+func (pm *ProcessManage) SetCurNumber(number uint64, superSeq uint64) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	pm.curNumber = number
-	if preSuperBlock {
-		pm.clearProcessMap()
-	} else {
+	switch pm.curChainState.Cmp(superSeq, number) {
+	case 1: //cur > input
+		log.Debug(pm.logExtraInfo(), "SetCurNumber", "超级序号或高度低于当前值,不处理",
+			"curNumber", pm.curChainState.CurNumber(), "number", number,
+			"curSuperSeq", pm.curChainState.SuperSeq(), "superSeq", superSeq)
+		return
+	case -1: // cur < input
+		if pm.curChainState.SuperSeq() < superSeq {
+			log.Debug(pm.logExtraInfo(), "SetCurNumber", "超级区块序号变更,清空之前状态",
+				"curSuperSeq", pm.curChainState.SuperSeq(), "superSeq", superSeq)
+			pm.clearProcessMap()
+		}
+		pm.curChainState.Reset(superSeq, number)
 		pm.fixProcessMap()
 	}
 }
@@ -64,14 +74,14 @@ func (pm *ProcessManage) GetCurNumber() uint64 {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	return pm.curNumber
+	return pm.curChainState.CurNumber()
 }
 
 func (pm *ProcessManage) GetCurrentProcess() *Process {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	return pm.getProcess(pm.curNumber)
+	return pm.getProcess(pm.curChainState.CurNumber())
 }
 
 func (pm *ProcessManage) GetProcess(number uint64) (*Process, error) {
@@ -98,7 +108,7 @@ func (pm *ProcessManage) GetProcessAndPreProcess(number uint64) (*Process, *Proc
 }
 
 func (pm *ProcessManage) fixProcessMap() {
-	if pm.curNumber == 0 {
+	if pm.curChainState.CurNumber() == 0 {
 		return
 	}
 
@@ -108,7 +118,7 @@ func (pm *ProcessManage) fixProcessMap() {
 
 	delKeys := make([]uint64, 0)
 	for key, process := range pm.processMap {
-		if key < pm.curNumber-1 {
+		if key < pm.curChainState.CurNumber()-1 {
 			process.Close()
 			delKeys = append(delKeys, key)
 		}
@@ -122,40 +132,26 @@ func (pm *ProcessManage) fixProcessMap() {
 }
 
 func (pm *ProcessManage) clearProcessMap() {
-	if pm.curNumber == 0 {
-		return
-	}
-
-	if len(pm.processMap) == 0 {
-		return
-	}
-
-	delKeys := make([]uint64, 0)
-	for key, process := range pm.processMap {
+	for _, process := range pm.processMap {
 		process.Close()
-		delKeys = append(delKeys, key)
 	}
-
-	for _, delKey := range delKeys {
-		delete(pm.processMap, delKey)
-	}
-
-	log.Debug(pm.logExtraInfo(), "超级区块：PM 结束删除map, process数量", len(pm.processMap))
+	pm.processMap = make(map[uint64]*Process)
 }
+
 func (pm *ProcessManage) isLegalNumber(number uint64) error {
 	var minNumber uint64
-	if pm.curNumber < 1 {
+	if pm.curChainState.CurNumber() < 1 {
 		minNumber = 0
 	} else {
-		minNumber = pm.curNumber - 1
+		minNumber = pm.curChainState.CurNumber() - 1
 	}
 
 	if number < minNumber {
-		return errors.Errorf("高度(%d) 过于小于当前高度 范围(%d)", number, pm.curNumber)
+		return errors.Errorf("高度(%d) 过于小于当前高度 范围(%d)", number, pm.curChainState.CurNumber())
 	}
 
-	if number > pm.curNumber+2 {
-		return errors.Errorf("高度(%d) 过于大于当前高度 范围(%d)", number, pm.curNumber)
+	if number > pm.curChainState.CurNumber()+2 {
+		return errors.Errorf("高度(%d) 过于大于当前高度 范围(%d)", number, pm.curChainState.CurNumber())
 	}
 
 	return nil

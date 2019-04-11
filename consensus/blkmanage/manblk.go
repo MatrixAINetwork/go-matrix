@@ -1,7 +1,3 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package blkmanage
 
 import (
@@ -228,10 +224,11 @@ func (bd *ManBlkBasePlug) ProcessState(support BlKSupport, header *types.Header,
 		log.ERROR(LogManBlk, "执行区块惩罚处理错误", err, "高度", header.Number)
 		return nil, nil, nil, nil, nil, nil, err
 	}
-	txsCode, originalTxs, finalTxs := work.ProcessTransactions(support.EventMux(), support.TxPool(), upTimeMap)
+	txsCode, originalTxs := work.ProcessTransactions(support.EventMux(), support.TxPool(), upTimeMap)
 
-	block := types.NewBlock(header, types.MakeCurencyBlock(types.GetCoinTX(finalTxs), work.Receipts, nil), nil)
-	log.Debug(LogManBlk, "区块验证请求生成，交易部分,完成 tx hash", types.TxHashList(finalTxs))
+	//block := types.NewBlock(header, types.MakeCurencyBlock(types.GetCoinTX(finalTxs), work.Receipts, nil), nil)
+	block := types.NewBlock(header, types.MakeCurencyBlock(work.GetTxs(), work.Receipts, nil), nil)
+	log.Debug(LogManBlk, "区块验证请求生成，交易部分,完成 tx hash", types.CoinTxHashList(work.GetTxs()))
 	parent := support.BlockChain().GetBlockByHash(header.ParentHash)
 	err = support.BlockChain().ProcessMatrixState(block, string(parent.Version()), work.State)
 	if err != nil {
@@ -239,7 +236,7 @@ func (bd *ManBlkBasePlug) ProcessState(support BlKSupport, header *types.Header,
 		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	return txsCode, work.State, work.Receipts, types.GetCoinTX(originalTxs), types.GetCoinTX(finalTxs), nil, nil
+	return txsCode, work.State, work.Receipts, types.GetCoinTX(originalTxs), work.GetTxs(), nil, nil
 }
 
 func (bd *ManBlkBasePlug) Finalize(support BlKSupport, header *types.Header, state *state.StateDBManage, txs []types.CoinSelfTransaction, uncles []*types.Header, receipts []types.CoinReceipts, args interface{}) (*types.Block, interface{}, error) {
@@ -333,8 +330,8 @@ func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *ty
 		return nil, nil, nil, nil, err
 	}
 	finalTxs := work.GetTxs()
-
-	localBlock := types.NewBlock(localHeader, types.MakeCurencyBlock(finalTxs, work.Receipts, nil), nil)
+	cb := types.MakeCurencyBlock(finalTxs, work.Receipts, nil)
+	localBlock := types.NewBlock(localHeader, cb, nil)
 	// process matrix state
 	parent := support.BlockChain().GetBlockByHash(verifyHeader.ParentHash)
 	if parent == nil {
@@ -346,9 +343,9 @@ func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *ty
 		log.ERROR(LogManBlk, "matrix状态验证,错误", "运行matrix状态出错", "err", err)
 		return nil, nil, nil, nil, err
 	}
-
 	// 运行完matrix state后，生成root
-	localBlock, err = support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), localHeader, work.State, nil, types.MakeCurencyBlock(finalTxs, work.Receipts, nil))
+	ncb:=types.MakeCurencyBlock(finalTxs, work.Receipts, nil)
+	localBlock, err = support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), localHeader, work.State, nil,ncb)
 	if err != nil {
 		log.ERROR(LogManBlk, "matrix状态验证,错误", "Failed to finalize block for sealing", "err", err)
 		return nil, nil, nil, nil, err

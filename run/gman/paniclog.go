@@ -19,7 +19,7 @@ func initPanicFile() {
 		fmt.Println("Create panic file err", err)
 	}
 	test := time.Now()
-	timestr := test.Format("2006-01-02 15:04:05")
+	timestr := test.Format("2006-01-02 15:04:05\r\n")
 	file.Write([]byte(timestr))
 	globalFile = file
 	err = syscall.Dup2(int(file.Fd()), int(os.Stderr.Fd()))

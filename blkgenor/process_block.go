@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkgenor
@@ -394,7 +394,7 @@ func (p *Process) insertAndBcBlock(isSelf bool, leader common.Address, header *t
 		log.ERROR(p.logExtraInfo(), "插入区块失败", err)
 		return common.Hash{}, err
 	}
-
+	mc.PublishEvent(mc.BlockInserted, &mc.BlockInsertedMsg{Block: mc.BlockInfo{Hash: block.Hash(), Number: block.NumberU64()}, InsertTime: uint64(time.Now().Unix()), CanonState: stat == core.CanonStatTy})
 	// Broadcast the block and announce chain insertion event
 	hash := block.Hash()
 	p.eventMux().Post(core.NewMinedBlockEvent{Block: block})

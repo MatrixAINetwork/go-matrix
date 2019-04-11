@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package mc
@@ -131,11 +131,11 @@ type MasterValidatorReElectionRsq struct {
 }
 
 type RoleUpdatedMsg struct {
-	Role         common.RoleType
-	BlockNum     uint64
-	BlockHash    common.Hash
-	Leader       common.Address
-	IsSuperBlock bool
+	Role      common.RoleType
+	BlockNum  uint64
+	BlockHash common.Hash
+	Leader    common.Address
+	SuperSeq  uint64
 }
 
 type LeaderChangeNotify struct {
@@ -355,4 +355,15 @@ type VrfMsg struct {
 type EntrustInfo struct {
 	Address  string
 	Password string
+}
+
+type BlockInfo struct {
+	Hash   common.Hash
+	Number uint64
+}
+
+type BlockInsertedMsg struct {
+	Block      BlockInfo
+	InsertTime uint64
+	CanonState bool
 }

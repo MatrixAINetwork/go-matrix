@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -12,10 +12,11 @@ import (
 	"errors"
 	"fmt"
 
+	"math/big"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/math"
 	"github.com/MatrixAINetwork/go-matrix/crypto/secp256k1"
-	"math/big"
 )
 
 // Ecrecover returns the uncompressed public key that created the given signature.
@@ -92,16 +93,6 @@ func SignWithValidate(hash []byte, validate bool, prv *ecdsa.PrivateKey) (sig []
 	if err == nil && !validate {
 		sig[64] += 2
 	}
-	return sig, err
-}
-
-func SignWithVersion(hash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
-	if len(hash) != 32 {
-		return nil, fmt.Errorf("hash is required to be exactly 32 bytes (%d)", len(hash))
-	}
-	seckey := math.PaddedBigBytes(prv.D, prv.Params().BitSize/8)
-	defer zeroBytes(seckey)
-	sig, err = secp256k1.Sign(hash, seckey)
 	return sig, err
 }
 

@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"math/big"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 var (
@@ -18748,101 +18750,6 @@ func TestCalcStock2Rate(t *testing.T) {
 	}
 }
 
-//func TestCalcDepositRate1(t *testing.T) {
-//	log.InitLog(3)
-//	deposit := make(map[common.Address]*big.Int, 0)
-//
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000000")] = new(big.Int).Mul(big.NewInt(19779005), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000001")] = new(big.Int).Mul(big.NewInt(3053790), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000002")] = new(big.Int).Mul(big.NewInt(74399986), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000003")] = new(big.Int).Mul(big.NewInt(49997244), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000004")] = new(big.Int).Mul(big.NewInt(47987415), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000005")] = new(big.Int).Mul(big.NewInt(90463177), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000006")] = new(big.Int).Mul(big.NewInt(60980567), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000007")] = new(big.Int).Mul(big.NewInt(61760463), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000008")] = new(big.Int).Mul(big.NewInt(85935637), big.NewInt(-1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000009")] = new(big.Int).Mul(big.NewInt(80540888), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x000000000000000000000000000000000000000a")] = new(big.Int).Mul(big.NewInt(57666385), big.NewInt(1e18))
-//	reward := new(big.Int).Mul(big.NewInt(698745832334794), big.NewInt(1e8))
-//	CalcDepositRate(reward, deposit)
-//}
-//
-//func TestCalcDepositRate2(t *testing.T) {
-//	log.InitLog(3)
-//	deposit := make(map[common.Address]*big.Int, 0)
-//
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000000")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000001")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000002")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000003")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000004")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000005")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000006")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000007")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000008")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000009")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	deposit[common.HexToAddress("0x000000000000000000000000000000000000000a")] = new(big.Int).Mul(big.NewInt(1), big.NewInt(1e17))
-//	reward := new(big.Int).Mul(big.NewInt(698745832334794), big.NewInt(1e8))
-//	CalcDepositRate(reward, deposit)
-//}
-//
-//func TestCalcDepositRate3(t *testing.T) {
-//	log.InitLog(3)
-//	deposit := make(map[common.Address]*big.Int, 0)
-//
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000000")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000001")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000002")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000003")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000004")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000005")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000006")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000007")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000008")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000009")] = big.NewInt(0)
-//	deposit[common.HexToAddress("0x000000000000000000000000000000000000000a")] = big.NewInt(0)
-//	reward := new(big.Int).Mul(big.NewInt(698745832334794), big.NewInt(1e8))
-//	CalcDepositRate(reward, deposit)
-//}
-//
-//func TestCalcDepositRate4(t *testing.T) {
-//	log.InitLog(3)
-//	deposit := make(map[common.Address]*big.Int, 0)
-//
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000000")] = new(big.Int).Mul(big.NewInt(19779005), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000001")] = new(big.Int).Mul(big.NewInt(3053790), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000002")] = new(big.Int).Mul(big.NewInt(74399986), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000003")] = new(big.Int).Mul(big.NewInt(49997244), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000004")] = new(big.Int).Mul(big.NewInt(47987415), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000005")] = new(big.Int).Mul(big.NewInt(90463177), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000006")] = new(big.Int).Mul(big.NewInt(60980567), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000007")] = new(big.Int).Mul(big.NewInt(61760463), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000008")] = new(big.Int).Mul(big.NewInt(85935637), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000009")] = new(big.Int).Mul(big.NewInt(80540888), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x000000000000000000000000000000000000000a")] = new(big.Int).Mul(big.NewInt(57666385), big.NewInt(1e18))
-//	reward := new(big.Int).Mul(big.NewInt(1), big.NewInt(1e7))
-//	CalcDepositRate(reward, deposit)
-//}
-//
-//func TestCalcDepositRate5(t *testing.T) {
-//	log.InitLog(3)
-//	deposit := make(map[common.Address]*big.Int, 0)
-//
-//	deposit[common.HexToAddress("0x000000000000000000000000000000000000000b")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000001")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000002")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000003")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000004")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000005")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000006")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000007")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000008")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x0000000000000000000000000000000000000009")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	deposit[common.HexToAddress("0x000000000000000000000000000000000000000a")] = new(big.Int).Mul(big.NewInt(100000), big.NewInt(1e18))
-//	reward := new(big.Int).Mul(big.NewInt(1), big.NewInt(13986000000000000*0.6))
-//	CalcDepositRate(reward, deposit)
-//}
-
 func TestCalcRewardMount(t *testing.T) {
 	type args struct {
 		blockReward *big.Int
@@ -18941,10 +18848,11 @@ func TestAccumulator(t *testing.T) {
 		st       StateDB
 		rewardIn []common.RewarTx
 	}
-	state, _ := state.New(common.Hash{}, state.NewDatabase(mandb.NewMemDatabase()))
-	state.SetBalance(common.MainAccount, common.BlkMinerRewardAddress, new(big.Int).Exp(big.NewInt(100), big.NewInt(18), big.NewInt(0)))
-	state.SetBalance(common.MainAccount, common.LotteryRewardAddress, new(big.Int).SetUint64(16e18))
-	state.SetBalance(common.MainAccount, common.TxGasRewardAddress, new(big.Int).SetUint64(16e18))
+	chaindb := mandb.NewMemDatabase()
+	state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.BlkMinerRewardAddress, new(big.Int).Mul(big.NewInt(23), ManPrice))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.LotteryRewardAddress, new(big.Int).SetUint64(16e18))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).SetUint64(16e18))
 
 	rewardIn := make([]common.RewarTx, 0)
 	minersRewardMap := make(map[common.Address]*big.Int)
@@ -19004,8 +18912,8 @@ func TestAccumulator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Accumulator(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Accumulator() = %v, want %v", got, tt.want)
+			if got := AccumulatorCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("AccumulatorCheck() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -19017,10 +18925,11 @@ func TestAccumulatorNotEnough(t *testing.T) {
 		st       StateDB
 		rewardIn []common.RewarTx
 	}
-	state, _ := state.New(common.Hash{}, state.NewDatabase(mandb.NewMemDatabase()))
-	state.SetBalance(common.MainAccount, common.BlkMinerRewardAddress, new(big.Int).Mul(big.NewInt(22), ManPrice))
-	state.SetBalance(common.MainAccount, common.LotteryRewardAddress, new(big.Int).SetUint64(16e18))
-	state.SetBalance(common.MainAccount, common.TxGasRewardAddress, new(big.Int).SetUint64(16e18))
+	chaindb := mandb.NewMemDatabase()
+	state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.BlkMinerRewardAddress, new(big.Int).Mul(big.NewInt(23), ManPrice))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.LotteryRewardAddress, new(big.Int).SetUint64(16e18))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).SetUint64(16e18))
 
 	rewardIn := make([]common.RewarTx, 0)
 	result := make([]common.RewarTx, 0)
@@ -19042,19 +18951,6 @@ func TestAccumulatorNotEnough(t *testing.T) {
 	validaotrRewardMap[common.HexToAddress("1A")] = new(big.Int).SetUint64(1e18)
 	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.BlkValidatorRewardAddress, To_Amont: validaotrRewardMap, RewardTyp: common.RewardValidatorType})
 
-	interestRewardMap := make(map[common.Address]*big.Int)
-	interestRewardMap[common.HexToAddress("21")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("22")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("23")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("24")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("25")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("26")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("27")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("28")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("29")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("2A")] = new(big.Int).SetUint64(1e18)
-	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.InterestRewardAddress, To_Amont: interestRewardMap, RewardTyp: common.RewardInterestType})
-
 	txsRewardMap := make(map[common.Address]*big.Int)
 	txsRewardMap[common.HexToAddress("31")] = new(big.Int).SetUint64(1e18)
 	txsRewardMap[common.HexToAddress("32")] = new(big.Int).SetUint64(1e18)
@@ -19068,6 +18964,20 @@ func TestAccumulatorNotEnough(t *testing.T) {
 	txsRewardMap[common.HexToAddress("3A")] = new(big.Int).SetUint64(1e18)
 	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.TxGasRewardAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
 	result = append(result, common.RewarTx{CoinType: "MAN", Fromaddr: common.TxGasRewardAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
+
+	interestRewardMap := make(map[common.Address]*big.Int)
+	interestRewardMap[common.HexToAddress("21")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("22")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("23")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("24")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("25")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("26")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("27")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("28")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("29")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("2A")] = new(big.Int).SetUint64(1e18)
+	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.InterestRewardAddress, To_Amont: interestRewardMap, RewardTyp: common.RewardInterestType})
+
 	lotteryMap := make(map[common.Address]*big.Int)
 
 	lotteryMap[common.HexToAddress("41")] = new(big.Int).SetUint64(6e18)
@@ -19082,8 +18992,8 @@ func TestAccumulatorNotEnough(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Accumulator(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Accumulator() = %v, want %v", got, tt.want)
+			if got := AccumulatorCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("AccumulatorCheck() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -19095,10 +19005,11 @@ func TestAccumulatorSideEnough(t *testing.T) {
 		st       StateDB
 		rewardIn []common.RewarTx
 	}
-	state, _ := state.New(common.Hash{}, state.NewDatabase(mandb.NewMemDatabase()))
-	state.SetBalance(common.MainAccount, common.BlkMinerRewardAddress, new(big.Int).Mul(big.NewInt(23), ManPrice))
-	state.SetBalance(common.MainAccount, common.LotteryRewardAddress, new(big.Int).SetUint64(16e18))
-	state.SetBalance(common.MainAccount, common.TxGasRewardAddress, new(big.Int).SetUint64(16e18))
+	chaindb := mandb.NewMemDatabase()
+	state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.BlkMinerRewardAddress, new(big.Int).Mul(big.NewInt(23), ManPrice))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.LotteryRewardAddress, new(big.Int).SetUint64(16e18))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).SetUint64(16e18))
 
 	rewardIn := make([]common.RewarTx, 0)
 	result := make([]common.RewarTx, 0)
@@ -19120,19 +19031,6 @@ func TestAccumulatorSideEnough(t *testing.T) {
 	validaotrRewardMap[common.HexToAddress("1A")] = new(big.Int).SetUint64(1e18)
 	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.BlkValidatorRewardAddress, To_Amont: validaotrRewardMap, RewardTyp: common.RewardValidatorType})
 
-	interestRewardMap := make(map[common.Address]*big.Int)
-	interestRewardMap[common.HexToAddress("21")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("22")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("23")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("24")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("25")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("26")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("27")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("28")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("29")] = new(big.Int).SetUint64(1e18)
-	interestRewardMap[common.HexToAddress("2A")] = new(big.Int).SetUint64(1e18)
-	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.InterestRewardAddress, To_Amont: interestRewardMap, RewardTyp: common.RewardInterestType})
-
 	txsRewardMap := make(map[common.Address]*big.Int)
 	txsRewardMap[common.HexToAddress("31")] = new(big.Int).SetUint64(1e18)
 	txsRewardMap[common.HexToAddress("32")] = new(big.Int).SetUint64(1e18)
@@ -19146,6 +19044,20 @@ func TestAccumulatorSideEnough(t *testing.T) {
 	txsRewardMap[common.HexToAddress("3A")] = new(big.Int).SetUint64(1e18)
 	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.TxGasRewardAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
 	result = append(result, common.RewarTx{CoinType: "MAN", Fromaddr: common.TxGasRewardAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
+
+	interestRewardMap := make(map[common.Address]*big.Int)
+	interestRewardMap[common.HexToAddress("21")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("22")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("23")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("24")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("25")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("26")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("27")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("28")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("29")] = new(big.Int).SetUint64(1e18)
+	interestRewardMap[common.HexToAddress("2A")] = new(big.Int).SetUint64(1e18)
+	rewardIn = append(rewardIn, common.RewarTx{CoinType: "MAN", Fromaddr: common.InterestRewardAddress, To_Amont: interestRewardMap, RewardTyp: common.RewardInterestType})
+
 	lotteryMap := make(map[common.Address]*big.Int)
 
 	lotteryMap[common.HexToAddress("41")] = new(big.Int).SetUint64(6e18)
@@ -19160,8 +19072,546 @@ func TestAccumulatorSideEnough(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Accumulator(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Accumulator() = %v, want %v", got, tt.want)
+			if got := AccumulatorCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("AccumulatorCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type MyStateDB struct {
+	balance map[string]common.BalanceType
+}
+
+func (s *MyStateDB) GetBalance(typ string, addr common.Address) common.BalanceType {
+	return s.balance[typ]
+}
+func (s *MyStateDB) GetMatrixData(hash common.Hash) (val []byte) {
+	return nil
+}
+func (s *MyStateDB) SetMatrixData(hash common.Hash, val []byte) {
+	return
+}
+
+func (s *MyStateDB) SetBalance(typ string, AccountType uint32, addr common.Address, mount *big.Int) {
+	BalanceType := make([]common.BalanceSlice, 0)
+	BalanceType = append(BalanceType, common.BalanceSlice{AccountType: common.MainAccount, Balance: mount})
+	s.balance[typ] = BalanceType
+}
+
+func TestCointypeNormalCheck1(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: "A", Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: "B", Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: "C", Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCointypeNormalCheck2(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(500), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCointypeNormalCheck3(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(500), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: "B", Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: "C", Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+func TestCointypeSideCheck1(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(100), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(100), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(100), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(100), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: "A", Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: "B", Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: "C", Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCointypeSideCheck2(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(400), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(101), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCointypeSideCheck3(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(200), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(0), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(100), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(100), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: "B", Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: "C", Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCointypeNotEnoughCheck1(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(99), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(99), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(99), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(99), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: "A", Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: "B", Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: "C", Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCointypeNotEnoughCheck2(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(399), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCointypeNotEnoughCheck3(t *testing.T) {
+	log.InitLog(3)
+	type args struct {
+		st       StateDB
+		rewardIn []common.RewarTx
+	}
+	state := &MyStateDB{balance: make(map[string]common.BalanceType)}
+	//chaindb := mandb.NewMemDatabase()
+	//state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	state.SetBalance(params.MAN_COIN, common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(199), ManPrice))
+	state.SetBalance("A", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(0), ManPrice))
+	state.SetBalance("B", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(99), ManPrice))
+	state.SetBalance("C", common.MainAccount, common.TxGasRewardAddress, new(big.Int).Mul(big.NewInt(99), ManPrice))
+	rewardIn := make([]common.RewarTx, 0)
+	manRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		manRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: manRewardMap, RewardTyp: common.RewardTxsType})
+
+	ARewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		ARewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "A", CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: ARewardMap, RewardTyp: common.RewardTxsType})
+
+	BRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		BRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "B", CoinType: "B", Fromaddr: common.TxGasRewardAddress, To_Amont: BRewardMap, RewardTyp: common.RewardTxsType})
+
+	CRewardMap := make(map[common.Address]*big.Int)
+	for i := 1; i < 101; i++ {
+		CRewardMap[common.HexToAddress(strconv.Itoa(i))] = new(big.Int).SetUint64(1e18)
+	}
+
+	rewardIn = append(rewardIn, common.RewarTx{CoinRange: "C", CoinType: "C", Fromaddr: common.TxGasRewardAddress, To_Amont: CRewardMap, RewardTyp: common.RewardTxsType})
+
+	tests := []struct {
+		name string
+		args args
+		want []common.RewarTx
+	}{
+		{name: "test", args: args{state, rewardIn}, want: rewardIn},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CointypeCheck(tt.args.st, tt.args.rewardIn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CointypeCheck() = %v, want %v", got, tt.want)
 			}
 		})
 	}

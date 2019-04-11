@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -26,7 +26,7 @@ type Config struct {
 	// JumpTable contains the EVM instruction table. This
 	// may be left uninitialised and will be set to the default
 	// table.
-	JumpTable [256]operation
+	JumpTable *[256]operation
 }
 
 // Interpreter is used to run Matrix based contracts and will utilise the
@@ -48,23 +48,24 @@ func NewInterpreter(evm *EVM, cfg Config) *Interpreter {
 	// We use the STOP instruction whether to see
 	// the jump table was initialised. If it was not
 	// we'll set the default jump table.
-	if !cfg.JumpTable[STOP].valid {
-		switch {
-		case evm.ChainConfig().IsConstantinople(evm.BlockNumber):
-			cfg.JumpTable = constantinopleInstructionSet
-		case evm.ChainConfig().IsByzantium(evm.BlockNumber):
-			cfg.JumpTable = byzantiumInstructionSet
-		case evm.ChainConfig().IsHomestead(evm.BlockNumber):
-			cfg.JumpTable = homesteadInstructionSet
-		default:
-			cfg.JumpTable = frontierInstructionSet
-		}
-	}
+	cfg.JumpTable = byzantiumInstructionSet
+//	if !cfg.JumpTable[STOP].valid {
+//		switch {
+//		case evm.ChainConfig().IsConstantinople(evm.BlockNumber):
+//			cfg.JumpTable = constantinopleInstructionSet
+//		case evm.ChainConfig().IsByzantium(evm.BlockNumber):
+//			cfg.JumpTable = byzantiumInstructionSet
+//		case evm.ChainConfig().IsHomestead(evm.BlockNumber):
+//			cfg.JumpTable = homesteadInstructionSet
+//		default:
+//			cfg.JumpTable = frontierInstructionSet
+//		}
+//	}
 
 	return &Interpreter{
 		evm:      evm,
 		cfg:      cfg,
-		gasTable: evm.ChainConfig().GasTable(evm.BlockNumber),
+		gasTable: params.GasTableEIP158,//evm.ChainConfig().GasTable(evm.BlockNumber),
 		intPool:  newIntPool(),
 	}
 }

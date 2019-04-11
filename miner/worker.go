@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -226,10 +226,11 @@ func (self *worker) update() {
 	}
 }
 func (self *worker) RoleUpdatedMsgHandler(data *mc.RoleUpdatedMsg) {
-	if data.IsSuperBlock {
+	if data.SuperSeq > self.mineReqCtrl.curSuperSeq {
 		self.StopAgent()
 		self.stopMineResultSender()
 		self.mineReqCtrl.Clear()
+		self.mineReqCtrl.curSuperSeq = data.SuperSeq
 	}
 
 	if data.BlockNum+1 > self.mineReqCtrl.curNumber {

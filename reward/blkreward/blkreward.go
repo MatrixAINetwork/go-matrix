@@ -52,8 +52,13 @@ func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB, ppreSt uti
 		log.Error("固定区块奖励", "获取拓扑图错误", err)
 		return nil
 	}
-	rewardCfg := cfg.New(RC, nil)
-	return rewardexec.New(chain, rewardCfg, st, interval, foundationAccount, innerMinerAccounts, currentTop, originElectNodes)
+	preMiner, err := util.GetPreMinerReward(preSt, util.BlkReward)
+	if err != nil {
+		log.Error("固定区块奖励", "获取前一个矿工奖励错误", err)
+		return nil
+	}
+	rewardCfg := cfg.New(RC, nil, preMiner, innerMinerAccounts, util.BlkReward)
+	return rewardexec.New(chain, rewardCfg, st, interval, foundationAccount, currentTop, originElectNodes)
 }
 
 //func (tr *blkreward) CalcNodesRewards(blockReward *big.Int, Leader common.Address, header *types.Header) map[common.Address]*big.Int {

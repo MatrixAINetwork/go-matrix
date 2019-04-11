@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	EmptyRootHash  = DeriveShaHash([]common.Hash{})
+	EmptyRootHash  = common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")//DeriveShaHash([]common.Hash{})
 	EmptyUncleHash = CalcUncleHash(nil)
 )
 
@@ -254,6 +254,13 @@ func RlpHash(x interface{}) (h common.Hash) {
 	hw.Sum(h[:0])
 	return h
 }
+func RlpEncodeAndHash(x interface{}) (buff []byte,h common.Hash) {
+	hw := sha3.NewKeccak256()
+	buff,_ = rlp.EncodeToBytes(x)
+	hw.Write(buff)
+	hw.Sum(h[:0])
+	return buff,h
+}
 
 //1. Complete Block transactions = []SelfTransactio
 //2. Sharding Block transactions = []TxInfo
@@ -443,7 +450,8 @@ type CurrencyHeader struct {
 	ReceiptHash common.Hash
 }
 
-func MakeCurencyBlock(txser []CoinSelfTransaction, rece []CoinReceipts, shardings []uint) (cb []CurrencyBlock) {
+func MakeCurencyBlock(txser []CoinSelfTransaction, rece []CoinReceipts, shardings []uint) ([]CurrencyBlock) {
+	cb := make([]CurrencyBlock,0,len(txser))
 	for i, txer := range txser {
 		var br BodyReceipts = BodyReceipts{}
 		if len(rece) > 0 {
@@ -451,7 +459,7 @@ func MakeCurencyBlock(txser []CoinSelfTransaction, rece []CoinReceipts, sharding
 		}
 		cb = append(cb, CurrencyBlock{CurrencyName: txer.CoinType, Transactions: SetTransactions(txer.Txser, TxHashList(txer.Txser), shardings), Receipts: br})
 	}
-	return
+	return cb
 }
 
 //币种block
@@ -547,39 +555,41 @@ func NewBlock(header *Header, currencyBlocks []CurrencyBlock, uncles []*Header) 
 	b := &Block{header: CopyHeader(header), td: new(big.Int)}
 	ischeck := len(b.header.Roots) > 0
 	// TODO: panic if len(txs) != len(receipts)
-	for _, currencyBlock := range currencyBlocks { //BB
-		if len(currencyBlock.Transactions.GetTransactions()) == 0 {
+	for i:=0;i<len(currencyBlocks);i++ {
+		if len(currencyBlocks[i].Transactions.GetTransactions()) == 0 {
 			if ischeck {
-				for i, coinRoot := range b.header.Roots {
-					if coinRoot.Cointyp == currencyBlock.CurrencyName {
-						b.header.Roots[i].TxHash = DeriveShaHash(currencyBlock.Transactions.TxHashs)
-						b.header.Roots[i].ReceiptHash = DeriveShaHash(currencyBlock.Receipts.RsHashs)
-						b.header.Roots[i].Bloom = CreateBloom(currencyBlock.Receipts.GetReceipts())
-						b.header.Roots[i].Cointyp = currencyBlock.CurrencyName
-						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlock.CurrencyName, Transactions: currencyBlock.Transactions,
-							Receipts: currencyBlock.Receipts})
+				for j, coinRoot := range b.header.Roots {
+					if coinRoot.Cointyp == currencyBlocks[i].CurrencyName {
+						b.header.Roots[j].TxHash = DeriveShaHash(currencyBlocks[i].Transactions.TxHashs)
+						b.header.Roots[j].ReceiptHash = DeriveShaHash(currencyBlocks[i].Receipts.RsHashs)
+						b.header.Roots[j].Bloom = CreateBloom(currencyBlocks[i].Receipts.GetReceipts())
+						b.header.Roots[j].Cointyp = currencyBlocks[i].CurrencyName
+						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+							Receipts: currencyBlocks[i].Receipts})
 					}
 				}
 			} else {
-				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlock.CurrencyName, TxHash: EmptyRootHash, ReceiptHash: EmptyRootHash})
+				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlocks[i].CurrencyName, TxHash: EmptyRootHash, ReceiptHash: EmptyRootHash})
 			}
 		} else {
 			if ischeck {
-				for i, coinRoot := range b.header.Roots {
-					if coinRoot.Cointyp == currencyBlock.CurrencyName {
-						b.header.Roots[i].TxHash = DeriveShaHash(currencyBlock.Transactions.TxHashs)
-						b.header.Roots[i].ReceiptHash = DeriveShaHash(currencyBlock.Receipts.RsHashs)
-						b.header.Roots[i].Bloom = CreateBloom(currencyBlock.Receipts.GetReceipts())
-						b.header.Roots[i].Cointyp = currencyBlock.CurrencyName
-						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlock.CurrencyName, Transactions: currencyBlock.Transactions,
-							Receipts: currencyBlock.Receipts})
+				for j, coinRoot := range b.header.Roots {
+					if coinRoot.Cointyp == currencyBlocks[i].CurrencyName {
+						b.header.Roots[j].TxHash = DeriveShaHash(currencyBlocks[i].Transactions.TxHashs)
+						b.header.Roots[j].ReceiptHash = DeriveShaHash(currencyBlocks[i].Receipts.RsHashs)
+						b.header.Roots[j].Bloom = CreateBloom(currencyBlocks[i].Receipts.GetReceipts())
+						b.header.Roots[j].Cointyp = currencyBlocks[i].CurrencyName
+						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+							Receipts: currencyBlocks[i].Receipts})
+					}else {
+						log.Info("coin name different", "header", coinRoot.Cointyp,"block",currencyBlocks[i].CurrencyName)
 					}
 				}
 			} else {
-				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlock.CurrencyName, TxHash: DeriveShaHash(currencyBlock.Transactions.TxHashs),
-					ReceiptHash: DeriveShaHash(currencyBlock.Receipts.GetReceipts().HashList()), Bloom: CreateBloom(currencyBlock.Receipts.GetReceipts())})
-				b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlock.CurrencyName, Transactions: currencyBlock.Transactions,
-					Receipts: currencyBlock.Receipts})
+				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlocks[i].CurrencyName, TxHash: DeriveShaHash(currencyBlocks[i].Transactions.TxHashs),
+					ReceiptHash: DeriveShaHash(currencyBlocks[i].Receipts.RsHashs), Bloom: CreateBloom(currencyBlocks[i].Receipts.GetReceipts())})
+				b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+					Receipts: currencyBlocks[i].Receipts})
 			}
 
 		}

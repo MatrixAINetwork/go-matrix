@@ -20,7 +20,7 @@ type TxsReward struct {
 	blockReward *rewardexec.BlockReward
 }
 
-func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB) reward.Reward {
+func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB, ppreSt util.StateDB) reward.Reward {
 
 	data, err := matrixstate.GetTxsCalc(preSt)
 	if nil != err {
@@ -50,7 +50,7 @@ func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB) reward.Rew
 		return nil
 	}
 
-	innerMinerAccounts, err := matrixstate.GetInnerMinerAccounts(preSt)
+	innerMinerAccounts, err := matrixstate.GetInnerMinerAccounts(ppreSt)
 	if err != nil {
 		log.ERROR(PackageName, "获取内部矿工账户数据失败", err)
 		return nil
@@ -63,12 +63,16 @@ func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB) reward.Rew
 	}
 	currentTop, originElectNodes, err := chain.GetGraphByState(preSt)
 	if err != nil {
-		log.Error("固定区块奖励", "获取拓扑图错误", err)
+		log.Error("PackageName", "获取拓扑图错误", err)
 		return nil
 	}
+	preMiner, err := util.GetPreMinerReward(preSt, util.TxsReward)
+	if err != nil {
+		log.Error(PackageName, "获取前一个矿工奖励错误", err)
+	}
 
-	cfg := cfg.New(&mc.BlkRewardCfg{RewardRate: rate}, nil)
+	cfg := cfg.New(&mc.BlkRewardCfg{RewardRate: rate}, nil, preMiner, innerMinerAccounts, util.TxsReward)
 	cfg.ValidatorsRate = TC.ValidatorsRate
 	cfg.MinersRate = TC.MinersRate
-	return rewardexec.New(chain, cfg, st, interval, foundationAccount, innerMinerAccounts, currentTop, originElectNodes)
+	return rewardexec.New(chain, cfg, st, interval, foundationAccount, currentTop, originElectNodes)
 }

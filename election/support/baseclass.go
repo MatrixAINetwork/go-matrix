@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package support
@@ -13,6 +13,9 @@ import (
 	"math/rand"
 )
 
+const (
+	DefaultMinerStock = 1
+)
 type RatioList struct {
 	MinNum uint64
 	Ratio  float64
@@ -134,6 +137,31 @@ func NewElelection(VipLevelCfg []mc.VIPConfig, vm []vm.DepositDetail, EleCfg mc.
 
 		vip.MapMoney[vip.NodeList[i].Address] = manValue
 
+	}
+	return &vip
+}
+func NewMEPElection(VipLevelCfg []mc.VIPConfig, vm []vm.DepositDetail, EleCfg mc.ElectConfigInfo_All, randseed *big.Int, seqNum uint64, types common.RoleType) *Electoion {
+	var vip Electoion
+	vip.SeqNum = seqNum
+	vip.RandSeed = mt19937.RandUniformInit(randseed.Int64())
+	vip.EleCfg = EleCfg
+	vip.VipLevelCfg = VipLevelCfg
+	vip.ChosedNum = 0
+	switch types {
+	case common.RoleValidator:
+		vip.NeedNum = int(EleCfg.BackValidator + EleCfg.ValidatorNum)
+	default:
+		vip.NeedNum = int(EleCfg.MinerNum)
+	}
+	vip.MapMoney = make(map[common.Address]uint64)
+	for i := 0; i < len(vm); i++ {
+		vip.NodeList = append(vip.NodeList, Node{})
+	}
+	for i := 0; i < len(vm); i++ {
+		vip.NodeList[i].SetDepositInfo(vm[i])
+		vip.NodeList[i].SetIndex(i)
+		vip.NodeList[i].SetUsable(true)
+		vip.MapMoney[vip.NodeList[i].Address] = DefaultMinerDeposit
 	}
 	return &vip
 }

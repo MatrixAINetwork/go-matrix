@@ -25,7 +25,7 @@ type TxPool interface {
 	Type() byte
 	Stop()
 	AddTxPool(tx types.SelfTransaction) error
-	Pending() (map[common.Address][]types.SelfTransaction, error)
+	Pending() (map[string]map[common.Address]types.SelfTransactions, error)
 	ReturnAllTxsByN(listN []uint32, resqe byte, addr common.Address, retch chan *RetChan_txpool)
 }
 

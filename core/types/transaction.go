@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -46,7 +46,8 @@ type Transaction struct {
 	// by
 	N               []uint32
 	IsEntrustGas    bool
-	IsEntrustByTime bool //是否是按时间委托（不是按时间就是按高度，二选一）
+	IsEntrustByTime bool //是否是按时间委托
+	IsEntrustByCount bool //是否按次数委托
 }
 type TransactionCall struct {
 	*Transaction
@@ -601,14 +602,15 @@ func (tx *Transaction) GetTxFrom() (from common.Address, err error) {
 }
 
 func (tx *Transaction) TotalAmount() *big.Int {
-	total := tx.data.Amount
+	amount := tx.data.Amount
 	txEx := tx.GetMatrix_EX()
+	total := new(big.Int)
 	if len(txEx) > 0{
 		for _, extra := range tx.data.Extra[0].ExtraTo {
 			total.Add(total, extra.Amount)
 		}
 	}
-	return total
+	return total.Add(total,amount)
 }
 
 //// Cost returns amount + gasprice * gaslimit.
@@ -634,13 +636,18 @@ func (tx *Transaction) GetIsEntrustGas() bool {
 func (tx *Transaction) GetIsEntrustByTime() bool {
 	return tx.IsEntrustByTime
 }
+func (tx *Transaction) GetIsEntrustByCount() bool {
+	return tx.IsEntrustByCount
+}
 func (tx *Transaction) SetIsEntrustGas(b bool) {
 	tx.IsEntrustGas = b
 }
 func (tx *Transaction) SetIsEntrustByTime(b bool) {
 	tx.IsEntrustByTime = b
 }
-
+func (tx *Transaction) SetIsEntrustByCount(b bool) {
+	tx.IsEntrustByCount = b
+}
 //
 func (tx *Transaction) GetTxV() *big.Int  { return tx.data.V }
 func (tx *Transaction) SetTxV(v *big.Int) { tx.data.V = v }

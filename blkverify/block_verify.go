@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 package blkverify
@@ -139,7 +139,7 @@ func (self *BlockVerify) handleRoleUpdatedMsg(roleMsg *mc.RoleUpdatedMsg) {
 	log.Debug(self.logExtraInfo(), "CA身份消息", "开始处理", "高度", roleMsg.BlockNum, "角色", roleMsg.Role.String(), "区块hash", roleMsg.BlockHash.TerminalString())
 
 	curNumber := roleMsg.BlockNum + 1
-	self.processManage.SetCurNumber(curNumber, roleMsg.IsSuperBlock)
+	self.processManage.SetCurNumber(curNumber, roleMsg.SuperSeq)
 	if roleMsg.Role == common.RoleValidator || roleMsg.Role == common.RoleBroadcast {
 		curProcess := self.processManage.GetCurrentProcess()
 		curProcess.StartRunning(roleMsg.Role)

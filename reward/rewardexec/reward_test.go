@@ -1,8 +1,12 @@
 package rewardexec
 
 import (
-	"bou.ke/monkey"
 	"fmt"
+	"math/big"
+	"math/rand"
+	"testing"
+
+	"bou.ke/monkey"
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
@@ -13,9 +17,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 	"github.com/MatrixAINetwork/go-matrix/reward/cfg"
 	"github.com/MatrixAINetwork/go-matrix/reward/util"
-	"math/big"
-	"math/rand"
-	"testing"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -74,7 +75,7 @@ func (chain *Chain) GetBlockByNumber(number uint64) *types.Block {
 func (chain *Chain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	return nil
 }
-func (chain *Chain) StateAt(root common.Hash) (*state.StateDB, error) {
+func (chain *Chain) StateAt(root []common.CoinRoot) (*state.StateDB, error) {
 
 	return nil, nil
 }

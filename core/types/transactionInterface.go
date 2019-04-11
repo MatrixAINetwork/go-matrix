@@ -63,6 +63,8 @@ type SelfTransaction interface {
 	GetMakeHashfield(chid *big.Int) []interface{}
 	SetIsEntrustGas(b bool)
 	SetIsEntrustByTime(b bool)
+	GetIsEntrustByCount() bool
+	SetIsEntrustByCount(b bool)
 }
 
 func SetTransactionToMx(txer SelfTransaction) (txm *Transaction_Mx) {
@@ -107,6 +109,9 @@ func GetTX(ctx []CoinSelfTransaction)[] SelfTransaction  {
 }
 
 func GetCoinTX(txs []SelfTransaction)[]CoinSelfTransaction  {
+	if txs == nil{
+		return nil
+	}
 	mm := make(map[string][]SelfTransaction) //BB
 	for _, tx := range txs {
 		cointype := tx.GetTxCurrency()
@@ -118,7 +123,10 @@ func GetCoinTX(txs []SelfTransaction)[]CoinSelfTransaction  {
 		sorted_keys = append(sorted_keys, k)
 	}
 	sort.Strings(sorted_keys)
-	cs = append(cs, CoinSelfTransaction{params.MAN_COIN, mm[params.MAN_COIN]})
+	if len(mm[params.MAN_COIN]) > 0{
+		cs = append(cs, CoinSelfTransaction{params.MAN_COIN, mm[params.MAN_COIN]})
+	}
+
 	for _, k := range sorted_keys {
 		if k == params.MAN_COIN{
 			continue
@@ -129,6 +137,9 @@ func GetCoinTX(txs []SelfTransaction)[]CoinSelfTransaction  {
 }
 
 func GetCoinTXRS(txs []SelfTransaction,rxs []*Receipt) ([]CoinSelfTransaction,[]CoinReceipts) {
+	if txs == nil || rxs == nil{
+		return nil,nil
+	}
 	var tx []CoinSelfTransaction	//BB
 	var rx []CoinReceipts
 	tm := make(map[string][]SelfTransaction)
@@ -142,8 +153,12 @@ func GetCoinTXRS(txs []SelfTransaction,rxs []*Receipt) ([]CoinSelfTransaction,[]
 		sorted_keys = append(sorted_keys, k)
 	}
 	sort.Strings(sorted_keys)
-	tx=append(tx,CoinSelfTransaction{params.MAN_COIN,tm[params.MAN_COIN]})
-	rx=append(rx,CoinReceipts{params.MAN_COIN,rm[params.MAN_COIN]})
+	if len(tm[params.MAN_COIN]) > 0{
+		tx=append(tx,CoinSelfTransaction{params.MAN_COIN,tm[params.MAN_COIN]})
+	}
+	if len(rm[params.MAN_COIN]) > 0{
+		rx=append(rx,CoinReceipts{params.MAN_COIN,rm[params.MAN_COIN]})
+	}
 	for _,k:=range sorted_keys  {
 		if k == params.MAN_COIN{
 			continue
@@ -157,6 +172,14 @@ func GetCoinTXRS(txs []SelfTransaction,rxs []*Receipt) ([]CoinSelfTransaction,[]
 func TxHashList(txs SelfTransactions)(list []common.Hash){
 	for _,tx := range txs{
 		list = append(list,tx.Hash())
+	}
+	return
+}
+func CoinTxHashList(txs []CoinSelfTransaction)(list []common.Hash){
+	for _,cointx := range txs{
+		for _,tx := range cointx.Txser{
+			list = append(list,tx.Hash())
+		}
 	}
 	return
 }

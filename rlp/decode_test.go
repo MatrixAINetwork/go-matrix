@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -29,6 +29,8 @@ func TestRlpTestFunc(t *testing.T){
 
 }
 func TestStreamKind(t *testing.T) {
+	temp := make(map[int][]int)
+	temp[10] = append(temp[10],1)
 	tests := []struct {
 		input    string
 		wantKind Kind

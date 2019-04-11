@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -31,11 +31,11 @@ import (
 
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
-	MaxBlockFetch   = 128 // Amount of blocks to be fetched per retrieval request
-	MaxHeaderFetch  = 100 //192 // Amount of block headers to be fetched per retrieval request
-	MaxSkeletonSize = 100 //128 // Number of header fetches to need for a skeleton assembly
+	MaxBlockFetch   = 20  //128 // Amount of blocks to be fetched per retrieval request
+	MaxHeaderFetch  = 32  //100 //192 // Amount of block headers to be fetched per retrieval request
+	MaxSkeletonSize = 32  //100 //128 // Number of header fetches to need for a skeleton assembly
 	MaxBodyFetch    = 128 // Amount of block bodies to be fetched per retrieval request
-	MaxReceiptFetch = 256 // Amount of transaction receipts to allow fetching per request
+	MaxReceiptFetch = 64  //256 // Amount of transaction receipts to allow fetching per request
 	MaxStateFetch   = 384 // Amount of node state values to allow fetching per request
 
 	MaxForkAncestry  = 3 * params.EpochDuration // Maximum chain reorganisation
@@ -50,7 +50,7 @@ var (
 	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value
 
 	maxQueuedHeaders  = 800 //lb 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
-	maxHeadersProcess = 512 //1024 //2048      // Number of header download results to import at once into the chain
+	maxHeadersProcess = 256 //512 //1024 //2048      // Number of header download results to import at once into the chain
 	maxResultsProcess = 918 //396  //576      //lb//2048      // Number of content download results to import at once into the chain
 
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
@@ -175,6 +175,8 @@ type SnapshootReq struct {
 }
 
 var SnapshootNumber uint64
+var gCurDownloadHeadReqBeginNum uint64
+var gCurDownloadHeadReqWaitNum uint32
 
 // LightChain encapsulates functions required to synchronise a light chain.
 type LightChain interface {
@@ -225,6 +227,8 @@ type BlockChain interface {
 	//lb ipfs
 	SetbSendIpfsFlg(bool)
 	GetStoreBlockInfo() *prque.Prque //types.Blocks //(storeBlock types.Blocks)
+	GetIpfsQMux()
+	GetIpfsQUnMux()
 
 	GetSuperBlockSeq() (uint64, error)
 	GetSuperBlockNum() (uint64, error)
@@ -371,6 +375,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 	d.cancelLock.RUnlock()
 
 	if master {
+		logger.Trace("Unregistering sync peer download cancel")
 		d.cancel()
 	}
 	return nil
@@ -406,7 +411,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, sbs u
 // checks fail an error will be returned. This method is synchronous
 func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, sbs uint64, sbh uint64, mode SyncMode) error {
 	// Mock out the synchronisation if testing
-	log.Trace("Downloader synchronise enter", "id", id)
+	//log.Trace("Downloader synchronise enter", "id", id)
 	if d.synchroniseMock != nil {
 		return d.synchroniseMock(id, hash)
 	}
@@ -622,6 +627,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 			break
 		}
 	}
+	log.Debug("Downloading fetchPart over")
 	d.queue.Close()
 	d.ClearIpfsQueue()
 	d.Cancel()
@@ -633,6 +639,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 // used when cancelling the downloads from inside the downloader.
 func (d *Downloader) cancel() {
 	// Close the current cancel channel
+	log.Debug("Downloading cancel()")
 	d.cancelLock.Lock()
 	if d.cancelCh != nil {
 		select {
@@ -648,6 +655,7 @@ func (d *Downloader) cancel() {
 // Cancel aborts all of the operations and waits for all download goroutines to
 // finish before returning.
 func (d *Downloader) Cancel() {
+	log.Debug("Downloading CancelCancel()")
 	d.cancel()
 	d.cancelWg.Wait()
 }
@@ -794,7 +802,33 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 	if count > limit {
 		count = limit
 	}
-	go p.peer.RequestHeadersByNumber(uint64(from), count, 15, false)
+
+	/*newHeadFrom := int64(head) - int64(count*16)
+	if newHeadFrom < 0 {
+		newHeadFrom = 0
+	}*/
+	//lb 从后往前找的代码
+	newCount := 1
+	newHeadBeginFrom := head
+	for {
+		skip := 15 + 1
+		if (int64(newHeadBeginFrom) - int64(skip)) > 0 {
+			if newCount > limit {
+				break
+			}
+			newHeadBeginFrom = newHeadBeginFrom - uint64(skip)
+			newCount++
+
+		} else {
+			break
+		}
+
+	}
+	from = int64(newHeadBeginFrom)
+	p.log.Debug("Looking for common ancestor another", "newHeadBeginFrom", newHeadBeginFrom, "newCount", newCount)
+	go p.peer.RequestHeadersByNumber(newHeadBeginFrom, newCount, 15, false)
+	//lb
+	//go p.peer.RequestHeadersByNumber(uint64(from), count, 15, false)
 
 	// Wait for the remote response to the head fetch
 	number, hash := uint64(0), common.Hash{}
@@ -941,6 +975,8 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 	p.log.Debug("Directing header downloads", "origin", from, "pivot", pivot)
 	defer p.log.Debug("Header download terminated")
 
+	gCurDownloadHeadReqBeginNum = from
+	gCurDownloadHeadReqWaitNum = 0
 	// Create a timeout timer, and the associated header fetcher
 	skeleton := true            // Skeleton assembly phase or finishing up
 	request := time.Now()       // time of the last skeleton fetch request
@@ -1081,8 +1117,10 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 		}
 		expire   = func() map[string]int { return d.queue.ExpireHeaders(d.requestTTL()) }
 		throttle = func() bool { return false }
-		reserve  = func(p *peerConnection, count int) (*fetchRequest, bool, error) {
-			return d.queue.ReserveHeaders(p, count), false, nil
+		reserve  = func(p *peerConnection, count int) (*fetchRequest, bool, bool, error) {
+			//return d.queue.ReserveHeaders(p, count, d.bIpfsDownload), false, nil
+			request, wait := d.queue.ReserveHeaders(p, count, d.bIpfsDownload)
+			return request, wait, false, nil
 		}
 		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchHeaders(req.From, MaxHeaderFetch) }
 		capacity = func(p *peerConnection) int { return p.HeaderCapacity(d.requestRTT()) }
@@ -1172,7 +1210,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 //  - setIdle:     network callback to set a peer back to idle and update its estimated capacity (traffic shaping)
 //  - kind:        textual label of the type being downloaded to display in log mesages
 func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliver func(dataPack) (int, error), wakeCh chan bool,
-	expire func() map[string]int, pending func() int, inFlight func() bool, throttle func() bool, reserve func(*peerConnection, int) (*fetchRequest, bool, error),
+	expire func() map[string]int, pending func() int, inFlight func() bool, throttle func() bool, reserve func(*peerConnection, int) (*fetchRequest, bool, bool, error),
 	fetchHook func([]*types.Header), fetch func(*peerConnection, *fetchRequest) error, cancel func(*fetchRequest), capacity func(*peerConnection) int,
 	idle func() ([]*peerConnection, int), setIdle func(*peerConnection, int), kind string) error {
 
@@ -1185,9 +1223,11 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 	// Prepare the queue and fetch block parts until the block header fetcher's done
 	finished := false
 	bchecked := false
+	flgtest := 1
 	for {
 		select {
 		case <-d.cancelCh:
+			log.Trace("download fetchParts cancelCh", "type", kind)
 			return errCancel
 
 		case packet := <-deliveryCh:
@@ -1252,7 +1292,11 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 				}
 				continue //break
 			}*/
-			log.Trace("fetchParts update Data fetching", "type", kind, "len", pending(), "Download ", d.bIpfsDownload, "finished", finished)
+			flgtest++
+			if kind != "receipts" && flgtest > 10 {
+				log.Trace("fetchParts update Data fetching", "type", kind, "len", pending(), "Download ", d.bIpfsDownload, "finished", finished)
+				flgtest = 0
+			}
 			if d.peers.Len() == 0 {
 				return errNoPeers
 			}
@@ -1334,7 +1378,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 			// Send a download request to all idle peers, until throttled
 			progressed, throttled, running := false, false, inFlight()
 			idles, total := idle()
-
+			bTestWaitFlg := false
 			for _, peer := range idles {
 				// Short circuit if throttling activated
 				if throttle() {
@@ -1345,10 +1389,19 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 				if pending() == 0 {
 					break
 				}
+				/*if kind == "headers" && d.bIpfsDownload == 1 {
+					if gCurDownloadHeadReqBeginNum-gIpfsProcessBlockNumber > 610 {
+						if flgtest > 6 {
+							log.Trace("fetchParts Data Reserve header too big,wait for ippfs stroe", "HeadReqBeginNum", gCurDownloadHeadReqBeginNum, "IppfsProcessBlock", gIpfsProcessBlockNumber)
+						}
+						bTestWaitFlg = true
+						break
+					}
+				}*/
 				// Reserve a chunk of fetches for a peer. A nil can mean either that
 				// no more headers are available, or that the peer is known not to
 				// have them.
-				request, progress, err := reserve(peer, capacity(peer))
+				request, bwait, progress, err := reserve(peer, capacity(peer))
 				if err != nil {
 					return err
 				}
@@ -1356,8 +1409,16 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 					progressed = true
 				}
 				if request == nil {
+					if kind == "headers" && bwait {
+						bTestWaitFlg = true
+						break
+					}
 					continue
 				}
+				//lb
+				/*if kind == "headers" && d.bIpfsDownload == 1 {
+					gCurDownloadHeadReqBeginNum = request.From
+				}*/
 				if request.From > 0 {
 					peer.log.Trace("Requesting new batch of data", "type", kind, "from", request.From)
 				} else {
@@ -1379,7 +1440,8 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 			}
 			// Make sure that we have peers available for fetching. If all peers have been tried
 			// and all failed throw an error
-			if !progressed && !throttled && !running && len(idles) == total && pending() > 0 {
+			if !progressed && !throttled && !running && !bTestWaitFlg && len(idles) == total && pending() > 0 {
+				log.Trace("download fetchpart no idle", "total", total)
 				return errPeersUnavailable
 			}
 		}

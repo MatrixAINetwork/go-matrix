@@ -109,9 +109,7 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDBManage, netTopology 
 	if err := ms.setBlockSuperAccountsToState(state, num); err != nil {
 		return err
 	}
-	if err := ms.setMultiCoinSuperAccountsToState(state, num); err != nil {
-		return err
-	}
+
 	if err := ms.setSubChainSuperAccountsToState(state, num); err != nil {
 		return err
 	}

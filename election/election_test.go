@@ -15,6 +15,7 @@ import (
 	_ "github.com/MatrixAINetwork/go-matrix/election/layered"
 	_ "github.com/MatrixAINetwork/go-matrix/election/nochoice"
 	_ "github.com/MatrixAINetwork/go-matrix/election/stock"
+	_ "github.com/MatrixAINetwork/go-matrix/election/layeredmep"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
@@ -371,4 +372,48 @@ func TestMinerElectRandomnessCase5(t *testing.T){
 
 	extra := fmt.Sprint(candidatesNum, "抵押节点，", minerNum, "期望选举数", electNum, "采样，", "非线性抵押统计")
 	stats.print(extra)
+}
+
+func TestMEPStats(t *testing.T)  {
+	cfg := new(ElectInfo)
+	var elecstats = make(map[string]int)
+	minerList := make([]vm.DepositDetail, 0)
+	for i := 0; i < 100; i++ {
+		address := fmt.Sprint(i)
+		elecstats[common.HexToAddress(address).String()] = 0
+		deposit := big.NewInt(0).Mul(big.NewInt(1000000000000000000), big.NewInt(int64(i)))
+		minerList = append(minerList, vm.DepositDetail{Address: common.HexToAddress(address), SignAddress:common.HexToAddress(address), Deposit: deposit})
+	}
+	Vip := make([]mc.VIPConfig, 0)
+	Vip = append(Vip, mc.VIPConfig{MinMoney: 0, ElectUserNum: 0, StockScale: 1000})
+	var blackList = make([]common.Address, 0)
+	var whiteList = make([]common.Address, 0)
+	for i:=0; i < 1000000; i++{
+		data := &mc.MasterMinerReElectionReqMsg{
+			SeqNum:                  0,
+			RandSeed:                new(big.Int).SetUint64(uint64(i)),
+			MinerList:               minerList,
+			ElectConfig:             mc.ElectConfigInfo_All{MinerNum:21, BlackList:blackList,WhiteList:whiteList, WhiteListSwitcher:cfg.WhiteListSwitcher},
+		}
+		ans := baseinterface.NewElect("layerd_MEP").MinerTopGen(data)
+		if len(ans.MasterMiner) != 21 {
+			t.Error("MinerNum Elect To less: %d", len(ans.MasterMiner))
+			t.FailNow()
+		}
+		for _, v:= range ans.MasterMiner{
+			if v.Stock != 1{
+				t.Error("Elec Stock Err: %d", v.Stock)
+				t.FailNow()
+			}
+			if _,ok := elecstats[v.Account.String()]; ok{
+				elecstats[v.Account.String()] = elecstats[v.Account.String()] + 1
+			}else{
+				t.Error("Invalid Account: ", v.Account.String())
+				t.FailNow()
+			}
+		}
+	}
+	for k, v := range elecstats{
+		fmt.Println("Account", k, "HitNum", v, "Prob", float64(v)/10000)
+	}
 }

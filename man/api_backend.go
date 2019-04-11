@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
@@ -250,8 +250,10 @@ func (b *ManAPIBackend) GetPoolTransactions() (types.SelfTransactions, error) {
 		return nil, err
 	}
 	var txs types.SelfTransactions
-	for _, batch := range pending {
-		txs = append(txs, batch...)
+	for _,txsmap := range pending{
+		for _, batch := range txsmap {
+			txs = append(txs, batch...)
+		}
 	}
 	return txs, nil
 }
