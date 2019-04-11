@@ -226,3 +226,20 @@
     eb423b71: 修正ipfs未存储但需要按原来方式下
     eab87509: 创建币种增加to地址限制，销毁金额衰减机制
     ...
+
+
+    huangzhi0910 pushed to branch consensus-msg at repository layered_platform
+    a338b0b9: 修改异步问题
+    6396a4b7: 提交代码
+    06c518f1: 消息模块 收消息模式修改
+    631fc5cc: 提交变更
+    3062bfc2: 修改日志
+    03aa8959: Merge remote-tracking branch 'remotes/origin/consensus-msg' into consensus-msg-merge
+    b37a3903: 测试demo
+    6ddfd4df: 部分代码提交
+    eecfe7dd: 删除无用文件
+    6c7c9efc: 部分代码提交
+    ...
+
+    zhangwen pushed to branch layer_sync at repository layered_platform
+    d2cddefc: dowloader和 fetcher功能测试通过第一版
