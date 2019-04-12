@@ -243,3 +243,15 @@
 
     zhangwen pushed to branch layer_sync at repository layered_platform
     d2cddefc: dowloader和 fetcher功能测试通过第一版
+
+
+    huyuankai pushed to branch consensus-ca at repository layered_platform
+    b52360c4: 增加启动时的本地消息
+
+    
+    huyuankai pushed to branch consensus-ca at repository layered_platform
+    deea90c7: 修改高度判断错误
+
+    huyuankai pushed to branch consensus-ca at repository layered_platform
+    abcb9a45: 增加区块插入消息通知
+    1d1e1f7d: 增加日志
