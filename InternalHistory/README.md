@@ -290,3 +290,24 @@
 
     huyuankai pushed to branch intergration_test at repository layered_platform
     4fd5283e: 签名解签相关修改
+
+    huyuankai pushed to branch intergration_test at repository layered_platform
+    a823c965: 修改消息同步调用接口
+
+    zhangwen pushed to branch intergration_test at repository layered_platform
+    21e9f4e3: Merge branch 'intergration_test' of gitlab2.matrix.com:MatrixAINetwork/layered_platform into intergration_test
+    7234ff5a: 选举和广播区块测试通过
+
+
+    huyuankai pushed to branch intergration_test at repository layered_platform
+    bc7534b7: Merge branch 'integration' of http://192.168.3.91/MatrixAINetwork/layered_platform into integration
+    fdbd1511: leader服务修改完成
+    38e3cb76: 区块同步握手通过
+    33daecbf: 修改bug
+    9f900399: Merge branch 'integration' of http://192.168.3.91/MatrixAINetwork/layered_platform into integration
+    f65629f2: 单机测试环境
+    4259c41d: 删除区块同步交易内容
+    6dfc5841: send修复前缀topic内容
+    20899197: delete rpc
+    878b5e62: rpc delete
+    ...
