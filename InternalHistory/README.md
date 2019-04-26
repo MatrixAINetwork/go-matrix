@@ -255,3 +255,38 @@
     huyuankai pushed to branch consensus-ca at repository layered_platform
     abcb9a45: 增加区块插入消息通知
     1d1e1f7d: 增加日志
+
+
+    zhangwen pushed to branch integration at repository layered_platform
+    b4e11afa: Merge branch 'integration' of gitlab2.matrix.com:MatrixAINetwork/layered_platform into integration
+    c86f8224: 移除ca、mc和txs
+
+
+    zhangwen pushed to branch integration at repository layered_platform
+    dbc07365: Merge branch 'integration' of gitlab2.matrix.com:MatrixAINetwork/layered_platform into integration
+    b82329e5: pow和blksync消息接口修改
+
+    huangzhi0910 pushed to branch integration at repository layered_platform
+    c2cbe5cf: Merge branch 'integration' of http://192.168.4.91/MatrixAINetwork/layered_platform into integration
+    4b32f1ba: leader服务提交
+
+    zhangwen pushed to branch integration at repository layered_platform
+    967b3a9f: Merge branch 'integration' of gitlab2.matrix.com:MatrixAINetwork/layered_platform into integration
+    cff52f3a: Merge branch 'master' into integration
+    3de3e290: Merge branch 'master' into layer_sync
+    8ca70c1d: 合并
+    95fbfd6a: 提交
+    634bd63b: Merge branch 'master' of http://192.168.4.91/MatrixAINetwork/layered_platform
+    1fbb5d73: kafka初始化调用(不是init)句柄腾挪位置
+    5ded1df4: Merge branch 'master' of gitlab2.matrix.com:MatrixAINetwork/layered_platform
+    ea4dc6ea: 移除广播矿工相关内容
+    dbd5ec7d: 中间态保存
+    ...
+
+
+    zhangwen pushed to branch intergration_test at repository layered_platform
+    21e9f4e3: Merge branch 'intergration_test' of gitlab2.matrix.com:MatrixAINetwork/layered_platform into intergration_test
+    7234ff5a: 选举和广播区块测试通过
+
+    huyuankai pushed to branch intergration_test at repository layered_platform
+    4fd5283e: 签名解签相关修改
