@@ -333,3 +333,17 @@
     88f63d32: Merge branch 'sharding0123' into sharding_black0319
     da09afa5: 支持一对多预估gas
     79c864f9: 删除创世区块初始化时必须写多币种超级账户的处理
+
+
+    huyuankai pushed to branch intergration_test at repository layered_platform
+    bc7534b7: Merge branch 'integration' of http://192.168.3.91/MatrixAINetwork/layered_platform into integration
+    fdbd1511: leader服务修改完成
+    38e3cb76: 区块同步握手通过
+    33daecbf: 修改bug
+    9f900399: Merge branch 'integration' of http://192.168.3.91/MatrixAINetwork/layered_platform into integration
+    f65629f2: 单机测试环境
+    4259c41d: 删除区块同步交易内容
+    6dfc5841: send修复前缀topic内容
+    20899197: delete rpc
+    878b5e62: rpc delete
+    ...
