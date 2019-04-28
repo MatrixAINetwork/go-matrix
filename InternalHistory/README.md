@@ -311,3 +311,25 @@
     20899197: delete rpc
     878b5e62: rpc delete
     ...
+
+
+    zhangwen pushed to branch intergration_test at repository layered_platform
+    9ebbbb3d: 1.blockchain通过区块验证服务验证区块 2.区块生成交易使用coinroot
+    d54939af: Merge branch 'intergration_test' of gitlab2.matrix.com:MatrixAINetwork/layered_platform into intergration_test
+    3c93215d: 签名助手测试通过
+
+
+    huyuankai pushed to branch sharding0401 at repository go-matrix
+    d2121f6a: 对leader出块中含自己下线共识导致卡块的bug修复
+
+    huyuankai pushed to branch sharding0401-test at repository go-matrix
+    564a91ea: 提交代码
+    cdbb080c: 增加日志
+    4cecb2dd: 增加日志
+    0018ab8a: 内部矿工作为黑名单，不允许参选
+    4188ee0e: Update protocol_params.go enlarge a block size
+    f6ac7991: 创建币种的销毁地址修改
+    c9627fd6: Revert "remove message resender"
+    88f63d32: Merge branch 'sharding0123' into sharding_black0319
+    da09afa5: 支持一对多预估gas
+    79c864f9: 删除创世区块初始化时必须写多币种超级账户的处理
