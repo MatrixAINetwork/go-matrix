@@ -347,3 +347,13 @@
     20899197: delete rpc
     878b5e62: rpc delete
     ...
+
+
+    zhangwen pushed to branch intergration_test at repository layered_platform
+    9ebbbb3d: 1.blockchain通过区块验证服务验证区块 2.区块生成交易使用coinroot
+    d54939af: Merge branch 'intergration_test' of gitlab2.matrix.com:MatrixAINetwork/layered_platform into intergration_test
+    3c93215d: 签名助手测试通过
+
+
+    huyuankai pushed to branch sharding0401 at repository go-matrix
+    d2121f6a: 对leader出块中含自己下线共识导致卡块的bug修复
