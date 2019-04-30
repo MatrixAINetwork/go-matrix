@@ -1,0 +1,15 @@
+#!/bin/sh
+tmux kill-session -t gman
+tmux new-session -d -s gman
+gman init /root/.matrix/MANGenesis.json
+if [ -f /root/.matrix/in.json ];then
+	tmux send -t gman  "gman aes --aesin /root/.matrix/signAccount.json --aesout /root/.matrix/entrust.json" ENTER
+        tmux send -t gman "$password" ENTER
+        tmux send -t gman "$password" ENTER
+        sleep 1
+	tmux send -t gman "gman --networkid 1 --manAddress $manAddress --entrust /root/.matrix/entrust.json " ENTER
+        tmux send -t gman "$password" ENTER
+else
+	gman --networkid 1
+fi
+sh

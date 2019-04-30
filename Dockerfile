@@ -5,7 +5,7 @@ RUN apk add --no-cache  make gcc musl-dev linux-headers git
 
 ADD . /go-matrix
 
-RUN cd /go-matrix &&  chmod +x Run && chmod +x build/env.sh && make gman
+RUN cd /go-matrix &&  chmod +x Start && chmod +x build/env.sh && make gman
 
 # Pull Gman into a second stage deploy alpine container
 
@@ -15,7 +15,7 @@ RUN apk add --no-cache tmux && mkdir /root/.matrix/ -p
 
 COPY --from=builder /go-matrix/build/bin/gman /usr/bin/
 
-COPY --from=builder /go-matrix/Run  /usr/bin/
+COPY --from=builder /go-matrix/Start  /usr/bin/
 
 COPY --from=builder /go-matrix/MANGenesis.json /root/.matrix/
 
@@ -25,4 +25,4 @@ WORKDIR /root/.matrix/
 
 EXPOSE 8341 50505 50505/udp
 
-CMD ["Run"]
+CMD ["Start"]
