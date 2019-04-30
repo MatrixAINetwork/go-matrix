@@ -2,7 +2,7 @@
 tmux kill-session -t gman
 tmux new-session -d -s gman
 gman init /root/.matrix/MANGenesis.json
-if [ -f /root/.matrix/in.json ];then
+if [ -f /root/.matrix/signAccount.json ];then
 	tmux send -t gman  "gman aes --aesin /root/.matrix/signAccount.json --aesout /root/.matrix/entrust.json" ENTER
         tmux send -t gman "$password" ENTER
         tmux send -t gman "$password" ENTER
