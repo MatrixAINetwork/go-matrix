@@ -49,7 +49,7 @@ Welcome! This guide is intended to get you running on the MATRIX network. To ens
 | OS        | Windows, Linux                               |   |
 |-----------|----------------------------------------------|---|
 | CPU       | 8 Core (Intel(R) Xeon(R) CPU X5670 @2.93GHz) |   |
-| RAM       | 12G                                          |   |
+| RAM       | 16G                                          |   |
 | Free HD   | 300G                                         |   |
 | Bandwidth | 20M                                          |   |
 |           |                                              |   |
