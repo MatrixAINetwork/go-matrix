@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackpal/go-nat-pmp"
 	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/jackpal/go-nat-pmp"
 )
 
 // An implementation of nat.Interface can map local ports to ports

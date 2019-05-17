@@ -110,6 +110,18 @@ type statusData struct {
 	GenesisBlock    common.Hash
 }
 
+// statusData is the network packet for the status message.
+type statusNewData struct {
+	ProtocolVersion uint32
+	NetworkId       uint64
+	BN              uint64
+	SBS             uint64
+	SBH             uint64
+	BlockTime       uint64
+	CurrentBlock    common.Hash
+	GenesisBlock    common.Hash
+}
+
 // newBlockHashesData is the network packet for the block announcements.
 type newBlockHashesData []struct {
 	Hash   common.Hash // Hash of one particular block being announced
@@ -163,9 +175,9 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 // newBlockData is the network packet for the block propagation message.
 type newBlockData struct {
 	Block *types.Block
-	TD    *big.Int
-	SBH   uint64 //超级区块高度
-	SBS   uint64 //超级区块序号
+	TD    *big.Int //
+	SBH   uint64   //超级区块高度
+	SBS   uint64   //超级区块序号
 }
 
 // blockBody represents the data content of a single block.

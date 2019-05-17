@@ -3,9 +3,9 @@ package types
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	"math/big"
 	"sort"
-	"github.com/MatrixAINetwork/go-matrix/params"
 )
 
 const (
@@ -98,18 +98,18 @@ func SetMxToTransaction(txm *Transaction_Mx) (txer SelfTransaction) {
 	return
 }
 
-func GetTX(ctx []CoinSelfTransaction)[] SelfTransaction  {
+func GetTX(ctx []CoinSelfTransaction) []SelfTransaction {
 	var txs []SelfTransaction
-	for _,tx:= range ctx{
-		for _,t:= range tx.Txser  {
-			txs=append(txs,t)
+	for _, tx := range ctx {
+		for _, t := range tx.Txser {
+			txs = append(txs, t)
 		}
 	}
 	return txs
 }
 
-func GetCoinTX(txs []SelfTransaction)[]CoinSelfTransaction  {
-	if txs == nil{
+func GetCoinTX(txs []SelfTransaction) []CoinSelfTransaction {
+	if txs == nil {
 		return nil
 	}
 	mm := make(map[string][]SelfTransaction) //BB
@@ -123,12 +123,12 @@ func GetCoinTX(txs []SelfTransaction)[]CoinSelfTransaction  {
 		sorted_keys = append(sorted_keys, k)
 	}
 	sort.Strings(sorted_keys)
-	if len(mm[params.MAN_COIN]) > 0{
+	if len(mm[params.MAN_COIN]) > 0 {
 		cs = append(cs, CoinSelfTransaction{params.MAN_COIN, mm[params.MAN_COIN]})
 	}
 
 	for _, k := range sorted_keys {
-		if k == params.MAN_COIN{
+		if k == params.MAN_COIN {
 			continue
 		}
 		cs = append(cs, CoinSelfTransaction{k, mm[k]})
@@ -136,49 +136,49 @@ func GetCoinTX(txs []SelfTransaction)[]CoinSelfTransaction  {
 	return cs
 }
 
-func GetCoinTXRS(txs []SelfTransaction,rxs []*Receipt) ([]CoinSelfTransaction,[]CoinReceipts) {
-	if txs == nil || rxs == nil{
-		return nil,nil
+func GetCoinTXRS(txs []SelfTransaction, rxs []*Receipt) ([]CoinSelfTransaction, []CoinReceipts) {
+	if txs == nil || rxs == nil {
+		return nil, nil
 	}
-	var tx []CoinSelfTransaction	//BB
+	var tx []CoinSelfTransaction //BB
 	var rx []CoinReceipts
 	tm := make(map[string][]SelfTransaction)
 	rm := make(map[string][]*Receipt)
-	for i,t := range txs  {
-		tm[t.GetTxCurrency()]=append(tm[t.GetTxCurrency()],t)
-		rm[t.GetTxCurrency()]=append(rm[t.GetTxCurrency()],rxs[i])
+	for i, t := range txs {
+		tm[t.GetTxCurrency()] = append(tm[t.GetTxCurrency()], t)
+		rm[t.GetTxCurrency()] = append(rm[t.GetTxCurrency()], rxs[i])
 	}
 	sorted_keys := make([]string, 0)
 	for k, _ := range tm {
 		sorted_keys = append(sorted_keys, k)
 	}
 	sort.Strings(sorted_keys)
-	if len(tm[params.MAN_COIN]) > 0{
-		tx=append(tx,CoinSelfTransaction{params.MAN_COIN,tm[params.MAN_COIN]})
+	if len(tm[params.MAN_COIN]) > 0 {
+		tx = append(tx, CoinSelfTransaction{params.MAN_COIN, tm[params.MAN_COIN]})
 	}
-	if len(rm[params.MAN_COIN]) > 0{
-		rx=append(rx,CoinReceipts{params.MAN_COIN,rm[params.MAN_COIN]})
+	if len(rm[params.MAN_COIN]) > 0 {
+		rx = append(rx, CoinReceipts{params.MAN_COIN, rm[params.MAN_COIN]})
 	}
-	for _,k:=range sorted_keys  {
-		if k == params.MAN_COIN{
+	for _, k := range sorted_keys {
+		if k == params.MAN_COIN {
 			continue
 		}
-		tx=append(tx,CoinSelfTransaction{k,tm[k]})
-		rx=append(rx,CoinReceipts{k,rm[k]})
+		tx = append(tx, CoinSelfTransaction{k, tm[k]})
+		rx = append(rx, CoinReceipts{k, rm[k]})
 	}
-	return tx,rx
+	return tx, rx
 }
 
-func TxHashList(txs SelfTransactions)(list []common.Hash){
-	for _,tx := range txs{
-		list = append(list,tx.Hash())
+func TxHashList(txs SelfTransactions) (list []common.Hash) {
+	for _, tx := range txs {
+		list = append(list, tx.Hash())
 	}
 	return
 }
-func CoinTxHashList(txs []CoinSelfTransaction)(list []common.Hash){
-	for _,cointx := range txs{
-		for _,tx := range cointx.Txser{
-			list = append(list,tx.Hash())
+func CoinTxHashList(txs []CoinSelfTransaction) (list []common.Hash) {
+	for _, cointx := range txs {
+		for _, tx := range cointx.Txser {
+			list = append(list, tx.Hash())
 		}
 	}
 	return

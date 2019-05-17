@@ -58,7 +58,7 @@ func (bd *ManBCBlkPlug) Prepare(version string, support BlKSupport, interval *mc
 	bd.baseInterface.setNumber(originHeader, num)
 	bd.baseInterface.setGasLimit(originHeader, parent)
 	bd.baseInterface.setExtra(originHeader)
-	onlineConsensusResults, _ := bd.baseInterface.setTopology(support, parent.Hash(), originHeader, interval, num)
+	onlineConsensusResults, _ := bd.baseInterface.setTopology(support, version, parent.Hash(), originHeader, interval, num)
 	bd.baseInterface.setSignatures(originHeader)
 	err = bd.setBCVrf(support, parent, originHeader)
 	if nil != err {
@@ -126,6 +126,11 @@ func (bd *ManBCBlkPlug) ProcessState(support BlKSupport, header *types.Header, a
 		return nil, nil, nil, nil, nil, nil, err
 	}
 
+	if err = support.BlockChain().ProcessStateVersionSwitch(header.Number.Uint64(), work.State); err != nil {
+		log.ERROR(LogManBlk, "状态树版本号切换更新状态树", err, "高度", header.Number.Uint64())
+		return nil, nil, nil, nil, nil, nil, err
+	}
+
 	mapTxs := support.TxPool().GetAllSpecialTxs()
 	Txs := make([]types.SelfTransaction, 0)
 	for _, txs := range mapTxs {
@@ -173,7 +178,7 @@ func (bd *ManBCBlkPlug) VerifyHeader(version string, support BlKSupport, header 
 	}
 	onlineConsensusResults := make([]*mc.HD_OnlineConsensusVoteResultMsg, 0)
 
-	if err := support.ReElection().VerifyNetTopology(header, onlineConsensusResults); err != nil {
+	if err := support.ReElection().VerifyNetTopology(version, header, onlineConsensusResults); err != nil {
 		log.ERROR(LogManBlk, "验证拓扑信息失败", err, "高度", header.Number.Uint64())
 		return nil, err
 	}
@@ -205,6 +210,10 @@ func (bd *ManBCBlkPlug) VerifyTxsAndState(support BlKSupport, verifyHeader *type
 		log.ERROR(LogManBlk, "状态树更新版本号失败", err, "高度", verifyHeader.Number.Uint64())
 		return nil, nil, nil, nil, err
 	}
+	if err = support.BlockChain().ProcessStateVersionSwitch(verifyHeader.Number.Uint64(), work.State); err != nil {
+		log.ERROR(LogManBlk, "状态树版本号切换更新状态树", err, "高度", verifyHeader.Number.Uint64())
+		return nil, nil, nil, nil, err
+	}
 
 	//执行交易
 	work.ProcessBroadcastTransactions(support.EventMux(), verifyTxs)
@@ -213,7 +222,7 @@ func (bd *ManBCBlkPlug) VerifyTxsAndState(support BlKSupport, verifyHeader *type
 	currblock := types.MakeCurencyBlock(retTxs, work.Receipts, nil)
 	// 运行matrix状态树
 	block := types.NewBlock(verifyHeader, currblock, nil)
-	if err := support.BlockChain().ProcessMatrixState(block,string(parent.Version()),  work.State); err != nil {
+	if err := support.BlockChain().ProcessMatrixState(block, string(parent.Version()), work.State); err != nil {
 		log.ERROR(LogManBlk, "广播挖矿结果验证, matrix 状态树运行错误", err)
 		return nil, nil, nil, nil, err
 	}

@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 // Contains the gman command usage template and generator.
 
@@ -78,6 +78,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.SnapModeFlg,
 			utils.GetGenesisFlag,
 			utils.LessDiskEnabledFlag,
+			//utils.DbTableSizeFlag,
 		},
 	},
 	/*	{Name: "DEVELOPER CHAIN",
@@ -129,6 +130,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.CacheDatabaseFlag,
 			utils.CacheGCFlag,
 			utils.TrieCacheGenFlag,
+			utils.DbTableSizeFlag,
 		},
 	},
 	{

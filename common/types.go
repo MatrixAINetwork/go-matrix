@@ -471,10 +471,10 @@ const (
 )
 
 var (
-	WhiteAddrlist  = [1]Address{InterestRewardAddress}
-	RewardAccounts = [5]Address{BlkMinerRewardAddress, BlkValidatorRewardAddress, TxGasRewardAddress, LotteryRewardAddress, InterestRewardAddress}
+	WhiteAddrlist     = [1]Address{InterestRewardAddress}
+	RewardAccounts    = [5]Address{BlkMinerRewardAddress, BlkValidatorRewardAddress, TxGasRewardAddress, LotteryRewardAddress, InterestRewardAddress}
 	ConsensusAccounts []Address
-	BlackList 		  []Address
+	BlackList         []Address
 	BlackListString   []string
 	WorkPath          string
 )
@@ -515,10 +515,10 @@ type EntrustType struct {
 	EnstrustSetType byte //0-按高度委托,1-按时间委托,2-按次数委托
 
 	//委托限制
-	StartHeight uint64 //委托起始高度
-	EndHeight   uint64 //委托结束高度
-	StartTime   uint64
-	EndTime     uint64
+	StartHeight  uint64 //委托起始高度
+	EndHeight    uint64 //委托结束高度
+	StartTime    uint64
+	EndTime      uint64
 	EntrustCount uint32 //委托次数
 }
 
@@ -531,7 +531,7 @@ type AuthType struct {
 	EndHeight       uint64  //委托结束高度
 	StartTime       uint64
 	EndTime         uint64
-	EntrustCount   uint32 //授权委托次数
+	EntrustCount    uint32 //授权委托次数
 }
 
 type CoinRoot struct {
@@ -558,7 +558,7 @@ type SMakeCoin struct {
 	PackNum     uint64
 	CoinAddress Address
 	//CoinTotal *big.Int  //总发行量
-	PayCoinType	string
+	PayCoinType string
 }
 
 type BroadTxkey struct {
@@ -706,3 +706,24 @@ type CoinConfig struct {
 }
 
 const COINPREFIX string = "ms_"
+
+type LinkInfo struct {
+	Sbs uint64
+	Bn  uint64
+	Bt  uint64
+}
+
+func IsGreaterLink(linkA, linkB LinkInfo) bool {
+	if linkA.Sbs > linkB.Sbs {
+		return true
+	} else if linkA.Sbs == linkB.Sbs {
+		if linkA.Bn > linkB.Bn {
+			return true
+		} else if linkA.Bn == linkB.Bn {
+			if linkA.Bt > linkB.Bt {
+				return true
+			}
+		}
+	}
+	return false
+}

@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 package main
 
@@ -8,11 +8,12 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/MatrixAINetwork/go-matrix/log"
 	"io"
 	"os"
 	"reflect"
 	"unicode"
+
+	"github.com/MatrixAINetwork/go-matrix/log"
 
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 
@@ -97,7 +98,7 @@ func loadConfig(file string, cfg *gmanConfig) error {
 func defaultNodeConfig() pod.Config {
 	cfg := pod.DefaultConfig
 	cfg.Name = clientIdentifier
-	cfg.Version = manparams.VersionAlpha + "_" + gitCommit
+	cfg.Version = manparams.VersionGamma + "_" + gitCommit
 	cfg.HTTPModules = append(cfg.HTTPModules, "man", "eth", "shh")
 	cfg.WSModules = append(cfg.WSModules, "man", "eth", "shh")
 	cfg.IPCPath = "gman.ipc"
@@ -208,8 +209,8 @@ func CheckEntrust(ctx *cli.Context) error {
 
 	entrustValue := make(map[common.Address]string, 0)
 	for _, v := range anss {
-		addr ,err := base58.Base58DecodeToAddress(v.Address)
-		if err != nil{
+		addr, err := base58.Base58DecodeToAddress(v.Address)
+		if err != nil {
 			return err
 		}
 		entrustValue[addr] = v.Password

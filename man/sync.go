@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -235,23 +237,22 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
-	log.Trace("download sync.go enter Synchronise peer", "peer", peer)
 	if peer == nil {
 		return
 	}
 	// Make sure the peer's TD is higher than our own
 	currentBlock := pm.blockchain.CurrentBlock()
 	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-
 	sbi, err := pm.blockchain.GetSuperBlockInfo()
 	if nil != err {
 		log.Error("get super seq error")
 		return
 	}
 
+	log.Trace("download sync.go enter Synchronise peer", "peer", peer)
 	sbs := sbi.Seq
 	sbh := sbi.Num
-	pHead, pTd, pSbs, pSbh := peer.Head()
+	pHead, pTd, pSbs, pSbh, bt, bn := peer.Head()
 	log.Trace("download sync.go enter Synchronise td", "td", td, "pTd", pTd, "Sbs", sbs, "pSbs", pSbs)
 	if pSbs < sbs {
 		go peer.SendBlockHeaders([]*types.Header{currentBlock.Header()})
@@ -260,10 +261,23 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 	if pSbs == sbs {
-		if nil == td || pTd.Cmp(td) <= 0 {
-			log.Trace("对端peer超级td小于本地的td", "本地td", td, "peertd", pTd, "peer hex", peer.id)
-			return
+		if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+			if bn < currentBlock.NumberU64() {
+				log.Trace("对端peer高度小于本地的高度", "本地高度", currentBlock.NumberU64(), "对端高度", bn, "peer hex", peer.id)
+				return
+			} else if bn == currentBlock.NumberU64() {
+				if bt < currentBlock.Time().Uint64() {
+					log.Trace("对端peer高度小于本地的高度", "本地时间", currentBlock.Time(), "对端时间", bt, "peer hex", peer.id)
+					return
+				}
+			}
+		} else {
+			if nil == td || pTd.Cmp(td) <= 0 {
+				log.Trace("对端peer超级td小于本地的td", "本地td", td, "peertd", pTd, "peer hex", peer.id)
+				return
+			}
 		}
+
 	}
 
 	log.Warn("download sync.go enter Synchronise", "currentBlock", currentBlock.NumberU64())
@@ -285,19 +299,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Trace("download sync.go enter Synchronise set fastSync", "currentBlock", currentBlock.NumberU64())
 	}*/
 
-	if mode == downloader.FastSync {
-		log.Trace("download sync.go enter Synchronise fastSync hash", "currentBlock", currentBlock.NumberU64())
-		// Make sure the peer's total difficulty we are synchronizing is higher.
-		if sbs > pSbs {
-			return
-		}
-		if sbs == pSbs {
-			//todo:fast模式
-			if pm.blockchain.GetTdByHash(pm.blockchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
-				return
-			}
-		}
-	}
 	//log.Trace("download sync.go enter Synchronise downloader", "currentBlock", currentBlock.NumberU64())
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, pSbs, pSbh, mode); err != nil {

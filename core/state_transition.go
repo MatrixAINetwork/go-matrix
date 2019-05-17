@@ -12,18 +12,18 @@ import (
 
 	"strings"
 
+	"bufio"
 	"github.com/MatrixAINetwork/go-matrix/base58"
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/txinterface"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/core/vm"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params"
-	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"os"
-	"bufio"
-	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 )
 
 var (
@@ -106,9 +106,9 @@ func (st *StateTransition) UseGas(amount uint64) error {
 
 	return nil
 }
-func (st *StateTransition) getCoinAddress(cointyp string) (rewardaddr common.Address,coinrange string) {
+func (st *StateTransition) getCoinAddress(cointyp string) (rewardaddr common.Address, coinrange string) {
 	if cointyp == params.MAN_COIN || cointyp == "" {
-		return common.TxGasRewardAddress,cointyp
+		return common.TxGasRewardAddress, cointyp
 	}
 	coinconfig := st.state.GetMatrixData(types.RlpHash(common.COINPREFIX + mc.MSCurrencyConfig))
 	var coincfglist []common.CoinConfig
@@ -116,7 +116,7 @@ func (st *StateTransition) getCoinAddress(cointyp string) (rewardaddr common.Add
 		err := json.Unmarshal(coinconfig, &coincfglist)
 		if err != nil {
 			log.Trace("get coin config list", "unmarshal err", err)
-			return common.TxGasRewardAddress,params.MAN_COIN
+			return common.TxGasRewardAddress, params.MAN_COIN
 		}
 	}
 	for _, cc := range coincfglist {
@@ -129,8 +129,9 @@ func (st *StateTransition) getCoinAddress(cointyp string) (rewardaddr common.Add
 			break
 		}
 	}
-	return rewardaddr,coinrange
+	return rewardaddr, coinrange
 }
+
 //按币种分区扣gas（该接口废弃）
 func (st *StateTransition) BuyGas_coin() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
@@ -148,12 +149,12 @@ func (st *StateTransition) BuyGas_coin() error {
 	st.gas += st.msg.Gas()
 
 	st.initialGas = st.msg.Gas()
-	coinCfglist,err := matrixstate.GetCoinConfig(st.state)
-	if err != nil{
+	coinCfglist, err := matrixstate.GetCoinConfig(st.state)
+	if err != nil {
 		return errors.New("get GetCoinConfig err")
 	}
 	var payGasType string = params.MAN_COIN
-	for _,coinCfg := range coinCfglist{
+	for _, coinCfg := range coinCfglist {
 		if coinCfg.CoinType == st.msg.GetTxCurrency() {
 			payGasType = coinCfg.CoinRange
 			break
@@ -297,7 +298,7 @@ func (st *StateTransition) CallTimeNormalTx() (ret []byte, usedGas uint64, faile
 		return nil, 0, false, shardings, err
 	}
 	st.state.SetNonce(st.msg.GetTxCurrency(), from, st.state.GetNonce(st.msg.GetTxCurrency(), from)+1)
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
 	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))
 	st.state.AddBalance(st.msg.GetTxCurrency(), common.WithdrawAccount, usefrom, st.value)
@@ -390,9 +391,9 @@ func (st *StateTransition) CallRevertNormalTx() (ret []byte, usedGas uint64, fai
 		}
 	}
 	//costGas := new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
-	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))//给对应币种奖励账户加钱
+	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)) //给对应币种奖励账户加钱
 
 	delval := make(map[uint32][]common.Hash)
 	for _, tmphash := range hashlist {
@@ -445,9 +446,9 @@ func (st *StateTransition) CallRevertNormalTx() (ret []byte, usedGas uint64, fai
 	}
 	return ret, st.GasUsed(), vmerr != nil, shardings, err
 }
-func isExistCoin(newCoin string,coinlist []string) bool {
-	for _,coin := range coinlist{
-		if coin == newCoin{
+func isExistCoin(newCoin string, coinlist []string) bool {
+	for _, coin := range coinlist {
+		if coin == newCoin {
 			return true
 		}
 	}
@@ -500,7 +501,7 @@ func (st *StateTransition) CallMakeCoinTx() (ret []byte, usedGas uint64, failed 
 		tmpshard = append(tmpshard, uint(caddr[0]))
 	} else {
 		// Increment the nonce for the next transaction
-		st.state.SetNonce(tx.GetTxCurrency(), from, st.msg.Nonce()+1)//st.state.GetNonce(tx.GetTxCurrency(), from)
+		st.state.SetNonce(tx.GetTxCurrency(), from, st.msg.Nonce()+1) //st.state.GetNonce(tx.GetTxCurrency(), from)
 		ret, st.gas, tmpshard, vmerr = evm.Call(sender, st.To(), st.data, st.gas, st.value)
 	}
 
@@ -556,7 +557,7 @@ func (st *StateTransition) CallMakeCoinTx() (ret []byte, usedGas uint64, failed 
 			return nil, 0, false, nil, err
 		}
 	}
-	if isExistCoin(makecoin.CoinName,coinlist){
+	if isExistCoin(makecoin.CoinName, coinlist) {
 		return nil, 0, false, shardings, errors.New("Coin exist")
 	}
 	clmap := make(map[string]bool)
@@ -608,7 +609,7 @@ func (st *StateTransition) CallMakeCoinTx() (ret []byte, usedGas uint64, failed 
 			CoinTotal:   new(hexutil.Big),
 			CoinUnit:    new(hexutil.Big),
 			CoinAddress: makecoin.CoinAddress,
-			CoinRange: makecoin.CoinName,
+			CoinRange:   makecoin.CoinName,
 		}
 		tmpcc.CoinTotal = (*hexutil.Big)(totalAmont)
 		tmpcc.CoinUnit = makecoin.CoinUnit
@@ -617,9 +618,9 @@ func (st *StateTransition) CallMakeCoinTx() (ret []byte, usedGas uint64, failed 
 	//coinCfgbs, _ := rlp.EncodeToBytes(coincfglist)
 	coinCfgbs, _ := json.Marshal(coincfglist)
 	st.state.SetMatrixData(types.RlpHash(common.COINPREFIX+mc.MSCurrencyConfig), coinCfgbs)
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
-	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))//给对应币种奖励账户加钱
+	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)) //给对应币种奖励账户加钱
 	return ret, 0, false, shardings, err
 }
 func (st *StateTransition) CallRevocableNormalTx() (ret []byte, usedGas uint64, failed bool, shardings []uint, err error) {
@@ -704,9 +705,9 @@ func (st *StateTransition) CallRevocableNormalTx() (ret []byte, usedGas uint64, 
 	mapHashamont[txHash] = b
 	st.state.SaveTx(st.msg.GetTxCurrency(), st.msg.From(), tx.GetMatrixType(), rt.Tim, mapHashamont)
 	st.state.SetMatrixData(txHash, b)
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
-	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))//给对应币种奖励账户加钱
+	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)) //给对应币种奖励账户加钱
 	return ret, st.GasUsed(), vmerr != nil, shardings, err
 }
 func (st *StateTransition) CallUnGasNormalTx() (ret []byte, usedGas uint64, failed bool, shardings []uint, err error) {
@@ -811,8 +812,8 @@ func (st *StateTransition) CallSetBlackListTx() (ret []byte, usedGas uint64, fai
 	st.gas = 0
 	st.state.SetNonce(st.msg.GetTxCurrency(), tx.From(), st.state.GetNonce(st.msg.GetTxCurrency(), sender.Address())+1)
 
-	file,err := os.OpenFile(common.WorkPath+"/blacklist.txt",os.O_CREATE | os.O_TRUNC | os.O_RDWR,0666)
-	if err != nil{
+	file, err := os.OpenFile(common.WorkPath+"/blacklist.txt", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
 		file.Close()
 		log.Error("CallSetBlackListTx", "OpenFile err", err)
 		return nil, 0, false, shardings, err
@@ -820,28 +821,28 @@ func (st *StateTransition) CallSetBlackListTx() (ret []byte, usedGas uint64, fai
 	var tmpBlackListString []string
 	var tmpBlackList []common.Address
 	writer := bufio.NewWriter(file)
-	for _,black := range blacklist{
-		addr,err := base58.Base58DecodeToAddress(black)
-		if err != nil{
-			log.Error("invalidate black","black",black)
+	for _, black := range blacklist {
+		addr, err := base58.Base58DecodeToAddress(black)
+		if err != nil {
+			log.Error("invalidate black", "black", black)
 			continue
 		}
 		writer.WriteString(black)
 		writer.WriteString("\x0D\x0A")
 		writer.Flush()
-		tmpBlackListString = append(tmpBlackListString,black)
-		tmpBlackList = append(tmpBlackList,addr)
+		tmpBlackListString = append(tmpBlackListString, black)
+		tmpBlackList = append(tmpBlackList, addr)
 	}
 	file.Close()
-	if len(tmpBlackListString) > 0 || len(blacklist)==0{
-		common.BlackListString = make([]string,0,len(tmpBlackListString))
-		common.BlackList = make([]common.Address,0,len(tmpBlackList))
-		common.BlackListString = append(common.BlackListString,tmpBlackListString...)
-		common.BlackList = append(common.BlackList,tmpBlackList...)
+	if len(tmpBlackListString) > 0 || len(blacklist) == 0 {
+		common.BlackListString = make([]string, 0, len(tmpBlackListString))
+		common.BlackList = make([]common.Address, 0, len(tmpBlackList))
+		common.BlackListString = append(common.BlackListString, tmpBlackListString...)
+		common.BlackList = append(common.BlackList, tmpBlackList...)
 	}
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
-	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))//给对应币种奖励账户加钱
+	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)) //给对应币种奖励账户加钱
 	return ret, st.GasUsed(), true, shardings, err
 }
 
@@ -891,7 +892,7 @@ func (st *StateTransition) CallNormalTx() (ret []byte, usedGas uint64, failed bo
 		tmpshard = append(tmpshard, uint(caddr[0]))
 	} else {
 		// Increment the nonce for the next transaction
-		st.state.SetNonce(tx.GetTxCurrency(), from, st.msg.Nonce()+1)//st.state.GetNonce(tx.GetTxCurrency(), from)
+		st.state.SetNonce(tx.GetTxCurrency(), from, st.msg.Nonce()+1) //st.state.GetNonce(tx.GetTxCurrency(), from)
 		ret, st.gas, tmpshard, vmerr = evm.Call(sender, st.To(), st.data, st.gas, st.value)
 	}
 	if vmerr == nil && (&tmpExtra) != nil && len(tmpExtra) > 0 {
@@ -920,9 +921,9 @@ func (st *StateTransition) CallNormalTx() (ret []byte, usedGas uint64, failed bo
 		}
 	}
 	shardings = append(shardings, tmpshard...)
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
-	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))//给对应币种奖励账户加钱
+	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)) //给对应币种奖励账户加钱
 	return ret, st.GasUsed(), vmerr != nil, shardings, err
 }
 
@@ -992,9 +993,9 @@ func (st *StateTransition) CallAuthTx() (ret []byte, usedGas uint64, failed bool
 		}
 	}
 	shardings = append(shardings, tmpshard...)
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
-	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))//给对应币种奖励账户加钱
+	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)) //给对应币种奖励账户加钱
 
 	isModiEntrustCount := false
 	entrustOK := false
@@ -1007,8 +1008,8 @@ func (st *StateTransition) CallAuthTx() (ret []byte, usedGas uint64, failed bool
 	}
 
 	HeightAuthDataList := make([]common.AuthType, 0) //按高度存储授权数据列表
-	TimeAuthDataList := make([]common.AuthType, 0)	//按时间存储授权数据列表
-	CountAuthDataList := make([]common.AuthType, 0) //按次数存储授权数据列表
+	TimeAuthDataList := make([]common.AuthType, 0)   //按时间存储授权数据列表
+	CountAuthDataList := make([]common.AuthType, 0)  //按次数存储授权数据列表
 	for _, EntrustData := range EntrustList {
 		str_addres := EntrustData.EntrustAddres //被委托人地址
 		addres, err := base58.Base58DecodeToAddress(str_addres)
@@ -1016,7 +1017,7 @@ func (st *StateTransition) CallAuthTx() (ret []byte, usedGas uint64, failed bool
 			return nil, st.GasUsed(), true, shardings, nil
 		}
 		tCoin := strings.Split(str_addres, ".")[0]
-		if tx.GetTxCurrency() != tCoin{
+		if tx.GetTxCurrency() != tCoin {
 			log.Error("不能跨币种委托", "当前币种", tx.GetTxCurrency(), "委托币种", tCoin)
 			return nil, st.GasUsed(), true, shardings, nil
 		}
@@ -1047,8 +1048,8 @@ func (st *StateTransition) CallAuthTx() (ret []byte, usedGas uint64, failed bool
 							log.Error("该委托人已经被委托过了，不能重复委托", "from", tx.From(), "Nonce", tx.Nonce())
 							return nil, st.GasUsed(), true, shardings, nil //如果一个不满足就返回，不continue
 						}
-					} else if AuthData.EnstrustSetType == params.EntrustByCount{
-						if AuthData.EntrustCount > 0{
+					} else if AuthData.EnstrustSetType == params.EntrustByCount {
+						if AuthData.EntrustCount > 0 {
 							log.Error("该委托人已经被委托过了，不能重复委托", "from", tx.From(), "Nonce", tx.Nonce())
 							return nil, st.GasUsed(), true, shardings, nil //如果一个不满足就返回，不continue
 						}
@@ -1073,10 +1074,10 @@ func (st *StateTransition) CallAuthTx() (ret []byte, usedGas uint64, failed bool
 							return nil, st.GasUsed(), true, shardings, nil
 						}
 						TimeAuthDataList = append(TimeAuthDataList, AuthData)
-					} else if EntrustData.EnstrustSetType == params.EntrustByCount{
+					} else if EntrustData.EnstrustSetType == params.EntrustByCount {
 						//读取以前的按次数授权是同一个人，则修改以前的授权次数
-						for index,oldAuthData := range CountAuthDataList{
-							if oldAuthData.AuthAddres.Equal(addres){
+						for index, oldAuthData := range CountAuthDataList {
+							if oldAuthData.AuthAddres.Equal(addres) {
 								AuthData.EntrustCount = EntrustData.EntrustCount
 								CountAuthDataList[index] = AuthData
 								isModiEntrustCount = true
@@ -1131,9 +1132,9 @@ func (st *StateTransition) CallAuthTx() (ret []byte, usedGas uint64, failed bool
 			st.state.SetAuthStateByteArray(tx.GetTxCurrency(), addres, marshalAuthData) //设置授权数据
 		}
 
-		if EntrustData.EnstrustSetType == params.EntrustByCount{
+		if EntrustData.EnstrustSetType == params.EntrustByCount {
 			//按次数委托
-			if !isModiEntrustCount{
+			if !isModiEntrustCount {
 				t_authData := new(common.AuthType)
 				t_authData.EnstrustSetType = EntrustData.EnstrustSetType
 				t_authData.StartTime = EntrustData.StartTime
@@ -1169,18 +1170,18 @@ func (st *StateTransition) CallAuthTx() (ret []byte, usedGas uint64, failed bool
 		//遍历之前的委托数据，看是否有同一个人按次数授权的，如果有，直接修改之前的次数
 		isHave := false
 		tmpEntrustList := make([]common.EntrustType, 0)
-		for _,newEntrustData := range EntrustList{
-			if newEntrustData.EnstrustSetType == params.EntrustByCount{
-				for i,oldEntrustData := range AllEntrustList{
-					if oldEntrustData.EntrustAddres == newEntrustData.EntrustAddres && oldEntrustData.EnstrustSetType == params.EntrustByCount{
+		for _, newEntrustData := range EntrustList {
+			if newEntrustData.EnstrustSetType == params.EntrustByCount {
+				for i, oldEntrustData := range AllEntrustList {
+					if oldEntrustData.EntrustAddres == newEntrustData.EntrustAddres && oldEntrustData.EnstrustSetType == params.EntrustByCount {
 						AllEntrustList[i].EntrustCount = newEntrustData.EntrustCount
 						isHave = true
 						break
 					}
 				}
 			}
-			if !isHave{
-				tmpEntrustList = append(tmpEntrustList,newEntrustData)
+			if !isHave {
+				tmpEntrustList = append(tmpEntrustList, newEntrustData)
 			}
 		}
 
@@ -1273,9 +1274,9 @@ func (st *StateTransition) CallCancelAuthTx() (ret []byte, usedGas uint64, faile
 		}
 	}
 	shardings = append(shardings, tmpshard...)
-	gasaddr,coinrange := st.getCoinAddress(tx.GetTxCurrency())
+	gasaddr, coinrange := st.getCoinAddress(tx.GetTxCurrency())
 	st.RefundGas(coinrange)
-	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice))//给对应币种奖励账户加钱
+	st.state.AddBalance(coinrange, common.MainAccount, gasaddr, new(big.Int).Mul(new(big.Int).SetUint64(st.GasUsed()), st.gasPrice)) //给对应币种奖励账户加钱
 
 	Authfrom := tx.From()
 	delIndexList := make([]uint32, 0)
@@ -1296,9 +1297,9 @@ func (st *StateTransition) CallCancelAuthTx() (ret []byte, usedGas uint64, faile
 		return nil, st.GasUsed(), true, shardings, nil
 	}
 
-	entrustDataList := make([]common.EntrustType, 0,len(allentrustDataList))
+	entrustDataList := make([]common.EntrustType, 0, len(allentrustDataList))
 	for _, entrustdata := range allentrustDataList {
-		if entrustdata.EnstrustSetType == params.EntrustByTime && st.evm.Time.Uint64() > entrustdata.EndTime{
+		if entrustdata.EnstrustSetType == params.EntrustByTime && st.evm.Time.Uint64() > entrustdata.EndTime {
 			continue
 		}
 		if entrustdata.EnstrustSetType == params.EntrustByHeight && st.evm.BlockNumber.Uint64() > entrustdata.EndHeight {
@@ -1307,7 +1308,7 @@ func (st *StateTransition) CallCancelAuthTx() (ret []byte, usedGas uint64, faile
 		if entrustdata.EnstrustSetType == params.EntrustByCount && entrustdata.EntrustCount <= 0 {
 			continue
 		}
-		entrustDataList = append(entrustDataList,entrustdata)
+		entrustDataList = append(entrustDataList, entrustdata)
 	}
 
 	newentrustDataList := make([]common.EntrustType, 0)
@@ -1330,8 +1331,8 @@ func (st *StateTransition) CallCancelAuthTx() (ret []byte, usedGas uint64, faile
 				newAuthDataList := make([]common.AuthType, 0)
 				for _, oldAuthData := range oldAuthDataList {
 					//只要起始高度或时间能对应上，就是要删除的切片
-					if entrustFrom.EnstrustSetType == oldAuthData.EnstrustSetType{
-						if entrustFrom.StartHeight == oldAuthData.StartHeight || entrustFrom.StartTime == oldAuthData.StartTime || entrustFrom.EntrustCount == oldAuthData.EntrustCount{
+					if entrustFrom.EnstrustSetType == oldAuthData.EnstrustSetType {
+						if entrustFrom.StartHeight == oldAuthData.StartHeight || entrustFrom.StartTime == oldAuthData.StartTime || entrustFrom.EntrustCount == oldAuthData.EntrustCount {
 							oldAuthData.IsEntrustGas = false
 							oldAuthData.IsEntrustSign = false
 							continue

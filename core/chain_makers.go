@@ -86,7 +86,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
 	receipt, _, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	b.txs = append(b.txs, tx)
@@ -142,7 +142,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	b.header.Difficulty = b.engine.CalcDifficulty(b.chainReader, b.header.Time.Uint64(), b.parent.Header())
+	b.header.Difficulty = b.engine.CalcDifficulty(b.chainReader, string(b.header.Version), b.header.Time.Uint64(), b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -189,7 +189,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.uncles,types.MakeCurencyBlock(nil,nil,nil) )//该文件专用于测试所以此处就写个空
+			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.uncles, types.MakeCurencyBlock(nil, nil, nil)) //该文件专用于测试所以此处就写个空
 			// Write state changes to db
 			root, _, err := statedb.Commit(config.IsEIP158(b.header.Number))
 			if err != nil {
@@ -230,7 +230,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		Sharding:   make([]common.Coinbyte, len(sharding)),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(chain, time.Uint64(), &types.Header{
+		Difficulty: engine.CalcDifficulty(chain, string(parent.Header().Version), time.Uint64(), &types.Header{
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
 			Difficulty: parent.Difficulty(),

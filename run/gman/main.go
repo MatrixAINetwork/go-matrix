@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 // gman is the official command-line client for Matrix.
 package main
@@ -29,15 +29,16 @@ import (
 	_ "github.com/MatrixAINetwork/go-matrix/random/ereryblockseed"
 	_ "github.com/MatrixAINetwork/go-matrix/random/everybroadcastseed"
 
+	"github.com/MatrixAINetwork/go-matrix/common"
 	_ "github.com/MatrixAINetwork/go-matrix/crypto"
 	_ "github.com/MatrixAINetwork/go-matrix/crypto/vrf"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layered"
+	_ "github.com/MatrixAINetwork/go-matrix/election/layeredbss"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layeredmep"
 	_ "github.com/MatrixAINetwork/go-matrix/election/nochoice"
 	_ "github.com/MatrixAINetwork/go-matrix/election/stock"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 	"github.com/MatrixAINetwork/go-matrix/run/utils"
-	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 const (
@@ -357,6 +358,6 @@ func Init_Config_PATH(ctx *cli.Context) {
 	}
 
 	manparams.Config_Init(config_dir + "/man.json")
-	manparams.ReadBlacklist(config_dir +"/blacklist.txt")
+	manparams.ReadBlacklist(config_dir + "/blacklist.txt")
 	common.WorkPath = config_dir
 }

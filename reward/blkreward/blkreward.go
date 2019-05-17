@@ -57,7 +57,7 @@ func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB, ppreSt uti
 		log.Error("固定区块奖励", "获取前一个矿工奖励错误", err)
 		return nil
 	}
-	rewardCfg := cfg.New(RC, nil, preMiner, innerMinerAccounts, util.BlkReward)
+	rewardCfg := cfg.New(RC, nil, preMiner, innerMinerAccounts, util.BlkReward, data)
 	return rewardexec.New(chain, rewardCfg, st, interval, foundationAccount, currentTop, originElectNodes)
 }
 

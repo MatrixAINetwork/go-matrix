@@ -2,14 +2,16 @@ package reelection
 
 import (
 	"errors"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
-func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProduceElectGraphData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
 	log.INFO(Module, "ProduceElectGraphData", "start", "height", block.Header().Number.Uint64())
 	defer log.INFO(Module, "ProduceElectGraphData", "end", "height", block.Header().Number.Uint64())
 	if err := CheckBlock(block); err != nil {
@@ -29,7 +31,7 @@ func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn core.Pr
 	electStates.Number = block.Header().Number.Uint64()
 
 	currentHash := block.ParentHash()
-	topState, err := self.HandleTopGen(currentHash)
+	topState, err := self.HandleTopGen(currentHash, stateDb)
 	if self.IsMinerTopGenTiming(currentHash) {
 		electStates.NextMinerElect = []mc.ElectNodeInfo{}
 		electStates.NextMinerElect = append(electStates.NextMinerElect, topState.MastM...)
@@ -76,7 +78,7 @@ func (self *ReElection) ProduceElectGraphData(block *types.Block, readFn core.Pr
 	return electStates, nil
 }
 
-func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
 		log.ERROR(Module, "ProduceElectGraphData CheckBlock err ", err)
 		return nil, err
@@ -167,7 +169,7 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, readFn c
 	return electStates, nil
 }
 
-func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
 		log.ERROR(Module, "ProducePreBroadcastStateData CheckBlock err ", err)
 		return []byte{}, err
@@ -217,7 +219,7 @@ func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, readFn 
 	return preBroadcast, nil
 
 }
-func (self *ReElection) ProduceMinHashData(block *types.Block, readFn core.PreStateReadFn) (interface{}, error) {
+func (self *ReElection) ProduceMinHashData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
 		log.ERROR(Module, "ProduceMinHashData CheckBlock err ", err)
 		return []byte{}, err

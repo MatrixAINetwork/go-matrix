@@ -74,5 +74,13 @@ const (
 
 	BlockInserted
 
+	//leaderV2
+	HD_V2_LeaderReelectInquiryReq
+	HD_V2_LeaderReelectInquiryRsp
+	HD_V2_LeaderReelectReq
+	HD_V2_LeaderReelectVote
+	HD_V2_LeaderReelectBroadcast
+	HD_V2_LeaderReelectBroadcastRsp
+
 	LastEventCode
 )

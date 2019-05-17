@@ -4,6 +4,7 @@
 package baseinterface
 
 import (
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/election/support"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 )
@@ -32,7 +33,7 @@ func NewElect(ElectPlugs string) ElectionInterface {
 
 type ElectionInterface interface {
 	MinerTopGen(*mc.MasterMinerReElectionReqMsg) *mc.MasterMinerReElectionRsp
-	ValidatorTopGen(*mc.MasterValidatorReElectionReqMsg) *mc.MasterValidatorReElectionRsq
+	ValidatorTopGen(*mc.MasterValidatorReElectionReqMsg, *state.StateDBManage) *mc.MasterValidatorReElectionRsq
 	ToPoUpdate(support.AllNative, *mc.TopologyGraph) []mc.Alternative
 	//	PrimarylistUpdate([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo, mc.TopologyNodeInfo, int) ([]mc.TopologyNodeInfo, []mc.TopologyNodeInfo, []mc.TopologyNodeInfo)
 }

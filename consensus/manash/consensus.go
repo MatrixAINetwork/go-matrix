@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/math"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
@@ -238,7 +240,7 @@ func (manash *Manash) verifyHeader(chain consensus.ChainReader, header, parent *
 	// super header don't verify difficulty
 	if header.IsSuperHeader() == false {
 		// Verify the block's difficulty based in it's timestamp and parent's difficulty
-		expected := manash.CalcDifficulty(chain, header.Time.Uint64(), parent)
+		expected := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
 
 		if expected.Cmp(header.Difficulty) != 0 {
 			return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
@@ -288,20 +290,20 @@ func (manash *Manash) verifyHeader(chain consensus.ChainReader, header, parent *
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (manash *Manash) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	return CalcDifficulty(chain.Config(), time, parent)
+func (manash *Manash) CalcDifficulty(chain consensus.ChainReader, curVersion string, time uint64, parent *types.Header) *big.Int {
+	return CalcDifficulty(chain.Config(), curVersion, time, parent)
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
+func CalcDifficulty(config *params.ChainConfig, curVersion string, time uint64, parent *types.Header) *big.Int {
 	logger := log.New("CalcDifficulty block", parent.Number)
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
 	case config.IsByzantium(next):
 		logger.Info("config.IsByzantium")
-		return calcDifficultyByzantium(time, parent)
+		return calcDifficultyByzantium(curVersion, time, parent)
 	case config.IsHomestead(next):
 		logger.Info("config.IsHomestead")
 		return calcDifficultyHomestead(time, parent)
@@ -325,7 +327,7 @@ var (
 // calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Byzantium rules.
-func calcDifficultyByzantium(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyByzantium(curVersion string, time uint64, parent *types.Header) *big.Int {
 	// https://github.com/MatrixAINetwork/EIPs/issues/100.
 	// algorithm:
 	// diff = (parent_diff +
@@ -341,7 +343,14 @@ func calcDifficultyByzantium(time uint64, parent *types.Header) *big.Int {
 	logger := log.New("CalcDifficulty diff", parent.Difficulty)
 	// (2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9
 	x.Sub(bigTime, bigParentTime)
-	x.Div(x, params.DurationLimit)
+	var durationLimit *big.Int
+	if manparams.VersionCmp(curVersion, manparams.VersionGamma) == 0 {
+		durationLimit = params.VersionGammaDurationLimit
+	} else {
+		durationLimit = params.DurationLimit
+	}
+	logger.Info("CalcDifficulty diff", "duration", durationLimit.String())
+	x.Div(x, durationLimit)
 	if parent.UncleHash == types.EmptyUncleHash {
 		x.Sub(big1, x)
 	} else {
@@ -520,7 +529,7 @@ func (manash *Manash) Prepare(chain consensus.ChainReader, header *types.Header)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = manash.CalcDifficulty(chain, header.Time.Uint64(), parent)
+	header.Difficulty = manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
 	return nil
 }
 

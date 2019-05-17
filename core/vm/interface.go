@@ -32,7 +32,7 @@ type CallContext interface {
 
 type StateDBManager interface {
 	CreateAccount(cointyp string, addr common.Address)
-	MakeStatedb(cointyp string,isCheck bool)
+	MakeStatedb(cointyp string, isCheck bool)
 	SetBalance(cointyp string, accountType uint32, addr common.Address, amount *big.Int)
 	SubBalance(cointyp string, idx uint32, addr common.Address, am *big.Int)
 	AddBalance(cointyp string, idx uint32, addr common.Address, am *big.Int)
@@ -63,10 +63,10 @@ type StateDBManager interface {
 	Suicide(cointyp string, addr common.Address) bool
 	HasSuicided(cointyp string, addr common.Address) bool
 
-	GetEntrustStateByteArray(cointyp string,addr common.Address) []byte
-	GetAuthStateByteArray(cointyp string,addr common.Address) []byte
-	SetEntrustStateByteArray(cointyp string,addr common.Address, value []byte)
-	SetAuthStateByteArray(cointyp string,addr common.Address, value []byte)
+	GetEntrustStateByteArray(cointyp string, addr common.Address) []byte
+	GetAuthStateByteArray(cointyp string, addr common.Address) []byte
+	SetEntrustStateByteArray(cointyp string, addr common.Address, value []byte)
+	SetAuthStateByteArray(cointyp string, addr common.Address, value []byte)
 
 	//// Exist reports whether the given account exists in state.
 	//// Notably this should also return true for suicided accounts.

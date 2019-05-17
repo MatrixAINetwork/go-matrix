@@ -11,7 +11,7 @@ import (
 )
 
 type PreStateReadFn func(key string) (interface{}, error)
-type ProduceMatrixStateDataFn func(block *types.Block, readFn PreStateReadFn) (interface{}, error)
+type ProduceMatrixStateDataFn func(block *types.Block, stateDb *state.StateDBManage, readFn PreStateReadFn) (interface{}, error)
 
 type MatrixProcessor struct {
 	mu          sync.RWMutex
@@ -84,7 +84,7 @@ func (mp *MatrixProcessor) ProcessMatrixState(block *types.Block, preVersion str
 
 	dataMap := make(map[string]interface{})
 	for key := range mp.producerMap {
-		data, err := mp.producerMap[key](block, preReadFn)
+		data, err := mp.producerMap[key](block, state, preReadFn)
 		if err != nil {
 			return errors.Errorf("key(%s) produce matrix state data err(%v)", key, err)
 		}

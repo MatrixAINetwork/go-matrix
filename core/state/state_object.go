@@ -65,7 +65,7 @@ type stateObject struct {
 	data     Account
 	db       *StateDB
 
-	readMu   sync.Mutex
+	readMu sync.Mutex
 	// DB error.
 	// State objects are used by the consensus core and VM which are
 	// unable to deal with database-level errors. Any error that occurs

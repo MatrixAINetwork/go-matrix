@@ -23,13 +23,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/snappy"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/crypto/ecies"
 	"github.com/MatrixAINetwork/go-matrix/crypto/secp256k1"
 	"github.com/MatrixAINetwork/go-matrix/crypto/sha3"
 	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
+	"github.com/golang/snappy"
 )
 
 const (

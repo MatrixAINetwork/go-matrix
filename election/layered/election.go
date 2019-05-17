@@ -6,6 +6,7 @@ package layered
 import (
 	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/election/support"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
@@ -27,7 +28,7 @@ func (self *layered) MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg) *mc.Mas
 	log.Trace("分层方案", "矿工拓扑生成", mmrerm)
 	vipEle := support.NewElelection(nil, mmrerm.MinerList, mmrerm.ElectConfig, mmrerm.RandSeed, mmrerm.SeqNum, common.RoleMiner)
 
-	if mmrerm.ElectConfig.WhiteListSwitcher{
+	if mmrerm.ElectConfig.WhiteListSwitcher {
 		vipEle.ProcessWhiteNode()
 	}
 	vipEle.ProcessBlackNode()
@@ -65,11 +66,11 @@ func printVipBlackList(blackList []mc.UserBlockProduceSlash) {
 		}
 	}
 }
-func (self *layered) ValidatorTopGen(mvrerm *mc.MasterValidatorReElectionReqMsg) *mc.MasterValidatorReElectionRsq {
+func (self *layered) ValidatorTopGen(mvrerm *mc.MasterValidatorReElectionReqMsg, stateDb *state.StateDBManage) *mc.MasterValidatorReElectionRsq {
 	log.Trace("分层方案", "验证者拓扑生成", mvrerm)
 
 	vipEle := support.NewElelection(mvrerm.VIPList, mvrerm.ValidatorList, mvrerm.ElectConfig, mvrerm.RandSeed, mvrerm.SeqNum, common.RoleValidator)
-	if mvrerm.ElectConfig.WhiteListSwitcher{
+	if mvrerm.ElectConfig.WhiteListSwitcher {
 		vipEle.ProcessWhiteNode()
 	}
 	vipEle.ProcessBlackNode()
@@ -85,7 +86,7 @@ func (self *layered) ValidatorTopGen(mvrerm *mc.MasterValidatorReElectionReqMsg)
 			printVipBlackList(mvrerm.BlockProduceBlackList.BlackList)
 			if vipEle.NeedNum >= vipEle.ChosedNum {
 				//TryFilterBlockProduceBlackList(vipEle, mvrerm.BlockProduceBlackList.BlackList, vipEle.NeedNum-vipEle.ChosedNum)
-				TryFilterBlockProduceBlackList(vipEle, mvrerm.BlockProduceBlackList.BlackList,0)
+				TryFilterBlockProduceBlackList(vipEle, mvrerm.BlockProduceBlackList.BlackList, 0)
 			}
 		}
 		nodeList := vipEle.GetNodeByLevel(common.GetVIPLevel(vipEleLoop))

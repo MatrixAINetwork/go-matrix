@@ -7,8 +7,8 @@ package bloombits
 import (
 	"errors"
 
-	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 // errSectionOutOfBounds is returned if the user tried to add more bloom filters
@@ -50,7 +50,7 @@ func (b *Generator) AddBloom(index uint, root []common.CoinRoot) error {
 	byteIndex := b.nextBit / 8
 	bitMask := byte(1) << byte(7-b.nextBit%8)
 
-	for _,bl := range root{
+	for _, bl := range root {
 		bloom := bl.Bloom
 		for i := 0; i < types.BloomBitLength; i++ {
 			bloomByteIndex := types.BloomByteLength - 1 - i/8

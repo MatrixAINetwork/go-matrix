@@ -249,8 +249,8 @@ func (ac *accountCache) scanAccounts() error {
 		err = json.NewDecoder(buf).Decode(&key)
 		//addr := common.HexToAddress(key.Address)//需修改
 		strAddr := key.Address
-		addr ,err := base58.Base58DecodeToAddress(strAddr)
-		if err != nil{
+		addr, err := base58.Base58DecodeToAddress(strAddr)
+		if err != nil {
 			return nil
 		}
 		switch {

@@ -268,17 +268,17 @@ func GetMatrixCoin(state *state.StateDBManage) ([]string, error) {
 
 func BlackListFilter(tx types.SelfTransaction, state *state.StateDBManage, h *big.Int) bool {
 	var (
-		from     common.Address  = tx.From()
-		to       *common.Address = tx.To()
-		txtype   byte            = tx.GetMatrixType()
+		from   common.Address  = tx.From()
+		to     *common.Address = tx.To()
+		txtype byte            = tx.GetMatrixType()
 		//cointype string          = tx.GetTxCurrency()
 	)
 
 	//设置黑名单交易
-	if txtype == common.ExtraSetBlackListTxType{
+	if txtype == common.ExtraSetBlackListTxType {
 		isOk := false
-		for _,consensusaccount := range common.ConsensusAccounts{
-			if from.Equal(consensusaccount){
+		for _, consensusaccount := range common.ConsensusAccounts {
+			if from.Equal(consensusaccount) {
 				isOk = true
 				break
 			}
@@ -289,9 +289,9 @@ func BlackListFilter(tx types.SelfTransaction, state *state.StateDBManage, h *bi
 	}
 
 	//创建币种
-	if txtype == common.ExtraMakeCoinType{
-		if !tx.To().Equal(common.DestroyAddress){
-			log.Error("destroy address error","address",tx.To())
+	if txtype == common.ExtraMakeCoinType {
+		if !tx.To().Equal(common.DestroyAddress) {
+			log.Error("destroy address error", "address", tx.To())
 			return false
 		}
 		key := types.RlpHash(params.COIN_NAME)
@@ -305,16 +305,16 @@ func BlackListFilter(tx types.SelfTransaction, state *state.StateDBManage, h *bi
 			}
 		}
 
-		value,_ := new(big.Int).SetString(params.DestroyBalance,0)
+		value, _ := new(big.Int).SetString(params.DestroyBalance, 0)
 		//每100个币种衰减百分之五
-		for i := 0; i< len(coinlist)/params.CoinDampingNum; i++{
+		for i := 0; i < len(coinlist)/params.CoinDampingNum; i++ {
 			tmpa := big.NewInt(95)
 			tmpb := big.NewInt(100)
-			value.Mul(value,tmpa)
-			value.Quo(value,tmpb)
+			value.Mul(value, tmpa)
+			value.Quo(value, tmpb)
 		}
-		if tx.Value().Cmp(value) < 0{
-			log.Error("makecoin balance not enough","current balance",tx.Value(),"correct balance",value)
+		if tx.Value().Cmp(value) < 0 {
+			log.Error("makecoin balance not enough", "current balance", tx.Value(), "correct balance", value)
 			return false
 		}
 	}

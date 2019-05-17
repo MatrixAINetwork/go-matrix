@@ -121,7 +121,7 @@ func (t man_txdata) MarshalJSON() ([]byte, error) {
 		AccountNonce hexutil.Uint64  `json:"nonce"    gencodec:"required"`
 		Price        *hexutil.Big    `json:"gasPrice" gencodec:"required"`
 		GasLimit     hexutil.Uint64  `json:"gas"      gencodec:"required"`
-		Recipient    *string          `json:"to"       rlp:"nil"`
+		Recipient    *string         `json:"to"       rlp:"nil"`
 		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
 		Payload      hexutil.Bytes   `json:"input"    gencodec:"required"`
 		V            *hexutil.Big    `json:"v" gencodec:"required"`
@@ -131,11 +131,11 @@ func (t man_txdata) MarshalJSON() ([]byte, error) {
 		TxEnterType  byte            `json:"TxEnterType" gencodec:"required"`
 		IsEntrustTx  byte            `json:"IsEntrustTx" gencodec:"required"`
 		CommitTime   uint64          `json:"CommitTime" gencodec:"required"`
-		Extra        []Matrix_Extra1  ` rlp:"tail"`
+		Extra        []Matrix_Extra1 ` rlp:"tail"`
 	}
 	type man_txdata struct {
-		currency string `json:"currency"      gencodec:"required"`
-		data txdata1	 `json:"data"      gencodec:"required"`
+		currency string  `json:"currency"      gencodec:"required"`
+		data     txdata1 `json:"data"      gencodec:"required"`
 	}
 	var enc man_txdata
 	enc.currency = t.currency
@@ -155,13 +155,14 @@ func (t man_txdata) MarshalJSON() ([]byte, error) {
 	enc.data.Extra = t.data.Extra
 	return json.Marshal(&enc)
 }
+
 //sendrawtransaction调用
 func (t *man_txdata) UnmarshalJSON(input []byte) error {
 	type txdata1 struct {
 		AccountNonce *hexutil.Uint64 `json:"nonce"    gencodec:"required"`
 		Price        *hexutil.Big    `json:"gasPrice" gencodec:"required"`
 		GasLimit     *hexutil.Uint64 `json:"gas"      gencodec:"required"`
-		Recipient    *string 		   `json:"to"       rlp:"nil"`
+		Recipient    *string         `json:"to"       rlp:"nil"`
 		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
 		Payload      *hexutil.Bytes  `json:"input"    gencodec:"required"`
 		V            *hexutil.Big    `json:"v" gencodec:"required"`
@@ -171,17 +172,17 @@ func (t *man_txdata) UnmarshalJSON(input []byte) error {
 		TxEnterType  byte            `json:"TxEnterType" gencodec:"required"`
 		IsEntrustTx  byte            `json:"IsEntrustTx" gencodec:"required"`
 		CommitTime   uint64          `json:"CommitTime" gencodec:"required"`
-		Extra        []Matrix_Extra1  ` rlp:"tail"`
+		Extra        []Matrix_Extra1 ` rlp:"tail"`
 	}
 	type man_txdata struct {
 		currency *string `json:"currency"      gencodec:"required"`
-		data txdata1	 `json:"data"      gencodec:"required"`
+		data     txdata1 `json:"data"      gencodec:"required"`
 	}
 	var dec man_txdata
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err
 	}
-	if dec.currency == nil{
+	if dec.currency == nil {
 		return errors.New("missing required field 'currency' for txdata")
 	}
 	t.currency = *dec.currency

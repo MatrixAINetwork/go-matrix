@@ -1,10 +1,11 @@
 package support
 
 const (
-	ModuleLogName = "选举基础模块"
-	MaxSample     = 1000 //配置参数,采样最多发生1000次,是一个离P+M较远的值
-	J             = 0    //基金会验证节点个数tps_weight
-	DefaultStock  = 1
+	ModuleLogName       = "选举基础模块"
+	MaxSample           = 1000 //配置参数,采样最多发生1000次,是一个离P+M较远的值
+	PowerWeightMaxSmple = 1000
+	J                   = 0 //基金会验证节点个数tps_weight
+	DefaultStock        = 1
 )
 
 const (

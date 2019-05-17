@@ -13,8 +13,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/params"
-	"sync"
 	"runtime"
+	"sync"
 )
 
 var (
@@ -31,10 +31,10 @@ type sigCache struct {
 //批量解签名
 func BatchSender(txser SelfTransactions) {
 	var waitG = &sync.WaitGroup{}
-//	maxProcs := runtime.NumCPU() //获取cpu个数
-//	if maxProcs >= 2 {
-//		runtime.GOMAXPROCS(maxProcs - 1) //限制同时运行的goroutines数量
-//	}
+	//	maxProcs := runtime.NumCPU() //获取cpu个数
+	//	if maxProcs >= 2 {
+	//		runtime.GOMAXPROCS(maxProcs - 1) //限制同时运行的goroutines数量
+	//	}
 	for _, tx := range txser {
 		if tx.GetMatrixType() == common.ExtraUnGasMinerTxType || tx.GetMatrixType() == common.ExtraUnGasValidatorTxType ||
 			tx.GetMatrixType() == common.ExtraUnGasInterestTxType || tx.GetMatrixType() == common.ExtraUnGasTxsType || tx.GetMatrixType() == common.ExtraUnGasLotteryTxType {
@@ -99,42 +99,42 @@ func Sender(signer Signer, tx SelfTransaction) (common.Address, error) {
 	return addr, nil
 }
 
-func BatchSender_self(txs []SelfTransaction,signer Signer, fiter func(SelfTransaction)bool){
-	if len(txs) == 0{
+func BatchSender_self(txs []SelfTransaction, signer Signer, fiter func(SelfTransaction) bool) {
+	if len(txs) == 0 {
 		return
 	}
 	if signer == nil {
 		signer = NewEIP155Signer(txs[0].ChainId())
 	}
 	var waitG = &sync.WaitGroup{}
-	routineNum := len(txs)/100+1
-	if routineNum > 1{
-		maxProcs := runtime.GOMAXPROCS(0)  //获取cpu个数
+	routineNum := len(txs)/100 + 1
+	if routineNum > 1 {
+		maxProcs := runtime.GOMAXPROCS(0) //获取cpu个数
 		if maxProcs >= 2 {
 			maxProcs--
 		}
-		if maxProcs<routineNum{
+		if maxProcs < routineNum {
 			routineNum = maxProcs
 		}
 	}
-	routChan := make(chan SelfTransaction,0)
-	for i:=0;i<routineNum;i++ {
+	routChan := make(chan SelfTransaction, 0)
+	for i := 0; i < routineNum; i++ {
 		waitG.Add(1)
-		go Sender_sub(signer,routChan,waitG)
+		go Sender_sub(signer, routChan, waitG)
 	}
 	for _, tx := range txs {
-		if fiter(tx){
+		if fiter(tx) {
 			routChan <- tx
 		}
 	}
 	close(routChan)
 	waitG.Wait()
 }
-func Sender_sub(signer Signer,txChan chan SelfTransaction, waitg *sync.WaitGroup){
+func Sender_sub(signer Signer, txChan chan SelfTransaction, waitg *sync.WaitGroup) {
 	defer waitg.Done()
-	for{
+	for {
 		select {
-		case tx,ok := <-txChan:
+		case tx, ok := <-txChan:
 			if ok {
 				if sc := tx.GetFromLoad(); sc != nil {
 					sigCache := sc.(sigCache)
@@ -149,12 +149,13 @@ func Sender_sub(signer Signer,txChan chan SelfTransaction, waitg *sync.WaitGroup
 				}
 				tx.SetFromLoad(sigCache{signer: signer, from: addr})
 
-			}else{
+			} else {
 				return
 			}
 		}
 	}
 }
+
 //
 func Sender_self(signer Signer, tx SelfTransaction, waitg *sync.WaitGroup) (common.Address, error) {
 	defer waitg.Done()

@@ -12,10 +12,10 @@ import (
 
 func TestHeaderEncoding(t *testing.T) {
 	header := Header{}
-//	header.Roots = append(header.Roots, common.CoinRoot{"man", common.BytesToHash([]byte{10, 20})})
+	//	header.Roots = append(header.Roots, common.CoinRoot{"man", common.BytesToHash([]byte{10, 20})})
 	emptyHash1 := DeriveShaHash([]common.Hash{})
 	emptyHash2 := DeriveShaHash(nil)
-	t.Log(emptyHash1.String(),emptyHash2.String())
+	t.Log(emptyHash1.String(), emptyHash2.String())
 	buff, err := rlp.EncodeToBytes(&header)
 	if err != nil {
 		t.Error(err)

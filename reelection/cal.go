@@ -54,7 +54,7 @@ func (self *ReElection) GetElectConfig(hash common.Hash) (*mc.ElectConfigInfo_Al
 	}
 
 	innerMiners, err := matrixstate.GetInnerMinerAccounts(st)
-	if err != nil{
+	if err != nil {
 		log.Error("MSKeyInnerList", "MSKeyAccountInnerMiners", "反射失败", "hash", hash)
 		return nil, err
 	}

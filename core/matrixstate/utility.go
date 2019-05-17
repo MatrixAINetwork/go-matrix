@@ -3,11 +3,11 @@ package matrixstate
 import (
 	"math/big"
 
+	"encoding/json"
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"encoding/json"
-	"github.com/MatrixAINetwork/go-matrix/core/types"
 )
 
 func GetVersionInfo(st StateDB) string {
@@ -398,6 +398,7 @@ func GetAccountBlackList(st StateDB) ([]common.Address, error) {
 	}
 	return value.([]common.Address), nil
 }
+
 //func GetCoinConfig(st StateDB) ([]common.CoinConfig, error) {
 //	version := GetVersionInfo(st)
 //	mgr := GetManager(version)
@@ -421,7 +422,7 @@ func GetCoinConfig(st StateDB) ([]common.CoinConfig, error) {
 		err := json.Unmarshal(coinconfig, &coincfglist)
 		if err != nil {
 			log.Trace("get coin config list", "unmarshal err", err)
-			return nil,err
+			return nil, err
 		}
 	}
 	return coincfglist, nil

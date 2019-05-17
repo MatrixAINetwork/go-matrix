@@ -135,13 +135,15 @@ func (r *Receipt) Size() common.StorageSize {
 	}
 	return size
 }
-func (r *Receipt)Hash() common.Hash{
+func (r *Receipt) Hash() common.Hash {
 	return rlpHash(r)
 }
+
 type CurrencyReceipts struct {
-	Currency string
+	Currency        string
 	StorageReceipts []*ReceiptForStorage
 }
+
 // ReceiptForStorage is a wrapper around a Receipt that flattens and parses the
 // entire content of a receipt, as opposed to only the consensus fields originally.
 type ReceiptForStorage Receipt
@@ -189,6 +191,7 @@ type CoinReceipts struct {
 	CoinType    string
 	Receiptlist Receipts
 }
+
 // Receipts is a wrapper around a Receipt array to implement DerivableList.
 type Receipts []*Receipt
 
@@ -197,17 +200,17 @@ func (r Receipts) Len() int { return len(r) }
 
 // GetRlp returns the RLP encoding of one receipt from the list.
 func (r Receipts) GetRlp(i int) []byte {
-//	return rlpHash(r[i])[:]
+	//	return rlpHash(r[i])[:]
 	bytes, err := rlp.EncodeToBytes(r[i])
 	if err != nil {
 		panic(err)
 	}
 	return bytes
 }
-func (r Receipts)HashList()([]common.Hash)  {
-	list := make([]common.Hash,0,len(r))
-	for _,re := range r {
-		list = append(list,re.Hash())
+func (r Receipts) HashList() []common.Hash {
+	list := make([]common.Hash, 0, len(r))
+	for _, re := range r {
+		list = append(list, re.Hash())
 	}
 	return list
 }

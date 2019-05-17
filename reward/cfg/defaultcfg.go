@@ -54,6 +54,7 @@ type RewardStateCfg struct {
 }
 
 type RewardCfg struct {
+	Calc           string
 	MinersRate     uint64 //矿工网络奖励
 	ValidatorsRate uint64 //验证者网络奖励
 	RewardMount    *mc.BlkRewardCfg
@@ -115,7 +116,7 @@ func (str *DefaultSetRewards) SetMinerOutRewards(reward *big.Int, state util.Sta
 	return str.miner.SetMinerOutRewards(reward, state, num, parentHash, chain, coinType)
 }
 
-func New(RewardMount *mc.BlkRewardCfg, SetReward SetRewardsExec, preMiner []mc.MultiCoinMinerOutReward, innerMiners []common.Address, rewardType uint8) *RewardCfg {
+func New(RewardMount *mc.BlkRewardCfg, SetReward SetRewardsExec, preMiner []mc.MultiCoinMinerOutReward, innerMiners []common.Address, rewardType uint8, calc string) *RewardCfg {
 	//默认配置
 	if nil == SetReward {
 
@@ -123,6 +124,7 @@ func New(RewardMount *mc.BlkRewardCfg, SetReward SetRewardsExec, preMiner []mc.M
 	}
 
 	return &RewardCfg{
+		Calc:        calc,
 		RewardMount: RewardMount,
 		SetReward:   SetReward,
 	}

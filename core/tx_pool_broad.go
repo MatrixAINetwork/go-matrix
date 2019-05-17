@@ -64,7 +64,7 @@ func (bPool *BroadCastTxPool) checkTxFrom(tx types.SelfTransaction) (common.Addr
 	return common.Address{}, ErrInvalidSender
 }
 
-func ProduceMatrixStateData(block *types.Block, readFn PreStateReadFn) (interface{}, error) {
+func ProduceMatrixStateData(block *types.Block, stateDb *state.StateDBManage, readFn PreStateReadFn) (interface{}, error) {
 	if manparams.IsBroadcastNumberByHash(block.Number().Uint64(), block.ParentHash()) == false {
 		return nil, nil
 	}

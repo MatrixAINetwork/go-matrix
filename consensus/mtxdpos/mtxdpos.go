@@ -140,7 +140,7 @@ func (md *MtxDPOS) CheckSuperBlock(reader consensus.StateReader, header *types.H
 
 	targetCount := md.calcSuperNodeTarget(len(accounts))
 	if len(header.Signatures) < targetCount {
-		log.Error("共识引擎", "超级区块签名数量不足 size", len(header.Version), "target", targetCount)
+		log.Error("共识引擎", "超级区块签名数量不足 size", len(header.Signatures), "target", targetCount)
 		return errSuperBlockSignCount
 	}
 	verifiedSigh := md.verifyHashWithSuperNodes(header.HashNoSigns(), header.Signatures, accounts)

@@ -135,7 +135,7 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 		txs[i] = tx.tx
 	}
 
-	 mm :=make( map[string][]types.SelfTransaction) //BB
+	mm := make(map[string][]types.SelfTransaction) //BB
 	for _, tx := range txs {
 		cointype := tx.GetTxCurrency()
 		mm[cointype] = append(mm[cointype], tx)

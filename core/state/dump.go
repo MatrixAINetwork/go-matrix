@@ -29,7 +29,7 @@ type DumpAccount struct {
 	Storage  map[string]string `json:"storage"`
 }
 type CoinDump struct {
-	CoinTyp string
+	CoinTyp  string
 	DumpList []Dump
 }
 
@@ -48,6 +48,7 @@ type CodeData struct {
 	CodeHash []byte
 	Code     []byte
 }
+
 //Root [Account ...] [Matrix...]
 //Account -> Root -> []DumpValue
 type DumpDB struct {
@@ -260,7 +261,6 @@ func (self *StateDB) RawDumpAcccount(address common.Address) Dump {
 	}
 	return dump
 }
-
 
 func (dbDump *DumpDB) PrintAccountMsg() {
 	fmt.Println("PrintAccountMsg info")

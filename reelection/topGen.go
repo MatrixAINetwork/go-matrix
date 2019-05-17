@@ -10,6 +10,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/vm"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
@@ -26,7 +27,7 @@ type TopGenStatus struct {
 	CandM []mc.ElectNodeInfo
 }
 
-func (self *ReElection) HandleTopGen(hash common.Hash) (TopGenStatus, error) {
+func (self *ReElection) HandleTopGen(hash common.Hash, stateDb *state.StateDBManage) (TopGenStatus, error) {
 	topGenStatus := TopGenStatus{}
 
 	if self.IsMinerTopGenTiming(hash) { //矿工生成时间 240
@@ -43,7 +44,7 @@ func (self *ReElection) HandleTopGen(hash common.Hash) (TopGenStatus, error) {
 
 	if self.IsValidatorTopGenTiming(hash) { //验证者生成时间 260
 		log.INFO(Module, "计算验证者拓扑计算 ", hash)
-		MastV, BackV, CandV, err := self.ToGenValidatorTop(hash)
+		MastV, BackV, CandV, err := self.ToGenValidatorTop(hash, stateDb)
 		if err != nil {
 			log.ERROR(Module, "验证者拓扑生成错误 err", err)
 			return topGenStatus, err
@@ -203,7 +204,7 @@ func (self *ReElection) addBlockProduceBlackList(hash common.Hash) (*mc.BlockPro
 
 	return produceBlackList, nil
 }
-func (self *ReElection) ToGenValidatorTop(hash common.Hash) ([]mc.ElectNodeInfo, []mc.ElectNodeInfo, []mc.ElectNodeInfo, error) {
+func (self *ReElection) ToGenValidatorTop(hash common.Hash, stateDb *state.StateDBManage) ([]mc.ElectNodeInfo, []mc.ElectNodeInfo, []mc.ElectNodeInfo, error) {
 	//log.INFO(Module, "准备生成验证者拓扑图", "start", "hash", hash.String())
 	//defer log.INFO(Module, "生成验证者拓扑图结束", "end", "hash", hash.String())
 	height, err := self.GetNumberByHash(hash)
@@ -265,7 +266,7 @@ func (self *ReElection) ToGenValidatorTop(hash common.Hash) ([]mc.ElectNodeInfo,
 		return []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, []mc.ElectNodeInfo{}, err
 	}
 
-	TopRsp := elect.ValidatorTopGen(&mc.MasterValidatorReElectionReqMsg{SeqNum: height, RandSeed: seed, ValidatorList: validatoeDeposit, FoundationValidatorList: foundDeposit, ElectConfig: *electConf, VIPList: vipList, BlockProduceBlackList: *produceBlackList})
+	TopRsp := elect.ValidatorTopGen(&mc.MasterValidatorReElectionReqMsg{SeqNum: height, RandSeed: seed, ValidatorList: validatoeDeposit, FoundationValidatorList: foundDeposit, ElectConfig: *electConf, VIPList: vipList, BlockProduceBlackList: *produceBlackList}, stateDb)
 
 	return TopRsp.MasterValidator, TopRsp.BackUpValidator, TopRsp.CandidateValidator, nil
 

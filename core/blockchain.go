@@ -1176,20 +1176,22 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, state *state.State
 		return NonStatTy, err
 	}
 
-	localSbs, err := bc.GetSuperBlockSeq()
-	if nil != err {
-		log.Error("获取超级区块序号错误")
-		return NonStatTy, err
-	}
-
-	//log.INFO("blockChain", "超级区块序号", remoteSuperBlkCfg.Seq)
 	var reorg bool
-	if localSbs < remoteSuperBlkCfg.Seq {
-		reorg = true
-	} else if localSbs == remoteSuperBlkCfg.Seq {
-		reorg = externTd.Cmp(localTd) > 0
+	if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+		reorg = bc.isGammaCanonicalChain(remoteSuperBlkCfg, block, currentBlock)
 	} else {
-		reorg = false
+		localSbs, err := bc.GetSuperBlockSeq()
+		if nil != err {
+			log.Error("获取超级区块序号错误")
+			return NonStatTy, err
+		}
+		if localSbs < remoteSuperBlkCfg.Seq {
+			reorg = true
+		} else if localSbs == remoteSuperBlkCfg.Seq {
+			reorg = externTd.Cmp(localTd) > 0
+		} else {
+			reorg = false
+		}
 	}
 
 	currentBlock = bc.CurrentBlock()
@@ -1220,6 +1222,41 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, state *state.State
 
 	bc.futureBlocks.Remove(block.Hash())
 	return status, nil
+}
+
+func (bc *BlockChain) isGammaCanonicalChain(superBlkCfg *mc.SuperBlkCfg, block *types.Block, currentBlock *types.Block) bool {
+	currentSbs, err := bc.GetSuperBlockSeq()
+	if nil != err {
+		log.Error("获取超级区块序号错误", "err", err)
+		return false
+	}
+	if currentSbs < superBlkCfg.Seq {
+		return true
+	} else if currentSbs > superBlkCfg.Seq {
+		return false
+	}
+
+	// 超级区块序号相同，对比高度
+	currentNumber := currentBlock.NumberU64()
+	newNumber := block.NumberU64()
+	if currentNumber < newNumber {
+		return true
+	} else if currentNumber > newNumber {
+		return false
+	}
+
+	// 高度相同，对比区块时间
+	currentHeaderTime := currentBlock.Time().Uint64()
+	newHeaderTime := block.Time().Uint64()
+	if currentHeaderTime < newHeaderTime {
+		log.Info("isCanonicalChain", "当前header time", currentHeaderTime, "当前区块", currentBlock.Hash().TerminalString(),
+			"新header time", newHeaderTime, "新区块", block.Hash().TerminalString())
+		return true
+	} else if currentHeaderTime > newHeaderTime {
+		return false
+	}
+
+	return false
 }
 
 func (bc *BlockChain) superBlkRewind(block *types.Block, oldBlock *types.Block) {
@@ -2108,7 +2145,7 @@ func (bc *BlockChain) processSuperBlockState(block *types.Block, stateDB *state.
 	for _, currencie := range block.Currencies() {
 		if currencie.CurrencyName != params.MAN_COIN {
 			errors.Errorf("super block's txs CurrencyName not Matrix err", currencie.CurrencyName)
-			log.Error("super block error","super block's txs CurrencyName not Matrix err",currencie.CurrencyName)
+			log.Error("super block error", "super block's txs CurrencyName not Matrix err", currencie.CurrencyName)
 			continue
 		}
 		txs := currencie.Transactions.GetTransactions()

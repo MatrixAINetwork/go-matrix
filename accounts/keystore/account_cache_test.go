@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cespare/cp"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/MatrixAINetwork/go-matrix/accounts"
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/cespare/cp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var (

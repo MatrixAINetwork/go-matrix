@@ -57,6 +57,7 @@ import (
 	"time"
 
 	"github.com/MatrixAINetwork/go-matrix/leaderelect"
+	"github.com/MatrixAINetwork/go-matrix/leaderelect2.0"
 	"github.com/MatrixAINetwork/go-matrix/lessdisk"
 	"github.com/MatrixAINetwork/go-matrix/olconsensus"
 	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
@@ -113,14 +114,15 @@ type Matrix struct {
 	hd         *msgsend.HD  //node传进来的
 	signHelper *signhelper.SignHelper
 
-	reelection   *reelection.ReElection //换届服务
-	random       *baseinterface.Random
-	olConsensus  *olconsensus.TopNodeService
-	blockGen     *blkgenor.BlockGenor
-	manBlkManage *blkmanage.ManBlkManage
-	blockVerify  *blkverify.BlockVerify
-	leaderServer *leaderelect.LeaderIdentity
-	lessDiskSvr  *lessdisk.Server
+	reelection     *reelection.ReElection //换届服务
+	random         *baseinterface.Random
+	olConsensus    *olconsensus.TopNodeService
+	blockGen       *blkgenor.BlockGenor
+	manBlkManage   *blkmanage.ManBlkManage
+	blockVerify    *blkverify.BlockVerify
+	leaderServer   *leaderelect.LeaderIdentity
+	leaderServerV2 *leaderelect2.LeaderIdentity
+	lessDiskSvr    *lessdisk.Server
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and manbase)
 }
@@ -257,6 +259,10 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+	man.leaderServerV2, err = leaderelect2.NewLeaderIdentityService(man, "leader服务V2")
+	if err != nil {
+		return nil, err
+	}
 	man.manBlkManage, err = blkmanage.New(man)
 	if err != nil {
 		return nil, err
@@ -273,7 +279,6 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	man.lessDiskSvr.FuncSwitch(ctx.GetConfig().LessDisk)
 
 	return man, nil
-
 }
 
 func makeExtraData(extra []byte) []byte {
@@ -295,7 +300,7 @@ func makeExtraData(extra []byte) []byte {
 
 // CreateDB creates the chain database.
 func CreateDB(ctx *pod.ServiceContext, config *Config, name string) (mandb.Database, error) {
-	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles)
+	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles,config.DatabaseTableSize)
 	if err != nil {
 		return nil, err
 	}

@@ -10,18 +10,35 @@ import (
 const (
 	VersionAlpha = "1.0.0.0"
 	//增加版本号示例
-	VersionBeta = "1.0.0.1"
-	//VersionSignatureBeta = "0xc3a8b3c887e2a896cca7a3d86997ac458d4f2e1ac0472fbc37290ee131eb82400cde214d72427dcf83ad22eb5b98a269311c1589fab14d0eeeee632617714cc000"
-	//VersionNumBeta       = uint64(32)
+	VersionBeta  = "1.0.0.1"
+	VersionGamma = "1.0.0.2"
+	//todo:上线后需要修改
+	VersionSignatureGamma = "0x69bd3f6dbbca1012d7f68b5263900c9561da66b675088bc613460701c59b056e7b2695e1c3f84de28afd8f6797f1244bef1652a96d6cb58de151969cdc0956f700" //jerry
+	VersionNumGamma        = uint64(330003)
+	newP2PVersionTimeStamp = 1558346400
 )
 
 var VersionList [][]byte
 var VersionSignatureMap map[string][]common.Signature
 
 func init() {
-	VersionList = [][]byte{[]byte(VersionAlpha) /*[]byte(VersionBeta)*/}
+	VersionList = [][]byte{[]byte(VersionAlpha), []byte(VersionBeta), []byte(VersionGamma)}
 	VersionSignatureMap = make(map[string][]common.Signature)
-	//VersionSignatureMap[VersionBeta] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureBeta))}
+	VersionSignatureMap[VersionGamma] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureGamma))}
+}
+
+// version1 > version2 return 1
+// version1 = version2 return 0
+// version1 < version2 return -1
+func VersionCmp(version1 string, version2 string) int {
+	if version1 == version2 {
+		return 0
+	}
+	if version1 > version2 {
+		return 1
+	} else {
+		return -1
+	}
 }
 
 func IsCorrectVersion(version []byte) bool {
@@ -47,4 +64,7 @@ func GetVersionSignature(parentBlock *types.Block, version []byte) []common.Sign
 	}
 
 	return nil
+}
+func CanSwitchGammaCanonicalChain(currentTime int64) bool {
+	return currentTime > newP2PVersionTimeStamp
 }

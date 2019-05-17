@@ -38,7 +38,11 @@ var (
 
 	ManPrice *big.Int = big.NewInt(1e18)
 
+	ThousandthManPrice *big.Int = big.NewInt(1e15)
+
 	Precision *big.Int = big.NewInt(1)
+
+	CalcGamma = "2"
 )
 
 type ChainReader interface {
@@ -145,7 +149,7 @@ func CalcInterestReward(reward *big.Int, interest map[common.Address]*big.Int) m
 		log.ERROR(PackageName, "计算的总利息值非法", totalInterest)
 		return nil
 	}
-	log.Trace(PackageName, "计算的总利息值", totalInterest)
+	//log.Trace(PackageName, "计算的总利息值", totalInterest)
 
 	if 0 == reward.Cmp(big.NewInt(0)) {
 		log.ERROR(PackageName, "定点化奖励金额为0", "")
@@ -156,7 +160,7 @@ func CalcInterestReward(reward *big.Int, interest map[common.Address]*big.Int) m
 	for k, v := range interest {
 		temp := new(big.Int).Mul(reward, v)
 		rewards[k] = new(big.Int).Div(temp, totalInterest)
-		log.Trace(PackageName, "计算奖励金额,账户", k, "金额", rewards[k])
+		//log.Trace(PackageName, "计算奖励金额,账户", k, "金额", rewards[k])
 	}
 	return rewards
 }
@@ -384,13 +388,14 @@ func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutR
 	var err error
 	if TxsReward == rewardType {
 		version := matrixstate.GetVersionInfo(state)
-		if version == manparams.VersionAlpha {
+		switch version {
+		case manparams.VersionAlpha:
 			currentReward, err = matrixstate.GetPreMinerTxsReward(state)
 			if err != nil {
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
 				return nil, errors.New("获取矿工交易金额错误")
 			}
-		} else if version == manparams.VersionBeta {
+		case manparams.VersionBeta, manparams.VersionGamma:
 			multiCoin, err := matrixstate.GetPreMinerMultiCoinTxsReward(state)
 			if err != nil {
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
@@ -399,9 +404,8 @@ func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutR
 			for _, v := range multiCoin {
 				log.Trace(PackageName, "获取前一个矿工奖励值为", v.Reward, "type", v.CoinType)
 			}
-
 			return multiCoin, nil
-		} else {
+		default:
 			log.Error(PackageName, "获取前矿工奖励值版本号错误", version)
 		}
 	} else {
@@ -417,4 +421,11 @@ func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutR
 	multiCoinMinerOut = append(multiCoinMinerOut, minerOutReward)
 	return multiCoinMinerOut, nil
 
+}
+func GetPrice(calc string) *big.Int {
+	if calc >= CalcGamma {
+		return ThousandthManPrice
+	} else {
+		return ManPrice
+	}
 }

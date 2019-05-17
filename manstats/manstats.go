@@ -471,7 +471,7 @@ type blockStats struct {
 // txStats is the information to report about individual transactions.
 type txStats struct {
 	Currency string
-	Hashes []common.Hash `json:"hash"`
+	Hashes   []common.Hash `json:"hash"`
 }
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
@@ -521,12 +521,12 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		header = block.Header()
 		td = s.man.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
 		txs = make([]txStats, 0)
-		for _,curr := range block.Currencies(){
-			hashs := make([]common.Hash,0)
+		for _, curr := range block.Currencies() {
+			hashs := make([]common.Hash, 0)
 			for _, tx := range curr.Transactions.GetTransactions() {
-				hashs = append(hashs,tx.Hash())
+				hashs = append(hashs, tx.Hash())
 			}
-			txs = append(txs,txStats{Currency:curr.CurrencyName,Hashes:hashs})
+			txs = append(txs, txStats{Currency: curr.CurrencyName, Hashes: hashs})
 		}
 
 		uncles = block.Uncles()
@@ -535,16 +535,16 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	author, _ := s.engine.Author(header)
 
 	return &blockStats{
-		Number:            header.Number,
-		Hash:              header.Hash(),
-		ParentHash:        header.ParentHash,
-		Timestamp:         header.Time,
-		Miner:             author,
-		GasUsed:           header.GasUsed,
-		GasLimit:          header.GasLimit,
-		Diff:              header.Difficulty.String(),
-		TotalDiff:         td.String(),
-		Txs:               txs,
+		Number:     header.Number,
+		Hash:       header.Hash(),
+		ParentHash: header.ParentHash,
+		Timestamp:  header.Time,
+		Miner:      author,
+		GasUsed:    header.GasUsed,
+		GasLimit:   header.GasLimit,
+		Diff:       header.Difficulty.String(),
+		TotalDiff:  td.String(),
+		Txs:        txs,
 		//TxHash:            header.TxHash,
 		Root:              header.Roots,
 		Uncles:            uncles,

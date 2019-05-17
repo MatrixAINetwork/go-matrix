@@ -103,7 +103,7 @@ func (p *Process) sendHeaderVerifyReq(header *types.Header, txsCode []*common.Re
 		TxsCode:                txsCode,
 		ConsensusTurn:          p.consensusTurn,
 		OnlineConsensusResults: onlineConsensusResults,
-		From: ca.GetSignAddress(),
+		From:                   ca.GetSignAddress(),
 	}
 	//send to local block verify module
 	localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, OriginalTxs: originalTxs, FinalTxs: finalTxs, Receipts: receipts, State: stateDB}

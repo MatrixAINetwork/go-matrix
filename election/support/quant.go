@@ -3,6 +3,7 @@ package support
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
+	"math"
 	"math/big"
 )
 
@@ -68,10 +69,24 @@ func CalcValue(nodes []Node, role common.RoleType) []Pnormalized {
 		value += DefaultQuantificationRatio.Add_Online * self.OnlineTimeStake()
 		value += DefaultQuantificationRatio.Add_Deposit * self.DepositStake(role)
 		value *= (float64(item.Ratio) / float64(DefaultRatioDenominator))
-	//保护价值函数值
-	if 0 == value{
-		value = 1
+		//保护价值函数值
+		if 0 == value {
+			value = 1
+		}
+		CapitalMap = append(CapitalMap, Pnormalized{Addr: self.Address, Value: float64(value)})
 	}
+	return CapitalMap
+}
+
+func CalcValueEW(nodes []Node, stockExp float64) []Pnormalized {
+	var CapitalMap []Pnormalized
+	for _, item := range nodes {
+		self := SelfNodeInfo{Address: item.Address, Stk: item.Deposit, Uptime: item.OnlineTime.Uint64(), Tps: DefaultTps}
+		val := big.NewInt(0).Div(item.Deposit, big.NewInt(1e18)).Int64()
+		if val <= 0 {
+			val = 1
+		}
+		value := math.Pow(float64(val), stockExp)
 		CapitalMap = append(CapitalMap, Pnormalized{Addr: self.Address, Value: float64(value)})
 	}
 	return CapitalMap

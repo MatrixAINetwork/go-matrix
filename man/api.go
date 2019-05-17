@@ -26,13 +26,13 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 
+	"github.com/MatrixAINetwork/go-matrix/base58"
 	"github.com/MatrixAINetwork/go-matrix/man/wizard"
 	"github.com/MatrixAINetwork/go-matrix/miner"
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"github.com/MatrixAINetwork/go-matrix/rpc"
 	"github.com/MatrixAINetwork/go-matrix/trie"
-	"github.com/MatrixAINetwork/go-matrix/base58"
 )
 
 // PublicMatrixAPI provides an API to access Matrix full node-related
@@ -440,15 +440,15 @@ func NewPublicDebugAPI(man *Matrix) *PublicDebugAPI {
 }
 
 // DumpBlock retrieves the entire state of the database at a given block.
-func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber,cointyp string, addr string) ([]state.CoinDump, error) {
-	if cointyp != ""{
+func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber, cointyp string, addr string) ([]state.CoinDump, error) {
+	if cointyp != "" {
 		cointyp = strings.ToUpper(cointyp)
 	}
 	var address common.Address
-	if addr != ""{
-		tmpaddress,err := base58.Base58DecodeToAddress(addr)
-		if err != nil{
-			return nil,err
+	if addr != "" {
+		tmpaddress, err := base58.Base58DecodeToAddress(addr)
+		if err != nil {
+			return nil, err
 		}
 		address = tmpaddress
 	}

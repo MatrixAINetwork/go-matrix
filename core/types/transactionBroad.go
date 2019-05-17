@@ -83,19 +83,19 @@ func (tx *TransactionBroad) CheckNonce() bool   { return true }
 func (tx *TransactionBroad) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
 }
-func (tx *TransactionBroad) GetMakeHashfield(chid *big.Int )[]interface{}{
+func (tx *TransactionBroad) GetMakeHashfield(chid *big.Int) []interface{} {
 	return []interface{}{
-			tx.data.AccountNonce,
-			tx.data.Price,
-			tx.data.GasLimit,
-			tx.data.Recipient,
-			tx.data.Amount,
-			tx.data.Payload,
-			tx.data.Extra,
-			chid, uint(0), uint(0),
+		tx.data.AccountNonce,
+		tx.data.Price,
+		tx.data.GasLimit,
+		tx.data.Recipient,
+		tx.data.Amount,
+		tx.data.Payload,
+		tx.data.Extra,
+		chid, uint(0), uint(0),
 	}
 }
-func (tx *TransactionBroad) IsEntrustTx() bool { return tx.data.IsEntrustTx == 1 }
+func (tx *TransactionBroad) IsEntrustTx() bool            { return tx.data.IsEntrustTx == 1 }
 func (tx *TransactionBroad) Setentrustfrom(x interface{}) {}
 func (tx *TransactionBroad) GasFrom() common.Address {
 	return common.Address{}
@@ -180,9 +180,10 @@ func (tx *TransactionBroad) SetIsEntrustByTime(b bool) {
 }
 func (tx *TransactionBroad) SetIsEntrustByCount(b bool) {
 }
-func (tx *TransactionBroad) GetIsEntrustByCount()bool{
+func (tx *TransactionBroad) GetIsEntrustByCount() bool {
 	return false
 }
+
 //
 func (tx *TransactionBroad) SetTxS(S *big.Int) { tx.data.S = S }
 func (tx *TransactionBroad) To() *common.Address {

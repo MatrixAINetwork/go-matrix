@@ -106,7 +106,7 @@ func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num ui
 			}
 			curElect := make([]core.GenesisElect, 0)
 			for _, v := range elect.ElectList {
-				curElect = append(curElect, core.GenesisElect{Account: core.GenesisAddress(v.Account), Stock: v.Stock, Type: common.ElectRoleType(v.Type), VIP: v.VIPLevel})
+				curElect = append(curElect, core.GenesisElect{Account: core.GenesisAddress(v.Account), Stock: v.Stock, Type: v.Type.Transfer2ElectRole(), VIP: v.VIPLevel})
 			}
 			genesis.MState.CurElect = &curElect
 			genesis.NextElect = elect.TransferNextElect2CommonElect()
@@ -139,7 +139,7 @@ func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num ui
 			}
 			curElect := make([]core.GenesisElect, 0)
 			for _, v := range elect.ElectList {
-				curElect = append(curElect, core.GenesisElect{Account: core.GenesisAddress(v.Account), Stock: v.Stock, Type: common.ElectRoleType(v.Type), VIP: v.VIPLevel})
+				curElect = append(curElect, core.GenesisElect{Account: core.GenesisAddress(v.Account), Stock: v.Stock, Type: v.Type.Transfer2ElectRole(), VIP: v.VIPLevel})
 			}
 			genesis.MState.CurElect = &curElect
 			genesis.NextElect = elect.TransferNextElect2CommonElect()

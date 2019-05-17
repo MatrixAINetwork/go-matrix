@@ -5,11 +5,11 @@
 package types
 
 import (
+	"fmt"
+	"github.com/MatrixAINetwork/go-matrix/common"
 	"math/big"
 	"testing"
 	"time"
-	"fmt"
-	"github.com/MatrixAINetwork/go-matrix/common"
 )
 
 func TestBloom(t *testing.T) {
@@ -24,11 +24,11 @@ func TestBloom(t *testing.T) {
 		"lo",
 	}
 	time1 := time.Now().UnixNano()
-	for i:=0;i<10000;i++{
+	for i := 0; i < 10000; i++ {
 		DeriveShaHash([]common.Hash{})
 	}
 	time2 := time.Now().UnixNano()
-	fmt.Println(time2-time1)
+	fmt.Println(time2 - time1)
 	var bloom Bloom
 	for _, data := range positive {
 		bloom.Add(new(big.Int).SetBytes([]byte(data)))

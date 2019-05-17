@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/karalabe/hid"
 	matrix "github.com/MatrixAINetwork/go-matrix"
 	"github.com/MatrixAINetwork/go-matrix/accounts"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/karalabe/hid"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.

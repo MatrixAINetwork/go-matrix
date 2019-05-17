@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 )
@@ -181,5 +182,16 @@ func Test(t *testing.T) {
 	rand.Seed(-7711789739634500565)
 	for i := 0; i < 100; i++ {
 		fmt.Println("随机数2", rand.Uint64())
+	}
+}
+func TestPower(t *testing.T) {
+
+	data := make([]uint64, 10000)
+	for i := 1; i < 10000; i++ {
+		data[i] = uint64(i)
+	}
+
+	for i := 1; i < 10000; i++ {
+		math.Pow(float64(i), 1.3)
 	}
 }

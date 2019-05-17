@@ -80,12 +80,14 @@ func (dc *cdc) AnalysisState(parentHeader *types.Header, parentState StateReader
 	}
 
 	if err := dc.leaderCal.SetValidatorsAndSpecials(parentHeader, validators, specials, bcInterval); err != nil {
+		log.Warn(dc.logInfo, "SetValidatorsAndSpecials err", err)
 		return err
 	}
 
 	consensusIndex := dc.curConsensusTurn.TotalTurns()
 	consensusLeader, err := dc.GetLeader(consensusIndex, bcInterval)
 	if err != nil {
+		log.Warn(dc.logInfo, "dc.GetLeader() err", err)
 		return err
 	}
 	if dc.curReelectTurn != 0 {

@@ -71,8 +71,8 @@ func (p *ManBlkBasePlug) setVersion(header *types.Header, parent *types.Block, v
 func (p *ManBlkBasePlug) setSignatures(header *types.Header) {
 	header.Signatures = make([]common.Signature, 0)
 }
-func (bd *ManBlkBasePlug) setTopology(support BlKSupport, parentHash common.Hash, header *types.Header, interval *mc.BCIntervalInfo, num uint64) ([]*mc.HD_OnlineConsensusVoteResultMsg, error) {
-	NetTopology, onlineConsensusResults := support.ReElection().GetNetTopology(num, parentHash, interval)
+func (bd *ManBlkBasePlug) setTopology(support BlKSupport, version string, parentHash common.Hash, header *types.Header, interval *mc.BCIntervalInfo, num uint64) ([]*mc.HD_OnlineConsensusVoteResultMsg, error) {
+	NetTopology, onlineConsensusResults := support.ReElection().GetNetTopology(num, version, parentHash, interval)
 	if nil == NetTopology {
 		NetTopology = &common.NetTopology{common.NetTopoTypeChange, nil}
 	}
@@ -187,7 +187,7 @@ func (bd *ManBlkBasePlug) Prepare(version string, support BlKSupport, interval *
 	bd.setNumber(originHeader, num)
 	bd.setGasLimit(originHeader, parent)
 	bd.setExtra(originHeader)
-	onlineConsensusResults, _ := bd.setTopology(support, parent.Hash(), originHeader, interval, num)
+	onlineConsensusResults, _ := bd.setTopology(support, version, parent.Hash(), originHeader, interval, num)
 	bd.setSignatures(originHeader)
 	err = bd.setVrf(support, parent, originHeader)
 	if nil != err {
@@ -214,12 +214,18 @@ func (bd *ManBlkBasePlug) ProcessState(support BlKSupport, header *types.Header,
 		log.ERROR(LogManBlk, "状态树更新版本号失败", err, "高度", header.Number.Uint64())
 		return nil, nil, nil, nil, nil, nil, err
 	}
+
+	if err = support.BlockChain().ProcessStateVersionSwitch(header.Number.Uint64(), work.State); err != nil {
+		log.ERROR(LogManBlk, "状态树版本号切换更新状态树", err, "高度", header.Number.Uint64())
+		return nil, nil, nil, nil, nil, nil, err
+	}
+
 	upTimeMap, err := support.BlockChain().ProcessUpTime(work.State, header)
 	if err != nil {
 		log.ERROR(LogManBlk, "执行uptime错误", err, "高度", header.Number)
 		return nil, nil, nil, nil, nil, nil, err
 	}
-	err = support.BlockChain().ProcessBlockGProduceSlash(work.State, header)
+	err = support.BlockChain().ProcessBlockGProduceSlash(string(header.Version), work.State, header)
 	if err != nil {
 		log.ERROR(LogManBlk, "执行区块惩罚处理错误", err, "高度", header.Number)
 		return nil, nil, nil, nil, nil, nil, err
@@ -278,7 +284,7 @@ func (bd *ManBlkBasePlug) VerifyHeader(version string, support BlKSupport, heade
 		}
 
 	}
-	if err := support.ReElection().VerifyNetTopology(header, onlineConsensusResults); err != nil {
+	if err := support.ReElection().VerifyNetTopology(version, header, onlineConsensusResults); err != nil {
 		log.ERROR(LogManBlk, "验证拓扑信息失败", err, "高度", header.Number.Uint64())
 		return nil, err
 	}
@@ -314,12 +320,17 @@ func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *ty
 		log.ERROR(LogManBlk, "状态树更新版本号失败", err, "高度", verifyHeader.Number.Uint64())
 		return nil, nil, nil, nil, err
 	}
+	if err = support.BlockChain().ProcessStateVersionSwitch(verifyHeader.Number.Uint64(), work.State); err != nil {
+		log.ERROR(LogManBlk, "状态树版本号切换更新状态树", err, "高度", verifyHeader.Number.Uint64())
+		return nil, nil, nil, nil, err
+	}
+
 	uptimeMap, err := support.BlockChain().ProcessUpTime(work.State, localHeader)
 	if err != nil {
 		log.Error(LogManBlk, "uptime处理错误", err)
 		return nil, nil, nil, nil, err
 	}
-	err = support.BlockChain().ProcessBlockGProduceSlash(work.State, localHeader)
+	err = support.BlockChain().ProcessBlockGProduceSlash(string(verifyHeader.Version), work.State, localHeader)
 	if err != nil {
 		log.Error(LogManBlk, "区块生产惩罚处理错误", err)
 		return nil, nil, nil, nil, err
@@ -344,8 +355,8 @@ func (bd *ManBlkBasePlug) VerifyTxsAndState(support BlKSupport, verifyHeader *ty
 		return nil, nil, nil, nil, err
 	}
 	// 运行完matrix state后，生成root
-	ncb:=types.MakeCurencyBlock(finalTxs, work.Receipts, nil)
-	localBlock, err = support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), localHeader, work.State, nil,ncb)
+	ncb := types.MakeCurencyBlock(finalTxs, work.Receipts, nil)
+	localBlock, err = support.BlockChain().Engine(verifyHeader.Version).Finalize(support.BlockChain(), localHeader, work.State, nil, ncb)
 	if err != nil {
 		log.ERROR(LogManBlk, "matrix状态验证,错误", "Failed to finalize block for sealing", "err", err)
 		return nil, nil, nil, nil, err

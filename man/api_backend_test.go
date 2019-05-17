@@ -20813,11 +20813,11 @@ func TestManAPIBackend_GetFutureRewards(t *testing.T) {
 		BackupRewardRate:       BackupRate,
 	}
 	brc := &mc.BlkRewardCfg{
-		MinerMount:           2000,
+		MinerMount:              2000,
 		MinerAttenuationNum:     halfNumber,
-		ValidatorMount:       2000,
+		ValidatorMount:          2000,
 		ValidatorAttenuationNum: halfNumber,
-		RewardRate:           rrc,
+		RewardRate:              rrc,
 	}
 	matrixstate.SetBlkRewardCfg(state, brc)
 	matrixstate.SetInterestCalc(state, "1")
@@ -20984,11 +20984,11 @@ func TestManAPIBackend_GetFutureRewards2(t *testing.T) {
 		BackupRewardRate:       BackupRate,
 	}
 	brc := &mc.BlkRewardCfg{
-		MinerMount:           2,
+		MinerMount:              2,
 		MinerAttenuationNum:     halfNumber,
-		ValidatorMount:       2,
+		ValidatorMount:          2,
 		ValidatorAttenuationNum: halfNumber,
-		RewardRate:           rrc,
+		RewardRate:              rrc,
 	}
 	matrixstate.SetBlkRewardCfg(state, brc)
 	matrixstate.SetInterestCalc(state, "1")

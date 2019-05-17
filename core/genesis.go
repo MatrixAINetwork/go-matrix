@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/MatrixAINetwork/go-matrix/base58"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 	"github.com/MatrixAINetwork/go-matrix/common/math"
@@ -21,10 +22,9 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
-	"github.com/MatrixAINetwork/go-matrix/mc"
-	"github.com/MatrixAINetwork/go-matrix/base58"
 	"sort"
 )
 
@@ -58,22 +58,23 @@ type Genesis struct {
 	MState     *GenesisMState `json:"mstate"    gencodec:"required"`
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
-	Number     uint64            `json:"number"`
-	GasUsed    uint64            `json:"gasUsed"`
-	ParentHash common.Hash       `json:"parentHash"`
-	Roots      []common.CoinRoot `json:"stateRoot"        gencodec:"required"`
-	Sharding   []common.Coinbyte `json:"sharding,omitempty"`
+	Number     uint64                        `json:"number"`
+	GasUsed    uint64                        `json:"gasUsed"`
+	ParentHash common.Hash                   `json:"parentHash"`
+	Roots      []common.CoinRoot             `json:"stateRoot"        gencodec:"required"`
+	Sharding   []common.Coinbyte             `json:"sharding,omitempty"`
 	Currencys  map[string][]Genesiscurrencys `json:"currencys"`
 }
 
 type Genesiscurrencys struct {
 	Account string
-	Quant *big.Int
+	Quant   *big.Int
 }
-func (gc Genesiscurrencys) MarshalJSON()([]byte, error){
+
+func (gc Genesiscurrencys) MarshalJSON() ([]byte, error) {
 	type Genesiscurrencys struct {
-		Account string                      `json:"Account" gencodec:"required"`
-		Quant    *math.HexOrDecimal256       `json:"Quant" gencodec:"required"`
+		Account string                `json:"Account" gencodec:"required"`
+		Quant   *math.HexOrDecimal256 `json:"Quant" gencodec:"required"`
 	}
 	var enc Genesiscurrencys
 	enc.Account = gc.Account
@@ -82,8 +83,8 @@ func (gc Genesiscurrencys) MarshalJSON()([]byte, error){
 }
 func (g *Genesiscurrencys) UnmarshalJSON(input []byte) error {
 	type Genesiscurrencys struct {
-		Account string                      `json:"Account" gencodec:"required"`
-		Quant    *math.HexOrDecimal256       `json:"Quant" gencodec:"required"`
+		Account string                `json:"Account" gencodec:"required"`
+		Quant   *math.HexOrDecimal256 `json:"Quant" gencodec:"required"`
 	}
 	var dec Genesiscurrencys
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -246,35 +247,36 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return params.AllManashProtocolChanges
 	}
 }
-func sortMapByString(tmpMap map[string][]Genesiscurrencys) []string{
-	clist := make([]string,0,len(tmpMap))
-	for k,_:=range tmpMap{
-		clist = append(clist,k)
+func sortMapByString(tmpMap map[string][]Genesiscurrencys) []string {
+	clist := make([]string, 0, len(tmpMap))
+	for k, _ := range tmpMap {
+		clist = append(clist, k)
 	}
 	sort.Strings(clist)
 	return clist
 }
+
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 	if db == nil {
 		db = mandb.NewMemDatabase()
 	}
-	roots:=make([]common.CoinRoot,0,len(g.Currencys)+1)
+	roots := make([]common.CoinRoot, 0, len(g.Currencys)+1)
 	roots = append(roots, common.CoinRoot{Cointyp: params.MAN_COIN, Root: common.Hash{}})
 	var coinlist []string
 	var coincfglist []common.CoinConfig
-	if len(g.Currencys) > 0{
-		for _,coinname := range sortMapByString(g.Currencys){
+	if len(g.Currencys) > 0 {
+		for _, coinname := range sortMapByString(g.Currencys) {
 			roots = append(roots, common.CoinRoot{Cointyp: coinname, Root: common.Hash{}})
 			coinlist = append(coinlist, coinname)
 			allAmount := new(big.Int)
-			for _,cuff := range g.Currencys[coinname]{
-				allAmount = new(big.Int).Add(allAmount,cuff.Quant)
+			for _, cuff := range g.Currencys[coinname] {
+				allAmount = new(big.Int).Add(allAmount, cuff.Quant)
 			}
-			coincfglist = append(coincfglist,common.CoinConfig{CoinType:coinname,CoinTotal:(*hexutil.Big)(allAmount),
-				PackNum:params.CallTxPachNum,CoinUnit:(*hexutil.Big)(new(big.Int).SetUint64(params.CoinTypeUnit)),
-				CoinAddress:common.TxGasRewardAddress,CoinRange:coinname})
+			coincfglist = append(coincfglist, common.CoinConfig{CoinType: coinname, CoinTotal: (*hexutil.Big)(allAmount),
+				PackNum: params.CallTxPachNum, CoinUnit: (*hexutil.Big)(new(big.Int).SetUint64(params.CoinTypeUnit)),
+				CoinAddress: common.TxGasRewardAddress, CoinRange: coinname})
 		}
 	}
 	statedb, _ := state.NewStateDBManage(roots, db, state.NewDatabase(db))
@@ -291,14 +293,14 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 	statedb.SetMatrixData(key, coinby)
 	coinCfgbs, _ := json.Marshal(coincfglist)
 	statedb.SetMatrixData(types.RlpHash(common.COINPREFIX+mc.MSCurrencyConfig), coinCfgbs)
-	for _,cname := range sortMapByString(g.Currencys){
-		for _,cuff := range g.Currencys[cname]{
-			addr,err:= base58.Base58DecodeToAddress(cuff.Account)
-			if err != nil{
+	for _, cname := range sortMapByString(g.Currencys) {
+		for _, cuff := range g.Currencys[cname] {
+			addr, err := base58.Base58DecodeToAddress(cuff.Account)
+			if err != nil {
 				continue
 			}
 			//tmpval,_:=new(big.Int).SetString(cuff.Quant,0)
-			statedb.AddBalance(cname,common.MainAccount,addr,cuff.Quant)
+			statedb.AddBalance(cname, common.MainAccount, addr, cuff.Quant)
 		}
 	}
 	if nil == g.MState {
@@ -603,7 +605,7 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 			common.BytesToAddress([]byte{6}): {Balance: big.NewInt(1)}, // ECAdd
 			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
 			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
-			faucet: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
+			faucet:                           {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
 		},
 	}
 }

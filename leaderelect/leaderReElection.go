@@ -9,6 +9,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 )
 
@@ -194,6 +195,11 @@ func (self *LeaderIdentity) blockPOSFinishedMsgHandle(msg *mc.BlockPOSFinishedNo
 	}
 	if (msg.Header.Leader == common.Address{}) {
 		log.Error(self.extraInfo, "区块POS完成消息处理", "错误", "消息不合法", ErrMsgAccountIsNull)
+		return
+	}
+
+	if manparams.VersionCmp(string(msg.Header.Version), manparams.VersionGamma) >= 0 {
+		log.Trace(self.extraInfo, "区块POS完成消息处理", "版本号不匹配, 不处理消息", "header version", string(msg.Header.Version), "number", msg.Header.Number)
 		return
 	}
 

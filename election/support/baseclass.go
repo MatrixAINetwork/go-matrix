@@ -8,7 +8,9 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/mt19937"
 	"github.com/MatrixAINetwork/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"math"
 	"math/big"
 	"math/rand"
 )
@@ -16,6 +18,7 @@ import (
 const (
 	DefaultMinerStock = 1
 )
+
 type RatioList struct {
 	MinNum uint64
 	Ratio  float64
@@ -42,15 +45,15 @@ type Strallyint struct {
 }
 
 type Node struct {
-	Address    common.Address
+	Address     common.Address
 	SignAddress common.Address
-	Deposit    *big.Int
-	WithdrawH  *big.Int
-	OnlineTime *big.Int
-	Ratio      uint16
-	vipLevel   common.VIPRoleType
-	index      int
-	Usable     bool
+	Deposit     *big.Int
+	WithdrawH   *big.Int
+	OnlineTime  *big.Int
+	Ratio       uint16
+	vipLevel    common.VIPRoleType
+	index       int
+	Usable      bool
 }
 
 type Electoion struct {
@@ -65,7 +68,8 @@ type Electoion struct {
 	NeedNum                    int
 	HasChosedNode              [][]Strallyint
 	MapMoney                   map[common.Address]uint64
-	BlockProduceSlashBlackList []common.Address
+	BlockProduceSlashBlackList mc.BlockProduceSlashBlackList
+	BlockBlackProc             *BlockProduceProc
 }
 
 func (node *Node) SetUsable(status bool) {
@@ -217,6 +221,60 @@ func (vip *Electoion) ProcessBlackNode() {
 	}
 }
 
+func (vip *Electoion) GetMinSuperNodeAmount() (bool, uint64) {
+	L := len(vip.HasChosedNode[0])
+
+	if L == 0 {
+		return false, 1
+	}
+
+	minv, _ := vip.MapMoney[vip.HasChosedNode[0][0].Addr]
+	for i := 1; i < L; i++ {
+		amount, _ := vip.MapMoney[vip.HasChosedNode[0][i].Addr]
+		if amount < minv {
+			minv = amount
+		}
+	}
+	return true, minv
+}
+
+func stockProtect(stock int) int {
+	if stock == 0 {
+		stock = 1
+	}
+	if stock > 0xFFFF {
+		stock = 0xFFFF
+	}
+	return stock
+}
+func (vip *Electoion) SuperNodeStockProc(randSuperNodeStock map[common.Address]int, stockExp float64) {
+	//no supernode , ignore
+	if len(vip.HasChosedNode[0]) == 0 {
+		return
+	}
+
+	//no rand sample case : All mortgages are the same. fix stock 1000;
+	if len(vip.HasChosedNode[1]) == 0 {
+		_, minSuperNodeAmount := vip.GetMinSuperNodeAmount()
+		for i := 0; i < len(vip.HasChosedNode[0]); i++ {
+			factor := math.Pow(float64(vip.MapMoney[vip.HasChosedNode[0][i].Addr])/float64(minSuperNodeAmount), stockExp)
+			stock := int(factor*100 + 0.5)
+			stock = stockProtect(stock)
+			vip.HasChosedNode[0][i].Value = stock
+		}
+	} else {
+		for i := 0; i < len(vip.HasChosedNode[0]); i++ {
+			address := vip.HasChosedNode[0][i].Addr
+			stock := 1
+			if value, ok := randSuperNodeStock[address]; ok{
+				stock = value
+			}
+			stock = stockProtect(stock)
+			vip.HasChosedNode[0][i].Value = stock
+		}
+	}
+}
+
 func (vip *Electoion) GetVipStock(addr common.Address) int {
 	stockSum := int(0)
 	stockDespoit := uint64(0)
@@ -245,12 +303,41 @@ func (vip *Electoion) GetVipStock(addr common.Address) int {
 	return ratio
 
 }
-func (vip *Electoion) ProcessWhiteNode() {
-		for k, v := range vip.NodeList {
-			if !FindAddress(v.Address, vip.EleCfg.WhiteList) {
-				vip.NodeList[k].SetUsable(false)
-			}
+
+type BlockProduceProc struct {
+	addressMap map[common.Address]int
+	List       []mc.UserBlockProduceSlash
+}
+
+func NewBlockProduceProc(blackList mc.BlockProduceSlashBlackList) *BlockProduceProc {
+	s := &BlockProduceProc{make(map[common.Address]int), make([]mc.UserBlockProduceSlash, 0, 0)}
+	if blackList.BlackList != nil {
+		for k, v := range blackList.BlackList {
+			s.addressMap[v.Address] = k
+			s.List = append(s.List, v)
 		}
+	}
+	return s
+}
+func (s *BlockProduceProc) IsBlackList(address common.Address) (int, bool) {
+	k, ok := s.addressMap[address]
+	return k, ok
+}
+
+func (s *BlockProduceProc) DecrementCount(address common.Address) {
+	if k, ok := s.addressMap[address]; ok {
+		if s.List[k].ProhibitCycleCounter > 0 {
+			s.List[k].ProhibitCycleCounter = s.List[k].ProhibitCycleCounter - 1
+		}
+	}
+}
+
+func (vip *Electoion) ProcessWhiteNode() {
+	for k, v := range vip.NodeList {
+		if !FindAddress(v.Address, vip.EleCfg.WhiteList) {
+			vip.NodeList[k].SetUsable(false)
+		}
+	}
 }
 func (vip *Electoion) GetNodeByAccount(address common.Address) (int, bool) {
 	for k, v := range vip.NodeList {
@@ -271,6 +358,81 @@ func (vip *Electoion) GetNodeByLevel(level common.VIPRoleType) []Node {
 		}
 	}
 	return specialNode
+}
+func (vip *Electoion) FilterBlockSlashList() {
+	for i := 0; i < len(vip.NodeList); i++ {
+		if _, ok := vip.BlockBlackProc.IsBlackList(vip.NodeList[i].Address); ok {
+			vip.NodeList[i].Usable = false
+		}
+	}
+}
+func (vip *Electoion) GetUsableNode() []Node {
+	usableNodeList := make([]Node, 0)
+	for i := 0; i < len(vip.NodeList); i++ {
+		if vip.NodeList[i].Usable == false {
+			continue
+		}
+		usableNodeList = append(usableNodeList, vip.NodeList[i])
+	}
+	return usableNodeList
+}
+func superNodePrePorc(nodeList []Node, superThreshold int64) []Node {
+	superNode := make([]Node, 0)
+
+	if nodeList == nil {
+		return superNode
+	}
+	acc := big.NewInt(0)
+	for _, v := range nodeList {
+		if v.Usable {
+			acc.Add(acc, v.Deposit)
+		}
+	}
+
+	fac := big.NewInt(superThreshold)
+	for _, v := range nodeList {
+		if v.Usable == false {
+			continue
+		}
+
+		if big.NewInt(0).Mul(v.Deposit, fac).Cmp(acc) >= 0 {
+			superNode = append(superNode, v)
+		}
+	}
+	return superNode
+}
+func (vip *Electoion) GenSuperNode(superThreshold int64) ([]Strallyint, []Node) {
+	vipNodeMap := make(map[common.Address]int)
+
+	for k, v := range vip.NodeList {
+		vipNodeMap[v.Address] = k
+	}
+	//pre get super node
+	preSuperNode := superNodePrePorc(vip.NodeList, superThreshold)
+
+	//set all nodes usable
+	for _, v := range preSuperNode {
+		if index, ok := vipNodeMap[v.Address]; ok {
+			vip.NodeList[index].SetUsable(false)
+		} else {
+			log.ERROR("Election Module", "Pre SuperNode Invalid", v.Address.String())
+		}
+	}
+
+	//Exclude BlockSlashBlackList From pre-superNode
+	superNodeS := make([]Strallyint, 0, len(preSuperNode))
+	superNodeN := make([]Node, 0,  len(preSuperNode))
+	for _, v := range preSuperNode {
+		if _, ok := vip.BlockBlackProc.IsBlackList(v.Address); ok {
+			vip.BlockBlackProc.DecrementCount(v.Address)
+			log.Trace("Layered_BSS", "SuperNode", v.Address.String(), "Elect Slash", true)
+		} else {
+			log.Trace("Layered_BSS", "SuperNode", v.Address.String(), "Elect Slash", false)
+			superNodeS = append(superNodeS, Strallyint{Value: 1, Addr: v.Address, VIPLevel: common.VIP_1})
+			superNodeN = append(superNodeN, v)
+		}
+	}
+	return superNodeS, superNodeN
 }
 
 func (vip *Electoion) GetNodeIndexByLevel(level common.VIPRoleType) []int {
@@ -317,6 +479,10 @@ func (vip *Electoion) GetIndex(addr common.Address) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func (vip *Electoion) SetBlockBlackList(list mc.BlockProduceSlashBlackList) {
+	vip.BlockBlackProc = NewBlockProduceProc(list)
 }
 
 type SortNodeList []Node

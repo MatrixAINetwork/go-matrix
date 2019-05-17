@@ -9,8 +9,8 @@ import (
 	uurl "net/url"
 	"time"
 
-	"github.com/influxdata/influxdb/client"
 	"github.com/MatrixAINetwork/go-matrix/metrics"
+	"github.com/influxdata/influxdb/client"
 )
 
 type reporter struct {

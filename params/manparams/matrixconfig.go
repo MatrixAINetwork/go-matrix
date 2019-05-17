@@ -5,15 +5,15 @@
 package manparams
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/MatrixAINetwork/go-matrix/base58"
+	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"io/ioutil"
 	"os"
-	"github.com/MatrixAINetwork/go-matrix/common"
-	"github.com/MatrixAINetwork/go-matrix/base58"
-	"bufio"
 )
 
 const (
@@ -41,10 +41,11 @@ const (
 	EveryBroadcastSeed                   = "everybroadcastseed"
 	EveryBroadcastSeed_Plug_MaxNonce     = "MaxNonce"
 
-	ElectPlug_layerd = "layerd"
-	ElectPlug_stock  = "stock"
-	ELectPlug_direct = "direct"
+	ElectPlug_layerd    = "layerd"
+	ElectPlug_stock     = "stock"
+	ELectPlug_direct    = "direct"
 	ElectPlug_layerdMEP = "layerd_MEP"
+	ElectPlug_layerdBSS = "layerd_BSS"
 )
 
 var (
@@ -77,13 +78,13 @@ func Config_Init(Config_PATH string) {
 		fmt.Println("无bootnode节点")
 		os.Exit(-1)
 	}
-	if len(v.ConsensusAccount) > 0{
-		for _,consensusmanaddr := range v.ConsensusAccount{
-			tmpaccount,err := base58.Base58DecodeToAddress(consensusmanaddr)
-			if err == nil{
-				common.ConsensusAccounts = append(common.ConsensusAccounts,tmpaccount) //协商的用于发送黑名单账户列表
-			}else{
-				log.Error("协商账户格式错误","err",err)
+	if len(v.ConsensusAccount) > 0 {
+		for _, consensusmanaddr := range v.ConsensusAccount {
+			tmpaccount, err := base58.Base58DecodeToAddress(consensusmanaddr)
+			if err == nil {
+				common.ConsensusAccounts = append(common.ConsensusAccounts, tmpaccount) //协商的用于发送黑名单账户列表
+			} else {
+				log.Error("协商账户格式错误", "err", err)
 			}
 		}
 	}
@@ -91,29 +92,28 @@ func Config_Init(Config_PATH string) {
 }
 
 func ReadBlacklist(path string) {
-	file,err := os.Open(path)
-	if err == nil{
+	file, err := os.Open(path)
+	if err == nil {
 		reader := bufio.NewReader(file)
-		for{
-			buf,_,err := reader.ReadLine()
-			if err != nil{
+		for {
+			buf, _, err := reader.ReadLine()
+			if err != nil {
 				break
 			}
-			addr,err := base58.Base58DecodeToAddress(string(buf))
-			if err != nil{
-				log.Error("ReadBlacklist","black format error",string(buf))
+			addr, err := base58.Base58DecodeToAddress(string(buf))
+			if err != nil {
+				log.Error("ReadBlacklist", "black format error", string(buf))
 				continue
 			}
-			common.BlackListString = append(common.BlackListString,string(buf))
-			common.BlackList = append(common.BlackList,addr)
+			common.BlackListString = append(common.BlackListString, string(buf))
+			common.BlackList = append(common.BlackList, addr)
 		}
 	}
 	file.Close()
 }
 
-
 type Config struct {
-	BootNode []string
+	BootNode         []string
 	ConsensusAccount []string
 }
 

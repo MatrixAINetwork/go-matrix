@@ -319,18 +319,19 @@ func (p *StateProcessor) checkCoinShard(coinShard []common.CoinSharding) []commo
 	return coinShard
 }
 func myCoinsort(coins []string) []string {
-	coinsnoman := make([]string,0,len(coins))
-	retCoins := make([]string,0,len(coins))
-	for _,coinname := range coins{
-		if coinname == params.MAN_COIN{
+	coinsnoman := make([]string, 0, len(coins))
+	retCoins := make([]string, 0, len(coins))
+	for _, coinname := range coins {
+		if coinname == params.MAN_COIN {
 			continue
 		}
-		coinsnoman = append(coinsnoman,coinname)
+		coinsnoman = append(coinsnoman, coinname)
 	}
-	retCoins = append(retCoins,params.MAN_COIN)
-	retCoins = append(retCoins,coinsnoman...)
+	retCoins = append(retCoins, params.MAN_COIN)
+	retCoins = append(retCoins, coinsnoman...)
 	return retCoins
 }
+
 // Process processes the state changes according to the Matrix rules by running
 // the transaction messages using the statedb and applying any rewards to both
 // the processor (coinbase) and any included uncles.
@@ -430,8 +431,8 @@ func (p *StateProcessor) ProcessTxs(block *types.Block, statedb *state.StateDBMa
 						tx.Setentrustfrom(entrustFrom)
 						tx.SetIsEntrustGas(true)
 						tx.SetIsEntrustByTime(true)
-					}else{
-						entrustFrom := statedb.GetGasAuthFromByCount(tx.GetTxCurrency(),from)
+					} else {
+						entrustFrom := statedb.GetGasAuthFromByCount(tx.GetTxCurrency(), from)
 						if !entrustFrom.Equal(common.Address{}) {
 							tx.Setentrustfrom(entrustFrom)
 							tx.SetIsEntrustGas(true)
@@ -481,13 +482,13 @@ func (p *StateProcessor) ProcessTxs(block *types.Block, statedb *state.StateDBMa
 	}
 	//statedb.Finalise("MAN",true)
 	rewarts := p.ProcessReward(statedb, block.Header(), upTime, from, retAllGas)
-	tmpmapcoin := make(map[string]bool)//为了拿到币种,v值无意义
-	for _,rewart := range rewarts{
+	tmpmapcoin := make(map[string]bool) //为了拿到币种,v值无意义
+	for _, rewart := range rewarts {
 		tmpmapcoin[rewart.CoinRange] = true
 	}
-	tmpcoins := make([]string,0)
-	for rewardCoinname,_ := range tmpmapcoin{
-		tmpcoins = append(tmpcoins,rewardCoinname)
+	tmpcoins := make([]string, 0)
+	for rewardCoinname, _ := range tmpmapcoin {
+		tmpcoins = append(tmpcoins, rewardCoinname)
 	}
 	coins = myCoinsort(tmpcoins)
 
@@ -537,7 +538,7 @@ func (p *StateProcessor) ProcessTxs(block *types.Block, statedb *state.StateDBMa
 		tmpMaptx[coinname] = ftxs
 	}
 
-	statedb.Finalise("",true)
+	statedb.Finalise("", true)
 	currblock := make([]types.CurrencyBlock, 0, len(block.Currencies()))
 	for i, bc := range block.Currencies() {
 		if !isvadter {
@@ -608,16 +609,21 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 		return nil, nil, 0, err
 	}
 
+	if err = p.bc.ProcessStateVersionSwitch(block.NumberU64(), statedb); err != nil {
+		log.Trace("BlockChain insertChain in3 Process Block err1")
+		return nil, nil, 0, err
+	}
+
 	uptimeMap, err := p.bc.ProcessUpTime(statedb, block.Header())
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err1")
+		log.Trace("BlockChain insertChain in3 Process Block err2")
 		p.bc.reportBlock(block, nil, err)
 		return nil, nil, 0, err
 	}
 
-	err = p.bc.ProcessBlockGProduceSlash(statedb, block.Header())
+	err = p.bc.ProcessBlockGProduceSlash(string(block.Version()), statedb, block.Header())
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err2")
+		log.Trace("BlockChain insertChain in3 Process Block err3")
 		p.bc.reportBlock(block, nil, err)
 		return nil, nil, 0, err
 	}
@@ -625,7 +631,7 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 	// Process block using the parent state as reference point.
 	logs, usedGas, err := p.ProcessTxs(block, statedb, cfg, uptimeMap)
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err3")
+		log.Trace("BlockChain insertChain in3 Process Block err4")
 		p.bc.reportBlock(block, nil, err)
 		return nil, logs, usedGas, err
 	}
@@ -633,7 +639,7 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 	// Process matrix state
 	err = p.bc.matrixProcessor.ProcessMatrixState(block, string(parent.Version()), statedb)
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err4")
+		log.Trace("BlockChain insertChain in3 Process Block err5")
 		return nil, logs, usedGas, err
 	}
 
@@ -676,9 +682,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		}
 	} else {
 		_, gas, failed, shardings, err = ApplyMessage(vmenv, tx, gp)
-		if tx.IsEntrustTx() && tx.GetIsEntrustByCount(){
-			statedb.GasAuthCountSubOne(tx.GetTxCurrency(),from) //授权次数减1
-			statedb.GasEntrustCountSubOne(tx.GetTxCurrency(),tx.AmontFrom()) //委托次数减1
+		if tx.IsEntrustTx() && tx.GetIsEntrustByCount() {
+			statedb.GasAuthCountSubOne(tx.GetTxCurrency(), from)              //授权次数减1
+			statedb.GasEntrustCountSubOne(tx.GetTxCurrency(), tx.AmontFrom()) //委托次数减1
 		}
 		if err != nil {
 			return nil, 0, nil, err

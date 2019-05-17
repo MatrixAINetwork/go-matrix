@@ -1,6 +1,6 @@
-// Copyright (c) 2018 The MATRIX Authors
+// Copyright (c) 2018 The MATRIX Authors
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or or http://www.opensource.org/licenses/mit-license.php
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 
 // Package utils contains internal helper functions for go-matrix commands.
 package utils
@@ -167,6 +167,11 @@ var (
 		Name:  "gcmode",
 		Usage: `Blockchain garbage collection mode ("full", "archive")`,
 		Value: "archive",
+	}
+	DbTableSizeFlag = cli.IntFlag{
+		Name:  "dbsize",
+		Usage: "db store size ",
+		Value: 2,
 	}
 	LightServFlag = cli.IntFlag{
 		Name:  "lightserv",

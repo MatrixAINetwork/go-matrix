@@ -154,7 +154,7 @@ func encodeVerifiedBlock(req *mc.HD_BlkConsensusReqMsg, txs []types.CoinSelfTran
 	if req == nil {
 		return nil, errors.New("req msg is nil")
 	}
-	txss:=types.GetTX(txs)
+	txss := types.GetTX(txs)
 	txSize := req.TxsCodeCount()
 	if txSize != len(txss) {
 		return nil, errors.New("txs count is not match txCodes count")

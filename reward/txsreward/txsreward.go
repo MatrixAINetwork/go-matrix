@@ -71,7 +71,7 @@ func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB, ppreSt uti
 		log.Error(PackageName, "获取前一个矿工奖励错误", err)
 	}
 
-	cfg := cfg.New(&mc.BlkRewardCfg{RewardRate: rate}, nil, preMiner, innerMinerAccounts, util.TxsReward)
+	cfg := cfg.New(&mc.BlkRewardCfg{RewardRate: rate}, nil, preMiner, innerMinerAccounts, util.TxsReward, data)
 	cfg.ValidatorsRate = TC.ValidatorsRate
 	cfg.MinersRate = TC.MinersRate
 	return rewardexec.New(chain, cfg, st, interval, foundationAccount, currentTop, originElectNodes)

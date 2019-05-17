@@ -222,11 +222,11 @@ func ReadBody(db DatabaseReader, hash common.Hash, number uint64) *types.Body {
 // WriteBody storea a block body into the database.
 func WriteBody(db DatabaseWriter, hash common.Hash, number uint64, body *types.Body) {
 	var tempBody types.Body
-	tempBody.CurrencyBody = make([]types.CurrencyBlock,len(body.CurrencyBody))
-	tempBody.Uncles = make([]*types.Header,len(body.Uncles))
-	copy(tempBody.CurrencyBody,body.CurrencyBody)
-	copy(tempBody.Uncles,body.Uncles)
-	for i,_ := range tempBody.CurrencyBody{
+	tempBody.CurrencyBody = make([]types.CurrencyBlock, len(body.CurrencyBody))
+	tempBody.Uncles = make([]*types.Header, len(body.Uncles))
+	copy(tempBody.CurrencyBody, body.CurrencyBody)
+	copy(tempBody.Uncles, body.Uncles)
+	for i, _ := range tempBody.CurrencyBody {
 		tempBody.CurrencyBody[i].Receipts = types.BodyReceipts{}
 	}
 	data, err := rlp.EncodeToBytes(tempBody)
@@ -291,13 +291,13 @@ func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) []types.Co
 		log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
 		return nil
 	}
-	creceipts := make([]types.CoinReceipts,0)
+	creceipts := make([]types.CoinReceipts, 0)
 	for _, receipt := range cr {
-		receipts :=make(types.Receipts,0)
-		for _,r := range receipt.StorageReceipts{
-			receipts = append(receipts,(*types.Receipt)(r))
+		receipts := make(types.Receipts, 0)
+		for _, r := range receipt.StorageReceipts {
+			receipts = append(receipts, (*types.Receipt)(r))
 		}
-		creceipts = append(creceipts,types.CoinReceipts{CoinType:receipt.Currency,Receiptlist:receipts})
+		creceipts = append(creceipts, types.CoinReceipts{CoinType: receipt.Currency, Receiptlist: receipts})
 	}
 	return creceipts
 }
@@ -305,13 +305,13 @@ func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) []types.Co
 // WriteReceipts stores all the transaction receipts belonging to a block.
 func WriteReceipts(db DatabaseWriter, hash common.Hash, number uint64, receipts []types.CoinReceipts) {
 	// Convert the receipts into their storage form and serialize them
-	currRcps:=make([]types.CurrencyReceipts,0)
-	for _,cr := range receipts{
+	currRcps := make([]types.CurrencyReceipts, 0)
+	for _, cr := range receipts {
 		storageReceipts := make([]*types.ReceiptForStorage, len(cr.Receiptlist))
 		for i, receipt := range cr.Receiptlist {
 			storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
 		}
-		currRcps = append(currRcps,types.CurrencyReceipts{Currency:cr.CoinType,StorageReceipts:storageReceipts})
+		currRcps = append(currRcps, types.CurrencyReceipts{Currency: cr.CoinType, StorageReceipts: storageReceipts})
 	}
 	bytes, err := rlp.EncodeToBytes(currRcps)
 	if err != nil {

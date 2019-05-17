@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
@@ -306,13 +308,23 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		hash    = head.Hash()
 		number  = head.Number.Uint64()
 		td      = pm.blockchain.GetTd(hash, number)
+		bt      = pm.blockchain.CurrentHeader().Time.Uint64()
 		sbs     = sbi.Seq
 		sbHash  = sbi.Num
 	)
-	if err := p.Handshake(pm.networkId, td, hash, sbs, genesis.Hash(), sbHash); err != nil {
-		p.Log().Debug("Matrix handshake failed", "err", err)
-		return err
+
+	if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+		if err := p.NewHandshake(pm.networkId, bt, hash, sbs, genesis.Hash(), sbHash, number); err != nil {
+			p.Log().Debug("Matrix handshake failed", "err", err)
+			return err
+		}
+	} else {
+		if err := p.Handshake(pm.networkId, td, hash, sbs, genesis.Hash(), sbHash); err != nil {
+			p.Log().Debug("Matrix handshake failed", "err", err)
+			return err
+		}
 	}
+
 	//	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 		rw.Init(p.version)
@@ -474,37 +486,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		p.Log().Trace("download handleMsg BlockHeadersMsg", "len", len(headers))
 
-		// If no headers were received, but we're expending a DAO fork check, maybe it's that
-		if len(headers) == 0 && p.forkDrop != nil {
-			// Possibly an empty reply to the fork header checks, sanity check TDs
-			verifyDAO := true
-			p.Log().Trace("download BlockHeadersMsg forkDrop")
-			// If we already have a DAO header, we can check the peer's TD against it. If
-			// the peer's ahead of this, it too must have a reply to the DAO check
-			if daoHeader := pm.blockchain.GetHeaderByNumber(pm.chainconfig.DAOForkBlock.Uint64()); daoHeader != nil {
-				_, td, sbs, _ := p.Head()
-				sbs, err := pm.blockchain.GetSuperBlockSeq()
-				if nil != err {
-					p.Log().Error("get super seq error")
-					return nil
-				}
-				if sbs > sbs {
-					verifyDAO = false
-				} else if sbs == sbs {
-					if td.Cmp(pm.blockchain.GetTd(daoHeader.Hash(), daoHeader.Number.Uint64())) >= 0 {
-						verifyDAO = false
-					}
-				}
-
-			}
-			// If we're seemingly on the same chain, disable the drop timer
-			if verifyDAO {
-				p.Log().Debug("Seems to be on the same side of the DAO fork")
-				p.forkDrop.Stop()
-				p.forkDrop = nil
-				return nil
-			}
-		}
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
 		filter := len(headers) == 1
 		if filter {
@@ -721,41 +702,74 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
+
+		// Update the peers total difficulty if better than the previous
 		var (
 			trueHead = request.Block.ParentHash()
 			trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
 			trueSBS  = request.SBS
 		)
-		// Update the peers total difficulty if better than the previous
-		_, td, sbs, _ := p.Head()
-		p.Log().Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs, "trueTD", trueTD)
-		if trueSBS < sbs {
-			//todo:日志
-			break
-		}
+		_, td, sbs, _, bt, bn := p.Head()
+		if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
 
-		if trueSBS > sbs || trueTD.Cmp(td) > 0 {
-			p.SetHead(trueHead, trueTD, trueSBS, request.SBH)
+			p.Log().Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs, "高度", request.Block.NumberU64(), "时间", request.Block.Time())
+			if common.IsGreaterLink(common.LinkInfo{Sbs: trueSBS, Bn: request.Block.NumberU64(), Bt: request.Block.Time().Uint64()}, common.LinkInfo{Sbs: sbs, Bn: bn, Bt: bt}) {
+				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(), request.Block.NumberU64())
 
-			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-			// a singe block (as the true TD is below the propagated block), however this
-			// scenario should easily be covered by the fetcher.
-			currentBlock := pm.blockchain.CurrentBlock()
-			td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			if td == nil {
-				log.Error("td is nil", "peer", p.id)
-				break
+				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+				// a singe block (as the true TD is below the propagated block), however this
+				// scenario should easily be covered by the fetcher.
+				currentBlock := pm.blockchain.CurrentBlock()
+				td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+				if td == nil {
+					log.Error("td is nil", "peer", p.id)
+					break
+				}
+				sbs, err := pm.blockchain.GetSuperBlockSeq()
+				if nil != err {
+					log.Error("get super seq error")
+					break
+				}
+
+				if common.IsGreaterLink(common.LinkInfo{Sbs: trueSBS, Bn: request.Block.NumberU64(), Bt: request.Block.Time().Uint64()}, common.LinkInfo{Sbs: sbs, Bn: currentBlock.NumberU64(), Bt: currentBlock.Time().Uint64()}) {
+
+					log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs,
+						"远程高度", request.Block.NumberU64(), "本地高度", currentBlock.NumberU64(), "远程时间", request.Block.Time(), "本地时间", currentBlock.Time())
+					go pm.synchronise(p)
+				}
 			}
-			sbs, err := pm.blockchain.GetSuperBlockSeq()
-			if nil != err {
-				log.Error("get super seq error")
+		} else {
+
+			p.Log().Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs, "trueTD", trueTD)
+			if trueSBS < sbs {
+				//todo:日志
 				break
 			}
 
 			if trueSBS > sbs || trueTD.Cmp(td) > 0 {
-				log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs, "远程td", trueTD, "本地td", td)
-				go pm.synchronise(p)
+				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(), request.Block.NumberU64())
+
+				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+				// a singe block (as the true TD is below the propagated block), however this
+				// scenario should easily be covered by the fetcher.
+				currentBlock := pm.blockchain.CurrentBlock()
+				td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+				if td == nil {
+					log.Error("td is nil", "peer", p.id)
+					break
+				}
+				sbs, err := pm.blockchain.GetSuperBlockSeq()
+				if nil != err {
+					log.Error("get super seq error")
+					break
+				}
+
+				if trueSBS > sbs || trueTD.Cmp(td) > 0 {
+					log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs, "远程td", trueTD, "本地td", td)
+					go pm.synchronise(p)
+				}
 			}
+
 		}
 
 	case msg.Code == TxMsg:

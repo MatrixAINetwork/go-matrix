@@ -47,7 +47,7 @@ type StateDB struct {
 	trie Trie
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
-	readMu sync.Mutex
+	readMu            sync.Mutex
 	stateObjects      map[common.Address]*stateObject
 	stateObjectsDirty map[common.Address]struct{}
 
@@ -69,10 +69,10 @@ type StateDB struct {
 	// The refund counter, also used by state transitioning.
 	refund uint64
 
-//	thash, bhash common.Hash
-//	txIndex      int
-	logs         map[common.Hash][]*types.Log
-	logSize      uint
+	//	thash, bhash common.Hash
+	//	txIndex      int
+	logs    map[common.Hash][]*types.Log
+	logSize uint
 
 	preimages map[common.Hash][]byte
 
@@ -326,8 +326,8 @@ func (self *StateDB) GetEntrustFrom(authFrom common.Address, height uint64) []co
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.EnstrustSetType == params.EntrustByHeight && entrustData.IsEntrustSign == true && entrustData.StartHeight <= height && entrustData.EndHeight >= height {
-			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
-			if err != nil{
+			entrustFrom, err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil {
 				return nil
 			}
 			addressList = append(addressList, entrustFrom)
@@ -366,8 +366,8 @@ func (self *StateDB) GetAllEntrustSignFrom(authFrom common.Address) []common.Add
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.IsEntrustSign == true {
-			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
-			if err != nil{
+			entrustFrom, err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil {
 				return nil
 			}
 			addressList = append(addressList, entrustFrom)
@@ -430,16 +430,17 @@ func (self *StateDB) GasAuthCountSubOne(entrustFrom common.Address) bool {
 		if AuthData.EnstrustSetType == params.EntrustByCount && AuthData.IsEntrustGas == true && AuthData.EntrustCount > 0 {
 			AuthData.EntrustCount--
 		}
-		newAuthDataList = append(newAuthDataList,AuthData)
+		newAuthDataList = append(newAuthDataList, AuthData)
 	}
-	if len(newAuthDataList) >0 {
-		marshalData,_ := json.Marshal(newAuthDataList)
-		self.SetAuthStateByteArray(entrustFrom,marshalData)
+	if len(newAuthDataList) > 0 {
+		marshalData, _ := json.Marshal(newAuthDataList)
+		self.SetAuthStateByteArray(entrustFrom, marshalData)
 	}
 	return true
 }
+
 //委托人次数减1（用于钱包展示时反向查找）
-func (self *StateDB) GasEntrustCountSubOne(authFrom common.Address){
+func (self *StateDB) GasEntrustCountSubOne(authFrom common.Address) {
 	EntrustMarsha1Data := self.GetEntrustStateByteArray(authFrom)
 	if len(EntrustMarsha1Data) == 0 {
 		return
@@ -454,11 +455,11 @@ func (self *StateDB) GasEntrustCountSubOne(authFrom common.Address){
 		if EntrustData.EnstrustSetType == params.EntrustByCount && EntrustData.IsEntrustGas == true && EntrustData.EntrustCount > 0 {
 			EntrustData.EntrustCount--
 		}
-		newEntrustDataList = append(newEntrustDataList,EntrustData)
+		newEntrustDataList = append(newEntrustDataList, EntrustData)
 	}
-	if len(newEntrustDataList) >0 {
-		marshalData,_ := json.Marshal(newEntrustDataList)
-		self.SetEntrustStateByteArray(authFrom,marshalData)
+	if len(newEntrustDataList) > 0 {
+		marshalData, _ := json.Marshal(newEntrustDataList)
+		self.SetEntrustStateByteArray(authFrom, marshalData)
 	}
 	return
 }
@@ -498,6 +499,7 @@ func (self *StateDB) GetGasAuthFromByHeightAddTime(entrustFrom common.Address) c
 	}
 	return common.Address{}
 }
+
 //根据授权人获取所有委托gas列表,(该方法用于取消委托时调用)
 func (self *StateDB) GetAllEntrustGasFrom(authFrom common.Address) []common.Address {
 	EntrustMarsha1Data := self.GetEntrustStateByteArray(authFrom)
@@ -509,8 +511,8 @@ func (self *StateDB) GetAllEntrustGasFrom(authFrom common.Address) []common.Addr
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.IsEntrustGas == true {
-			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
-			if err != nil{
+			entrustFrom, err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil {
 				return nil
 			}
 			addressList = append(addressList, entrustFrom)
@@ -532,8 +534,8 @@ func (self *StateDB) GetEntrustFromByTime(authFrom common.Address, time uint64) 
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
 		if entrustData.EnstrustSetType == params.EntrustByTime && entrustData.IsEntrustGas == true && entrustData.StartHeight <= time && entrustData.EndHeight >= time {
-			entrustFrom ,err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
-			if err != nil{
+			entrustFrom, err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
+			if err != nil {
 				return nil
 			}
 			addressList = append(addressList, entrustFrom)
@@ -703,7 +705,7 @@ func (self *StateDB) CommitSaveTx() {
 	self.btreeMap = make([]BtreeDietyStruct, 0)
 	self.btreeMapDirty = make([]BtreeDietyStruct, 0)
 }
-func (self *StateDB) GetBtreeItem(key uint32,typ byte)[]btrie.Item{
+func (self *StateDB) GetBtreeItem(key uint32, typ byte) []btrie.Item {
 	out := make([]btrie.Item, 0)
 	switch typ {
 	case common.ExtraRevocable:
@@ -1082,7 +1084,7 @@ func (self *StateDB) Snapshot() int {
 	id := self.nextRevisionId
 	self.nextRevisionId++
 	len1 := len(self.validRevisions)
-	if len1 == 0 || self.validRevisions[len1-1].journalIndex < self.journal.length(){
+	if len1 == 0 || self.validRevisions[len1-1].journalIndex < self.journal.length() {
 		self.validRevisions = append(self.validRevisions, revision{id, self.journal.length()})
 	}
 	return id
@@ -1095,7 +1097,7 @@ func (self *StateDB) RevertToSnapshot(revid int) {
 		return self.validRevisions[i].id >= revid
 	})
 	if idx == len(self.validRevisions) || self.validRevisions[idx].id != revid {
-//		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
+		//		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
 		idx--
 	}
 	snapshot := self.validRevisions[idx].journalIndex

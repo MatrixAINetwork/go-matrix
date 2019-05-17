@@ -44,9 +44,9 @@ type Transaction struct {
 	entrustfrom atomic.Value
 	Currency    string //币种
 	// by
-	N               []uint32
-	IsEntrustGas    bool
-	IsEntrustByTime bool //是否是按时间委托
+	N                []uint32
+	IsEntrustGas     bool
+	IsEntrustByTime  bool //是否是按时间委托
 	IsEntrustByCount bool //是否按次数委托
 }
 type TransactionCall struct {
@@ -80,9 +80,9 @@ type Tx_to struct {
 
 //
 type Matrix_Extra struct {
-	TxType     byte   `json:"txType" gencodec:"required"`
-	LockHeight uint64 `json:"lockHeight" gencodec:"required"`
-	ExtraTo []Tx_to ` rlp:"tail"` //
+	TxType     byte    `json:"txType" gencodec:"required"`
+	LockHeight uint64  `json:"lockHeight" gencodec:"required"`
+	ExtraTo    []Tx_to ` rlp:"tail"` //
 }
 
 // 用于洪泛（传输）
@@ -123,6 +123,7 @@ type txdata struct {
 	CommitTime  uint64         `json:"CommitTime" gencodec:"required"`  //创建交易时间
 	Extra       []Matrix_Extra ` rlp:"tail"`                            //
 }
+
 func TxdataAddresToString(currency string, data *txdata, data1 *txdata1) {
 	data1.AccountNonce = data.AccountNonce
 	data1.Price = data.Price
@@ -179,9 +180,9 @@ func TxdataStringToAddres(data1 *txdata1, data *txdata) {
 	data.TxEnterType = data1.TxEnterType
 	data.IsEntrustTx = data1.IsEntrustTx
 	data.CommitTime = data1.CommitTime
-	if data1.Recipient != nil{
+	if data1.Recipient != nil {
 		data.Recipient = new(common.Address)
-		*data.Recipient ,_ = base58.Base58DecodeToAddress(*data1.Recipient)
+		*data.Recipient, _ = base58.Base58DecodeToAddress(*data1.Recipient)
 	}
 
 	if len(data1.Extra) > 0 {
@@ -196,7 +197,7 @@ func TxdataStringToAddres(data1 *txdata1, data *txdata) {
 					tmTo := new(Tx_to)
 					if tto.Recipient != nil {
 						tmTo.Recipient = new(common.Address)
-						*tmTo.Recipient,_ = base58.Base58DecodeToAddress(*tto.Recipient)
+						*tmTo.Recipient, _ = base58.Base58DecodeToAddress(*tto.Recipient)
 					}
 					tmTo.Payload = tto.Payload
 					tmTo.Amount = tto.Amount
@@ -253,21 +254,21 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, V *big.Int,R *big.Int,S *big.Int,typ byte, isEntrustTx byte,currency string,committime uint64) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, V,R,S,typ, isEntrustTx,currency,committime)
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, V *big.Int, R *big.Int, S *big.Int, typ byte, isEntrustTx byte, currency string, committime uint64) *Transaction {
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, V, R, S, typ, isEntrustTx, currency, committime)
 }
 
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte,V *big.Int,R *big.Int,S *big.Int, typ byte, isEntrustTx byte,currency string,committime uint64) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, V,R,S,typ, isEntrustTx,currency,committime)
-}
-
-//
-func NewTransactions(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte,V *big.Int,R *big.Int,S *big.Int, ex []*ExtraTo_tr, localtime uint64, txType byte, isEntrustTx byte,currency string,committime uint64) *Transaction {
-	return newTransactions(nonce, &to, amount, gasLimit, gasPrice, data,V,R,S, ex, localtime, txType, isEntrustTx,currency,committime)
+func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, V *big.Int, R *big.Int, S *big.Int, typ byte, isEntrustTx byte, currency string, committime uint64) *Transaction {
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, V, R, S, typ, isEntrustTx, currency, committime)
 }
 
 //
-func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte,V *big.Int,R *big.Int,S *big.Int, ex []*ExtraTo_tr, localtime uint64, txType byte, isEntrustTx byte,currency string,committime uint64) *Transaction {
+func NewTransactions(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, V *big.Int, R *big.Int, S *big.Int, ex []*ExtraTo_tr, localtime uint64, txType byte, isEntrustTx byte, currency string, committime uint64) *Transaction {
+	return newTransactions(nonce, &to, amount, gasLimit, gasPrice, data, V, R, S, ex, localtime, txType, isEntrustTx, currency, committime)
+}
+
+//
+func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, V *big.Int, R *big.Int, S *big.Int, ex []*ExtraTo_tr, localtime uint64, txType byte, isEntrustTx byte, currency string, committime uint64) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -292,13 +293,13 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)
 	}
-	if V != nil{
+	if V != nil {
 		d.V.Set(V)
 	}
-	if R != nil{
+	if R != nil {
 		d.R.Set(R)
 	}
-	if S != nil{
+	if S != nil {
 		d.S.Set(S)
 	}
 	//
@@ -324,11 +325,11 @@ func newTransactions(nonce uint64, to *common.Address, amount *big.Int, gasLimit
 	matrixEx.LockHeight = localtime
 	matrixEx.ExtraTo = arrayTx
 	d.Extra = append(d.Extra, *matrixEx)
-	tx := &Transaction{Currency:currency,data: d}
+	tx := &Transaction{Currency: currency, data: d}
 	return tx
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte,V *big.Int,R *big.Int,S *big.Int, typ byte, isEntrustTx byte,currency string,committime uint64) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, V *big.Int, R *big.Int, S *big.Int, typ byte, isEntrustTx byte, currency string, committime uint64) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -355,16 +356,16 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)
 	}
-	if V != nil{
+	if V != nil {
 		d.V.Set(V)
 	}
-	if R != nil{
+	if R != nil {
 		d.R.Set(R)
 	}
-	if S != nil{
+	if S != nil {
 		d.S.Set(S)
 	}
-	tx := &Transaction{Currency:currency,data: d}
+	tx := &Transaction{Currency: currency, data: d}
 	return tx
 }
 
@@ -443,10 +444,12 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	*tx = Transaction{data: dec}
 	return nil
 }
+
 type man_txdata struct {
 	currency string
-	data txdata1
+	data     txdata1
 }
+
 func (tx *Transaction) ManTx_UnmarshalJSON(input []byte) error {
 	var dec man_txdata
 	if err := dec.UnmarshalJSON(input); err != nil {
@@ -463,7 +466,7 @@ func (tx *Transaction) ManTx_UnmarshalJSON(input []byte) error {
 		return ErrInvalidSig
 	}
 	TxdataStringToAddres(&dec.data, &tx.data)
-	*tx = Transaction{Currency:dec.currency,data: tx.data}
+	*tx = Transaction{Currency: dec.currency, data: tx.data}
 	return nil
 }
 func (tx *Transaction) GetConstructorType() uint16 {
@@ -475,7 +478,7 @@ func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Pri
 func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
-func (tx *Transaction) GetMakeHashfield(chid *big.Int) []interface{}{
+func (tx *Transaction) GetMakeHashfield(chid *big.Int) []interface{} {
 	var data1 txdata1
 	TxdataAddresToString(tx.Currency, &tx.data, &data1)
 	return []interface{}{
@@ -605,12 +608,12 @@ func (tx *Transaction) TotalAmount() *big.Int {
 	amount := tx.data.Amount
 	txEx := tx.GetMatrix_EX()
 	total := new(big.Int)
-	if len(txEx) > 0{
+	if len(txEx) > 0 {
 		for _, extra := range tx.data.Extra[0].ExtraTo {
 			total.Add(total, extra.Amount)
 		}
 	}
-	return total.Add(total,amount)
+	return total.Add(total, amount)
 }
 
 //// Cost returns amount + gasprice * gaslimit.
@@ -618,7 +621,7 @@ func (tx *Transaction) CostALL() *big.Int {
 	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
 	total.Add(total, tx.data.Amount)
 	txEx := tx.GetMatrix_EX()
-	if len(txEx) > 0{
+	if len(txEx) > 0 {
 		for _, extra := range tx.data.Extra[0].ExtraTo {
 			total.Add(total, extra.Amount)
 		}
@@ -648,6 +651,7 @@ func (tx *Transaction) SetIsEntrustByTime(b bool) {
 func (tx *Transaction) SetIsEntrustByCount(b bool) {
 	tx.IsEntrustByCount = b
 }
+
 //
 func (tx *Transaction) GetTxV() *big.Int  { return tx.data.V }
 func (tx *Transaction) SetTxV(v *big.Int) { tx.data.V = v }
@@ -774,6 +778,7 @@ func (tx *Transaction) GetTxCurrency() string {
 	}
 	return str
 }
+
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {
@@ -818,7 +823,7 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (SelfTransaction
 	if err != nil {
 		return nil, err
 	}
-	cpy := &Transaction{Currency:tx.Currency,data: tx.data}
+	cpy := &Transaction{Currency: tx.Currency, data: tx.data}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
 	return cpy, nil
 }
@@ -909,7 +914,7 @@ func (s *TxByPrice) Pop() interface{} {
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
 type TransactionsByPriceAndNonce struct {
-	txs map[common.Address]SelfTransactions // Per account nonce-sorted list of transactions
+	txs    map[common.Address]SelfTransactions // Per account nonce-sorted list of transactions
 	heads  TxByNonce
 	signer Signer // Signer for the set of transactions
 }

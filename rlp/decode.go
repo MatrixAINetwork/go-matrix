@@ -500,24 +500,24 @@ func decodeInterfaceRLP(s *Stream, val reflect.Value) error {
 	if !val.Type().Implements(typerInterface) {
 		return decodeInterface(s, val)
 	}
-//	valRLP := InterfaceRLP{}
-//	val1 := reflect.ValueOf(&valRLP).Elem()
-//	typ := reflect.TypeOf(valRLP)
-//	typeCacheMutex.Lock()
-//	fields, err := structFields(typ)
-//	typeCacheMutex.Unlock()
-//	if err != nil {
-//		return err
-//	}
+	//	valRLP := InterfaceRLP{}
+	//	val1 := reflect.ValueOf(&valRLP).Elem()
+	//	typ := reflect.TypeOf(valRLP)
+	//	typeCacheMutex.Lock()
+	//	fields, err := structFields(typ)
+	//	typeCacheMutex.Unlock()
+	//	if err != nil {
+	//		return err
+	//	}
 
 	if _, err := s.List(); err != nil {
 		return wrapStreamError(err, val.Type())
 	}
 	var typeKind uint16
 	val1 := reflect.ValueOf(&typeKind).Elem()
-//	valueField := fields[0]
-//	err = valueField.info.decoder(s, val1.Field(0))
-	err := decodeUint(s,val1)
+	//	valueField := fields[0]
+	//	err = valueField.info.decoder(s, val1.Field(0))
+	err := decodeUint(s, val1)
 	if err == EOL {
 		return &decodeError{msg: "too few elements", typ: val.Type()}
 	} else if err != nil {

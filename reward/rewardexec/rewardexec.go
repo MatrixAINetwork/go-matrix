@@ -72,7 +72,7 @@ func (br *BlockReward) CalcMinerRateMount(blockReward *big.Int) (*big.Int, *big.
 
 func (br *BlockReward) CalcValidatorRewards(Leader common.Address, num uint64) map[common.Address]*big.Int {
 	//广播区块不给矿工发钱
-	RewardMan := new(big.Int).Mul(new(big.Int).SetUint64(br.rewardCfg.RewardMount.ValidatorMount), util.ManPrice)
+	RewardMan := new(big.Int).Mul(new(big.Int).SetUint64(br.rewardCfg.RewardMount.ValidatorMount), util.GetPrice(br.rewardCfg.Calc))
 	halfNum := br.rewardCfg.RewardMount.ValidatorAttenuationNum
 	attenuationRate := br.rewardCfg.RewardMount.ValidatorAttenuationRate
 	blockReward := util.CalcRewardMountByNumber(br.st, RewardMan, num-1, halfNum, common.BlkValidatorRewardAddress, attenuationRate)
@@ -122,7 +122,7 @@ func (br *BlockReward) getMinerRewards(blockReward *big.Int, num uint64, rewardT
 
 func (br *BlockReward) CalcMinerRewards(num uint64, parentHash common.Hash) map[common.Address]*big.Int {
 	//广播区块不给矿工发钱
-	RewardMan := new(big.Int).Mul(new(big.Int).SetUint64(br.rewardCfg.RewardMount.MinerMount), util.ManPrice)
+	RewardMan := new(big.Int).Mul(new(big.Int).SetUint64(br.rewardCfg.RewardMount.MinerMount), util.GetPrice(br.rewardCfg.Calc))
 	halfNum := br.rewardCfg.RewardMount.MinerAttenuationNum
 	attenuationRate := br.rewardCfg.RewardMount.MinerAttenuationRate
 	blockReward := util.CalcRewardMountByNumber(br.st, RewardMan, num-1, halfNum, common.BlkMinerRewardAddress, attenuationRate)

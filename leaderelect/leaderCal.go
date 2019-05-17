@@ -10,6 +10,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 	"github.com/pkg/errors"
 )
 
@@ -69,8 +70,8 @@ func (self *leaderCalculator) SetValidatorsAndSpecials(preHeader *types.Header, 
 		log.Error(self.logInfo, "计算leader列表", "获取真实的preLeader失败", "err", err)
 		return err
 	}
-	log.Trace(self.logInfo, "计算leader列表", "开始", "preLeader", realPreLeader.Hex(), "前区块中出现超级区块", preAppearSuper, "高度", self.number)
-	leaderList, err := calLeaderList(realPreLeader, self.number, preAppearSuper, validators, bcInterval)
+	log.Trace(self.logInfo, "计算leader列表", "开始", "preLeader", realPreLeader.Hex(), "前区块中出现超级区块", preAppearSuper, "高度", self.number, "validators size", len(validators))
+	leaderList, err := calLeaderList(string(preHeader.Version), realPreLeader, self.number, preAppearSuper, validators, bcInterval, self.logInfo)
 	if err != nil {
 		return err
 	}
@@ -128,17 +129,23 @@ func (self *leaderCalculator) GetLeader(turn uint32, bcInterval *mc.BCIntervalIn
 	return leaders, nil
 }
 
-func calLeaderList(preLeader common.Address, curNumber uint64, preIsSupper bool, validators []mc.TopologyNodeInfo, bcInterval *mc.BCIntervalInfo) (map[uint32]common.Address, error) {
+func calLeaderList(version string, preLeader common.Address, curNumber uint64, preIsSupper bool, validators []mc.TopologyNodeInfo, bcInterval *mc.BCIntervalInfo, logInfo string) (map[uint32]common.Address, error) {
 	ValidatorNum := len(validators)
 	var startPos = 0
 	if preIsSupper || bcInterval.IsReElectionNumber(curNumber-1) || bcInterval.IsReElectionNumber(curNumber) {
 		startPos = 0
 	} else {
-		preIndex, err := findLeaderIndex(preLeader, validators)
-		if err != nil {
-			return nil, err
+		if preIndex, err := findLeaderIndex(preLeader, validators); err != nil {
+			if manparams.VersionCmp(version, manparams.VersionGamma) >= 0 {
+				log.Info(logInfo, "未在验证者列表中未找到preLeader", preLeader.Hex(), "validators", validators, "版本", version)
+				startPos = 0
+			} else {
+				log.Info(logInfo, "未在验证者列表中未找到preLeader", preLeader.Hex(), "validators", validators, "版本", version)
+				return nil, err
+			}
+		} else {
+			startPos = preIndex + 1
 		}
-		startPos = preIndex + 1
 	}
 	leaderList := make(map[uint32]common.Address)
 	for i := 0; i < ValidatorNum; i++ {

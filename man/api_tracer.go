@@ -183,8 +183,8 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				// Trace all the transactions contained within
 				var txs []types.SelfTransaction
 				for _, currencie := range task.block.Currencies() {
-					for  _,tx:=range currencie.Transactions.Transactions{
-						txs=append(txs,tx)
+					for _, tx := range currencie.Transactions.Transactions {
+						txs = append(txs, tx)
 					}
 				}
 				for i, tx := range txs {
@@ -261,8 +261,8 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 			// Send the block over to the concurrent tracers (if not in the fast-forward phase)
 			var txs []types.SelfTransaction
 			for _, currencie := range block.Currencies() {
-				for  _,tx:=range currencie.Transactions.Transactions{
-					txs=append(txs,tx)
+				for _, tx := range currencie.Transactions.Transactions {
+					txs = append(txs, tx)
 				}
 			}
 			if number > origin {
@@ -275,7 +275,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				traced += uint64(len(txs))
 			}
 			// Generate the next state snapshot fast without tracing
-			 _, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
+			_, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
 			if err != nil {
 				failed = err
 				break
@@ -408,8 +408,8 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 	// Execute all the transaction contained within the block concurrently
 	var txs []types.SelfTransaction
 	for _, currencie := range block.Currencies() {
-		for  _,tx:=range currencie.Transactions.Transactions{
-			txs=append(txs,tx)
+		for _, tx := range currencie.Transactions.Transactions {
+			txs = append(txs, tx)
 		}
 	}
 	var (
@@ -518,7 +518,7 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 		if block = api.man.blockchain.GetBlockByNumber(block.NumberU64() + 1); block == nil {
 			return nil, fmt.Errorf("block #%d not found", block.NumberU64()+1)
 		}
-		 _, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
+		_, _, err := api.man.blockchain.Processor(block.Header().Version).ProcessTxs(block, statedb, vm.Config{}, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -639,8 +639,8 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	//signer := types.MakeSigner(api.config, block.Number())
 	var txs []types.SelfTransaction
 	for _, currencie := range block.Currencies() {
-		for  _,tx:=range currencie.Transactions.Transactions{
-			txs=append(txs,tx)
+		for _, tx := range currencie.Transactions.Transactions {
+			txs = append(txs, tx)
 		}
 	}
 

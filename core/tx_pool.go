@@ -639,12 +639,12 @@ func (nPool *NormalTxPool) Pending() (map[string]map[common.Address]types.SelfTr
 			txlist := make([]*types.Transaction, 0)
 			txlist = txs.Flatten()
 			txsmap := make(map[common.Address]types.SelfTransactions)
-			for _,tx := range txlist{
+			for _, tx := range txlist {
 				if len(tx.N) <= 0 {
 					continue
 				}
 				nPool.NContainer[tx.N[0]] = tx
-				txsmap[addr] = append(txsmap[addr],tx)
+				txsmap[addr] = append(txsmap[addr], tx)
 			}
 			pending[coin] = txsmap
 		}
@@ -1092,23 +1092,23 @@ func (nPool *NormalTxPool) blockTiming() {
 // 根据交易获取交易中的from
 func (nPool *NormalTxPool) getFromByTx(txs []*types.Transaction) {
 	var waitG = &sync.WaitGroup{}
-	routineNum := len(txs)/100+1
-	if routineNum > 1{
-		maxProcs := runtime.GOMAXPROCS(0)  //获取cpu个数
+	routineNum := len(txs)/100 + 1
+	if routineNum > 1 {
+		maxProcs := runtime.GOMAXPROCS(0) //获取cpu个数
 		if maxProcs > 2 {
 			maxProcs /= 2
 		}
-		if maxProcs<routineNum{
+		if maxProcs < routineNum {
 			routineNum = maxProcs
 		}
 	}
-	routChan := make(chan types.SelfTransaction,0)
-	for i:=0;i<routineNum;i++ {
+	routChan := make(chan types.SelfTransaction, 0)
+	for i := 0; i < routineNum; i++ {
 		waitG.Add(1)
-		go types.Sender_sub(nPool.signer,routChan,waitG)
+		go types.Sender_sub(nPool.signer, routChan, waitG)
 	}
 	for _, tx := range txs {
-			routChan <- tx
+		routChan <- tx
 	}
 	close(routChan)
 	waitG.Wait()
@@ -1208,8 +1208,8 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 	}
 
-	if tx.IsEntrustGas{
-		for _, tAccount := range nPool.currentState.GetBalance(tx.Currency,tx.AmontFrom()) {
+	if tx.IsEntrustGas {
+		for _, tAccount := range nPool.currentState.GetBalance(tx.Currency, tx.AmontFrom()) {
 			if tAccount.AccountType == common.MainAccount {
 				entrustbalance = tAccount.Balance
 				break
@@ -1222,12 +1222,11 @@ func (nPool *NormalTxPool) validateTx(tx *types.Transaction, local bool) error {
 		if balance.Cmp(tx.TotalAmount()) < 0 {
 			return ErrInsufficientFunds
 		}
-	}else{
+	} else {
 		if balance.Cmp(tx.CostALL()) < 0 {
 			return ErrInsufficientFunds
 		}
 	}
-
 
 	intrGas, err := IntrinsicGas(tx.Data())
 	if err != nil {
@@ -1265,7 +1264,7 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 				tx.IsEntrustGas = true
 				tx.IsEntrustByTime = true
 			} else {
-				entrustFrom := nPool.currentState.GetGasAuthFromByCount(tx.Currency,from)
+				entrustFrom := nPool.currentState.GetGasAuthFromByCount(tx.Currency, from)
 				if !entrustFrom.Equal(common.Address{}) {
 					tx.Setentrustfrom(entrustFrom)
 					tx.IsEntrustGas = true

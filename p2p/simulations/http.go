@@ -17,12 +17,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/p2p"
 	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 	"github.com/MatrixAINetwork/go-matrix/p2p/simulations/adapters"
 	"github.com/MatrixAINetwork/go-matrix/rpc"
+	"github.com/julienschmidt/httprouter"
 	"golang.org/x/net/websocket"
 )
 

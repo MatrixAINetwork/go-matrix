@@ -29,6 +29,13 @@ func (self *HD) initCodec() {
 	self.registerCodec(mc.HD_LeaderReelectBroadcastRsp, new(lrResultBCRspCodec))
 	self.registerCodec(mc.HD_FullBlockReq, new(fullBlockReqCodec))
 	self.registerCodec(mc.HD_FullBlockRsp, new(fullBlockRspCodec))
+
+	self.registerCodec(mc.HD_V2_LeaderReelectInquiryReq, new(lrInquiryReqCodecV2))
+	self.registerCodec(mc.HD_V2_LeaderReelectInquiryRsp, new(lrInquiryRspCodecV2))
+	self.registerCodec(mc.HD_V2_LeaderReelectReq, new(lrReqCodecV2))
+	self.registerCodec(mc.HD_V2_LeaderReelectVote, new(lrVoteCodecV2))
+	self.registerCodec(mc.HD_V2_LeaderReelectBroadcast, new(lrResultBCCodecV2))
+	self.registerCodec(mc.HD_V2_LeaderReelectBroadcastRsp, new(lrResultBCRspCodecV2))
 }
 
 //每个模块需要自己实现这两个接口

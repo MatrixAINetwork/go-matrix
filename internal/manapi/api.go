@@ -701,12 +701,12 @@ func (s *PublicBlockChainAPI) GetDestroyBalance(ctx context.Context, blockNr rpc
 		coinlist = append(coinlist, coin)
 	}
 
-	value,_ := new(big.Int).SetString(params.DestroyBalance,0)
-	for i := 0; i< len(coinlist)/params.CoinDampingNum; i++{
+	value, _ := new(big.Int).SetString(params.DestroyBalance, 0)
+	for i := 0; i < len(coinlist)/params.CoinDampingNum; i++ {
 		tmpa := big.NewInt(95)
 		tmpb := big.NewInt(100)
-		value.Mul(value,tmpa)
-		value.Quo(value,tmpb)
+		value.Mul(value, tmpa)
+		value.Quo(value, tmpb)
 	}
 	return value, nil
 }
@@ -844,12 +844,12 @@ func (s *PublicBlockChainAPI) GetEntrustList(strAuthFrom string) []common.Entrus
 			if s.b.CurrentBlock().NumberU64() <= entrustData.EndHeight {
 				validEntrustList = append(validEntrustList, entrustData)
 			}
-		} else if entrustData.EnstrustSetType == params.EntrustByTime{
+		} else if entrustData.EnstrustSetType == params.EntrustByTime {
 			if s.b.CurrentBlock().Time().Uint64() <= entrustData.EndTime {
 				validEntrustList = append(validEntrustList, entrustData)
 			}
-		}else if entrustData.EnstrustSetType == params.EntrustByCount{
-			if entrustData.EntrustCount > 0{
+		} else if entrustData.EnstrustSetType == params.EntrustByCount {
+			if entrustData.EntrustCount > 0 {
 				validEntrustList = append(validEntrustList, entrustData)
 			}
 		}
@@ -1145,7 +1145,7 @@ type CallArgs struct {
 	GasPrice hexutil.Big     `json:"gasPrice"`
 	Value    hexutil.Big     `json:"value"`
 	Data     hexutil.Bytes   `json:"data"`
-	ExtraTo     []*ExtraTo_Mx `json:"extra_to"` //
+	ExtraTo  []*ExtraTo_Mx   `json:"extra_to"` //
 }
 type ManCallArgs struct {
 	From     string         `json:"from"`
@@ -1155,7 +1155,7 @@ type ManCallArgs struct {
 	GasPrice hexutil.Big    `json:"gasPrice"`
 	Value    hexutil.Big    `json:"value"`
 	Data     hexutil.Bytes  `json:"data"`
-	ExtraTo     []*ExtraTo_Mx1 `json:"extra_to"` //
+	ExtraTo  []*ExtraTo_Mx1 `json:"extra_to"` //
 }
 
 func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg vm.Config, timeout time.Duration) ([]byte, uint64, bool, error) {
@@ -1187,16 +1187,16 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	//msg := new(types.Transaction) //types.NewMessage(addr, args.To, 0, args.Value.ToInt(), gas, gasPrice, args.Data, false)
 	//msg := &types.TransactionCall{types.NewTransaction(params.NonceAddOne, *args.To, args.Value.ToInt(), gas, gasPrice, args.Data, nil, nil, nil, 0, 0, "MAN", 0)}
 	extra := make([]*types.ExtraTo_tr, 0)
-	if len(args.ExtraTo) > 0{
+	if len(args.ExtraTo) > 0 {
 		var tmpExtra types.ExtraTo_tr
 		for _, ar := range args.ExtraTo {
 			tmpExtra.To_tr = ar.To2
 			tmpExtra.Input_tr = ar.Input2
 			tmpExtra.Value_tr = ar.Value2
-			extra = append(extra,&tmpExtra)
+			extra = append(extra, &tmpExtra)
 		}
 	}
-	msg := &types.TransactionCall{types.NewTransactions(params.NonceAddOne, *args.To, args.Value.ToInt(), gas, gasPrice, args.Data, nil, nil, nil, extra,0, 0,0,"MAN", 0)}
+	msg := &types.TransactionCall{types.NewTransactions(params.NonceAddOne, *args.To, args.Value.ToInt(), gas, gasPrice, args.Data, nil, nil, nil, extra, 0, 0, 0, "MAN", 0)}
 	msg.SetFromLoad(addr)
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.

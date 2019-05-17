@@ -7,6 +7,7 @@ package core
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/pkg/errors"
@@ -22,7 +23,7 @@ func NewTopologyStore(bc *BlockChain) *TopologyStore {
 	}
 }
 
-func (ts TopologyStore) ProduceTopologyStateData(block *types.Block, readFn PreStateReadFn) (interface{}, error) {
+func (ts TopologyStore) ProduceTopologyStateData(block *types.Block, state *state.StateDBManage, readFn PreStateReadFn) (interface{}, error) {
 	header := block.Header()
 	number := header.Number.Uint64()
 

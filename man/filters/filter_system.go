@@ -93,7 +93,7 @@ type EventSystem struct {
 	install   chan *subscription         // install filter for event notification
 	uninstall chan *subscription         // remove filter for event notification
 	txsCh     chan core.NewTxsEvent      // Channel to receive new transactions event
-	logsCh    chan []types.CoinLogs          // Channel to receive new log event
+	logsCh    chan []types.CoinLogs      // Channel to receive new log event
 	rmLogsCh  chan core.RemovedLogsEvent // Channel to receive removed log event
 	chainCh   chan core.ChainEvent       // Channel to receive new chain event
 }
@@ -396,50 +396,50 @@ func (es *EventSystem) lightFilterNewHead(newHeader *types.Header, callBack func
 // filter logs of a single header in light client mode
 func (es *EventSystem) lightFilterLogs(header *types.Header, addresses []common.Address, topics [][]common.Hash, remove bool) []types.CoinLogs {
 	var ls []types.CoinLogs
-for _,cr:= range header.Roots{
-	if bloomFilter(cr.Bloom, addresses, topics) {
-		// Get the logs of the block
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-		logsList, err := es.backend.GetLogs(ctx, header.Hash())
-		if err != nil {
-			return nil
-		}
-		var unfiltered []types.CoinLogs
-		for _, logs := range logsList {
-			//for _, log := range logs.Logs {
-				//logcopy := *log
-				//logcopy.Removed = remove
-				logcopy:=logs
-				logcopy.CoinType=logs.CoinType
-				unfiltered = append(unfiltered, logcopy)
-			//}
-		}
-		logs := filterLogs(unfiltered, nil, nil, addresses, topics)
-		for _,l:=range logs{
-		if len(l.Logs) > 0 && l.Logs[0].TxHash == (common.Hash{}) {
-			// We have matching but non-derived logs
-			receipts, err := es.backend.GetReceipts(ctx, header.Hash())
+	for _, cr := range header.Roots {
+		if bloomFilter(cr.Bloom, addresses, topics) {
+			// Get the logs of the block
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+			logsList, err := es.backend.GetLogs(ctx, header.Hash())
 			if err != nil {
 				return nil
 			}
-			unfiltered = unfiltered[:0]
-			for _, receipt := range receipts {
-				//receipt.CoinType
-				for _, log := range receipt.Receiptlist {
-					logcopy:=types.CoinLogs{receipt.CoinType,log.Logs}
-					//logcopy := *log
-					//logcopy.Removed = remove
-					unfiltered = append(unfiltered, logcopy)
-				}
+			var unfiltered []types.CoinLogs
+			for _, logs := range logsList {
+				//for _, log := range logs.Logs {
+				//logcopy := *log
+				//logcopy.Removed = remove
+				logcopy := logs
+				logcopy.CoinType = logs.CoinType
+				unfiltered = append(unfiltered, logcopy)
+				//}
 			}
-			logs = filterLogs(unfiltered, nil, nil, addresses, topics)
-		}
+			logs := filterLogs(unfiltered, nil, nil, addresses, topics)
+			for _, l := range logs {
+				if len(l.Logs) > 0 && l.Logs[0].TxHash == (common.Hash{}) {
+					// We have matching but non-derived logs
+					receipts, err := es.backend.GetReceipts(ctx, header.Hash())
+					if err != nil {
+						return nil
+					}
+					unfiltered = unfiltered[:0]
+					for _, receipt := range receipts {
+						//receipt.CoinType
+						for _, log := range receipt.Receiptlist {
+							logcopy := types.CoinLogs{receipt.CoinType, log.Logs}
+							//logcopy := *log
+							//logcopy.Removed = remove
+							unfiltered = append(unfiltered, logcopy)
+						}
+					}
+					logs = filterLogs(unfiltered, nil, nil, addresses, topics)
+				}
 
+			}
+			ls = append(ls, logs...)
 		}
-		ls=append(ls,logs...)
 	}
-}
 	return ls
 }
 

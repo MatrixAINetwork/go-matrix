@@ -2,7 +2,9 @@ package state
 
 import (
 	"encoding/json"
+	"errors"
 	_ "github.com/MatrixAINetwork/go-matrix/base58"
+	"github.com/MatrixAINetwork/go-matrix/btrie"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
@@ -11,8 +13,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"math/big"
-	"errors"
-	"github.com/MatrixAINetwork/go-matrix/btrie"
 	"time"
 )
 
@@ -25,18 +25,19 @@ type CoinManage struct {
 	Rmanage []*RangeManage
 }
 type StateDBManage struct {
-	db          Database
-	mdb         mandb.Database
+	db           Database
+	mdb          mandb.Database
 	thash, bhash common.Hash
 	txIndex      int
-	shardings   []*CoinManage
-	coinRoot    []common.CoinRoot
-	retcoinRoot []common.CoinRoot
+	shardings    []*CoinManage
+	coinRoot     []common.CoinRoot
+	retcoinRoot  []common.CoinRoot
 }
 type CoinTrie struct {
-	Coin string
+	Coin     string
 	TrieArry []DumpDB
 }
+
 // Create a new state from a given trie.
 func NewStateDBManage(roots []common.CoinRoot, mdb mandb.Database, db Database) (*StateDBManage, error) {
 
@@ -52,12 +53,12 @@ func NewStateDBManage(roots []common.CoinRoot, mdb mandb.Database, db Database) 
 	}
 	copy(stm.coinRoot, roots)
 	copy(stm.retcoinRoot, roots)
-	for _,cr := range roots{
-		stm.MakeStatedb(cr.Cointyp,true)
+	for _, cr := range roots {
+		stm.MakeStatedb(cr.Cointyp, true)
 	}
 	return stm, nil
 }
-func (shard *StateDBManage) MakeStatedb(cointyp string,isCheck bool) {
+func (shard *StateDBManage) MakeStatedb(cointyp string, isCheck bool) {
 	//没有对应币种或byte分区的时候，才创建
 	for _, cm := range shard.shardings {
 		if cm.Cointyp == cointyp {
@@ -144,9 +145,9 @@ func (shard *StateDBManage) Reset(roots []common.CoinRoot) error {
 	return nil
 }
 
-func (shard *StateDBManage) GetStateDb(cointyp string, address common.Address)( *StateDB,error ){
-	if !shard.CheckCoin(cointyp){
-		return nil,errors.New("Sharding_GetStateDb Error:  coin type Non-existent")
+func (shard *StateDBManage) GetStateDb(cointyp string, address common.Address) (*StateDB, error) {
+	if !shard.CheckCoin(cointyp) {
+		return nil, errors.New("Sharding_GetStateDb Error:  coin type Non-existent")
 	}
 	if cointyp == "" {
 		cointyp = params.MAN_COIN
@@ -154,17 +155,17 @@ func (shard *StateDBManage) GetStateDb(cointyp string, address common.Address)( 
 	cms := shard.shardings
 	for _, cm := range cms {
 		if cm.Cointyp == cointyp {
-			return cm.Rmanage[address[0]].State,nil
+			return cm.Rmanage[address[0]].State, nil
 		}
 	}
-	return nil,errors.New("Sharding_GetStateDb Error:  Can`t Get StateDB")
+	return nil, errors.New("Sharding_GetStateDb Error:  Can`t Get StateDB")
 }
 
 func (shard *StateDBManage) setError(cointype string, addr common.Address, err error) {
 
-	self,err := shard.GetStateDb(cointype, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","func:sharding_setError:",err)
+	self, err := shard.GetStateDb(cointype, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "func:sharding_setError:", err)
 		return
 	}
 	if self.dbErr == nil {
@@ -179,9 +180,9 @@ func (shard *StateDBManage) Error() error {
 
 func (shard *StateDBManage) AddLog(cointyp string, address common.Address, logs *types.Log) {
 
-	self,err := shard.GetStateDb(cointyp, address)
-	if err!=nil {
-		log.Error("sharding_statedb","func:sharding_AddLog:",err)
+	self, err := shard.GetStateDb(cointyp, address)
+	if err != nil {
+		log.Error("sharding_statedb", "func:sharding_AddLog:", err)
 		return
 	}
 	self.journal.append(addLogChange{txhash: shard.thash})
@@ -196,9 +197,9 @@ func (shard *StateDBManage) AddLog(cointyp string, address common.Address, logs 
 
 func (shard *StateDBManage) GetLogs(cointyp string, address common.Address, hash common.Hash) []*types.Log {
 
-	sd ,err:= shard.GetStateDb(cointyp, address)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetLogs:",err)
+	sd, err := shard.GetStateDb(cointyp, address)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetLogs:", err)
 		return nil
 	}
 	return sd.logs[hash]
@@ -208,14 +209,14 @@ func (shard *StateDBManage) GetLogs(cointyp string, address common.Address, hash
 func (shard *StateDBManage) Logs() []types.CoinLogs {
 
 	cms := shard.shardings
-	logs := make([]types.CoinLogs,0,256)
+	logs := make([]types.CoinLogs, 0, 256)
 	for _, cm := range cms {
 		//if cm.Cointyp==cointyp {
 		rms := cm.Rmanage
 		for _, rm := range rms {
 			log := rm.State.logs
 			for _, l := range log {
-				logs = append(logs, types.CoinLogs{cm.Cointyp,l})
+				logs = append(logs, types.CoinLogs{cm.Cointyp, l})
 			}
 		}
 		break
@@ -226,9 +227,9 @@ func (shard *StateDBManage) Logs() []types.CoinLogs {
 // AddPreimage records a SHA3 preimage seen by the VM.
 func (shard *StateDBManage) AddPreimage(cointype string, addr common.Address, hash common.Hash, preimage []byte) {
 
-	state,err := shard.GetStateDb(cointype, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_AddPreimage:",err)
+	state, err := shard.GetStateDb(cointype, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_AddPreimage:", err)
 		return
 	}
 	state.AddPreimage(hash, preimage)
@@ -248,18 +249,18 @@ func (shard *StateDBManage) Preimages() map[string]map[common.Hash][]byte {
 
 func (shard *StateDBManage) AddRefund(cointyp string, address common.Address, gas uint64) {
 
-	sd,err:=shard.GetStateDb(cointyp, address)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_AddRefund:",err)
+	sd, err := shard.GetStateDb(cointyp, address)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_AddRefund:", err)
 		return
 	}
 	sd.AddRefund(gas)
 }
 func (shard *StateDBManage) GetRefund(cointyp string, address common.Address) uint64 {
 
-	sd,err := shard.GetStateDb(cointyp, address)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetRefund:",err)
+	sd, err := shard.GetStateDb(cointyp, address)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetRefund:", err)
 		return 0
 	}
 	return sd.refund
@@ -283,9 +284,9 @@ func (shard *StateDBManage) Empty(cointyp string, addr common.Address) bool {
 // Retrieve the balance from the given address or 0 if object not found
 func (shard *StateDBManage) GetBalance(cointyp string, addr common.Address) common.BalanceType {
 
-	sd,err:=shard.GetStateDb(cointyp,addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetBalance:",err)
+	sd, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetBalance:", err)
 		return nil
 	}
 	return sd.GetBalance(addr)
@@ -317,9 +318,9 @@ func (shard *StateDBManage) GetNonce(cointyp string, addr common.Address) uint64
 
 func (shard *StateDBManage) GetCode(cointyp string, addr common.Address) []byte {
 	stateObject := shard.getStateObject(cointyp, addr)
-	sd,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetCode:",err)
+	sd, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetCode:", err)
 		return nil
 	}
 	if stateObject != nil {
@@ -336,9 +337,9 @@ func (shard *StateDBManage) GetCodeSize(cointyp string, addr common.Address) int
 	if stateObject.code != nil {
 		return len(stateObject.code)
 	}
-	sd,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetCodeSize:",err)
+	sd, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetCodeSize:", err)
 		return 0
 	}
 	size, err := shard.db.ContractCodeSize(stateObject.addrHash, common.BytesToHash(stateObject.CodeHash()))
@@ -358,9 +359,9 @@ func (shard *StateDBManage) GetCodeHash(cointyp string, addr common.Address) com
 
 func (shard *StateDBManage) GetState(cointyp string, addr common.Address, bhash common.Hash) common.Hash {
 	stateObject := shard.getStateObject(cointyp, addr)
-	sd,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetState:",err)
+	sd, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetState:", err)
 		return common.Hash{}
 	}
 	if stateObject != nil {
@@ -371,9 +372,9 @@ func (shard *StateDBManage) GetState(cointyp string, addr common.Address, bhash 
 
 func (shard *StateDBManage) GetStateByteArray(cointyp string, addr common.Address, b common.Hash) []byte {
 	stateObject := shard.getStateObject(cointyp, addr)
-	sd,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetStateByteArray:",err)
+	sd, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetStateByteArray:", err)
 		return nil
 	}
 	if stateObject != nil {
@@ -395,9 +396,9 @@ func (shard *StateDBManage) StorageTrie(cointyp string, addr common.Address) Tri
 	if stateObject == nil {
 		return nil
 	}
-	sd,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_StorageTrie:",err)
+	sd, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_StorageTrie:", err)
 		return nil
 	}
 	cpy := stateObject.deepCopy(sd)
@@ -481,9 +482,9 @@ func (shard *StateDBManage) SetStateByteArray(cointyp string, addr common.Addres
 // getStateObject will return a non-nil account after Suicide.
 func (shard *StateDBManage) Suicide(cointyp string, addr common.Address) bool {
 
-	sd,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_Suicide:",err)
+	sd, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_Suicide:", err)
 		return false
 	}
 	return sd.Suicide(addr)
@@ -498,9 +499,9 @@ func (shard *StateDBManage) Suicide(cointyp string, addr common.Address) bool {
 
 func (shard *StateDBManage) updateStateObject(cointyp string, addr common.Address, stateObject *stateObject) {
 
-	self,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_updateStateObject:",err)
+	self, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_updateStateObject:", err)
 		return
 	}
 	self.updateStateObject(stateObject)
@@ -509,9 +510,9 @@ func (shard *StateDBManage) updateStateObject(cointyp string, addr common.Addres
 // deleteStateObject removes the given object from the state trie.
 func (shard *StateDBManage) deleteStateObject(cointyp string, addr common.Address, stateObject *stateObject) {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_deleteStateObject:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_deleteStateObject:", err)
 		return
 	}
 	statedb.deleteStateObject(stateObject)
@@ -520,9 +521,9 @@ func (shard *StateDBManage) deleteStateObject(cointyp string, addr common.Addres
 // Retrieve a state object given by the address. Returns nil if not found.
 func (shard StateDBManage) getStateObject(cointyp string, addr common.Address) (stateObject *stateObject) {
 
-	self,err := shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_getStateObject:",err)
+	self, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_getStateObject:", err)
 		return nil
 	}
 	return self.getStateObject(addr)
@@ -530,9 +531,9 @@ func (shard StateDBManage) getStateObject(cointyp string, addr common.Address) (
 
 func (shard *StateDBManage) setStateObject(cointyp string, addr common.Address, object *stateObject) {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_setStateObject:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_setStateObject:", err)
 		return
 	}
 	statedb.setStateObject(object)
@@ -541,9 +542,9 @@ func (shard *StateDBManage) setStateObject(cointyp string, addr common.Address, 
 // Retrieve a state object or create a new state object if nil.
 func (shard *StateDBManage) GetOrNewStateObject(cointyp string, addr common.Address) *stateObject {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetOrNewStateObject:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetOrNewStateObject:", err)
 		return nil
 	}
 	return statedb.GetOrNewStateObject(addr)
@@ -553,10 +554,10 @@ func (shard *StateDBManage) GetOrNewStateObject(cointyp string, addr common.Addr
 // the given address, it is overwritten and returned as the second return value.
 func (shard *StateDBManage) createObject(cointyp string, addr common.Address) (newobj, prev *stateObject) {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_createObject:",err)
-		return nil,nil
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_createObject:", err)
+		return nil, nil
 	}
 	return statedb.createObject(addr)
 }
@@ -573,9 +574,9 @@ func (shard *StateDBManage) createObject(cointyp string, addr common.Address) (n
 // Carrying over the balance ensures that Maner doesn't disappear.
 func (shard *StateDBManage) CreateAccount(cointyp string, addr common.Address) {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_CreateAccount:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_CreateAccount:", err)
 		return
 	}
 	statedb.CreateAccount(addr)
@@ -583,12 +584,12 @@ func (shard *StateDBManage) CreateAccount(cointyp string, addr common.Address) {
 
 func (shard *StateDBManage) ForEachStorage(cointyp string, addr common.Address, cb func(key, value common.Hash) bool) {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_ForEachStorage:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_ForEachStorage:", err)
 		return
 	}
-	statedb.ForEachStorage(addr,cb)
+	statedb.ForEachStorage(addr, cb)
 }
 
 // Copy creates a deep, independent copy of the state.
@@ -603,7 +604,7 @@ func (shard *StateDBManage) Copy() *StateDBManage {
 		coinRoot:  make([]common.CoinRoot, 0),
 	}
 	for _, cm := range shard.shardings {
-		rms := make([]*RangeManage,0,256)
+		rms := make([]*RangeManage, 0, 256)
 		for _, rm := range cm.Rmanage {
 			sd := rm.State.Copy()
 			rms = append(rms, &RangeManage{
@@ -625,11 +626,12 @@ func (shard *StateDBManage) Copy() *StateDBManage {
 	return state
 
 }
+
 //var gss = make([]int,256)
 // Snapshot returns an identifier for the current revision of the state.
 func (shard *StateDBManage) Snapshot(cointyp string) []int {
 
-	ss := make([]int,256)
+	ss := make([]int, 256)
 	for _, cm := range shard.shardings {
 		if cm.Cointyp == cointyp {
 			for _, rm := range cm.Rmanage {
@@ -664,11 +666,11 @@ func (shard *StateDBManage) Finalise(cointyp string, deleteEmptyObjects bool) {
 
 	for _, cms := range shard.shardings {
 		//if cms.Cointyp == cointyp { //可以不用判断币种
-			for _, cm := range cms.Rmanage {
-				//log.Info("Finalise ----------------------------------------------","coin type",cointyp,"range",cm.Range,"dirties length",len(cm.State.journal.dirties))
-				cm.State.Finalise(deleteEmptyObjects)
-			}
-			//break
+		for _, cm := range cms.Rmanage {
+			//log.Info("Finalise ----------------------------------------------","coin type",cointyp,"range",cm.Range,"dirties length",len(cm.State.journal.dirties))
+			cm.State.Finalise(deleteEmptyObjects)
+		}
+		//break
 		//}
 	}
 }
@@ -687,9 +689,9 @@ func (shard *StateDBManage) IntermediateRoot(deleteEmptyObjects bool) ([]common.
 			root := rm.State.IntermediateRoot(deleteEmptyObjects)
 			root256 = append(root256, root)
 		}
-		bs,bshash := types.RlpEncodeAndHash(root256)
-//		bshash = types.RlpHash(root256)
-//		bs, _ := rlp.EncodeToBytes(root256)
+		bs, bshash := types.RlpEncodeAndHash(root256)
+		//		bshash = types.RlpHash(root256)
+		//		bs, _ := rlp.EncodeToBytes(root256)
 		err := shard.mdb.Put(bshash[:], bs)
 		if err != nil {
 			log.Error("file:sharding_statedb.go", "func:IntermediateRoot", err)
@@ -706,7 +708,7 @@ func (shard *StateDBManage) IntermediateRoot(deleteEmptyObjects bool) ([]common.
 			}
 		}
 		if !isex {
-			shard.retcoinRoot = append(shard.retcoinRoot, common.CoinRoot{Cointyp: cm.Cointyp, Root: bshash,TxHash:types.EmptyRootHash,ReceiptHash:types.EmptyRootHash})
+			shard.retcoinRoot = append(shard.retcoinRoot, common.CoinRoot{Cointyp: cm.Cointyp, Root: bshash, TxHash: types.EmptyRootHash, ReceiptHash: types.EmptyRootHash})
 		}
 		coinbytes = append(coinbytes, common.Coinbyte{Root: bshash, Byte256: root256})
 	}
@@ -715,16 +717,16 @@ func (shard *StateDBManage) IntermediateRoot(deleteEmptyObjects bool) ([]common.
 
 func (shard *StateDBManage) IntermediateRootByCointype(cointype string, deleteEmptyObjects bool) common.Hash {
 
-	root256 := make([]common.Hash,0,256)
+	root256 := make([]common.Hash, 0, 256)
 	for _, cm := range shard.shardings {
 		if cointype == cm.Cointyp {
 			for _, rm := range cm.Rmanage {
 				root := rm.State.IntermediateRoot(deleteEmptyObjects)
 				root256 = append(root256, root)
 			}
-			bs,bshash := types.RlpEncodeAndHash(root256)
-//			bs, _ := rlp.EncodeToBytes(root256)
-//			bshash := types.RlpHash(root256)
+			bs, bshash := types.RlpEncodeAndHash(root256)
+			//			bs, _ := rlp.EncodeToBytes(root256)
+			//			bshash := types.RlpHash(root256)
 			err := shard.mdb.Put(bshash[:], bs)
 			if err != nil {
 				log.Error("file:sharding_statedb.go", "func:IntermediateRoot", err)
@@ -741,7 +743,7 @@ func (shard *StateDBManage) IntermediateRootByCointype(cointype string, deleteEm
 				}
 			}
 			if !isex {
-				shard.retcoinRoot = append(shard.retcoinRoot, common.CoinRoot{Cointyp: cm.Cointyp, Root: bshash,TxHash:types.EmptyRootHash,ReceiptHash:types.EmptyRootHash})
+				shard.retcoinRoot = append(shard.retcoinRoot, common.CoinRoot{Cointyp: cm.Cointyp, Root: bshash, TxHash: types.EmptyRootHash, ReceiptHash: types.EmptyRootHash})
 			}
 			break
 		}
@@ -778,7 +780,7 @@ func (shard *StateDBManage) Commit(deleteEmptyObjects bool) ([]common.CoinRoot, 
 
 	var coinbytes = make([]common.Coinbyte, 0)
 	for _, cm := range shard.shardings {
-		var roots = make([]common.Hash, 0,256)
+		var roots = make([]common.Hash, 0, 256)
 		for _, rm := range cm.Rmanage {
 			root, err := rm.State.Commit(deleteEmptyObjects)
 			if err != nil {
@@ -787,9 +789,9 @@ func (shard *StateDBManage) Commit(deleteEmptyObjects bool) ([]common.CoinRoot, 
 			}
 			roots = append(roots, root)
 		}
-		bs,bshash := types.RlpEncodeAndHash(roots)
-//		bshash := types.RlpHash(roots)
-//		bs, err := rlp.EncodeToBytes(roots)
+		bs, bshash := types.RlpEncodeAndHash(roots)
+		//		bshash := types.RlpHash(roots)
+		//		bs, err := rlp.EncodeToBytes(roots)
 		err := shard.mdb.Put(bshash[:], bs)
 		if err != nil {
 			log.Error("file:sharding_statedb.go", "func:Commit", err)
@@ -806,7 +808,7 @@ func (shard *StateDBManage) Commit(deleteEmptyObjects bool) ([]common.CoinRoot, 
 			}
 		}
 		if !isex {
-			shard.retcoinRoot = append(shard.retcoinRoot, common.CoinRoot{Cointyp: cm.Cointyp, Root: bshash,TxHash:types.EmptyRootHash,ReceiptHash:types.EmptyRootHash})
+			shard.retcoinRoot = append(shard.retcoinRoot, common.CoinRoot{Cointyp: cm.Cointyp, Root: bshash, TxHash: types.EmptyRootHash, ReceiptHash: types.EmptyRootHash})
 		}
 		coinbytes = append(coinbytes, common.Coinbyte{Root: bshash, Byte256: roots})
 	}
@@ -826,9 +828,9 @@ func (shard *StateDBManage) CommitSaveTx(cointyp string, addr common.Address) {
 
 func (shard *StateDBManage) NewBTrie(cointyp string, addr common.Address, typ byte) {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_NewBTrie:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_NewBTrie:", err)
 		return
 	}
 	statedb.NewBTrie(typ)
@@ -837,21 +839,21 @@ func (shard *StateDBManage) NewBTrie(cointyp string, addr common.Address, typ by
 //isdel:true 表示需要从map中删除hash，false 表示不需要删除
 func (shard *StateDBManage) GetSaveTx(cointyp string, addr common.Address, typ byte, key uint32, hashlist []common.Hash, isdel bool) {
 
-	statedb,err:=shard.GetStateDb(params.MAN_COIN, common.Address{})
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetSaveTx:",err)
+	statedb, err := shard.GetStateDb(params.MAN_COIN, common.Address{})
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetSaveTx:", err)
 		return
 	}
-	statedb.GetSaveTx(typ,key,hashlist,isdel)
+	statedb.GetSaveTx(typ, key, hashlist, isdel)
 }
 func (shard *StateDBManage) SaveTx(cointyp string, addr common.Address, typ byte, key uint32, data map[common.Hash][]byte) {
 
-	statedb,err:=shard.GetStateDb(params.MAN_COIN, common.Address{})
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_SaveTx:",err)
+	statedb, err := shard.GetStateDb(params.MAN_COIN, common.Address{})
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_SaveTx:", err)
 		return
 	}
-	statedb.SaveTx(typ,key,data)
+	statedb.SaveTx(typ, key, data)
 }
 
 //SetMatrixData，GetMatrixData，DeleteMxData都是针对man币种 分区[0]
@@ -887,12 +889,12 @@ func (shard *StateDBManage) DeleteMxData(hash common.Hash, val []byte) {
 }
 
 func (shard *StateDBManage) UpdateTxForBtree(key uint32) {
-	statedb,err:=shard.GetStateDb(params.MAN_COIN, common.Address{})
-	if err!=nil {
-		log.Error("sharding_statedb","UpdateTxForBtree:",err)
+	statedb, err := shard.GetStateDb(params.MAN_COIN, common.Address{})
+	if err != nil {
+		log.Error("sharding_statedb", "UpdateTxForBtree:", err)
 		return
 	}
-	out := statedb.GetBtreeItem(key,common.ExtraRevocable)
+	out := statedb.GetBtreeItem(key, common.ExtraRevocable)
 	for _, it := range out {
 		item, ok := it.(btrie.SpcialTxData)
 		if !ok {
@@ -915,12 +917,12 @@ func (shard *StateDBManage) UpdateTxForBtree(key uint32) {
 			for _, vv := range rt.Adam { //一对多交易
 				log.Info("StateDBManage", "UpdateTxForBtree:vv.Addr", vv.Addr, "vv.Amont", vv.Amont)
 				log.Info("StateDBManage", "UpdateTxForBtree:from", rt.From, "vv.Amont", vv.Amont)
-				if shard.GetBalanceByType(rt.Cointyp,rt.From, common.WithdrawAccount).Cmp(vv.Amont) >= 0 {
-					shard.SubBalance(rt.Cointyp,common.WithdrawAccount, rt.From, vv.Amont)
-					aa := shard.GetBalanceByType(rt.Cointyp,vv.Addr, common.MainAccount)
+				if shard.GetBalanceByType(rt.Cointyp, rt.From, common.WithdrawAccount).Cmp(vv.Amont) >= 0 {
+					shard.SubBalance(rt.Cointyp, common.WithdrawAccount, rt.From, vv.Amont)
+					aa := shard.GetBalanceByType(rt.Cointyp, vv.Addr, common.MainAccount)
 					log.Info("StateDBManage", "UpdateTxForBtree:to", vv.Addr, "Balance:befor", aa)
-					shard.AddBalance(rt.Cointyp,common.MainAccount, vv.Addr, vv.Amont)
-					bb := shard.GetBalanceByType(rt.Cointyp,vv.Addr, common.MainAccount)
+					shard.AddBalance(rt.Cointyp, common.MainAccount, vv.Addr, vv.Amont)
+					bb := shard.GetBalanceByType(rt.Cointyp, vv.Addr, common.MainAccount)
 					log.Info("StateDBManage", "UpdateTxForBtree:to", vv.Addr, "Balance:after", bb, "call time ", time.Now().Unix())
 				} else {
 					log.Info("StateDBManage", "UpdateTxForBtree", "amont is not enough")
@@ -935,12 +937,12 @@ func (shard *StateDBManage) UpdateTxForBtree(key uint32) {
 }
 
 func (shard *StateDBManage) UpdateTxForBtreeBytime(key uint32) {
-	statedb,err:=shard.GetStateDb(params.MAN_COIN, common.Address{})
-	if err!=nil {
-		log.Error("sharding_statedb","UpdateTxForBtree:",err)
+	statedb, err := shard.GetStateDb(params.MAN_COIN, common.Address{})
+	if err != nil {
+		log.Error("sharding_statedb", "UpdateTxForBtree:", err)
 		return
 	}
-	out := statedb.GetBtreeItem(key,common.ExtraTimeTxType)
+	out := statedb.GetBtreeItem(key, common.ExtraTimeTxType)
 	for _, it := range out {
 		item, ok := it.(btrie.SpcialTxData)
 		if !ok {
@@ -963,12 +965,12 @@ func (shard *StateDBManage) UpdateTxForBtreeBytime(key uint32) {
 			for _, vv := range rt.Adam { //一对多交易
 				log.Info("StateDBManage", "UpdateTxForBtreeBytime:vv.Addr", vv.Addr, "vv.Amont", vv.Amont)
 				log.Info("StateDBManage", "UpdateTxForBtreeBytime:from", rt.From, "vv.Amont", vv.Amont)
-				if shard.GetBalanceByType(rt.Cointyp,rt.From, common.WithdrawAccount).Cmp(vv.Amont) >= 0 {
-					shard.SubBalance(rt.Cointyp,common.WithdrawAccount, rt.From, vv.Amont)
-					aa := shard.GetBalanceByType(rt.Cointyp,vv.Addr, common.MainAccount)
+				if shard.GetBalanceByType(rt.Cointyp, rt.From, common.WithdrawAccount).Cmp(vv.Amont) >= 0 {
+					shard.SubBalance(rt.Cointyp, common.WithdrawAccount, rt.From, vv.Amont)
+					aa := shard.GetBalanceByType(rt.Cointyp, vv.Addr, common.MainAccount)
 					log.Info("StateDBManage", "UpdateTxForBtreeBytime:to", vv.Addr, "Balance:befor", aa)
-					shard.AddBalance(rt.Cointyp,common.MainAccount, vv.Addr, vv.Amont)
-					bb := shard.GetBalanceByType(rt.Cointyp,vv.Addr, common.MainAccount)
+					shard.AddBalance(rt.Cointyp, common.MainAccount, vv.Addr, vv.Amont)
+					bb := shard.GetBalanceByType(rt.Cointyp, vv.Addr, common.MainAccount)
 					log.Info("StateDBManage", "UpdateTxForBtreeBytime:to", vv.Addr, "Balance:after", bb, "call time ", time.Now().Unix())
 				} else {
 					log.Info("StateDBManage", "UpdateTxForBtreeBytime", "amont is not enough")
@@ -984,9 +986,9 @@ func (shard *StateDBManage) UpdateTxForBtreeBytime(key uint32) {
 //根据委托人from和时间获取授权人的from,返回授权人地址(内部调用,仅适用委托gas)
 func (shard *StateDBManage) GetGasAuthFromByTime(cointyp string, entrustFrom common.Address, time uint64) common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, entrustFrom)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetGasAuthFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, entrustFrom)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetGasAuthFrom:", err)
 		return common.Address{}
 	}
 	return statedb.GetGasAuthFromByTime(entrustFrom, time)
@@ -994,9 +996,9 @@ func (shard *StateDBManage) GetGasAuthFromByTime(cointyp string, entrustFrom com
 
 func (shard *StateDBManage) GetGasAuthFromByCount(cointyp string, entrustFrom common.Address) common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, entrustFrom)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetGasAuthFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, entrustFrom)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetGasAuthFrom:", err)
 		return common.Address{}
 	}
 	return statedb.GetGasAuthFromByCount(entrustFrom)
@@ -1004,18 +1006,18 @@ func (shard *StateDBManage) GetGasAuthFromByCount(cointyp string, entrustFrom co
 
 func (shard *StateDBManage) GasAuthCountSubOne(cointyp string, entrustFrom common.Address) bool {
 
-	statedb,err:=shard.GetStateDb(cointyp, entrustFrom)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetGasAuthFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, entrustFrom)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetGasAuthFrom:", err)
 		return false
 	}
 	return statedb.GasAuthCountSubOne(entrustFrom)
 }
 func (shard *StateDBManage) GasEntrustCountSubOne(cointyp string, authFrom common.Address) {
 
-	statedb,err:=shard.GetStateDb(cointyp, authFrom)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetGasAuthFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, authFrom)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetGasAuthFrom:", err)
 		return
 	}
 	statedb.GasEntrustCountSubOne(authFrom)
@@ -1025,18 +1027,18 @@ func (shard *StateDBManage) GasEntrustCountSubOne(cointyp string, authFrom commo
 //根据委托人from和时间获取授权人的from,返回授权人地址(内部调用,仅适用委托gas)
 func (shard *StateDBManage) GetGasAuthFrom(cointyp string, addr common.Address, height uint64) common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetGasAuthFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetGasAuthFrom:", err)
 		return common.Address{}
 	}
 	return statedb.GetGasAuthFrom(addr, height)
 }
 func (shard *StateDBManage) GetAuthFrom(cointyp string, addr common.Address, height uint64) common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetAuthFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetAuthFrom:", err)
 		return common.Address{}
 	}
 	return statedb.GetAuthFrom(addr, height)
@@ -1045,9 +1047,9 @@ func (shard *StateDBManage) GetAuthFrom(cointyp string, addr common.Address, hei
 //根据授权人from和高度获取委托人的from列表,返回委托人地址列表(算法组调用,仅适用委托签名)
 func (shard *StateDBManage) GetEntrustFrom(cointyp string, addr common.Address, height uint64) []common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetEntrustFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetEntrustFrom:", err)
 		return nil
 	}
 	return statedb.GetEntrustFrom(addr, height)
@@ -1056,9 +1058,9 @@ func (shard *StateDBManage) GetEntrustFrom(cointyp string, addr common.Address, 
 //根据授权人获取所有委托签名列表,(该方法用于取消委托时调用)
 func (shard *StateDBManage) GetAllEntrustSignFrom(cointyp string, addr common.Address) []common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetAllEntrustSignFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetAllEntrustSignFrom:", err)
 		return nil
 	}
 	return statedb.GetAllEntrustSignFrom(addr)
@@ -1066,9 +1068,9 @@ func (shard *StateDBManage) GetAllEntrustSignFrom(cointyp string, addr common.Ad
 
 func (shard *StateDBManage) GetAllEntrustGasFrom(cointyp string, addr common.Address) []common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetAllEntrustGasFrom:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetAllEntrustGasFrom:", err)
 		return nil
 	}
 	return statedb.GetAllEntrustGasFrom(addr)
@@ -1076,9 +1078,9 @@ func (shard *StateDBManage) GetAllEntrustGasFrom(cointyp string, addr common.Add
 
 func (shard *StateDBManage) GetEntrustFromByTime(cointyp string, addr common.Address, time uint64) []common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetEntrustFromByTime:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetEntrustFromByTime:", err)
 		return nil
 	}
 	return statedb.GetEntrustFromByTime(addr, time)
@@ -1087,9 +1089,9 @@ func (shard *StateDBManage) GetEntrustFromByTime(cointyp string, addr common.Add
 //判断根据时间委托是否满足条件，用于执行按时间委托的交易(跑交易),此处time应该为header里的时间戳
 func (shard *StateDBManage) GetIsEntrustByTime(cointyp string, addr common.Address, time uint64) bool {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetIsEntrustByTime:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetIsEntrustByTime:", err)
 		return false
 	}
 	return statedb.GetIsEntrustByTime(addr, time)
@@ -1098,9 +1100,9 @@ func (shard *StateDBManage) GetIsEntrustByTime(cointyp string, addr common.Addre
 //钱包调用显示
 func (shard *StateDBManage) GetAllEntrustList(cointyp string, addr common.Address) []common.EntrustType {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetAllEntrustList:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetAllEntrustList:", err)
 		return nil
 	}
 	return statedb.GetAllEntrustList(addr)
@@ -1109,23 +1111,23 @@ func (shard *StateDBManage) GetAllEntrustList(cointyp string, addr common.Addres
 //钱包调用显示
 func (shard *StateDBManage) GetGasAuthFromByHeightAddTime(cointyp string, addr common.Address) common.Address {
 
-	statedb,err:=shard.GetStateDb(cointyp, addr)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_GetAllEntrustList:",err)
+	statedb, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_GetAllEntrustList:", err)
 		return common.Address{}
 	}
 	return statedb.GetGasAuthFromByHeightAddTime(addr)
 }
 
-func (shard *StateDBManage) CheckCoin(cointype string)bool{
-	if cointype == params.MAN_COIN{
+func (shard *StateDBManage) CheckCoin(cointype string) bool {
+	if cointype == params.MAN_COIN {
 		return true
 	}
 	val := shard.GetMatrixData(types.RlpHash((params.COIN_NAME)))
 	var coinlist []string
 	err := json.Unmarshal(val, &coinlist)
 	if err != nil {
-		log.Error("Coin type Non-existent","unmarshal err",err)
+		log.Error("Coin type Non-existent", "unmarshal err", err)
 		return false
 	}
 	for _, coinName := range coinlist {
@@ -1137,47 +1139,47 @@ func (shard *StateDBManage) CheckCoin(cointype string)bool{
 }
 func (shard *StateDBManage) RawDump(cointype string, address common.Address) []CoinDump {
 
-	coindumplist := make([]CoinDump,0)
-	if cointype == ""{
-		if address.Equal(common.Address{}){
-			for _,sh := range shard.shardings{
-				dumplist := make([]Dump,0)
-				for _,rang := range sh.Rmanage{
-					dumplist = append(dumplist,rang.State.RawDump())
+	coindumplist := make([]CoinDump, 0)
+	if cointype == "" {
+		if address.Equal(common.Address{}) {
+			for _, sh := range shard.shardings {
+				dumplist := make([]Dump, 0)
+				for _, rang := range sh.Rmanage {
+					dumplist = append(dumplist, rang.State.RawDump())
 				}
-				coindumplist = append(coindumplist,CoinDump{CoinTyp:sh.Cointyp,DumpList:dumplist})
+				coindumplist = append(coindumplist, CoinDump{CoinTyp: sh.Cointyp, DumpList: dumplist})
 			}
-		}else {
-			for _,sh := range shard.shardings{
-				dumplist := make([]Dump,0)
-				for _,rang := range sh.Rmanage{
-					if rang.Range == address[0]{
-						dumplist = append(dumplist,rang.State.RawDump())
+		} else {
+			for _, sh := range shard.shardings {
+				dumplist := make([]Dump, 0)
+				for _, rang := range sh.Rmanage {
+					if rang.Range == address[0] {
+						dumplist = append(dumplist, rang.State.RawDump())
 						break
 					}
 				}
-				coindumplist = append(coindumplist,CoinDump{CoinTyp:sh.Cointyp,DumpList:dumplist})
+				coindumplist = append(coindumplist, CoinDump{CoinTyp: sh.Cointyp, DumpList: dumplist})
 			}
 		}
 	} else {
-		if address.Equal(common.Address{}){
-			for _,sh := range shard.shardings{
-				if sh.Cointyp == cointype{
-					dumplist := make([]Dump,0)
-					for _,rang := range sh.Rmanage{
-						dumplist = append(dumplist,rang.State.RawDump())
+		if address.Equal(common.Address{}) {
+			for _, sh := range shard.shardings {
+				if sh.Cointyp == cointype {
+					dumplist := make([]Dump, 0)
+					for _, rang := range sh.Rmanage {
+						dumplist = append(dumplist, rang.State.RawDump())
 					}
-					coindumplist = append(coindumplist,CoinDump{CoinTyp:cointype,DumpList:dumplist})
+					coindumplist = append(coindumplist, CoinDump{CoinTyp: cointype, DumpList: dumplist})
 					break
 				}
 			}
-		}else {
-			statedb,err:=shard.GetStateDb(cointype, address)
-			if err!=nil {
-				log.Error("sharding_statedb","sharding_RawDump:",err)
+		} else {
+			statedb, err := shard.GetStateDb(cointype, address)
+			if err != nil {
+				log.Error("sharding_statedb", "sharding_RawDump:", err)
 				return nil
 			}
-			coindumplist = append(coindumplist,CoinDump{CoinTyp:cointype,DumpList:[]Dump{statedb.RawDump()}})
+			coindumplist = append(coindumplist, CoinDump{CoinTyp: cointype, DumpList: []Dump{statedb.RawDump()}})
 		}
 	}
 	return coindumplist
@@ -1185,9 +1187,9 @@ func (shard *StateDBManage) RawDump(cointype string, address common.Address) []C
 
 func (shard *StateDBManage) Dump(cointype string, address common.Address) []byte {
 
-	statedb,err:=shard.GetStateDb(cointype, address)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_Dump:",err)
+	statedb, err := shard.GetStateDb(cointype, address)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_Dump:", err)
 		return nil
 	}
 	return statedb.Dump()
@@ -1195,54 +1197,54 @@ func (shard *StateDBManage) Dump(cointype string, address common.Address) []byte
 
 func (shard *StateDBManage) RawDumpAcccount(cointype string, address common.Address) Dump {
 
-	statedb,err:=shard.GetStateDb(cointype, address)
-	if err!=nil {
-		log.Error("sharding_statedb","sharding_RawDumpAcccount:",err)
+	statedb, err := shard.GetStateDb(cointype, address)
+	if err != nil {
+		log.Error("sharding_statedb", "sharding_RawDumpAcccount:", err)
 		return Dump{}
 	}
 	return statedb.RawDumpAcccount(address)
 }
-func (shard *StateDBManage) GetEntrustStateByteArray(cointyp string,addr common.Address) []byte{
-	state,err:=shard.GetStateDb(cointyp,addr)
-	if err != nil{
-		log.Error("GetEntrustStateByteArray err","err",err)
+func (shard *StateDBManage) GetEntrustStateByteArray(cointyp string, addr common.Address) []byte {
+	state, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("GetEntrustStateByteArray err", "err", err)
 		return nil
 	}
 	return state.GetEntrustStateByteArray(addr)
 }
-func (shard *StateDBManage) GetAuthStateByteArray(cointyp string,addr common.Address) []byte{
-	state,err:=shard.GetStateDb(cointyp,addr)
-	if err != nil{
-		log.Error("GetAuthStateByteArray err","err",err)
+func (shard *StateDBManage) GetAuthStateByteArray(cointyp string, addr common.Address) []byte {
+	state, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("GetAuthStateByteArray err", "err", err)
 		return nil
 	}
 	return state.GetAuthStateByteArray(addr)
 }
-func (shard *StateDBManage) SetEntrustStateByteArray(cointyp string,addr common.Address, value []byte){
-	state,err:=shard.GetStateDb(cointyp,addr)
-	if err != nil{
-		log.Error("SetEntrustStateByteArray err","err",err)
+func (shard *StateDBManage) SetEntrustStateByteArray(cointyp string, addr common.Address, value []byte) {
+	state, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("SetEntrustStateByteArray err", "err", err)
 		return
 	}
-	state.SetEntrustStateByteArray(addr,value)
+	state.SetEntrustStateByteArray(addr, value)
 }
-func (shard *StateDBManage) SetAuthStateByteArray(cointyp string,addr common.Address, value []byte){
-	state,err:=shard.GetStateDb(cointyp,addr)
-	if err != nil{
-		log.Error("SetAuthStateByteArray err","err",err)
+func (shard *StateDBManage) SetAuthStateByteArray(cointyp string, addr common.Address, value []byte) {
+	state, err := shard.GetStateDb(cointyp, addr)
+	if err != nil {
+		log.Error("SetAuthStateByteArray err", "err", err)
 		return
 	}
-	state.SetAuthStateByteArray(addr,value)
+	state.SetAuthStateByteArray(addr, value)
 }
 
-func (shard *StateDBManage)RawDumpDB() []CoinTrie {
-	snapCoinTrie := make([]CoinTrie,0)
-	for _,shard := range shard.shardings{
-		dumplist := make([]DumpDB,0)
-		for _,rm := range shard.Rmanage{
-			dumplist = append(dumplist,rm.State.RawDumpDB())
+func (shard *StateDBManage) RawDumpDB() []CoinTrie {
+	snapCoinTrie := make([]CoinTrie, 0)
+	for _, shard := range shard.shardings {
+		dumplist := make([]DumpDB, 0)
+		for _, rm := range shard.Rmanage {
+			dumplist = append(dumplist, rm.State.RawDumpDB())
 		}
-		snapCoinTrie = append(snapCoinTrie,CoinTrie{shard.Cointyp,dumplist})
+		snapCoinTrie = append(snapCoinTrie, CoinTrie{shard.Cointyp, dumplist})
 	}
 	return snapCoinTrie
 }

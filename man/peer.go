@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -57,6 +59,8 @@ type PeerInfo struct {
 	Head          string   `json:"head"`          // SHA3 hash of the peer's best owned block
 	SuperBlockNum uint64   `json:"superBlockNum"` // SuperBlockHash
 	SuperBlockSeq uint64   `json:"superBlockSeq"` // SuperBlockHash
+	BlockTime     uint64   `json:"blockTime"`     // blockTime
+	BlockHeight   uint64   `json:"blockHeight"`   // blockHeight
 }
 
 // propEvent is a block propagation, waiting for its turn in the broadcast queue.
@@ -78,8 +82,10 @@ type peer struct {
 	forkDrop *time.Timer // Timed connection dropper if forks aren't validated in time
 
 	head common.Hash
+	bn   uint64
 	sbn  uint64
 	td   *big.Int
+	bt   uint64
 	sbs  uint64
 	lock sync.RWMutex
 
@@ -145,7 +151,7 @@ func (p *peer) close() {
 
 // Info gathers and returns a collection of metadata known about a peer.
 func (p *peer) Info() *PeerInfo {
-	hash, td, sbs, sbHash := p.Head()
+	hash, td, sbs, sbHash, bt, bn := p.Head()
 
 	return &PeerInfo{
 		Version:       p.version,
@@ -153,21 +159,23 @@ func (p *peer) Info() *PeerInfo {
 		Head:          hash.Hex(),
 		SuperBlockNum: sbHash,
 		SuperBlockSeq: sbs,
+		BlockTime:     bt,
+		BlockHeight:   bn,
 	}
 }
 
 // Head retrieves a copy of the current head hash and total difficulty of the
 // peer.
-func (p *peer) Head() (hash common.Hash, td *big.Int, sbs uint64, sbHash uint64) {
+func (p *peer) Head() (hash common.Hash, td *big.Int, sbs uint64, sbHash uint64, uint64, bn uint64) {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
 	copy(hash[:], p.head[:])
-	return hash, new(big.Int).Set(p.td), p.sbs, p.sbn
+	return hash, new(big.Int).Set(p.td), p.sbs, p.sbn, p.bt, p.bn
 }
 
 // SetHead updates the head hash and total difficulty of the peer.
-func (p *peer) SetHead(hash common.Hash, td *big.Int, sbs uint64, sbn uint64) {
+func (p *peer) SetHead(hash common.Hash, td *big.Int, sbs uint64, sbn uint64, bt uint64, bn uint64) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -175,6 +183,8 @@ func (p *peer) SetHead(hash common.Hash, td *big.Int, sbs uint64, sbn uint64) {
 	p.td.Set(td)
 	p.sbs = sbs
 	p.sbn = sbn
+	p.bn = bn
+	p.bt = bt
 }
 
 // MarkBlock marks a block as known for the peer, ensuring that the block will
@@ -417,11 +427,76 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, sbs uint
 			return p2p.DiscReadTimeout
 		}
 	}
-	p.td, p.head, p.sbs, p.sbn = status.TD, status.CurrentBlock, status.SBS, status.SBH
+	p.td, p.head, p.sbs, p.sbn, p.bt, p.bn = status.TD, status.CurrentBlock, status.SBS, status.SBH, 0, 0
+	return nil
+}
+
+// Handshake executes the eth protocol handshake, negotiating version number,
+// network IDs, difficulties, head and genesis blocks.
+func (p *peer) NewHandshake(network uint64, blockTime uint64, head common.Hash, sbs uint64, genesis common.Hash, sbh uint64, bn uint64) error {
+	// Send out own handshake in a new thread
+	errc := make(chan error, 2)
+	var status statusNewData // safe to read after two values have been received from errc
+
+	go func() {
+		errc <- p2p.Send(p.rw, StatusMsg, &statusNewData{
+			ProtocolVersion: uint32(p.version),
+			NetworkId:       network,
+			SBS:             sbs,
+			SBH:             sbh,
+			BN:              bn,
+			BlockTime:       blockTime,
+			CurrentBlock:    head,
+			GenesisBlock:    genesis,
+		})
+	}()
+	go func() {
+		errc <- p.readNewStatus(network, &status, genesis)
+	}()
+	timeout := time.NewTimer(handshakeTimeout)
+	defer timeout.Stop()
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errc:
+			if err != nil {
+				return err
+			}
+		case <-timeout.C:
+			return p2p.DiscReadTimeout
+		}
+	}
+	p.bt, p.head, p.sbs, p.sbn, p.bn, p.td = status.BlockTime, status.CurrentBlock, status.SBS, status.SBH, status.BN, new(big.Int).SetUint64(0)
 	return nil
 }
 
 func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash) (err error) {
+	msg, err := p.rw.ReadMsg()
+	if err != nil {
+		return err
+	}
+	if msg.Code != StatusMsg {
+		return errResp(ErrNoStatusMsg, "first msg has code %x (!= %x)", msg.Code, StatusMsg)
+	}
+	if msg.Size > ProtocolMaxMsgSize {
+		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
+	}
+	// Decode the handshake and make sure everything matches
+	if err := msg.Decode(&status); err != nil {
+		return errResp(ErrDecode, "msg %v: %v", msg, err)
+	}
+	if status.GenesisBlock != genesis {
+		return errResp(ErrGenesisBlockMismatch, "%x (!= %x)", status.GenesisBlock[:8], genesis[:8])
+	}
+	if status.NetworkId != network {
+		return errResp(ErrNetworkIdMismatch, "%d (!= %d)", status.NetworkId, network)
+	}
+	if int(status.ProtocolVersion) != p.version {
+		return errResp(ErrProtocolVersionMismatch, "%d (!= %d)", status.ProtocolVersion, p.version)
+	}
+	return nil
+}
+
+func (p *peer) readNewStatus(network uint64, status *statusNewData, genesis common.Hash) (err error) {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
@@ -551,10 +626,7 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	return list
 }
 
-// BestPeer retrieves the known peer with the currently highest total difficulty.
-func (ps *peerSet) BestPeer() *peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+func (ps *peerSet) bestPeerA() *peer {
 
 	var (
 		bestPeer *peer
@@ -562,7 +634,7 @@ func (ps *peerSet) BestPeer() *peer {
 		bestBs   uint64
 	)
 	for _, p := range ps.peers {
-		_, td, sb, _ := p.Head()
+		_, td, sb, _, _, _ := p.Head()
 		if sb < bestBs {
 			continue
 		}
@@ -572,6 +644,37 @@ func (ps *peerSet) BestPeer() *peer {
 		}
 	}
 	return bestPeer
+}
+
+func (ps *peerSet) bestPeerB() *peer {
+
+	var (
+		bestPeer *peer
+		bestTime uint64
+		bestBs   uint64
+		bestBn   uint64
+	)
+	for _, p := range ps.peers {
+		_, _, sb, _, bt, bn := p.Head()
+
+		//todo:bestTd
+		if bestPeer == nil || common.IsGreaterLink(common.LinkInfo{Sbs: sb, Bn: bn, Bt: bt}, common.LinkInfo{Sbs: bestBs, Bn: bestBn, Bt: bestTime}) {
+			bestPeer, bestBs, bestTime, bestBn = p, sb, bt, bn
+		}
+
+	}
+	return bestPeer
+}
+
+// BestPeer retrieves the known peer with the currently highest total difficulty.
+func (ps *peerSet) BestPeer() *peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+		return ps.bestPeerB()
+	} else {
+		return ps.bestPeerA()
+	}
 }
 
 // Close disconnects all peers.

@@ -60,16 +60,17 @@ func SetPreMinerReward(state util.StateDB, reward *big.Int, rewardType uint8, co
 	var err error
 	if util.TxsReward == rewardType {
 		version := matrixstate.GetVersionInfo(state)
-		if version == manparams.VersionAlpha {
+		switch version {
+		case manparams.VersionAlpha:
 			err = matrixstate.SetPreMinerTxsReward(state, minerOutReward)
-		} else if version == manparams.VersionBeta {
+		case manparams.VersionBeta, manparams.VersionGamma:
 			multiCoinMinerOut, err := matrixstate.GetPreMinerMultiCoinTxsReward(state)
 			if err != nil {
 				log.Error(PackageName, "获取前矿工奖励值错误", err)
 			}
 			multiCoinMinerOut = addMultiCoinMinerOutReward(coinType, reward, multiCoinMinerOut)
 			err = matrixstate.SetPreMinerMultiCoinTxsReward(state, multiCoinMinerOut)
-		} else {
+		default:
 			log.Error(PackageName, "设置前矿工奖励值版本号错误", version)
 			return
 		}

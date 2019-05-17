@@ -175,14 +175,14 @@ func (f *Filter) unindexedLogs(ctx context.Context, end uint64) ([]types.CoinLog
 		if header == nil || err != nil {
 			return logs, err
 		}
-		for _,cr:=range header.Roots{
-		if bloomFilter(cr.Bloom, f.addresses, f.topics) {
-			found, err := f.checkMatches(ctx, header)
-			if err != nil {
-				return logs, err
+		for _, cr := range header.Roots {
+			if bloomFilter(cr.Bloom, f.addresses, f.topics) {
+				found, err := f.checkMatches(ctx, header)
+				if err != nil {
+					return logs, err
+				}
+				logs = append(logs, found...)
 			}
-			logs = append(logs, found...)
-		}
 		}
 
 	}
@@ -202,26 +202,26 @@ func (f *Filter) checkMatches(ctx context.Context, header *types.Header) (logs [
 		unfiltered = append(unfiltered, logs)
 	}
 	logs = filterLogs(unfiltered, nil, nil, f.addresses, f.topics)
-	for _,ls:= range logs{
-	if len(ls.Logs) > 0 {
-		// We have matching logs, check if we need to resolve full logs via the light client
-		if ls.Logs[0].TxHash == (common.Hash{}) {
-			receipts, err := f.backend.GetReceipts(ctx, header.Hash())
-			if err != nil {
-				return nil, err
-			}
-			unfiltered = unfiltered[:0]
-			for _, receipt := range receipts {
-				if receipt.CoinType==ls.CoinType {
-					for _,r:=range receipt.Receiptlist{
-				unfiltered = append(unfiltered,types.CoinLogs{ls.CoinType, r.Logs})
+	for _, ls := range logs {
+		if len(ls.Logs) > 0 {
+			// We have matching logs, check if we need to resolve full logs via the light client
+			if ls.Logs[0].TxHash == (common.Hash{}) {
+				receipts, err := f.backend.GetReceipts(ctx, header.Hash())
+				if err != nil {
+					return nil, err
+				}
+				unfiltered = unfiltered[:0]
+				for _, receipt := range receipts {
+					if receipt.CoinType == ls.CoinType {
+						for _, r := range receipt.Receiptlist {
+							unfiltered = append(unfiltered, types.CoinLogs{ls.CoinType, r.Logs})
+						}
 					}
 				}
 			}
-		}
 
+		}
 	}
-}
 	logs = filterLogs(unfiltered, nil, nil, f.addresses, f.topics)
 	return logs, nil
 }
@@ -240,40 +240,40 @@ func includes(addresses []common.Address, a common.Address) bool {
 func filterLogs(logs []types.CoinLogs, fromBlock, toBlock *big.Int, addresses []common.Address, topics [][]common.Hash) (ret []types.CoinLogs) {
 	for _, l := range logs {
 		var r []*types.Log
-Logs:
-	for _, log := range l.Logs {
-		if fromBlock != nil && fromBlock.Int64() >= 0 && fromBlock.Uint64() > log.BlockNumber {
-			continue
+	Logs:
+		for _, log := range l.Logs {
+			if fromBlock != nil && fromBlock.Int64() >= 0 && fromBlock.Uint64() > log.BlockNumber {
+				continue
 
-		}
-		if toBlock != nil && toBlock.Int64() >= 0 && toBlock.Uint64() < log.BlockNumber {
-			continue
-		}
-
-		if len(addresses) > 0 && !includes(addresses, log.Address) {
-			continue
-		}
-		// If the to filtered topics is greater than the amount of topics in logs, skip.
-		if len(topics) > len(log.Topics) {
-			continue Logs
-		}
-		for i, topics := range topics {
-			match := len(topics) == 0 // empty rule set == wildcard
-			for _, topic := range topics {
-				if log.Topics[i] == topic {
-					match = true
-					break
-				}
 			}
-			if !match {
+			if toBlock != nil && toBlock.Int64() >= 0 && toBlock.Uint64() < log.BlockNumber {
+				continue
+			}
+
+			if len(addresses) > 0 && !includes(addresses, log.Address) {
+				continue
+			}
+			// If the to filtered topics is greater than the amount of topics in logs, skip.
+			if len(topics) > len(log.Topics) {
 				continue Logs
 			}
-		}
-		r=append(r,log)
+			for i, topics := range topics {
+				match := len(topics) == 0 // empty rule set == wildcard
+				for _, topic := range topics {
+					if log.Topics[i] == topic {
+						match = true
+						break
+					}
+				}
+				if !match {
+					continue Logs
+				}
+			}
+			r = append(r, log)
 
+		}
+		ret = append(ret, types.CoinLogs{l.CoinType, r})
 	}
-		ret = append(ret, types.CoinLogs{l.CoinType,r})
-}
 	return
 }
 

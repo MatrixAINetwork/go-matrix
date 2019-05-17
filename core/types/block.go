@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	EmptyRootHash  = common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")//DeriveShaHash([]common.Hash{})
+	EmptyRootHash  = common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421") //DeriveShaHash([]common.Hash{})
 	EmptyUncleHash = CalcUncleHash(nil)
 )
 
@@ -254,12 +254,12 @@ func RlpHash(x interface{}) (h common.Hash) {
 	hw.Sum(h[:0])
 	return h
 }
-func RlpEncodeAndHash(x interface{}) (buff []byte,h common.Hash) {
+func RlpEncodeAndHash(x interface{}) (buff []byte, h common.Hash) {
 	hw := sha3.NewKeccak256()
-	buff,_ = rlp.EncodeToBytes(x)
+	buff, _ = rlp.EncodeToBytes(x)
 	hw.Write(buff)
 	hw.Sum(h[:0])
-	return buff,h
+	return buff, h
 }
 
 //1. Complete Block transactions = []SelfTransactio
@@ -450,8 +450,8 @@ type CurrencyHeader struct {
 	ReceiptHash common.Hash
 }
 
-func MakeCurencyBlock(txser []CoinSelfTransaction, rece []CoinReceipts, shardings []uint) ([]CurrencyBlock) {
-	cb := make([]CurrencyBlock,0,len(txser))
+func MakeCurencyBlock(txser []CoinSelfTransaction, rece []CoinReceipts, shardings []uint) []CurrencyBlock {
+	cb := make([]CurrencyBlock, 0, len(txser))
 	for i, txer := range txser {
 		var br BodyReceipts = BodyReceipts{}
 		if len(rece) > 0 {
@@ -555,7 +555,7 @@ func NewBlock(header *Header, currencyBlocks []CurrencyBlock, uncles []*Header) 
 	b := &Block{header: CopyHeader(header), td: new(big.Int)}
 	ischeck := len(b.header.Roots) > 0
 	// TODO: panic if len(txs) != len(receipts)
-	for i:=0;i<len(currencyBlocks);i++ {
+	for i := 0; i < len(currencyBlocks); i++ {
 		if len(currencyBlocks[i].Transactions.GetTransactions()) == 0 {
 			if ischeck {
 				for j, coinRoot := range b.header.Roots {
@@ -581,8 +581,8 @@ func NewBlock(header *Header, currencyBlocks []CurrencyBlock, uncles []*Header) 
 						b.header.Roots[j].Cointyp = currencyBlocks[i].CurrencyName
 						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
 							Receipts: currencyBlocks[i].Receipts})
-					}else {
-						log.Info("coin name different", "header", coinRoot.Cointyp,"block",currencyBlocks[i].CurrencyName)
+					} else {
+						log.Info("coin name different", "header", coinRoot.Cointyp, "block", currencyBlocks[i].CurrencyName)
 					}
 				}
 			} else {
@@ -631,7 +631,7 @@ func NewBlockWithTxs(header *Header, currencyBlocks []CurrencyBlock) *Block {
 			for i, coinRoot := range b.header.Roots {
 				if coinRoot.Cointyp == Block.CurrencyName {
 					b.header.Roots[i].TxHash = DeriveShaHash(Block.Transactions.TxHashs)
-							b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: coinRoot.Cointyp, Transactions: Block.Transactions,
+					b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: coinRoot.Cointyp, Transactions: Block.Transactions,
 						Receipts: Block.Receipts})
 				}
 			}

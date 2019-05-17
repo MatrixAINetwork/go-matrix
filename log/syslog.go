@@ -19,6 +19,10 @@ func SyslogHandler(priority syslog.Priority, tag string, fmtr Format) (Handler, 
 
 // SyslogNetHandler opens a connection to a log daemon over the network and writes
 // all log records to it.
+func SetNetLogHandler(net,addr,tag string,fmtr Format)(Handler, error){
+	wr, err := syslog.Dial(net, addr, syslog.LOG_INFO, tag)
+	return sharedSyslog(fmtr, wr, err)
+}
 func SyslogNetHandler(net, addr string, priority syslog.Priority, tag string, fmtr Format) (Handler, error) {
 	wr, err := syslog.Dial(net, addr, priority, tag)
 	return sharedSyslog(fmtr, wr, err)

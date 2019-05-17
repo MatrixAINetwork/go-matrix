@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"sync"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
 	"github.com/MatrixAINetwork/go-matrix/trie"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 // Trie cache generation limit after which to evict trie nodes from memory.
@@ -20,7 +20,7 @@ var MaxTrieCacheGen = uint16(120)
 const (
 	// Number of past tries to keep. This value is chosen such that
 	// reasonable chain reorg depths will hit an existing trie.
-	maxPastTries = 12
+	maxPastTries  = 12
 	PastTriesSize = 1024
 
 	// Number of codehash->size associations to keep.
@@ -75,10 +75,10 @@ func NewDatabase(db mandb.Database) Database {
 }
 
 type cachingDB struct {
-	db            *trie.Database
-	mu            sync.Mutex
-	pastTries	  *lru.Cache
-//	pastTries     []*trie.SecureTrie
+	db        *trie.Database
+	mu        sync.Mutex
+	pastTries *lru.Cache
+	//	pastTries     []*trie.SecureTrie
 	codeSizeCache *lru.Cache
 }
 
@@ -86,42 +86,42 @@ type cachingDB struct {
 func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	if pastTree,exist := db.pastTries.Get(root);exist{
+	if pastTree, exist := db.pastTries.Get(root); exist {
 		return cachedTrie{pastTree.(*trie.SecureTrie).Copy(), db}, nil
-	}else{
+	} else {
 		tr, err := trie.NewSecure(root, db.db, MaxTrieCacheGen)
 		if err != nil {
 			return nil, err
 		}
-		db.pastTries.Add(root,tr)
+		db.pastTries.Add(root, tr)
 		return cachedTrie{tr.Copy(), db}, nil
 	}
 	/*
-	for i := len(db.pastTries) - 1; i >= 0; i-- {
-		if db.pastTries[i].Hash() == root {
-			return cachedTrie{db.pastTries[i].Copy(), db}, nil
+		for i := len(db.pastTries) - 1; i >= 0; i-- {
+			if db.pastTries[i].Hash() == root {
+				return cachedTrie{db.pastTries[i].Copy(), db}, nil
+			}
 		}
-	}
-	tr, err := trie.NewSecure(root, db.db, MaxTrieCacheGen)
-	if err != nil {
-		return nil, err
-	}
-	return cachedTrie{tr, db}, nil
+		tr, err := trie.NewSecure(root, db.db, MaxTrieCacheGen)
+		if err != nil {
+			return nil, err
+		}
+		return cachedTrie{tr, db}, nil
 	*/
 }
 
 func (db *cachingDB) pushTrie(t *trie.SecureTrie) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	db.pastTries.Add(t.Hash(),t)
-/*
-	if len(db.pastTries) >= maxPastTries {
-		copy(db.pastTries, db.pastTries[1:])
-		db.pastTries[len(db.pastTries)-1] = t
-	} else {
-		db.pastTries = append(db.pastTries, t)
-	}
-*/
+	db.pastTries.Add(t.Hash(), t)
+	/*
+		if len(db.pastTries) >= maxPastTries {
+			copy(db.pastTries, db.pastTries[1:])
+			db.pastTries[len(db.pastTries)-1] = t
+		} else {
+			db.pastTries = append(db.pastTries, t)
+		}
+	*/
 }
 
 // OpenStorageTrie opens the storage trie of an account.

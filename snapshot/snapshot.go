@@ -17,13 +17,12 @@ SnapStartLimit=4
 )*/
 
 type SnapshotData struct {
-	CoinTries  []state.CoinTrie
-	Td       *big.Int
-	Block    types.Block
+	CoinTries []state.CoinTrie
+	Td        *big.Int
+	Block     types.Block
 }
 
 type SnapshotDatas struct {
 	Datas      []SnapshotData
 	OtherTries [][]state.CoinTrie
 }
-

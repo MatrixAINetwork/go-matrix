@@ -1,6 +1,7 @@
 package interest
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
@@ -19,11 +20,13 @@ import (
 const (
 	PackageName = "利息奖励"
 	Denominator = 1000000000
+	POWER       = float64(1)
 )
 
 type interest struct {
 	VIPConfig      []mc.VIPConfig
 	InterestConfig *mc.InterestCfg
+	Calc           string
 }
 
 type DepositInterestRate struct {
@@ -39,13 +42,13 @@ func (p DepositInterestRateList) Less(i, j int) bool { return p[i].Deposit.Cmp(p
 
 func New(st util.StateDB, preSt util.StateDB) *interest {
 
-	data, err := matrixstate.GetInterestCalc(preSt)
+	calc, err := matrixstate.GetInterestCalc(preSt)
 	if nil != err {
 		log.ERROR(PackageName, "获取状态树配置错误")
 		return nil
 	}
 
-	if data == util.Stop {
+	if calc == util.Stop {
 		log.ERROR(PackageName, "停止发放区块奖励", "")
 		return nil
 	}
@@ -80,7 +83,7 @@ func New(st util.StateDB, preSt util.StateDB) *interest {
 		return nil
 	}
 
-	return &interest{VipCfg, IC}
+	return &interest{VIPConfig: VipCfg, InterestConfig: IC, Calc: calc}
 }
 func (ic *interest) calcNodeInterest(deposit *big.Int, depositInterestRate []*DepositInterestRate, denominator uint64) *big.Int {
 
@@ -105,6 +108,18 @@ func (ic *interest) calcNodeInterest(deposit *big.Int, depositInterestRate []*De
 	originResult := new(big.Int).Mul(deposit, new(big.Int).SetUint64(blockInterest))
 	finalResult := new(big.Int).Div(originResult, new(big.Int).SetUint64(denominator))
 	return finalResult
+}
+
+func (ic *interest) calcNodeInterestB(deposit *big.Int) *big.Int {
+
+	if deposit.Cmp(big.NewInt(0)) <= 0 {
+		log.ERROR(PackageName, "抵押获取错误", deposit)
+		return big.NewInt(0)
+	}
+
+	depositMan := new(big.Int).Div(deposit, util.ManPrice).Uint64()
+	originResult := math.Pow(float64(depositMan), POWER)
+	return new(big.Int).SetUint64(uint64(originResult))
 }
 
 func (ic *interest) PayInterest(state vm.StateDBManager, num uint64) map[common.Address]*big.Int {
@@ -172,13 +187,13 @@ func (ic *interest) getLastInterestNumber(number uint64, InterestInterval uint64
 	return ans
 }
 func (ic *interest) GetReward(state vm.StateDBManager, num uint64, parentHash common.Hash) map[common.Address]*big.Int {
-	RewardMan := new(big.Int).Mul(new(big.Int).SetUint64(ic.InterestConfig.RewardMount), util.ManPrice)
+	RewardMan := new(big.Int).Mul(new(big.Int).SetUint64(ic.InterestConfig.RewardMount), util.GetPrice(ic.Calc))
 	blockReward := util.CalcRewardMountByNumber(state, RewardMan, num-1, ic.InterestConfig.AttenuationPeriod, common.InterestRewardAddress, ic.InterestConfig.AttenuationRate)
 	if blockReward.Uint64() == 0 {
 		log.Error(PackageName, "账户余额为0，不发放利息奖励", "")
 		return nil
 	}
-	InterestMap := ic.GetInterest(state, num, parentHash)
+	InterestMap := ic.GetInterest(num, parentHash)
 	RewardMap := util.CalcInterestReward(blockReward, InterestMap)
 	return RewardMap
 }
@@ -195,7 +210,7 @@ func (ic *interest) SetReward(InterestMap map[common.Address]*big.Int, state vm.
 	}
 }
 
-func (ic *interest) GetInterest(state vm.StateDBManager, num uint64, parentHash common.Hash) map[common.Address]*big.Int {
+func (ic *interest) GetInterest(num uint64, parentHash common.Hash) map[common.Address]*big.Int {
 	depositInterestRateList := make(DepositInterestRateList, 0)
 	for _, v := range ic.VIPConfig {
 		if v.MinMoney < 0 {
@@ -218,16 +233,30 @@ func (ic *interest) GetInterest(state vm.StateDBManager, num uint64, parentHash 
 
 	log.Debug(PackageName, "计算利息,高度", num)
 	InterestMap := make(map[common.Address]*big.Int)
-	for _, dv := range depositNodes {
+	if ic.Calc >= util.CalcGamma {
+		for _, dv := range depositNodes {
 
-		result := ic.calcNodeInterest(dv.Deposit, depositInterestRateList, Denominator)
-		if result.Cmp(big.NewInt(0)) <= 0 {
-			log.ERROR(PackageName, "计算的利息非法", result)
-			continue
+			result := ic.calcNodeInterestB(dv.Deposit)
+			if result.Cmp(big.NewInt(0)) <= 0 {
+				log.ERROR(PackageName, "计算的利息非法", result)
+				continue
+			}
+			InterestMap[dv.Address] = result
+			//log.Debug(PackageName, "账户", dv.Address.String(), "deposit", dv.Deposit.String(), "利息", result.String())
 		}
-		InterestMap[dv.Address] = result
-		//log.Debug(PackageName, "账户", dv.Address.String(), "deposit", dv.Deposit.String(), "利息", result.String())
+	} else {
+		for _, dv := range depositNodes {
+
+			result := ic.calcNodeInterest(dv.Deposit, depositInterestRateList, Denominator)
+			if result.Cmp(big.NewInt(0)) <= 0 {
+				log.ERROR(PackageName, "计算的利息非法", result)
+				continue
+			}
+			InterestMap[dv.Address] = result
+			//log.Debug(PackageName, "账户", dv.Address.String(), "deposit", dv.Deposit.String(), "利息", result.String())
+		}
 	}
+
 	return InterestMap
 }
 

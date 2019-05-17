@@ -7,9 +7,9 @@ package base58
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/crc8"
+	"github.com/pkg/errors"
 	"math/big"
 	"strings"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -152,27 +152,27 @@ func Base58EncodeToString(currency string, b common.Address) string {
 	return strAddr + strCrc
 }
 
-func Base58DecodeToAddress(strData string) (common.Address,error) {
+func Base58DecodeToAddress(strData string) (common.Address, error) {
 	strData = strings.TrimSpace(strData)
 	if strData == "" {
-		return common.Address{},errors.New("input address invalid")
+		return common.Address{}, errors.New("input address invalid")
 	}
 	if !strings.Contains(strData, ".") {
-		return common.Address{},errors.New("input address invalid")
+		return common.Address{}, errors.New("input address invalid")
 	}
 	currency := strings.Split(strData, ".")[0]
-	if !common.IsValidityManCurrency(currency){
-		return common.Address{},errors.New("input address invalid")
+	if !common.IsValidityManCurrency(currency) {
+		return common.Address{}, errors.New("input address invalid")
 	}
 
 	crc := strData[len(strData)-1]
 	crc1 := crc8.CalCRC8([]byte(strData[0 : len(strData)-1]))
 	strCrc := EncodeInt(crc1 % 58)
-	if strCrc != string(crc){
-		return common.Address{},errors.New("input address invalid")
+	if strCrc != string(crc) {
+		return common.Address{}, errors.New("input address invalid")
 	}
 
 	tmpaddres := strings.Split(strData, ".")[1]
 	addres := Decode(tmpaddres[0 : len(tmpaddres)-1]) //最后一位为crc%58
-	return common.BytesToAddress(addres),nil
+	return common.BytesToAddress(addres), nil
 }

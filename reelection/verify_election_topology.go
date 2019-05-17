@@ -47,12 +47,12 @@ func (p *ReElection) VerifyElection(header *types.Header, state *state.StateDBMa
 	return nil
 }
 
-func (p *ReElection) VerifyNetTopology(header *types.Header, onlineConsensusResults []*mc.HD_OnlineConsensusVoteResultMsg) error {
+func (p *ReElection) VerifyNetTopology(version string, header *types.Header, onlineConsensusResults []*mc.HD_OnlineConsensusVoteResultMsg) error {
 	if header.NetTopology.Type == common.NetTopoTypeAll {
 		return p.verifyAllNetTopology(header)
 	}
 
-	return p.verifyChgNetTopology(header, onlineConsensusResults)
+	return p.verifyChgNetTopology(version, header, onlineConsensusResults)
 }
 func (p *ReElection) VerifyVrf(header *types.Header) error {
 
@@ -105,11 +105,18 @@ func (p *ReElection) verifyAllNetTopology(header *types.Header) error {
 	return nil
 }
 
-func (p *ReElection) verifyChgNetTopology(header *types.Header, onlineConsensusResults []*mc.HD_OnlineConsensusVoteResultMsg) error {
+func (p *ReElection) verifyChgNetTopology(version string, header *types.Header, onlineConsensusResults []*mc.HD_OnlineConsensusVoteResultMsg) error {
 	if len(header.NetTopology.NetTopologyData) == 0 {
 		return nil
 	}
-
+	if manparams.VersionCmp(version, manparams.VersionGamma) >= 0 {
+		for _, item := range onlineConsensusResults {
+			if item.Req.Node == header.Leader {
+				log.Warn(Module, "verifyChgNetTopology", "leader出块共识中存在自己的下线共识", "leader", header.Leader.Hex())
+				return errors.New("节点下线共识中出现出块leader自己")
+			}
+		}
+	}
 	// get online and offline info from header and prev topology
 	offlineNodes, onlineNods := p.parseOnlineState(header)
 	//log.INFO(Module, "header.NetTop", header.NetTopology, "高度", header.Number.Uint64())

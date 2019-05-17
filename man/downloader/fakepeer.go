@@ -31,9 +31,9 @@ func NewFakePeer(id string, db mandb.Database, hc *core.HeaderChain, dl *Downloa
 
 // Head implements downloader.Peer, returning the current head hash and number
 // of the best known header.
-func (p *FakePeer) Head() (common.Hash, *big.Int, uint64, uint64) {
+func (p *FakePeer) Head() (common.Hash, *big.Int, uint64, uint64, uint64, uint64) {
 	header := p.hc.CurrentHeader()
-	return header.Hash(), header.Number, header.SuperBlockSeq(), 0
+	return header.Hash(), header.Number, header.SuperBlockSeq(), 0, 0, 0
 }
 
 // RequestHeadersByHash implements downloader.Peer, returning a batch of headers
@@ -116,7 +116,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
 	)
 	for _, hash := range hashes {
 		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
-		txs = append(txs,block.Currencies())
+		txs = append(txs, block.Currencies())
 		uncles = append(uncles, block.Uncles())
 	}
 	p.dl.DeliverBodies(p.id, txs, uncles)

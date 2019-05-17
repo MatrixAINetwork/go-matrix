@@ -14,22 +14,22 @@ var (
 )
 
 const (
-	GasLimitBoundDivisor uint64 = 1024      // The bound divisor of the gas limit, used in update calculations.
-	MinGasLimit          uint64 = 1050000000 // Minimum the gas limit may ever be.
-	GenesisGasLimit      uint64 = 1050000000 // Gas limit of the Genesis block.
-	OtherCoinPackNum     uint64 = GenesisGasLimit / 21000 / 100 //其他币种打包限制为MAN的1/100
-	MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
-	ExpByteGas            uint64 = 10    // Times ceil(log256(exponent)) for the EXP instruction.
-	SloadGas              uint64 = 50    // Multiplied by the number of 32-byte words that are copied (round up) for any *COPY operation and added.
-	CallValueTransferGas  uint64 = 9000  // Paid for CALL when the value transfer is non-zero.
-	CallNewAccountGas     uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.
-	TxGas                 uint64 = 21000 // Per transaction not creating a contract. NOTE: Not payable on data of calls between transactions.
-	TxGasContractCreation uint64 = 53000 // Per transaction that creates a contract. NOTE: Not payable on data of calls between transactions.
-	TxDataZeroGas         uint64 = 4     // Per byte of data attached to a transaction that equals zero. NOTE: Not payable on data of calls between transactions.
-	QuadCoeffDiv          uint64 = 512   // Divisor for the quadratic particle of the memory cost equation.
-	SstoreSetGas          uint64 = 20000 // Once per SLOAD operation.
-	LogDataGas            uint64 = 8     // Per byte in a LOG* operation's data.
-	CallStipend           uint64 = 2300  // Free gas given at beginning of call.
+	GasLimitBoundDivisor  uint64 = 1024                          // The bound divisor of the gas limit, used in update calculations.
+	MinGasLimit           uint64 = 1050000000                    // Minimum the gas limit may ever be.
+	GenesisGasLimit       uint64 = 1050000000                    // Gas limit of the Genesis block.
+	OtherCoinPackNum      uint64 = GenesisGasLimit / 21000 / 100 //其他币种打包限制为MAN的1/100
+	MaximumExtraDataSize  uint64 = 32                            // Maximum size extra data may be after Genesis.
+	ExpByteGas            uint64 = 10                            // Times ceil(log256(exponent)) for the EXP instruction.
+	SloadGas              uint64 = 50                            // Multiplied by the number of 32-byte words that are copied (round up) for any *COPY operation and added.
+	CallValueTransferGas  uint64 = 9000                          // Paid for CALL when the value transfer is non-zero.
+	CallNewAccountGas     uint64 = 25000                         // Paid for CALL when the destination address didn't exist prior.
+	TxGas                 uint64 = 21000                         // Per transaction not creating a contract. NOTE: Not payable on data of calls between transactions.
+	TxGasContractCreation uint64 = 53000                         // Per transaction that creates a contract. NOTE: Not payable on data of calls between transactions.
+	TxDataZeroGas         uint64 = 4                             // Per byte of data attached to a transaction that equals zero. NOTE: Not payable on data of calls between transactions.
+	QuadCoeffDiv          uint64 = 512                           // Divisor for the quadratic particle of the memory cost equation.
+	SstoreSetGas          uint64 = 20000                         // Once per SLOAD operation.
+	LogDataGas            uint64 = 8                             // Per byte in a LOG* operation's data.
+	CallStipend           uint64 = 2300                          // Free gas given at beginning of call.
 
 	Sha3Gas          uint64 = 30    // Once per SHA3 operation.
 	Sha3WordGas      uint64 = 6     // Once per word of the SHA3 operation's data.
@@ -70,21 +70,21 @@ const (
 	Bn256PairingPerPointGas uint64 = 80000  // Per-point price for an elliptic curve pairing check
 
 	//
-	TxCount              uint64 = 1000               //一对多交易最多可以支持1000笔(包括扩展之外的那一个交易)
-	ErrTxConsensus       uint64 = 6                  //错误交易需要共识的个数（超过6个节点认为该笔交易错误就可以确认删除这笔交易）
-	SubBlockNum          uint64 = 200                //超过SubBlockNum区块高度就删除某些东西（超过20个区块就删除未打包的交易）
-	NonceAddOne          uint64 = 0x0010000000000000 //Nonce最高位加1
-	NonceSubOne          uint64 = 0x0001FFFFFFFFFFFF //Nonce最高位减1
-	MaxTxN               uint32 = 0x1FFFF            //交易编号最大值
-	FloodMaxTransactions int    = 200                //洪泛交易数量阈值
-	TxSize               uint64 = 32 * 1024          //交易的大小
-	TxGasPrice           uint64 = 18000000000        //交易费
-	EntrustByHeight      byte   = 0                  //按块高委托
-	EntrustByTime        byte   = 1                  //按时间委托
-	EntrustByCount       byte   = 2                  //按次数委托
-	CallTxPachNum        uint64 = 9999               //币种打包交易数量限制
-	CoinTypeUnit         uint64 = 1000000000000000000//*big.Int = new(big.Int).SetString("0xDE0B6B3A7640000",0)//new(big.Int).SetString("0xDE0B6B3A7640000",0)
-	CoinDampingNum       int    = 100                //每100个币种衰减百分之五
+	TxCount              uint64 = 1000                //一对多交易最多可以支持1000笔(包括扩展之外的那一个交易)
+	ErrTxConsensus       uint64 = 6                   //错误交易需要共识的个数（超过6个节点认为该笔交易错误就可以确认删除这笔交易）
+	SubBlockNum          uint64 = 200                 //超过SubBlockNum区块高度就删除某些东西（超过20个区块就删除未打包的交易）
+	NonceAddOne          uint64 = 0x0010000000000000  //Nonce最高位加1
+	NonceSubOne          uint64 = 0x0001FFFFFFFFFFFF  //Nonce最高位减1
+	MaxTxN               uint32 = 0x1FFFF             //交易编号最大值
+	FloodMaxTransactions int    = 200                 //洪泛交易数量阈值
+	TxSize               uint64 = 32 * 1024           //交易的大小
+	TxGasPrice           uint64 = 18000000000         //交易费
+	EntrustByHeight      byte   = 0                   //按块高委托
+	EntrustByTime        byte   = 1                   //按时间委托
+	EntrustByCount       byte   = 2                   //按次数委托
+	CallTxPachNum        uint64 = 9999                //币种打包交易数量限制
+	CoinTypeUnit         uint64 = 1000000000000000000 //*big.Int = new(big.Int).SetString("0xDE0B6B3A7640000",0)//new(big.Int).SetString("0xDE0B6B3A7640000",0)
+	CoinDampingNum       int    = 100                 //每100个币种衰减百分之五
 
 	// Udp buffer
 	MaxUdpBuf uint32 = 1024 * 64
@@ -98,9 +98,10 @@ const (
 )
 
 var (
-	DifficultyBoundDivisor = big.NewInt(10)  // The bound divisor of the difficulty, used in the update calculations.
-	GenesisDifficulty      = big.NewInt(10)  // Difficulty of the Genesis block.
-	MinimumDifficulty      = big.NewInt(10)  // The minimum that the difficulty may ever be.
-	DurationLimit          = big.NewInt(6)   // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
-	FloodTime              = 1 * time.Second //洪泛时间阈值
+	DifficultyBoundDivisor    = big.NewInt(10)  // The bound divisor of the difficulty, used in the update calculations.
+	GenesisDifficulty         = big.NewInt(10)  // Difficulty of the Genesis block.
+	MinimumDifficulty         = big.NewInt(10)  // The minimum that the difficulty may ever be.
+	DurationLimit             = big.NewInt(6)   // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+	VersionGammaDurationLimit = big.NewInt(9)   // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+	FloodTime                 = 1 * time.Second //洪泛时间阈值
 )

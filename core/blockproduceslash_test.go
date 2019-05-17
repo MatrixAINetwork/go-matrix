@@ -1,7 +1,14 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package core
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus/manash"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
@@ -11,8 +18,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-	"math/big"
-	"testing"
 )
 
 func TestReadSlashParacheckCfg(t *testing.T) {
@@ -345,7 +350,7 @@ func Test_GetBlackList(t *testing.T) {
 func Test_BlackListMaitainCase0(t *testing.T) {
 	//lift ban Test
 	blklist := genTestBlackList(100)
-	handle := NewBlackListMaintain(blklist.BlackList)
+	handle := NewBlackListMaintainA(blklist.BlackList)
 	if len(handle.blacklist) == 0 {
 		t.Errorf("add list wrong")
 	}
@@ -361,7 +366,7 @@ func Test_BlackListMaitainCase1(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(int64(i))), uint16(i%3) + 1})
 	}
-	handle := NewBlackListMaintain(blackList.BlackList)
+	handle := NewBlackListMaintainA(blackList.BlackList)
 	handle.CounterMaintain()
 	for i := 0; i < 100; i++ {
 		if handle.blacklist[i].ProhibitCycleCounter != uint16(i%3) {
@@ -377,7 +382,7 @@ func Test_BlackListAddBlackListCase0(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(int64(i))), uint16(i%3) + 1})
 	}
-	handle := NewBlackListMaintain(blackList.BlackList)
+	handle := NewBlackListMaintainA(blackList.BlackList)
 
 	var statsList []mc.UserBlockProduceNum
 	statsList = append(statsList, mc.UserBlockProduceNum{common.BigToAddress(big.NewInt(1)), 1})
@@ -394,7 +399,7 @@ func Test_BlackListAddBlackListCase1(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(int64(i))), uint16(i%3) + 1})
 	}
-	handle := NewBlackListMaintain(blackList.BlackList)
+	handle := NewBlackListMaintainA(blackList.BlackList)
 
 	var statsList []mc.UserBlockProduceNum
 	statsList = append(statsList, mc.UserBlockProduceNum{common.BigToAddress(big.NewInt(1)), 1})
@@ -419,7 +424,7 @@ func Test_BlackListAddBlackListCase2(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(int64(i))), uint16(i%3) + 1})
 	}
-	handle := NewBlackListMaintain(blackList.BlackList)
+	handle := NewBlackListMaintainA(blackList.BlackList)
 
 	var statsList []mc.UserBlockProduceNum
 	statsList = append(statsList, mc.UserBlockProduceNum{common.BigToAddress(big.NewInt(100)), 1})

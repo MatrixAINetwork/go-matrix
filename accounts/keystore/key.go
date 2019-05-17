@@ -22,8 +22,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/math"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
-	"github.com/pborman/uuid"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/pborman/uuid"
 )
 
 const (

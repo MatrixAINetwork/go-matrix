@@ -1,6 +1,11 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
+
 package core
 
 import (
+	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
@@ -32,7 +37,7 @@ func (bc *BlockChain) slashCfgProc(state *state.StateDBManage, num uint64) (*mc.
 		return slashCfg, true, nil
 	}
 }
-func (bc *BlockChain) ProcessBlockGProduceSlash(state *state.StateDBManage, header *types.Header) error {
+func (bc *BlockChain) ProcessBlockGProduceSlash(version string, state *state.StateDBManage, header *types.Header) error {
 	if nil == state {
 		return ErrStatePtrIsNil
 	}
@@ -65,22 +70,41 @@ func (bc *BlockChain) ProcessBlockGProduceSlash(state *state.StateDBManage, head
 		statsListAddRecorder(state, statsList, header.Leader)
 		statsListPrint(statsList)
 		if ok := shouldBlockProduceSlash(state, header, slashCfg); ok {
-			preBlackList := bc.GetBlackList(state)
-			blackListPrint(preBlackList)
-
-			var handleBlackList = NewBlackListMaintain(preBlackList.BlackList)
-			handleBlackList.CounterMaintain()
-
-			handleBlackList.AddBlackList(statsList.StatsList, slashCfg)
-			log.Trace(ModuleName, "黑名单更新后状态，高度", header.Number.Uint64())
-			blackListPrint(&mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist})
-			if err := matrixstate.SetBlockProduceBlackList(state, &mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist}); err != nil {
-				log.Crit("State Write Err : ", mc.MSKeyBlockProduceBlackList)
+			if manparams.VersionCmp(version, manparams.VersionGamma) >= 0 {
+				bc.statsListToBlackListB(state, statsList, slashCfg, header)
+			} else {
+				bc.statsListToBlackListA(state, statsList, slashCfg, header)
 			}
 		}
 	}
 
 	return nil
+}
+
+func (bc *BlockChain) statsListToBlackListA(state *state.StateDBManage, statsList *mc.BlockProduceStats, slashCfg *mc.BlockProduceSlashCfg, header *types.Header) {
+	preBlackList := bc.GetBlackList(state)
+	blackListPrint(preBlackList)
+	var handleBlackList = NewBlackListMaintainA(preBlackList.BlackList)
+	handleBlackList.CounterMaintain()
+	handleBlackList.AddBlackListA(statsList.StatsList, slashCfg)
+	log.Trace(ModuleName, "黑名单更新后状态，高度", header.Number.Uint64())
+	blackListPrint(&mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist})
+	if err := matrixstate.SetBlockProduceBlackList(state, &mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist}); err != nil {
+		log.Crit("State Write Err : ", mc.MSKeyBlockProduceBlackList)
+	}
+}
+func (bc *BlockChain) statsListToBlackListB(state *state.StateDBManage, statsList *mc.BlockProduceStats, slashCfg *mc.BlockProduceSlashCfg, header *types.Header) {
+	preBlackList := bc.GetBlackList(state)
+	blackListPrint(preBlackList)
+	//新增退选后从黑名单移除
+	var handleBlackList = NewBlackListMaintainB(header.ParentHash, preBlackList.BlackList)
+	//todo:选举更新状态树做减法
+	handleBlackList.AddBlackListB(statsList.StatsList, slashCfg)
+	log.Trace(ModuleName, "黑名单更新后状态，高度", header.Number.Uint64())
+	blackListPrint(&mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist})
+	if err := matrixstate.SetBlockProduceBlackList(state, &mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist}); err != nil {
+		log.Crit("State Write Err : ", mc.MSKeyBlockProduceBlackList)
+	}
 }
 func statsListPrint(stats *mc.BlockProduceStats) {
 	for _, v := range stats.StatsList {
@@ -271,11 +295,22 @@ type blacklistMaintain struct {
 	blacklist []mc.UserBlockProduceSlash
 }
 
-func NewBlackListMaintain(list []mc.UserBlockProduceSlash) *blacklistMaintain {
+func NewBlackListMaintainA(list []mc.UserBlockProduceSlash) *blacklistMaintain {
 	var bl = new(blacklistMaintain)
 
 	for _, v := range list {
 		if v.ProhibitCycleCounter > 0 {
+			bl.blacklist = append(bl.blacklist, v)
+		}
+	}
+	return bl
+}
+
+func NewBlackListMaintainB(parentHash common.Hash, list []mc.UserBlockProduceSlash) *blacklistMaintain {
+	var bl = new(blacklistMaintain)
+
+	for _, v := range list {
+		if v.ProhibitCycleCounter > 0 && searchExistDeposit(parentHash, v.Address) {
 			bl.blacklist = append(bl.blacklist, v)
 		}
 	}
@@ -290,6 +325,22 @@ func (bl *blacklistMaintain) CounterMaintain() {
 	}
 }
 
+func searchExistDeposit(parentHash common.Hash, target common.Address) bool {
+
+	depoistlist, err := ca.GetElectedByHeightAndRoleByHash(parentHash, common.RoleValidator)
+	if nil != err {
+		log.ERROR(ModuleName, "读取验证者抵押列表错误", err)
+		return false
+	}
+	for _, v := range depoistlist {
+		if v.Address.Equal(target) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func searchExistAddress(statsList []mc.UserBlockProduceSlash, target common.Address) (int, bool) {
 
 	for k, v := range statsList {
@@ -300,7 +351,7 @@ func searchExistAddress(statsList []mc.UserBlockProduceSlash, target common.Addr
 
 	return 0, false
 }
-func (bl *blacklistMaintain) AddBlackList(statsList []mc.UserBlockProduceNum, slashCfg *mc.BlockProduceSlashCfg) {
+func (bl *blacklistMaintain) AddBlackListA(statsList []mc.UserBlockProduceNum, slashCfg *mc.BlockProduceSlashCfg) {
 	if nil == bl.blacklist {
 		log.Warn(ModuleName, "blacklist Err", "Is Nil")
 		bl.blacklist = make([]mc.UserBlockProduceSlash, 0)
@@ -333,6 +384,43 @@ func (bl *blacklistMaintain) AddBlackList(statsList []mc.UserBlockProduceNum, sl
 			bl.blacklist[position].ProhibitCycleCounter = slashCfg.ProhibitCycleNum - 1
 		} else {
 			bl.blacklist = append(bl.blacklist, mc.UserBlockProduceSlash{Address: v.Address, ProhibitCycleCounter: slashCfg.ProhibitCycleNum - 1})
+		}
+	}
+}
+
+func (bl *blacklistMaintain) AddBlackListB(statsList []mc.UserBlockProduceNum, slashCfg *mc.BlockProduceSlashCfg) {
+	if nil == bl.blacklist {
+		log.Warn(ModuleName, "blacklist Err", "Is Nil")
+		bl.blacklist = make([]mc.UserBlockProduceSlash, 0)
+	}
+
+	if nil == slashCfg {
+		log.Warn(ModuleName, "惩罚配置错误", "未配置")
+		return
+	}
+
+	if false == slashCfg.Switcher {
+		bl.blacklist = make([]mc.UserBlockProduceSlash, 0)
+		return
+	}
+
+	if nil == statsList {
+		log.Error(ModuleName, "统计列表错误", "未配置")
+		return
+	}
+
+	if 0 == slashCfg.ProhibitCycleNum {
+		log.Warn(ModuleName, "禁止周期为", "0", "不加入黑名单")
+		return
+	}
+	for _, v := range statsList {
+		if v.ProduceNum >= slashCfg.LowTHR {
+			continue
+		}
+		if position, exist := searchExistAddress(bl.blacklist, v.Address); exist {
+			bl.blacklist[position].ProhibitCycleCounter = slashCfg.ProhibitCycleNum
+		} else {
+			bl.blacklist = append(bl.blacklist, mc.UserBlockProduceSlash{Address: v.Address, ProhibitCycleCounter: slashCfg.ProhibitCycleNum})
 		}
 	}
 }

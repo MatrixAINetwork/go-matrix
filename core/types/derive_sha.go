@@ -32,12 +32,12 @@ func DeriveSha(list DerivableList) common.Hash {
 	return trie.Hash()
 }
 func DeriveShaHash(list []common.Hash) common.Hash {
-	if len(list) == 0{
+	if len(list) == 0 {
 		return EmptyRootHash
 	}
 	trie := new(trie.Trie)
 	for i := 0; i < len(list); i++ {
-		buff,_ := rlp.EncodeUint(uint64(i))
+		buff, _ := rlp.EncodeUint(uint64(i))
 		hash1 := list[i]
 		trie.Update(buff, hash1[:])
 	}
