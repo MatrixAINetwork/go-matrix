@@ -1,38 +1,34 @@
 # go-matrix
 ---
 
-### About
-HAPPY NEW YEAR!
+## About
+It is with great excitement that the Matrix AI Network team releases the first major update to the Matrix AI Network! The primary goal of this update is to increase the stability of the network. This update includes tweaks to several attributes including:
 
-MATRIX MAINNET is finally coming as a new year gift!
+### Verification Masternode Selection
+Any Verification Masternode with a stake exceeding 1/19th of the total MAN tokens staked by all Verification Masternodes is guaranteed selection. All other Verification Masternodes are selected according to their stake. The probability of selection can be estimated using a simple formula:
 
-This MATRIX repository introduced so many distinct features and implements the MATRIX cryptocurrency, which maintains a separate ledger from other mainstream networks.
+〖Individual Stake〗^1.45/〖Total Verification Masternodes Stake〗^1.45 
 
-### Highlights
+The real formula is considerably more complex but yields similar results. The reason we use a more complex algorithm to manage selection is to reduce selection variability in small time periods.
 
-+ High-performace TPS
-+ Highly-regulated network hierarchy
-+ Support various transaction types: One2Many, AI transactions as well as support for rich texts, images and videos, scheduled transactions (regular scheduled transactions and transactions reversible within a 24-hour window), authorized entrusts (gas), Revocable transactions.
-+ AI Features: Formal Verification（Trial）、Natural Language Input、AI server
-+ Rewards and penalties
-+ VRF consensus: real random number generation and use
-+ VIP Layers
-+ Multi-Currency support
-+ Super Block
-+ HPoW Consensus
-+ 高性能 TPS
-+ 一对多交易、定时交易、24小时可撤销交易、委托gas代付交易等
-+ 智慧合约
-+ 人工智能支持
-+ 多币种支持
-+ 子链兑换
-+ AI Server(姿态识别、物体识别、医疗诊断)
-+ 交易白名单
-+ 奖惩机制
-+ VIP 分层
-+ VRF 真随机数
-+ 超级区块机制
+As before, once selected, all Verification Masternodes in a given cycle (300 blocks) serve as the Block Leader, in turn, regardless of stake. The probability of everyone’s starting positions can also be estimated using a simple formula:
 
+〖Individual Stake〗^1.45/〖Total Stake of Selected Verification Masternodes〗^1.45  
+
+
+### VIP System 
+The previous VIP system is completely eliminated and does not impact the selection of Masternodes in any way 
+
+### Voting Timeout
+As before, in order to verify and package transactions in a block, at least 13 of the selected Verification Masternodes must agree via a voting mechanism. If a Verification Masternode fails to vote, they timeout and are replaced. The time to timeout is changed from 20 seconds to 40 seconds
+### Block Timeout    
+If a block leader fails to perform their duties, they will timeout and be replaced. The time to timeout is changed from 40 seconds to 60 seconds. 
+### Penalties
+Penalties assigned to malicious, mis-deployed and offline Verification Masternodes are increased. Any Verification Masternode that fails to perform its duties for the entirety of a selection cycle will forfeit its next 10 selections.
+### Target Block Time
+The target block time is increased from 6 seconds to 9 seconds.
+### Block Rewards 
+Block rewards are increased from 10 MAN tokens to 16 MAN tokens.
 
 ### Blockchain Explorer
 
@@ -64,11 +60,11 @@ wget https://github.com/MatrixAINetwork/go-matrix/archive/master.zip
 
 - Branch: Master
 
-- Tag: v1.1.3
+- Tag: v1.1.4
 
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command 
 
-You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/4.11](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/4.11)
+You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/5.17](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/5.17)
 
 
 
