@@ -206,7 +206,7 @@ func (vg* ValidatorGroupContract)CreateValidatorGroupMethod(){
 		if err!=nil{
 			return nil,err
 		}
-		nonce := evm.StateDB.GetNonce(evm.Cointyp, contract.CallerAddress)
+		nonce := evm.StateDB.GetNonce(evm.Cointyp, contract.CallerAddress)-1
 		contractAddr := crypto.CreateAddress(contract.CallerAddress, nonce)
 		if vg.IsPrecompiledContract(contractAddr)|| len(evm.StateDB.GetCode(params.MAN_COIN,contractAddr))!=0 {
 			return nil,ErrContractAddressCollision
