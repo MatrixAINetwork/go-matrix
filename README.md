@@ -1,11 +1,5 @@
 # go-matrix
----
-
-
-
-
-
-
+------
 ## About
 Following the successful deployment of the Matrix AI Network’s first major update in May, the Matrix team is happy to announce that a second major update is ready! It brings with it two major new features. They are: Fixed/Flexible Stakes and Verification Masternode Pools. This article will outline Fixed and Flexible Staking.
 
@@ -13,13 +7,13 @@ Following the successful deployment of the Matrix AI Network’s first major upd
 Once this update goes live, the Matrix AI Network will support two different stake types: Fixed Stakes and Flexible Stakes. Both have slightly different behaviors, rules and attributes.
 
 
-|Flexible Stake|
+|Flexible Stake||
 |--------------|---------------------------------------------|
 |Minimum Stake |100 MAN tokens each time you add to your stake|
 |Lockup Time   | None|
 |Stake Reward  | None. Flexible stakes are given a “Stake Weight” of 1 when calculating stake rew|
 
-|Fixed Stake  |
+|Fixed Stake  ||
 |---------------|---------------------------------------------|
 |Minimum Stake  | 2000 MAN tokens each time you add to your stake|
 |Lockup Time    | Fixed. When staking tokens, you must select a 1-, 3-, 6-, or 12-month lockup period.Prior to the end of your stake period, you must initiate unstake procedures or else it will be automatically renewed with the same lock-up period
@@ -68,7 +62,7 @@ wget https://github.com/MatrixAINetwork/go-matrix/archive/master.zip
 
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command 
 
-You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/6.24](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/6.24)
+You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620(https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620)
 
 
 
