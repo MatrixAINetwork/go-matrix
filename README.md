@@ -16,8 +16,7 @@ Once this update goes live, the Matrix AI Network will support two different sta
 |Fixed Stake  ||
 |---------------|---------------------------------------------|
 |Minimum Stake  | 2000 MAN tokens each time you add to your stake|
-|Lockup Time    | Fixed. When staking tokens, you must select a 1-, 3-, 6-, or 12-month lockup period.Prior to the end of your stake period, you must initiate unstake procedures or else it will be automatically renewed with the same lock-up period
-|
+|Lockup Time    | Fixed. When staking tokens, you must select a 1-, 3-, 6-, or 12-month lockup period.Prior to the end of your stake period, you must initiate unstake procedures or else it will be automatically renewed with the same lock-up period|
 |Stake Reward   | Fixed stakes are given increasingly heavy “Stake Weight” as the lock-up time increases|
 
 
@@ -62,7 +61,7 @@ wget https://github.com/MatrixAINetwork/go-matrix/archive/master.zip
 
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command 
 
-You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620(https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620)
+You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620)
 
 
 
