@@ -104,7 +104,6 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 }
 
 func (self *CpuAgent) GetHashRate() int64 {
-	//todo：从状态树获取
 	if pow, ok := self.chain.Engine([]byte(manparams.VersionAlpha)).(consensus.PoW); ok {
 		return int64(pow.Hashrate())
 	}

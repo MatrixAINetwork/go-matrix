@@ -13,6 +13,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/base58"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -21,7 +22,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
-const Version = 5
+const Version = 6
 
 // Errors
 var (
@@ -358,7 +359,7 @@ func (t *udp) findnodeByAddress(toid NodeID, toaddr *net.UDPAddr, target common.
 		reply := r.(*addrNeighbors)
 		n, err := t.nodeFromRPC(toaddr, reply.Node)
 		if err != nil {
-			log.Trace("Invalid neighbor node received", "ip", reply.Node.IP, "addr", toaddr, "err", err)
+			//log.Trace("Invalid neighbor node received", "ip", reply.Node.IP, "addr", toaddr, "err", err)
 		}
 		node = n
 		return node != nil
@@ -642,6 +643,7 @@ func (req *ping) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) er
 	if req.NetWorkId != t.netWorkId {
 		return errWrongNetWorkId
 	}
+	log.Info("from version info", "address", base58.Base58EncodeToString("MAN", req.Address), "version", req.Version, "ip", from)
 	emptyAddr := common.Address{}
 	emptySign := common.Signature{}
 	if req.Address != emptyAddr || req.Signature != emptySign {

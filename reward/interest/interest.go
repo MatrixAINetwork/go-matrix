@@ -122,8 +122,8 @@ func (ic *interest) calcNodeInterestB(deposit *big.Int) *big.Int {
 	return new(big.Int).SetUint64(uint64(originResult))
 }
 
-func (ic *interest) PayInterest(state vm.StateDBManager, num uint64) map[common.Address]*big.Int {
-	if !ic.canPayInterst(state, num, ic.InterestConfig.PayInterval) {
+func (ic *interest) PayInterest(state vm.StateDBManager, num uint64, time uint64) map[common.Address]*big.Int {
+	if !ic.canPayInterest(state, num, ic.InterestConfig.PayInterval) {
 		return nil
 	}
 
@@ -131,7 +131,7 @@ func (ic *interest) PayInterest(state vm.StateDBManager, num uint64) map[common.
 	log.Debug(PackageName, "发放利息,高度", num)
 
 	AllInterestMap := depoistInfo.GetAllInterest(state)
-	Deposit := big.NewInt(0)
+	allInterest := big.NewInt(0)
 
 	for account, originInterest := range AllInterestMap {
 		if originInterest.Cmp(big.NewInt(0)) <= 0 {
@@ -153,19 +153,19 @@ func (ic *interest) PayInterest(state vm.StateDBManager, num uint64) map[common.
 			log.Debug(PackageName, "账户", account, "原始利息", originInterest.String(), "惩罚利息", slash.String(), "剩余利息", finalInterest.String())
 		}
 		AllInterestMap[account] = finalInterest
-		Deposit = new(big.Int).Add(Deposit, finalInterest)
+		allInterest = new(big.Int).Add(allInterest, finalInterest)
 		depoistInfo.ResetSlash(state, account)
 	}
 	balance := state.GetBalance(params.MAN_COIN, common.InterestRewardAddress)
-	if balance[common.MainAccount].Balance.Cmp(Deposit) < 0 {
+	if balance[common.MainAccount].Balance.Cmp(allInterest) < 0 {
 		log.ERROR(PackageName, "利息账户余额不足，余额为", balance[common.MainAccount].Balance.String())
 		return nil
 	}
-	AllInterestMap[common.ContractAddress] = Deposit
+	AllInterestMap[common.ContractAddress] = allInterest
 	return AllInterestMap
 }
 
-func (ic *interest) canPayInterst(state vm.StateDBManager, num uint64, payInterestPeriod uint64) bool {
+func (ic *interest) canPayInterest(state vm.StateDBManager, num uint64, payInterestPeriod uint64) bool {
 	latestNum, err := matrixstate.GetInterestPayNum(state)
 	if nil != err {
 		log.ERROR(PackageName, "状态树获取前一计算利息高度错误", err)
@@ -198,10 +198,9 @@ func (ic *interest) GetReward(state vm.StateDBManager, num uint64, parentHash co
 	return RewardMap
 }
 
-func (ic *interest) CalcReward(state vm.StateDBManager, num uint64, parentHash common.Hash) map[common.Address]*big.Int {
+func (ic *interest) CalcReward(state vm.StateDBManager, num uint64, parentHash common.Hash) {
 	RewardMap := ic.GetReward(state, num, parentHash)
 	ic.SetReward(RewardMap, state)
-	return RewardMap
 }
 
 func (ic *interest) SetReward(InterestMap map[common.Address]*big.Int, state vm.StateDBManager) {

@@ -4049,7 +4049,30 @@ var outputBlockFormatter = function(block) {
 
     return block;
 };
-
+/**
+ * Formats the output of a deposit
+ *
+ * @method outputDepositBaseFormatter
+ * @param {Object} depositbase
+ * @returns {Object}
+ */
+var outputDepositBaseFormatter = function (depositbase) {
+    depositbase.OnlineTime = utils.toBigNumber(depositbase.OnlineTime)
+    depositbase.Role = utils.toBigNumber(depositbase.Role)
+    if (utils.isArray(depositbase.Dpstmsg)) {
+        for (var i = 0; i < depositbase.Dpstmsg.length; i++) {
+            depositbase.Dpstmsg[i].DepositAmount = utils.toBigNumber(depositbase.Dpstmsg[i].DepositAmount);
+            depositbase.Dpstmsg[i].Interest = utils.toBigNumber(depositbase.Dpstmsg[i].Interest);
+            depositbase.Dpstmsg[i].Slash = utils.toBigNumber(depositbase.Dpstmsg[i].Slash);
+            if(utils.isArray(depositbase.Dpstmsg[i].WithDrawInfolist)){
+                for (var j = 0; j < depositbase.Dpstmsg[i].WithDrawInfolist.length; j++) {
+                    depositbase.Dpstmsg[i].WithDrawInfolist[j].WithDrawAmount= utils.toBigNumber(depositbase.Dpstmsg[i].WithDrawInfolist[j].WithDrawAmount);
+                }
+            }
+        }
+    }
+  return depositbase;
+}
 /**
  * Formats the output of a log
  *
@@ -4191,6 +4214,7 @@ module.exports = {
     outputVerifiedSignFormatter: outputVerifiedSignFormatter,
     outputLogFormatter: outputLogFormatter,
     outputPostFormatter: outputPostFormatter,
+    outputDepositBaseFormatter: outputDepositBaseFormatter,
     outputSyncingFormatter: outputSyncingFormatter
 };
 
@@ -5554,6 +5578,20 @@ var methods = function () {
         inputFormatter: [ formatters.inputDefaultBlockNumberFormatter],
         // outputFormatter: formatters.outputBigNumberFormatter
     });
+    var getValidatorGroupInfo = new Method({
+        name: 'getValidatorGroupInfo',
+        call: 'eth_getValidatorGroupInfo',
+        params: 1,
+        inputFormatter: [ formatters.inputDefaultBlockNumberFormatter],
+        // outputFormatter: formatters.outputBigNumberFormatter
+    });
+    var getDepositByAddr = new Method({
+        name: 'getDepositByAddr',
+        call: 'eth_getDepositByAddr',
+        params: 2,
+        inputFormatter: [ formatters.inputAddressFormatter,formatters.inputDefaultBlockNumberFormatter],
+        outputFormatter: formatters.outputDepositBaseFormatter
+    });
     var getEntrustList = new Method({
         name: 'getEntrustList',
         call: 'eth_getEntrustList',
@@ -5709,8 +5747,8 @@ var methods = function () {
     var sendTransaction = new Method({
         name: 'sendTransaction',
         call: 'eth_sendTransaction',
-        params: 2,
-        inputFormatter: [formatters.inputTransactionFormatter, null]
+        params: 1,
+        inputFormatter: [formatters.inputTransactionFormatter]
     });
 
     var signTransaction = new Method({
@@ -5816,6 +5854,8 @@ var methods = function () {
         getSlash,
         getFutureRewards,
         getDeposit,
+        getValidatorGroupInfo,
+        getDepositByAddr,
         getEntrustList,
         getAuthFrom,
         getEntrustFrom,

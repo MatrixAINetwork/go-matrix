@@ -149,6 +149,11 @@ func New(support BlKSupport) (*ManBlkManage, error) {
 	obj.RegisterManBLkPlugs(CommonBlk, manparams.VersionGamma, manCommonplug)
 
 	obj.RegisterManBLkPlugs(BroadcastBlk, manparams.VersionGamma, manBcplug)
+
+	obj.RegisterManBLkPlugs(CommonBlk, manparams.VersionDelta, manCommonplug)
+
+	obj.RegisterManBLkPlugs(BroadcastBlk, manparams.VersionDelta, manBcplug)
+
 	return obj, nil
 }
 
@@ -157,23 +162,40 @@ func (bd *ManBlkManage) RegisterManBLkPlugs(types string, version string, plug M
 }
 
 func (bd *ManBlkManage) ProduceBlockVersion(num uint64, preVersion string) string {
-	if num == manparams.VersionNumGamma {
+
+	switch num {
+	case manparams.VersionNumGamma:
 		return manparams.VersionGamma
+	case manparams.VersionNumDelta:
+		return manparams.VersionDelta
+	default:
+		return preVersion
 	}
-	return preVersion
 }
 
 func (bd *ManBlkManage) VerifyBlockVersion(num uint64, curVersion string, preVersion string) error {
-	if num == manparams.VersionNumGamma {
+
+	switch num {
+	case manparams.VersionNumGamma:
 		if manparams.VersionCmp(curVersion, manparams.VersionGamma) != 0 {
 			return errors.New("版本号异常")
 		} else {
 			return nil
 		}
-	} else if curVersion != preVersion {
-		return errors.New("版本号异常,不等于父区块版本号")
+	case manparams.VersionNumDelta:
+		if manparams.VersionCmp(curVersion, manparams.VersionDelta) != 0 {
+			return errors.New("版本号异常")
+		} else {
+			return nil
+		}
+	default:
+		if curVersion != preVersion {
+			return errors.New("版本号异常,不等于父区块版本号")
+		} else {
+			return nil
+		}
+
 	}
-	return nil
 }
 
 func (bd *ManBlkManage) Prepare(types string, version string, num uint64, interval *mc.BCIntervalInfo, args ...interface{}) (*types.Header, interface{}, error) {

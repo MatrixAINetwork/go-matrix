@@ -19616,3 +19616,13 @@ func TestCointypeNotEnoughCheck3(t *testing.T) {
 		})
 	}
 }
+
+func TestPrintLog2File(t *testing.T) {
+	log.InitLog(5)
+	data := struct {
+		A uint32
+		B uint32
+	}{A: 1, B: 2}
+	PrintLog2File("test.txt", data)
+
+}

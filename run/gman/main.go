@@ -134,6 +134,7 @@ var (
 		utils.SaveSnapStartFlg,
 		utils.SaveSnapPeriodFlg,
 		utils.SnapModeFlg,
+		utils.DbTableSizeFlag,
 		utils.GetGenesisFlag,
 		utils.LessDiskEnabledFlag,
 	}

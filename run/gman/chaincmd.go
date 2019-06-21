@@ -521,7 +521,7 @@ func copyDb(ctx *cli.Context) error {
 	dl := downloader.New(syncmode, chainDb, new(event.TypeMux), chain, nil, nil, nil)
 
 	// Create a source peer to satisfy downloader requests from
-	db, err := mandb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256,2)
+	db, err := mandb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256, 2)
 	if err != nil {
 		return err
 	}
@@ -607,7 +607,7 @@ func dump(ctx *cli.Context) error {
 			if err != nil {
 				utils.Fatalf("could not create new state: %v", err)
 			}
-			fmt.Printf("%s\n", state.Dump(params.MAN_COIN, common.Address{})) //TODO
+			fmt.Printf("%s\n", state.Dump(params.MAN_COIN, common.Address{})) //
 		}
 	}
 	chainDb.Close()

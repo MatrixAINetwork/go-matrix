@@ -78,7 +78,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.SnapModeFlg,
 			utils.GetGenesisFlag,
 			utils.LessDiskEnabledFlag,
-			//utils.DbTableSizeFlag,
+			utils.DbTableSizeFlag,
 		},
 	},
 	/*	{Name: "DEVELOPER CHAIN",
@@ -130,7 +130,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.CacheDatabaseFlag,
 			utils.CacheGCFlag,
 			utils.TrieCacheGenFlag,
-			utils.DbTableSizeFlag,
+			//utils.DbTableSizeFlag,
 		},
 	},
 	{

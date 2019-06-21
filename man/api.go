@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/reward/util"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 	"github.com/MatrixAINetwork/go-matrix/core"
@@ -419,7 +421,7 @@ func (api *PrivateAdminAPI) ImportChain(file string) (bool, error) {
 			continue
 		}
 		// Import the batch and reset the buffer
-		if _, err := api.man.BlockChain().InsertChain(blocks); err != nil {
+		if _, err := api.man.BlockChain().InsertChain(blocks,0); err != nil {
 			return false, fmt.Errorf("batch %d: failed to insert: %v", batch, err)
 		}
 		blocks = blocks[:0]
@@ -609,6 +611,11 @@ func (api *PrivateDebugAPI) GetModifiedAccountsByNumber(startNum uint64, endNum 
 		}
 	}
 	return api.getModifiedAccounts(startBlock, endBlock)
+}
+func (api *PrivateDebugAPI) SetInterestPrintLevel(level uint8) error {
+
+	util.SetLoglevel(level)
+	return nil
 }
 
 // GetModifiedAccountsByHash returns all accounts that have changed between the

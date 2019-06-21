@@ -222,11 +222,11 @@ func (pm *ProtocolManager) syncer() {
 			if pm.Peers.Len() < minDesiredPeerCount {
 				break
 			}
-			go pm.synchronise(pm.Peers.BestPeer())
+			go pm.synchronise(pm.Peers.BestPeer(), 0)
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
-			go pm.synchronise(pm.Peers.BestPeer())
+			go pm.synchronise(pm.Peers.BestPeer(), 1)
 
 		case <-pm.noMorePeers:
 			return
@@ -235,12 +235,24 @@ func (pm *ProtocolManager) syncer() {
 }
 
 // synchronise tries to sync up our local block chain with a remote peer.
-func (pm *ProtocolManager) synchronise(peer *peer) {
+func (pm *ProtocolManager) synchronise(peer *peer, flg int) {
 	// Short circuit if no peers are available
 	if peer == nil {
 		return
 	}
 	// Make sure the peer's TD is higher than our own
+	if flg == 3 || flg == 1 {
+		nowCheckTime := time.Now().Unix()
+		//if pm.LastCheckBlkNum == bn {
+		if nowCheckTime-pm.LastCheckTime < 2 {
+			return
+		}
+		pm.LastCheckTime = nowCheckTime
+		//} else {
+		//	pm.LastCheckBlkNum = bn
+		//}
+	}
+
 	currentBlock := pm.blockchain.CurrentBlock()
 	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	sbi, err := pm.blockchain.GetSuperBlockInfo()
@@ -248,19 +260,33 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Error("get super seq error")
 		return
 	}
+	needForceDownload := false
+	if flg == 1 {
+		pm.downloader.CheckNum++
+		if pm.downloader.CheckNum > 180 {
+			//needForceDownload = true   //30 分钟强制同步
+		}
+	}
 
-	log.Trace("download sync.go enter Synchronise peer", "peer", peer)
+	log.Trace("download sync.go enter Synchronise peer", "peer", peer, "flg", flg, "currentBlock", currentBlock.NumberU64())
 	sbs := sbi.Seq
 	sbh := sbi.Num
 	pHead, pTd, pSbs, pSbh, bt, bn := peer.Head()
-	log.Trace("download sync.go enter Synchronise td", "td", td, "pTd", pTd, "Sbs", sbs, "pSbs", pSbs)
+
+	if flg == 10 {
+		needForceDownload = true
+	}
+
+	log.Trace("download sync.go enter Synchronise td", "td", td, "pTd", pTd, "Sbs", sbs, "pSbs", pSbs, "bheight", bn, "pSbh", pSbh, "currentBlock", currentBlock.NumberU64())
 	if pSbs < sbs {
 		go peer.SendBlockHeaders([]*types.Header{currentBlock.Header()})
 		go peer.AsyncSendNewBlock(currentBlock, td, sbh, sbs)
 		log.Trace("对端peer超级序号小于本地的序号", "本地序号", sbs, "peer序号", pSbs, "peer hex", peer.id)
 		return
 	}
-	if pSbs == sbs {
+	if needForceDownload {
+		log.Trace("download sync.go force into")
+	} else if pSbs == sbs {
 		if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
 			if bn < currentBlock.NumberU64() {
 				log.Trace("对端peer高度小于本地的高度", "本地高度", currentBlock.NumberU64(), "对端高度", bn, "peer hex", peer.id)
@@ -270,6 +296,12 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					log.Trace("对端peer高度小于本地的高度", "本地时间", currentBlock.Time(), "对端时间", bt, "peer hex", peer.id)
 					return
 				}
+			} else if (flg == 3) && (bn == currentBlock.NumberU64()+1) { //若是对端比本地大于1,多等一次机会
+				if pm.downloader.CheckWaitNum++; pm.downloader.CheckWaitNum < 2 {
+					log.Trace("download 需等待下次调度")
+					return
+				}
+
 			}
 		} else {
 			if nil == td || pTd.Cmp(td) <= 0 {
@@ -279,7 +311,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		}
 
 	}
-
+	pm.downloader.CheckWaitNum = 0
 	log.Warn("download sync.go enter Synchronise", "currentBlock", currentBlock.NumberU64())
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync

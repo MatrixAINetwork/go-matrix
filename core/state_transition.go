@@ -200,8 +200,10 @@ func (st *StateTransition) PreCheck() error {
 	if st.msg.CheckNonce() {
 		nonce := st.state.GetNonce(st.msg.GetTxCurrency(), st.msg.From())
 		if nonce < st.msg.Nonce() {
+			log.Error("ErrNonceTooHigh", "txNonce", st.msg.Nonce(), "stateNonce", nonce, "txfrom", st.msg.From(), "txhash", st.msg.Hash().Hex())
 			return ErrNonceTooHigh
 		} else if nonce > st.msg.Nonce() {
+			log.Error("ErrNonceTooLow", "txNonce", st.msg.Nonce(), "stateNonce", nonce, "txfrom", st.msg.From(), "txhash", st.msg.Hash().Hex())
 			return ErrNonceTooLow
 		}
 	}
@@ -730,7 +732,7 @@ func (st *StateTransition) CallUnGasNormalTx() (ret []byte, usedGas uint64, fail
 			return nil, 0, false, shardings, ErrTXCountOverflow
 		}
 	}
-	st.gas = 0
+	st.gas = uint64(10000000)
 	issendFromContract := false
 	beforAmont := st.state.GetBalanceByType(st.msg.GetTxCurrency(), common.ContractAddress, common.MainAccount)
 	interestbefor := st.state.GetBalanceByType(st.msg.GetTxCurrency(), common.InterestRewardAddress, common.MainAccount) // Test

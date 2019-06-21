@@ -32,7 +32,7 @@ type (
 func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
 	if contract.CodeAddr != nil {
 		precompiles := PrecompiledContractsByzantium
-		if p := precompiles[*contract.CodeAddr]; p != nil {
+		if p := getPrecompiledContract(precompiles, *contract.CodeAddr, evm.StateDB); p != nil {
 			return RunPrecompiledContract(p, input, contract, evm)
 		}
 	}
@@ -143,7 +143,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	)
 	if !evm.StateDB.Exist(evm.Cointyp, addr) {
 		precompiles := PrecompiledContractsByzantium
-		if precompiles[addr] == nil && evm.ChainConfig().IsEIP158(evm.BlockNumber) && value.Sign() == 0 {
+		if getPrecompiledContract(precompiles, addr, evm.StateDB) == nil && evm.ChainConfig().IsEIP158(evm.BlockNumber) && value.Sign() == 0 {
 			// Calling a non existing account, don't do antything, but ping the tracer
 			if evm.vmConfig.Debug && evm.depth == 0 {
 				evm.vmConfig.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
@@ -171,7 +171,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}()
 	}
 	ret, err = run(evm, contract, input)
-
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.

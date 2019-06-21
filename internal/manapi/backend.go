@@ -55,6 +55,7 @@ type Backend interface {
 	GetPoolTransaction(txHash common.Hash) types.SelfTransaction
 	GetPoolNonce(cointyp string, ctx context.Context, addr common.Address) (uint64, error)
 	Stats() (pending int, queued int)
+	GetTxNmap() map[uint32]*types.Transaction
 	TxPoolContent() (map[common.Address]types.SelfTransactions, map[common.Address]types.SelfTransactions)
 	SubscribeNewTxsEvent(chan core.NewTxsEvent) event.Subscription //Y
 

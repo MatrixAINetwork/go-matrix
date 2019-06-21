@@ -98,7 +98,7 @@ func loadConfig(file string, cfg *gmanConfig) error {
 func defaultNodeConfig() pod.Config {
 	cfg := pod.DefaultConfig
 	cfg.Name = clientIdentifier
-	cfg.Version = manparams.VersionGamma + "_" + gitCommit
+	cfg.Version = manparams.VersionDelta + "_" + gitCommit
 	cfg.HTTPModules = append(cfg.HTTPModules, "man", "eth", "shh")
 	cfg.WSModules = append(cfg.WSModules, "man", "eth", "shh")
 	cfg.IPCPath = "gman.ipc"

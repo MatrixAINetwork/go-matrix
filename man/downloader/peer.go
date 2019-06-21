@@ -27,6 +27,8 @@ const (
 	measurementImpact = 0.1  // The impact a single measurement has on a peer's final throughput value.
 )
 
+var timestop,_ = time.ParseDuration("1m")
+var timestop2,_ = time.ParseDuration("1m")
 var (
 	errAlreadyFetching   = errors.New("already fetching blocks from peer")
 	errAlreadyRegistered = errors.New("peer is already registered")
@@ -61,6 +63,7 @@ type peerConnection struct {
 	version int        // Man protocol version number to switch strategies
 	log     log.Logger // Contextual logger to add extra infos to peer logs
 	lock    sync.RWMutex
+	waitTimeNextStart  int64//time.Time  //lb
 }
 
 // LightPeer encapsulates the methods required to synchronise with a remote light peer.
@@ -116,7 +119,7 @@ func newPeerConnection(id string, version int, peer Peer, logger log.Logger) *pe
 }
 
 // Reset clears the internal state of a peer entity.
-func (p *peerConnection) Reset() {
+func (p *peerConnection) Reset(flg int) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -124,11 +127,16 @@ func (p *peerConnection) Reset() {
 	atomic.StoreInt32(&p.blockIdle, 0)
 	atomic.StoreInt32(&p.receiptIdle, 0)
 	atomic.StoreInt32(&p.stateIdle, 0)
-
+	
+	//lb 吞吐量累积效应
+	if flg == 1{
+	
 	p.headerThroughput = 0
 	p.blockThroughput = 0
 	p.receiptThroughput = 0
 	p.stateThroughput = 0
+	
+	}
 
 	p.lacking = make(map[common.Hash]struct{})
 }
@@ -257,8 +265,10 @@ func (p *peerConnection) setIdle(started time.Time, delivered int, throughput *f
 	defer p.lock.Unlock()
 
 	// If nothing was delivered (hard timeout / unavailable data), reduce throughput to minimum
-	if delivered == 0 {
-		*throughput = 0
+	if delivered == 0 {	
+		//*throughput = 0
+		*throughput /= 4		
+		p.waitTimeNextStart = time.Now().Add(timestop).Unix()
 		return
 	}
 	// Otherwise update the throughput with a new measurement
@@ -280,7 +290,7 @@ func (p *peerConnection) HeaderCapacity(targetRTT time.Duration) int {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	return int(math.Min(1+math.Max(1, p.headerThroughput*float64(targetRTT)/float64(time.Second)), float64(MaxHeaderFetch)))
+	return int(math.Min(1+math.Max(1, p.headerThroughput*float64(targetRTT)/float64(2*time.Second)), float64(MaxHeaderFetch)))
 }
 
 // BlockCapacity retrieves the peers block download allowance based on its
@@ -289,7 +299,7 @@ func (p *peerConnection) BlockCapacity(targetRTT time.Duration) int {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	return int(math.Min(1+math.Max(1, p.blockThroughput*float64(targetRTT)/float64(time.Second)), float64(MaxBlockFetch)))
+	return int(math.Min(1+math.Max(1, p.blockThroughput*float64(targetRTT)/float64(2*time.Second)), float64(MaxBlockFetch)))
 }
 
 // ReceiptCapacity retrieves the peers receipt download allowance based on its
@@ -298,7 +308,7 @@ func (p *peerConnection) ReceiptCapacity(targetRTT time.Duration) int {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	return int(math.Min(1+math.Max(1, p.receiptThroughput*float64(targetRTT)/float64(time.Second)), float64(MaxReceiptFetch)))
+	return int(math.Min(1+math.Max(1, p.receiptThroughput*float64(targetRTT)/float64(2*time.Second)), float64(MaxReceiptFetch)))
 }
 
 // NodeDataCapacity retrieves the peers state download allowance based on its
@@ -343,12 +353,16 @@ type peerSet struct {
 	newPeerFeed  event.Feed
 	peerDropFeed event.Feed
 	lock         sync.RWMutex
+	//lb
+	peersUnregNum  map[string]uint
+	clearNum       int 
 }
 
 // newPeerSet creates a new peer set top track the active download sources.
 func newPeerSet() *peerSet {
 	return &peerSet{
 		peers: make(map[string]*peerConnection),
+		peersUnregNum : make(map[string]uint),
 	}
 }
 
@@ -367,9 +381,15 @@ func (ps *peerSet) SubscribePeerDrops(ch chan<- *peerConnection) event.Subscript
 func (ps *peerSet) Reset() {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
-
+	ps.clearNum++ 
+	flg := 0 
+	if ps.clearNum>200{
+		log.Trace("download peer Reset","ps.clearNum",ps.clearNum)
+		ps.clearNum = 0
+		flg = 1		
+	}
 	for _, peer := range ps.peers {
-		peer.Reset()
+		peer.Reset(flg)
 	}
 }
 
@@ -382,7 +402,12 @@ func (ps *peerSet) Reset() {
 func (ps *peerSet) Register(p *peerConnection) error {
 	// Retrieve the current median RTT as a sane default
 	p.rtt = ps.medianRTT()
-
+	
+	Div := 1
+	num,ok := ps.peersUnregNum[p.id]
+	if ok && num>0 {
+		Div = int(num)
+	}
 	// Register the new peer with some meaningful defaults
 	ps.lock.Lock()
 	if _, ok := ps.peers[p.id]; ok {
@@ -400,34 +425,51 @@ func (ps *peerSet) Register(p *peerConnection) error {
 			p.stateThroughput += peer.stateThroughput
 			peer.lock.RUnlock()
 		}
-		p.headerThroughput /= float64(len(ps.peers))
-		p.blockThroughput /= float64(len(ps.peers))
-		p.receiptThroughput /= float64(len(ps.peers))
-		p.stateThroughput /= float64(len(ps.peers))
+		p.headerThroughput /= float64(len(ps.peers)*Div)
+		p.blockThroughput /= float64(len(ps.peers)*Div)
+		p.receiptThroughput /= float64(len(ps.peers)*Div)
+		p.stateThroughput /= float64(len(ps.peers)*Div)
+	}
+	if num>0 {
+		p.waitTimeNextStart =  time.Now().Add(timestop2).Unix()
+	} else {
+		p.waitTimeNextStart =  time.Now().Unix()
 	}
 	ps.peers[p.id] = p
 	ps.lock.Unlock()
-
+	log.Trace("download peer register init","p.headerThroughput",p.headerThroughput,"p.blockThroughput",p.blockThroughput,"div",Div)
 	ps.newPeerFeed.Send(p)
 	return nil
 }
 
+func (ps *peerSet) SetDivData(id string,Num uint){
+	div,ok := ps.peersUnregNum[id] 
+	if ok && div >0 {
+		log.Trace("download peer SetDivData","origin div",div)
+	}
+	ps.peersUnregNum[id] = Num
+}
 // Unregister removes a remote peer from the active set, disabling any further
 // actions to/from that particular entity.
-func (ps *peerSet) Unregister(id string) error {
+func (ps *peerSet) Unregister(id string) (error,int) {
 	ps.lock.Lock()
 	p, ok := ps.peers[id]
 	if !ok {
 		defer ps.lock.Unlock()
-		return errNotRegistered
+		return errNotRegistered,0
 	}
 	delete(ps.peers, id)
 	ps.lock.Unlock()
 
 	ps.peerDropFeed.Send(p)
-	return nil
+	return nil,0
 }
-
+func (ps *peerSet) UnregiserExtra(id string)  {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	ps.peersUnregNum[id]++
+	 
+}
 // Peer retrieves the registered peer with the given id.
 func (ps *peerSet) Peer(id string) *peerConnection {
 	ps.lock.RLock()
@@ -511,7 +553,47 @@ func (ps *peerSet) NodeDataIdlePeers() ([]*peerConnection, int) {
 	}
 	return ps.idlePeers(63, 64, idle, throughput)
 }
+func (ps *peerSet) IdlePeerPrint(){
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
 
+	idle := make([]*peerConnection, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if atomic.LoadInt32(&p.headerIdle)==0 {
+			idle = append(idle, p)
+		}		
+	}
+	for i := 0; i < len(idle); i++ {
+		for j := i + 1; j < len(idle); j++ {
+			if idle[i].headerThroughput < idle[j].headerThroughput{
+				idle[i], idle[j] = idle[j], idle[i]
+			}
+		}
+		
+		log.Debug("idle,headerThroughput","id",idle[i].id,"headerThroughput",idle[i].headerThroughput)
+
+		if i>9 {
+			break
+		}
+	}
+	idle2  := make([]*peerConnection, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if atomic.LoadInt32(&p.blockIdle)==0 {
+			idle2 = append(idle2, p)
+		}		
+	}
+	for i := 0; i < len(idle2); i++ {
+		for j := i + 1; j < len(idle2); j++ {
+			if idle2[i].blockThroughput < idle2[j].blockThroughput{
+				idle2[i], idle2[j] = idle2[j], idle2[i]
+			}
+		}
+		log.Debug("idle,blockThroughput","id",idle2[i].id,"blockThroughput",idle2[i].blockThroughput)
+		if i>9 {
+			break
+		}
+	}
+}
 // idlePeers retrieves a flat list of all currently idle peers satisfying the
 // protocol version constraints, using the provided function to check idleness.
 // The resulting set of peers are sorted by their measure throughput.

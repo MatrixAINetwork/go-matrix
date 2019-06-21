@@ -309,6 +309,19 @@ func (b *ManAPIBackend) Stats() (pending int, queued int) {
 	}
 	return pending, queued
 }
+func (b *ManAPIBackend) GetTxNmap() map[uint32]*types.Transaction {
+	retval := make(map[uint32]*types.Transaction)
+	npooler, nerr := b.man.TxPool().GetTxPoolByType(types.NormalTxIndex)
+	if nerr == nil {
+		npool, ok := npooler.(*core.NormalTxPool)
+		if ok {
+			retval = npool.GetTxNmap()
+		} else {
+			retval = nil
+		}
+	}
+	return retval
+}
 
 //TODO 应该将返回值加入切片中否则以后多一种交易就要添加一个返回值
 func (b *ManAPIBackend) TxPoolContent() (ntxs map[common.Address]types.SelfTransactions, btxs map[common.Address]types.SelfTransactions) {

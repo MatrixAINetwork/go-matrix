@@ -105,3 +105,7 @@ var (
 	VersionGammaDurationLimit = big.NewInt(9)   // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 	FloodTime                 = 1 * time.Second //洪泛时间阈值
 )
+var (
+	DepositVersionKey_1 = "DepostVersion_1.0"
+	DepositVersion_1    = "1.0"
+)

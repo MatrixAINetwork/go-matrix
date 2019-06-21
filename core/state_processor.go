@@ -106,7 +106,7 @@ func (p *StateProcessor) getGas(currentState *state.StateDBManage, preState *sta
 		return big.NewInt(0)
 	}
 
-	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) <= 0 || balance[common.MainAccount].Balance.Cmp(allGas) < 0 {
+	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) < 0 || balance[common.MainAccount].Balance.Cmp(allGas) < 0 {
 		log.WARN("奖励", coinType+"交易费奖励账户余额不合法，余额", balance)
 		return big.NewInt(0)
 	}
@@ -149,7 +149,6 @@ func (p *StateProcessor) ProcessReward(st *state.StateDBManage, header *types.He
 	blkReward := blkreward.New(p.bc, st, preState, ppreState)
 	rewardList := make([]common.RewarTx, 0)
 	if nil != blkReward {
-		//todo: read half number from state
 		minersRewardMap := blkReward.CalcMinerRewards(header.Number.Uint64(), header.ParentHash)
 		if 0 != len(minersRewardMap) {
 			rewardList = append(rewardList, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.BlkMinerRewardAddress, To_Amont: minersRewardMap, RewardTyp: common.RewardMinerType})
@@ -176,19 +175,18 @@ func (p *StateProcessor) ProcessReward(st *state.StateDBManage, header *types.He
 		lottery.LotterySaveAccount(account[params.MAN_COIN], header.VrfValue)
 	}
 
-	////todo 利息
-	interestReward := interest.New(st, preState)
+	interestReward := interest.ManageNew(st, preState)
 
 	if nil == interestReward {
-		return p.reverse(util.AccumulatorCheck(st, rewardList))
+		return util.AccumulatorCheck(st, rewardList)
 	}
 	interestReward.CalcReward(st, header.Number.Uint64(), header.ParentHash)
 
-	slash := slash.New(p.bc, st, preState)
+	slash := slash.ManageNew(p.bc, st, preState)
 	if nil != slash {
-		slash.CalcSlash(st, header.Number.Uint64(), upTime, header.ParentHash)
+		slash.CalcSlash(st, header.Number.Uint64(), upTime, header.ParentHash, header.Time.Uint64())
 	}
-	interestPayMap := interestReward.PayInterest(st, header.Number.Uint64())
+	interestPayMap := interestReward.PayInterest(st, header.Number.Uint64(), header.Time.Uint64())
 	if 0 != len(interestPayMap) {
 		rewardList = append(rewardList, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.InterestRewardAddress, To_Amont: interestPayMap, RewardTyp: common.RewardInterestType})
 	}
@@ -204,7 +202,7 @@ func (p *StateProcessor) processMultiCoinReward(usedGas map[string]*big.Int, cur
 	allGas = p.getGas(currentState, preState, params.MAN_COIN, gas, common.TxGasRewardAddress)
 	txsRewardMap := txsReward.CalcNodesRewards(allGas, header.Leader, header.Number.Uint64(), header.ParentHash, params.MAN_COIN)
 	if 0 != len(txsRewardMap) {
-		//todo:发放币种从chain上获取
+
 		rewardList = append(rewardList, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
 	}
 	coinConfig := p.getCoinConfig(preState)
@@ -216,7 +214,6 @@ func (p *StateProcessor) processMultiCoinReward(usedGas map[string]*big.Int, cur
 		}
 		txsRewardMap := txsReward.CalcNodesRewards(allGas, header.Leader, header.Number.Uint64(), header.ParentHash, config.CoinRange)
 		if 0 != len(txsRewardMap) {
-			//todo:发放币种从chain上获取
 			rewardList = append(rewardList, common.RewarTx{CoinRange: config.CoinRange, CoinType: config.CoinType, Fromaddr: config.CoinAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
 		}
 	}
@@ -503,10 +500,10 @@ func (p *StateProcessor) ProcessTxs(block *types.Block, statedb *state.StateDBMa
 			if err != nil {
 				return nil, 0, err
 			}
-			tmpr2 := make(types.Receipts, 1+len(allreceipts[tx.GetTxCurrency()]))
-			tmpr2[0] = receipt
-			copy(tmpr2[1:], allreceipts[tx.GetTxCurrency()])
-			allreceipts[tx.GetTxCurrency()] = tmpr2
+			//tmpr2 := make(types.Receipts, 1+len(allreceipts[tx.GetTxCurrency()]))
+			//tmpr2[0] = receipt
+			//copy(tmpr2[1:], allreceipts[tx.GetTxCurrency()])
+			//allreceipts[tx.GetTxCurrency()] = tmpr2
 
 			var tmptx types.SelfTransaction
 			if isvadter {
@@ -519,10 +516,10 @@ func (p *StateProcessor) ProcessTxs(block *types.Block, statedb *state.StateDBMa
 					receipt = nil
 				}
 			}
-			tmpr := make(types.Receipts, 1+len(receipts))
-			tmpr[0] = receipt
-			copy(tmpr[1:], receipts)
-			receipts = tmpr
+			//tmpr := make(types.Receipts, 1+len(receipts))
+			//tmpr[0] = receipt
+			//copy(tmpr[1:], receipts)
+			receipts = append(receipts, receipt)
 			if receipt != nil {
 				tmpl := make([]types.CoinLogs, 0)
 				//tmpl = append(tmpl, types.CoinLogs{CoinType: params.MAN_COIN, Logs: receipt.Logs})
@@ -545,19 +542,19 @@ func (p *StateProcessor) ProcessTxs(block *types.Block, statedb *state.StateDBMa
 			if len(coinShard) > 0 {
 				for _, cs := range coinShard {
 					if bc.CurrencyName == cs.CoinType {
-						block.Currencies()[i].Receipts = types.SetReceipts(tmpMapre[bc.CurrencyName], allreceipts[bc.CurrencyName].HashList(), cs.Shardings)
+						block.Currencies()[i].Receipts = types.SetReceipts(tmpMapre[bc.CurrencyName], tmpMapre[bc.CurrencyName].HashList(), cs.Shardings)
 						block.Currencies()[i].Transactions = types.SetTransactions(tmpMaptx[bc.CurrencyName], types.TxHashList(txs), cs.Shardings)
 						currblock = append(currblock, block.Currencies()[i])
 						break
 					}
 				}
 			} else {
-				block.Currencies()[i].Receipts = types.SetReceipts(tmpMapre[bc.CurrencyName], allreceipts[bc.CurrencyName].HashList(), nil)
+				block.Currencies()[i].Receipts = types.SetReceipts(tmpMapre[bc.CurrencyName], tmpMapre[bc.CurrencyName].HashList(), nil)
 				currblock = append(currblock, block.Currencies()[i])
 			}
 
 		} else {
-			block.Currencies()[i].Receipts = types.SetReceipts(tmpMapre[bc.CurrencyName], allreceipts[bc.CurrencyName].HashList(), nil)
+			block.Currencies()[i].Receipts = types.SetReceipts(tmpMapre[bc.CurrencyName], tmpMapre[bc.CurrencyName].HashList(), nil)
 			currblock = append(currblock, block.Currencies()[i])
 		}
 	}
@@ -609,7 +606,7 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 		return nil, nil, 0, err
 	}
 
-	if err = p.bc.ProcessStateVersionSwitch(block.NumberU64(), statedb); err != nil {
+	if err = p.bc.ProcessStateVersionSwitch(block.NumberU64(), block.Time().Uint64(), statedb); err != nil {
 		log.Trace("BlockChain insertChain in3 Process Block err1")
 		return nil, nil, 0, err
 	}
@@ -699,7 +696,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		root = statedb.IntermediateRootByCointype(tx.GetTxCurrency(), config.IsEIP158(header.Number)).Bytes()
 	}
 	*usedGas += gas
-
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.
 	receipt := types.NewReceipt(root, failed, *usedGas)

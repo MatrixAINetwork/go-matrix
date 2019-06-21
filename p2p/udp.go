@@ -62,6 +62,7 @@ func UdpSend(data interface{}) {
 	}
 	if len(signAddr) <= 2 {
 		for _, id := range signAddr {
+			log.Info("upd", "send tx addr", id.String(), "node id", ServerP2p.ConvertAddressToId(id).String()) //YY add log
 			send(id, bytes)
 		}
 		return
@@ -69,6 +70,7 @@ func UdpSend(data interface{}) {
 
 	is := Random(len(signAddr), 2)
 	for _, i := range is {
+		log.Info("upd", "send tx addr", signAddr[i].String(), "node id", ServerP2p.ConvertAddressToId(signAddr[i]).String()) //YY add log
 		send(signAddr[i], bytes)
 	}
 }

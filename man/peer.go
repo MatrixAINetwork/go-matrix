@@ -173,6 +173,14 @@ func (p *peer) Head() (hash common.Hash, td *big.Int, sbs uint64, sbHash uint64,
 	copy(hash[:], p.head[:])
 	return hash, new(big.Int).Set(p.td), p.sbs, p.sbn, p.bt, p.bn
 }
+func (p *peer) SetHeadPart(hash common.Hash,  bn uint64) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	copy(p.head[:], hash[:])
+	//p.td.Set(td)
+	p.bn = bn
+}
 
 // SetHead updates the head hash and total difficulty of the peer.
 func (p *peer) SetHead(hash common.Hash, td *big.Int, sbs uint64, sbn uint64, bt uint64, bn uint64) {
@@ -355,8 +363,8 @@ func (p *peer) SendPongToBroad(data []uint8) error {
 
 // RequestOneHeader is a wrapper around the header query functions to fetch a
 // single header. It is used solely by the fetcher.
-func (p *peer) RequestOneHeader(hash common.Hash) error {
-	p.Log().Debug("Fetching single header", "hash", hash)
+func (p *peer) RequestOneHeader(hash common.Hash,blknum uint64) error {
+	p.Log().Debug("Fetching single header","blknum",blknum, "hash", hash)
 	return p2p.Send(p.rw, GetBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
@@ -377,7 +385,7 @@ func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, rever
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
 func (p *peer) RequestBodies(hashes []common.Hash) error {
-	p.Log().Debug("peer Fetching batch of block bodies[request body]", "len count", len(hashes))
+	p.Log().Debug("peer Fetching batch of block bodies[request body]", "len count", len(hashes),"hashes[0]",hashes[0])
 	return p2p.Send(p.rw, GetBlockBodiesMsg, hashes)
 }
 

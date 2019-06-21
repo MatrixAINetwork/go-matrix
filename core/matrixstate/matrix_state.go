@@ -12,12 +12,14 @@ const logInfo = "matrix state"
 var mangerAlpha *Manager
 var mangerBeta *Manager
 var mangerGamma *Manager
+var mangerDelta *Manager
 var versionOpt MatrixOperator
 
 func init() {
 	mangerAlpha = newManger(manparams.VersionAlpha)
 	mangerBeta = newManger(manparams.VersionBeta)
 	mangerGamma = newManger(manparams.VersionGamma)
+	mangerDelta = newManger(manparams.VersionDelta)
 	versionOpt = newVersionInfoOpt()
 }
 
@@ -40,6 +42,8 @@ func GetManager(version string) *Manager {
 		return mangerBeta
 	case manparams.VersionGamma:
 		return mangerGamma
+	case manparams.VersionDelta:
+		return mangerDelta
 	default:
 		log.Error(logInfo, "get Manger err", "version not exist", "version", version)
 		return nil
@@ -177,7 +181,7 @@ func newManger(version string) *Manager {
 				mc.MSKeyBlockProduceBlackList:   newBlockProduceBlackListOpt(),
 			},
 		}
-	case manparams.VersionGamma:
+	case manparams.VersionGamma, manparams.VersionDelta:
 		return &Manager{
 			version: version,
 			operators: map[string]MatrixOperator{

@@ -174,18 +174,32 @@ func (tab *Table) ResolveNode(addr common.Address, id NodeID) *Node {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 	if id == EmptyNodeId && addr != EmptyAddress {
-		for key, val := range tab.nodeBindAddress {
-			if key == addr {
-				return val
-			}
+		if val, ok := tab.nodeBindAddress[addr]; ok {
+			return val
 		}
+		return nil
 	}
+
 	if id != EmptyNodeId && addr == EmptyAddress {
-		for _, val := range tab.nodeBindAddress {
-			if val.ID == id {
-				return val
+		var repeatedNode *Node
+
+		for key, val := range tab.nodeBindAddress {
+			if val.ID != id {
+				continue
+			}
+			if repeatedNode == nil {
+				repeatedNode = val
+				continue
+			}
+			if repeatedNode.SignTime >= val.SignTime {
+				delete(tab.nodeBindAddress, key)
+				continue
+			} else {
+				delete(tab.nodeBindAddress, repeatedNode.Address)
+				repeatedNode = val
 			}
 		}
+		return repeatedNode
 	}
 	return nil
 }

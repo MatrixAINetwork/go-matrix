@@ -343,7 +343,6 @@ func (p *Process) verifyOneResult(rawHeader *types.Header, result *mc.HD_MiningR
 		return err
 	}
 
-	//todo 不是原始难度的结果，需要修改POW seal验证过程
 	if err := p.blockChain().Engine(header.Version).VerifySeal(p.blockChain(), header); err != nil {
 		log.WARN(p.logExtraInfo(), "挖矿结果POW验证失败", err)
 		return err

@@ -155,13 +155,13 @@ func mapCounter(m map[common.Address]int, address common.Address) (error, bool) 
 	}
 }
 
-func isAllSuperNodeSampled(supeNodeMap map[common.Address]int)  bool{
-	if len(supeNodeMap) == 0{
+func isAllSuperNodeSampled(supeNodeMap map[common.Address]int) bool {
+	if len(supeNodeMap) == 0 {
 		return true
 	}
 	status := true
-	for _, v := range supeNodeMap{
-		if v == 0{
+	for _, v := range supeNodeMap {
+		if v == 0 {
 			status = false
 			break
 		}
@@ -176,7 +176,7 @@ func RandSampleFilterBlackList(randNodeValue []Pnormalized, superNodeValue []Pno
 
 	//init vip stock 0
 	superNodeStcok := make(map[common.Address]int)
-	for _, v := range(superNodeValue){
+	for _, v := range superNodeValue {
 		superNodeStcok[v.Addr] = 0
 	}
 
@@ -199,7 +199,7 @@ func RandSampleFilterBlackList(randNodeValue []Pnormalized, superNodeValue []Pno
 			continue
 		}
 		//if select superNode, superNode stock add 1. It's not a rand node
-		if val, ok := superNodeStcok[node];  ok{
+		if val, ok := superNodeStcok[node]; ok {
 			superNodeStcok[node] = val + 1
 			continue
 		}
@@ -216,14 +216,14 @@ func RandSampleFilterBlackList(randNodeValue []Pnormalized, superNodeValue []Pno
 			}
 		}
 
-		if len(nonBlackListDict) >= (needNum) && isAllSuperNodeSampled(superNodeStcok){
+		if len(nonBlackListDict) >= (needNum) && isAllSuperNodeSampled(superNodeStcok) {
 			break
 		}
 	}
 
 	//super node stock protect
-	for key, val := range superNodeStcok{
-		if val == 0{
+	for key, val := range superNodeStcok {
+		if val == 0 {
 			superNodeStcok[key] = 1
 		}
 	}
@@ -238,7 +238,7 @@ func RandSampleFilterBlackList(randNodeValue []Pnormalized, superNodeValue []Pno
 
 	for _, item := range probnormalized {
 
-		if _, ok := superNodeStcok[item.Addr]; ok == true{
+		if _, ok := superNodeStcok[item.Addr]; ok == true {
 			continue
 		}
 

@@ -35,8 +35,8 @@ const (
 
 type Chain struct {
 	blockCache map[uint64]*types.Block
-	curtop *mc.TopologyGraph
-	elect  *mc.ElectGraph
+	curtop     *mc.TopologyGraph
+	elect      *mc.ElectGraph
 }
 
 func (chain *Chain) GetHeaderByHash(hash common.Hash) *types.Header {
@@ -83,7 +83,6 @@ func (s *MyStateDB) SetMatrixData(hash common.Hash, val []byte) {
 	return
 }
 
-
 func (s *MyStateDB) SetBalance(typ string, AccountType uint32, addr common.Address, mount *big.Int) {
 	BalanceType := make([]common.BalanceSlice, 0)
 	BalanceType = append(BalanceType, common.BalanceSlice{AccountType: common.MainAccount, Balance: mount})
@@ -101,9 +100,7 @@ func TestNew(t *testing.T) {
 		name string
 		args args
 		want reward.Reward
-	}{
-		// TODO: Add test cases.
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := New(tt.args.chain, tt.args.st, tt.args.preSt, tt.args.ppreSt); !reflect.DeepEqual(got, tt.want) {
@@ -132,6 +129,5 @@ func TestNew(t *testing.T) {
 	matrixstate.SetBroadcastInterval(preState, &mc.BCIntervalInfo{LastBCNumber: 0, LastReelectNumber: 0, BCInterval: 100})
 	matrixstate.SetFoundationAccount(preState, common.HexToAddress(testAddress))
 	matrixstate.SetInnerMinerAccounts(preState, []common.Address{common.HexToAddress("0x1")})
-	bc.
-	test1 := New(bc, currentState, preState, ppreState)
+	New(bc, currentState, preState, ppreState)
 }

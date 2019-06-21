@@ -112,6 +112,14 @@ func (ctrl *mineReqCtrl) SetNewNumber(number uint64, role common.RoleType) {
 	return
 }
 
+func (ctrl *mineReqCtrl) GetFutureReqCacheSize() int {
+	size := 0
+	for _, list := range ctrl.futureReq {
+		size += len(list)
+	}
+	return size
+}
+
 func (ctrl *mineReqCtrl) AddMineReq(header *types.Header, txs []types.CoinSelfTransaction, isBroadcastReq bool) (*mineReqData, error) {
 	if nil == header {
 		return nil, errors.New("header为nil")
@@ -119,11 +127,20 @@ func (ctrl *mineReqCtrl) AddMineReq(header *types.Header, txs []types.CoinSelfTr
 
 	reqNumber := header.Number.Uint64()
 	headerHash := header.HashNoSignsAndNonce()
+
+	if reqNumber > ctrl.curNumber+OVERFLOWNUM {
+		return nil, errors.Errorf("挖矿请求消息高度(%d) 大于 当前高度(%d)+%d", reqNumber, ctrl.curNumber, OVERFLOWNUM)
+	}
+
 	if reqNumber > ctrl.curNumber {
 		list, exist := ctrl.futureReq[reqNumber]
 		reqData := newMineReqData(headerHash, header, txs, isBroadcastReq)
 		if exist {
-			ctrl.futureReq[reqNumber] = append(list, reqData)
+			if len(list) > OVERFLOWLEN {
+				ctrl.futureReq[reqNumber] = append(list[1:], reqData)
+			} else {
+				ctrl.futureReq[reqNumber] = append(list, reqData)
+			}
 		} else {
 			ctrl.futureReq[reqNumber] = []*mineReqData{reqData}
 		}

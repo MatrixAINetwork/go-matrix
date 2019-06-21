@@ -727,3 +727,57 @@ func IsGreaterLink(linkA, linkB LinkInfo) bool {
 	}
 	return false
 }
+
+type OperationalInterestSlash struct {
+	DepositAmount *big.Int
+	OperAmount    *big.Int //用来增加的利息金额或者惩罚的金额
+	Position      uint64
+	DepositType   uint64
+}
+
+//Operational Interest and Slash
+type CalculateDeposit struct {
+	AddressA0   Address
+	CalcDeposit []OperationalInterestSlash
+}
+
+//退选信息
+type WithDrawInfo struct {
+	WithDrawAmount *big.Int
+	WithDrawTime   uint64 //退选时间
+}
+
+//没把定期DepositAmount和WithDrawTime放到ZeroDepositlist里，因为这样处理方便，暂时这样用
+type DepositMsg struct {
+	DepositType      uint64 //0-活期,1-定期1个月,3-定期3个月,6-定期6个月
+	DepositAmount    *big.Int
+	Interest         *big.Int
+	Slash            *big.Int
+	BeginTime        uint64 //定期起始时间，为当前确认时间(evm.Time)
+	EndTime          uint64 //定期到期时间，(BeginTime+定期时长)
+	Position         uint64 //仓位
+	WithDrawInfolist []WithDrawInfo
+}
+type DepositBase struct {
+	AddressA0     Address
+	AddressA1     Address
+	OnlineTime    *big.Int
+	Role          *big.Int
+	PositionNonce uint64
+	Dpstmsg       []DepositMsg
+}
+type DepositRoles struct {
+	Role    *big.Int
+	Address []Address
+}
+type CheckDepositInfo struct {
+	DepositAmount *big.Int
+	Withdraw      uint64
+	Role          *big.Int
+	AddressA1     Address
+}
+
+//type WithDrawMsg struct {
+//	DepositAmount *big.Int
+//	WithDrawTime 	uint64
+//}

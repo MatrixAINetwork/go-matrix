@@ -3,6 +3,8 @@ package slash
 import (
 	"math/big"
 
+	"github.com/MatrixAINetwork/go-matrix/mc"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/readstatedb"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
@@ -10,7 +12,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/vm"
 	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
 	"github.com/MatrixAINetwork/go-matrix/log"
-	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/reward/util"
 )
 
@@ -56,7 +57,7 @@ func New(chain util.ChainReader, st util.StateDB, preSt util.StateDB) *BlockSlas
 		log.ERROR(PackageName, "获取广播周期数据结构失败", err)
 		return nil
 	}
-	return &BlockSlash{chain: chain, eleMaxOnlineTime: bcInterval.GetBroadcastInterval() - 3, SlashRate: SlashRate, bcInterval: bcInterval} //todo 周期固定3倍关系
+	return &BlockSlash{chain: chain, eleMaxOnlineTime: bcInterval.GetBroadcastInterval() - 3, SlashRate: SlashRate, bcInterval: bcInterval} // 周期固定3倍关系
 }
 func (bp *BlockSlash) GetCurrentInterest(preState *state.StateDBManage, currentState vm.StateDBManager, num uint64) map[common.Address]*big.Int {
 	allInterest := depoistInfo.GetAllInterest(currentState)
@@ -75,13 +76,13 @@ func (bp *BlockSlash) GetCurrentInterest(preState *state.StateDBManage, currentS
 			interestMap[account] = new(big.Int).Sub(currentInterest, preInterest)
 		}
 	}
-	for account, interest := range interestMap {
-		log.Debug(PackageName, "账户", account, "利息", interest)
-	}
+	//for account, interest := range interestMap {
+	//	log.Debug(PackageName, "账户", account, "利息", interest)
+	//}
 
 	return interestMap
 }
-func (bp *BlockSlash) CalcSlash(currentState *state.StateDBManage, num uint64, upTimeMap map[common.Address]uint64, parentHash common.Hash) {
+func (bp *BlockSlash) CalcSlash(currentState *state.StateDBManage, num uint64, upTimeMap map[common.Address]uint64, parentHash common.Hash, time uint64) {
 	if bp.bcInterval.IsBroadcastNumber(num) {
 		log.WARN(PackageName, "广播周期不处理", "")
 		return

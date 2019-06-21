@@ -18,7 +18,7 @@ type layeredBss struct {
 }
 
 const (
-	stockExp  = 1.45
+	stockExp    = 1.45
 	superFactor = int64(19)
 )
 
@@ -57,7 +57,7 @@ func (self *layeredBss) ValidatorTopGen(mvrerm *mc.MasterValidatorReElectionReqM
 	vipEle.ProcessBlackNode()
 
 	//supernode election
-	superNodeS,  superNodeN:= vipEle.GenSuperNode(superFactor)
+	superNodeS, superNodeN := vipEle.GenSuperNode(superFactor)
 	vipEle.SetChosed(superNodeS)
 
 	//get randElect List

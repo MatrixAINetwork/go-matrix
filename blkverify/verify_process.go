@@ -684,7 +684,6 @@ func (p *Process) verifyVote(signHash common.Hash, vote common.Signature, from c
 		return nil, errors.Errorf("vote sign account[%s] != from account[%s]", signAccount.Hex(), from.Hex())
 	}
 
-	//todo 股权消息
 	return &common.VerifiedSign{
 		Sign:     vote,
 		Account:  depositAccount,

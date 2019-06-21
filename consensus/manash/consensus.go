@@ -344,7 +344,7 @@ func calcDifficultyByzantium(curVersion string, time uint64, parent *types.Heade
 	// (2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9
 	x.Sub(bigTime, bigParentTime)
 	var durationLimit *big.Int
-	if manparams.VersionCmp(curVersion, manparams.VersionGamma) == 0 {
+	if manparams.VersionCmp(curVersion, manparams.VersionGamma) >= 0 {
 		durationLimit = params.VersionGammaDurationLimit
 	} else {
 		durationLimit = params.DurationLimit

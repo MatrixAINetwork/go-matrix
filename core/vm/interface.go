@@ -55,6 +55,9 @@ type StateDBManager interface {
 	GetState(cointyp string, addr common.Address, hash common.Hash) common.Hash
 	SetState(cointyp string, addr common.Address, hash, hash2 common.Hash)
 
+	GetStateByteArray(cointyp string, addr common.Address, b common.Hash) []byte
+	SetStateByteArray(cointyp string, addr common.Address, key common.Hash, value []byte)
+
 	CommitSaveTx(cointyp string, addr common.Address)
 	GetSaveTx(cointyp string, addr common.Address, typ byte, key uint32, hash []common.Hash, isdel bool)
 	SaveTx(cointyp string, addr common.Address, typ byte, key uint32, data map[common.Hash][]byte)

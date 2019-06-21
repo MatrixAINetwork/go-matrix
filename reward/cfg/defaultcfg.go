@@ -21,7 +21,6 @@ import (
 const (
 	PackageName = "奖励"
 
-	//todo: 分母10000， 加法做参数检查
 	MinersBlockRewardRate     = uint64(5000) //矿工网络奖励50%
 	ValidatorsBlockRewardRate = uint64(5000) //验证者网络奖励50%
 

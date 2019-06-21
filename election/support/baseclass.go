@@ -266,7 +266,7 @@ func (vip *Electoion) SuperNodeStockProc(randSuperNodeStock map[common.Address]i
 		for i := 0; i < len(vip.HasChosedNode[0]); i++ {
 			address := vip.HasChosedNode[0][i].Addr
 			stock := 1
-			if value, ok := randSuperNodeStock[address]; ok{
+			if value, ok := randSuperNodeStock[address]; ok {
 				stock = value
 			}
 			stock = stockProtect(stock)
@@ -421,7 +421,7 @@ func (vip *Electoion) GenSuperNode(superThreshold int64) ([]Strallyint, []Node) 
 
 	//Exclude BlockSlashBlackList From pre-superNode
 	superNodeS := make([]Strallyint, 0, len(preSuperNode))
-	superNodeN := make([]Node, 0,  len(preSuperNode))
+	superNodeN := make([]Node, 0, len(preSuperNode))
 	for _, v := range preSuperNode {
 		if _, ok := vip.BlockBlackProc.IsBlackList(v.Address); ok {
 			vip.BlockBlackProc.DecrementCount(v.Address)

@@ -282,6 +282,8 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 		}
 		if batch.ValueSize() > mandb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
+				db.lock.RUnlock()
+				log.Error("Database,Commit", "err", err,"return not unlock")
 				return err
 			}
 			batch.Reset()

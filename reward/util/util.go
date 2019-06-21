@@ -1,7 +1,9 @@
 package util
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"math/big"
 	"sort"
 
@@ -41,8 +43,9 @@ var (
 	ThousandthManPrice *big.Int = big.NewInt(1e15)
 
 	Precision *big.Int = big.NewInt(1)
-
-	CalcGamma = "2"
+	CalcAlpha          = "1"
+	CalcGamma          = "2"
+	CalcDelta          = "3"
 )
 
 type ChainReader interface {
@@ -149,7 +152,7 @@ func CalcInterestReward(reward *big.Int, interest map[common.Address]*big.Int) m
 		log.ERROR(PackageName, "计算的总利息值非法", totalInterest)
 		return nil
 	}
-	//log.Trace(PackageName, "计算的总利息值", totalInterest)
+	log.Trace(PackageName, "计算的总抵押值", totalInterest)
 
 	if 0 == reward.Cmp(big.NewInt(0)) {
 		log.ERROR(PackageName, "定点化奖励金额为0", "")
@@ -160,7 +163,7 @@ func CalcInterestReward(reward *big.Int, interest map[common.Address]*big.Int) m
 	for k, v := range interest {
 		temp := new(big.Int).Mul(reward, v)
 		rewards[k] = new(big.Int).Div(temp, totalInterest)
-		//log.Trace(PackageName, "计算奖励金额,账户", k, "金额", rewards[k])
+		//log.Trace(PackageName, "计算奖励金额,账户", k, "抵押", v, "金额", rewards[k])
 	}
 	return rewards
 }
@@ -395,7 +398,7 @@ func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutR
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
 				return nil, errors.New("获取矿工交易金额错误")
 			}
-		case manparams.VersionBeta, manparams.VersionGamma:
+		case manparams.VersionBeta, manparams.VersionGamma, manparams.VersionDelta:
 			multiCoin, err := matrixstate.GetPreMinerMultiCoinTxsReward(state)
 			if err != nil {
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
@@ -428,4 +431,56 @@ func GetPrice(calc string) *big.Int {
 	} else {
 		return ManPrice
 	}
+}
+
+func GetDataByPosition(data []common.OperationalInterestSlash, position uint64) *common.OperationalInterestSlash {
+
+	for _, v := range data {
+		if v.Position == position {
+			return &v
+		}
+
+	}
+	return nil
+}
+
+var debugSwitch = uint8(0)
+var logSwitch = uint8(0)
+
+func LogExtraDebug(msg string, ctx ...interface{}) {
+	switch debugSwitch {
+	case uint8(log.LvlError):
+		log.Error(msg, ctx...)
+	case uint8(log.LvlWarn):
+		log.Warn(msg, ctx...)
+	case uint8(log.LvlInfo):
+		log.Info(msg, ctx...)
+	case uint8(log.LvlDebug):
+		log.Debug(msg, ctx...)
+	case uint8(log.LvlTrace):
+		log.Trace(msg, ctx...)
+	default:
+		break
+	}
+}
+
+func SetExtralevel(level uint8) {
+	debugSwitch = level
+}
+func SetLoglevel(level uint8) {
+	logSwitch = level
+}
+func PrintLog2File(filename string, data interface{}) {
+	if 0 != logSwitch {
+		out, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			log.Error("Failed to save log file", "err", err)
+			return
+		}
+		if err := ioutil.WriteFile(filename, out, 0644); err != nil {
+			log.Error("Failed to save log file", "filename", filename, "err", err)
+			return
+		}
+	}
+	return
 }

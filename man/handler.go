@@ -90,6 +90,9 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
+	CheckDownloadNum      int
+	LastCheckTime       int64
+	LastCheckBlkNum     uint64
 	Msgcenter *mc.Center
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
@@ -178,14 +181,14 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			return 0, nil
 		}
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.blockchain.InsertChain(blocks)
+		return manager.blockchain.InsertChain(blocks,1)
 	}
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
 
 	return manager, nil
 }
 
-func (pm *ProtocolManager) removePeer(id string) {
+func (pm *ProtocolManager) removePeer(id string,flg int) {
 	// Short circuit if the peer was already removed
 	//	peer := pm.peers.Peer(id)
 	peer := pm.Peers.Peer(id)
@@ -195,7 +198,7 @@ func (pm *ProtocolManager) removePeer(id string) {
 	log.Debug("Removing Matrix peer", "peer", id)
 
 	// Unregister the peer from the downloader and Matrix peer set
-	pm.downloader.UnregisterPeer(id)
+	pm.downloader.UnregisterPeer(id,flg)
 	//	if err := pm.peers.Unregister(id); err != nil {
 	if err := pm.Peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
@@ -336,7 +339,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Error("Matrix peer registration failed", "err", err)
 		return err
 	}
-	defer pm.removePeer(p.id)
+	defer pm.removePeer(p.id,0)
 
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
 	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
@@ -355,7 +358,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		// Start a timer to disconnect if the peer doesn't reply in time
 		p.forkDrop = time.AfterFunc(daoChallengeTimeout, func() {
 			p.Log().Debug("Timed out DAO fork-check, dropping")
-			pm.removePeer(p.id)
+			pm.removePeer(p.id,0)
 		})
 		// Make sure it's cleaned up if the peer dies off
 		defer func() {
@@ -504,6 +507,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return nil
 			}
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
+			p.Log().Trace("download handleMsg BlockHeadersMsg fetch","headers",headers[0].Hash(),"number",headers[0].Number.Uint64())
 			headers = pm.fetcher.FilterHeaders(p.id, headers, time.Now())
 		}
 		p.Log().Trace("download handleMsg BlockHeadersMsg after", "len", len(headers), "!filter", !filter)
@@ -673,6 +677,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		if len(announces) > 0 {
 			p.Log().Trace("download fetch handleMsg receive NewBlockHashesMsg0", "BlockNum", announces[0].Number, "hash", announces[0].Hash.String())
+			if (announces[0].Number > pm.fetcher.MaxChainHeight){
+				pm.fetcher.MaxChainHeight = announces[0].Number
+			}
+			if pm.blockchain.CurrentBlock().NumberU64() + 20 < announces[0].Number {
+				p.SetHeadPart(announces[0].Hash,announces[0].Number)
+				go pm.synchronise(p,10)//强制检查
+			}
 		}
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
@@ -683,7 +694,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		for _, block := range unknown {
-			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
+			if ( block.Number > pm.blockchain.CurrentBlock().NumberU64()) {
+				pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
+			}
 		}
 
 	case msg.Code == NewBlockMsg:
@@ -697,8 +710,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkBlock(request.Block.Hash())
-		p.Log().Trace("download fetch handleMsg receive NewBlockMsg", "number", request.Block.NumberU64(), "request.TD", request.TD)
-		pm.fetcher.Enqueue(p.id, request.Block)
+		if (request.Block.NumberU64()> pm.fetcher.MaxChainHeight){
+			pm.fetcher.MaxChainHeight = request.Block.NumberU64()
+		}
+		currentBlock := pm.blockchain.CurrentBlock()
+		flg := 0
+		if(pm.fetcher.MaxChainHeight - currentBlock.NumberU64() < 32) && ( request.Block.NumberU64() > currentBlock.NumberU64() ){
+			pm.fetcher.Enqueue(p.id, request.Block)
+			flg = 1
+		}
+		p.Log().Trace("download fetch handleMsg receive NewBlockMsg", "number", request.Block.NumberU64(), "request.TD", request.TD,"MaxChainHeight",pm.fetcher.MaxChainHeight,"flg",flg)
+	
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
@@ -714,12 +736,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 			p.Log().Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs, "高度", request.Block.NumberU64(), "时间", request.Block.Time())
 			if common.IsGreaterLink(common.LinkInfo{Sbs: trueSBS, Bn: request.Block.NumberU64(), Bt: request.Block.Time().Uint64()}, common.LinkInfo{Sbs: sbs, Bn: bn, Bt: bt}) {
-				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(), request.Block.NumberU64())
-
+				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(),request.Block.NumberU64())// request.Block.NumberU64()-1)
+				p.Log().Trace("handleMsg receive NewBlockMsg SetHead") 
 				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
 				// a singe block (as the true TD is below the propagated block), however this
 				// scenario should easily be covered by the fetcher.
-				currentBlock := pm.blockchain.CurrentBlock()
+				//currentBlock := pm.blockchain.CurrentBlock()
+				/*
 				td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 				if td == nil {
 					log.Error("td is nil", "peer", p.id)
@@ -735,7 +758,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 					log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs,
 						"远程高度", request.Block.NumberU64(), "本地高度", currentBlock.NumberU64(), "远程时间", request.Block.Time(), "本地时间", currentBlock.Time())
-					go pm.synchronise(p)
+					if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
+						go pm.synchronise(p,3)
+					}
+				}
+				*/
+				if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
+					go pm.synchronise(p,3)
 				}
 			}
 		} else {
@@ -752,7 +781,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
 				// a singe block (as the true TD is below the propagated block), however this
 				// scenario should easily be covered by the fetcher.
-				currentBlock := pm.blockchain.CurrentBlock()
+				/*currentBlock := pm.blockchain.CurrentBlock()
 				td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 				if td == nil {
 					log.Error("td is nil", "peer", p.id)
@@ -766,7 +795,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 				if trueSBS > sbs || trueTD.Cmp(td) > 0 {
 					log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs, "远程td", trueTD, "本地td", td)
-					go pm.synchronise(p)
+					if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
+						go pm.synchronise(p,4)
+					}
+				}*/
+				if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
+					go pm.synchronise(p,4)
 				}
 			}
 
@@ -795,7 +829,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			hash := tx.Hash()
 			p.MarkTransaction(hash)
-			log.INFO("==tcp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", hash.String())
+			log.INFO("==tcp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", hash.String(), "sender addr", p2p.ServerP2p.ConvertIdToAddress(p.ID()).String(),
+				"node id", p.ID().String())
 		}
 		pm.txpool.AddRemotes(txs)
 	case msg.Code == common.NetworkMsg:
@@ -846,70 +881,74 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 		return
 	}
 	peers := pm.Peers.PeersWithoutBlock(hash)
-
-	switch role {
-	case common.RoleMiner, common.RoleBucket:
-		if len(peers) == 0 {
-			return
-		}
-		if len(peers) == 1 {
-			pairOfPeer[true] = append(pairOfPeer[true], peers[0])
-		}
-		if len(peers) > 1 {
-			in := p2p.Random(len(peers)-1, 1)
-			if len(in) <= 0 {
+	//超级区块都广播
+	if block.IsSuperBlock() {
+		pairOfPeer[true] = peers
+	} else {
+		switch role {
+		case common.RoleMiner, common.RoleBucket:
+			if len(peers) == 0 {
 				return
 			}
-
-			for index, peer := range peers {
-				if index == in[0] {
-					pairOfPeer[true] = append(pairOfPeer[true], peer)
-					continue
+			if len(peers) == 1 {
+				pairOfPeer[true] = append(pairOfPeer[true], peers[0])
+			}
+			if len(peers) > 1 {
+				in := p2p.Random(len(peers)-1, 1)
+				if len(in) <= 0 {
+					return
 				}
+
+				for index, peer := range peers {
+					if index == in[0] {
+						pairOfPeer[true] = append(pairOfPeer[true], peer)
+						continue
+					}
+					pairOfPeer[false] = append(pairOfPeer[false], peer)
+				}
+			}
+
+		case common.RoleValidator:
+
+			miners := ca.GetRolesByGroup(common.RoleMiner | common.RoleBackupMiner | common.RoleInnerMiner)
+			broads := ca.GetRolesByGroup(common.RoleBroadcast | common.RoleBackupBroadcast)
+			sender := make(map[string]struct{})
+			for _, m := range miners {
+				if id := p2p.ServerP2p.ConvertAddressToId(m); id != emptyNodeId {
+					sender[id.String()] = struct{}{}
+				}
+			}
+			for _, b := range broads {
+				if id := p2p.ServerP2p.ConvertAddressToId(b); id != emptyNodeId {
+					sender[id.String()] = struct{}{}
+				}
+			}
+
+			for _, peer := range peers {
+				if _, ok := sender[peer.ID().String()]; ok {
+					pairOfPeer[true] = append(pairOfPeer[true], peer)
+				} else {
+					pairOfPeer[false] = append(pairOfPeer[false], peer)
+				}
+			}
+
+		default:
+			//roles ,_:=ca.GetElectedByHeightAndRole(new(big.Int).Sub(block.Header().Number,big.NewInt(1)),common.RoleValidator)
+			//isgoon := false
+			//for _,role := range roles{
+			//	if role.SignAddress == ca.GetAddress(){
+			for _, peer := range peers {
 				pairOfPeer[false] = append(pairOfPeer[false], peer)
 			}
-		}
+			//		isgoon = true
+			//		break
+			//	}
+			//}
+			//if !isgoon{
+			//	return
+			//}
 
-	case common.RoleValidator:
-
-		miners := ca.GetRolesByGroup(common.RoleMiner | common.RoleBackupMiner | common.RoleInnerMiner)
-		broads := ca.GetRolesByGroup(common.RoleBroadcast | common.RoleBackupBroadcast)
-		sender := make(map[string]struct{})
-		for _, m := range miners {
-			if id := p2p.ServerP2p.ConvertAddressToId(m); id != emptyNodeId {
-				sender[id.String()] = struct{}{}
-			}
 		}
-		for _, b := range broads {
-			if id := p2p.ServerP2p.ConvertAddressToId(b); id != emptyNodeId {
-				sender[id.String()] = struct{}{}
-			}
-		}
-
-		for _, peer := range peers {
-			if _, ok := sender[peer.ID().String()]; ok {
-				pairOfPeer[true] = append(pairOfPeer[true], peer)
-			} else {
-				pairOfPeer[false] = append(pairOfPeer[false], peer)
-			}
-		}
-
-	default:
-		//roles ,_:=ca.GetElectedByHeightAndRole(new(big.Int).Sub(block.Header().Number,big.NewInt(1)),common.RoleValidator)
-		//isgoon := false
-		//for _,role := range roles{
-		//	if role.SignAddress == ca.GetAddress(){
-		for _, peer := range peers {
-			pairOfPeer[false] = append(pairOfPeer[false], peer)
-		}
-		//		isgoon = true
-		//		break
-		//	}
-		//}
-		//if !isgoon{
-		//	return
-		//}
-
 	}
 
 	if peerSender, ok := pairOfPeer[true]; ok {

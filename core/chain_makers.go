@@ -267,7 +267,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *B
 	if full {
 		// Full block-chain requested
 		blocks := makeBlockChain(genesis, n, engine, db, canonicalSeed)
-		_, err := blockchain.InsertChain(blocks)
+		_, err := blockchain.InsertChain(blocks,0)
 		return db, blockchain, err
 	}
 	// Header-only chain requested

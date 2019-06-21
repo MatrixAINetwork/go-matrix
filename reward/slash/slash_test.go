@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/MatrixAINetwork/go-matrix/mandb"
+
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/log"
 
@@ -18298,8 +18300,9 @@ func TestBlockSlash_CalcSlash(t *testing.T) {
 		return &mc.SlashCfg{SlashRate: rewardTestOrigin.Slashcfg.MaxSlashRate}, nil
 	})
 
-	bc := &Chain{}
-	slash := New(bc, &State{0})
+	chaindb := mandb.NewMemDatabase()
+	state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	slash := New(nil, state, state)
 	Convey("计算惩罚", t, func() {
 		for _, v := range rewardTestOrigin.Node {
 			reward, _ := new(big.Int).SetString(v.Reward, 10)
@@ -18352,8 +18355,9 @@ func TestBlockSlash_CalcSlash2(t *testing.T) {
 	//	deposit[tmp.Address] = tmp1
 	//}
 
-	bc := &Chain{}
-	slash := New(bc, &State{0})
+	chaindb := mandb.NewMemDatabase()
+	state, _ := state.NewStateDBManage(nil, chaindb, state.NewDatabase(chaindb))
+	slash := New(nil, state, state)
 	Convey("计算惩罚", t, func() {
 		for _, v := range rewardTestOrigin.Node {
 			reward, _ := new(big.Int).SetString(v.Reward, 10)

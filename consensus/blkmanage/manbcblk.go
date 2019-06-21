@@ -126,7 +126,7 @@ func (bd *ManBCBlkPlug) ProcessState(support BlKSupport, header *types.Header, a
 		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	if err = support.BlockChain().ProcessStateVersionSwitch(header.Number.Uint64(), work.State); err != nil {
+	if err = support.BlockChain().ProcessStateVersionSwitch(header.Number.Uint64(), header.Time.Uint64(), work.State); err != nil {
 		log.ERROR(LogManBlk, "状态树版本号切换更新状态树", err, "高度", header.Number.Uint64())
 		return nil, nil, nil, nil, nil, nil, err
 	}
@@ -210,7 +210,7 @@ func (bd *ManBCBlkPlug) VerifyTxsAndState(support BlKSupport, verifyHeader *type
 		log.ERROR(LogManBlk, "状态树更新版本号失败", err, "高度", verifyHeader.Number.Uint64())
 		return nil, nil, nil, nil, err
 	}
-	if err = support.BlockChain().ProcessStateVersionSwitch(verifyHeader.Number.Uint64(), work.State); err != nil {
+	if err = support.BlockChain().ProcessStateVersionSwitch(verifyHeader.Number.Uint64(), verifyHeader.Time.Uint64(), work.State); err != nil {
 		log.ERROR(LogManBlk, "状态树版本号切换更新状态树", err, "高度", verifyHeader.Number.Uint64())
 		return nil, nil, nil, nil, err
 	}

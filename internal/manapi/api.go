@@ -49,6 +49,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/params/enstrust"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"github.com/MatrixAINetwork/go-matrix/rpc"
+	"github.com/MatrixAINetwork/go-matrix/core/vm/validatorGroup"
 )
 
 const (
@@ -153,6 +154,14 @@ func (s *PublicTxPoolAPI) Status() map[string]hexutil.Uint {
 		"pending": hexutil.Uint(pending),
 		"queued":  hexutil.Uint(queue),
 	}
+}
+func (s *PublicTxPoolAPI) GetTxNmap() map[uint32]common.Hash {
+	nmap := s.b.GetTxNmap()
+	retval := make(map[uint32]common.Hash)
+	for k, v := range nmap {
+		retval[k] = v.Hash()
+	}
+	return retval
 }
 
 // Inspect retrieves the content of the transaction pool and flattens it into an
@@ -679,6 +688,7 @@ func (s *PublicBlockChainAPI) GetMatrixCoin(ctx context.Context, blockNr rpc.Blo
 	}
 	return coinlist, nil
 }
+
 func (s *PublicBlockChainAPI) GetDestroyBalance(ctx context.Context, blockNr rpc.BlockNumber) (*big.Int, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
@@ -785,6 +795,63 @@ type DepositDetail struct {
 	OnlineTime  *big.Int
 	Role        *big.Int
 }
+type RpcValidatorGroupState struct {
+	OwnerInfo    RpcOwnerInfo
+	Reward       vm.RewardRate
+	ValidatorMap []RpcValidatorInfo
+}
+type RpcOwnerInfo struct {
+	Owner           string //common.Address
+	WithdrawAllTime uint64
+	SignAddress     string //common.Address `rlp:"-"`
+}
+type RpcValidatorInfo struct {
+	Address   string //common.Address
+	Reward    *big.Int
+	AllAmount *big.Int //`rlp:"-"`
+	Current   validatorGroup.CurrentData
+	Positions []validatorGroup.DepositPos
+}
+
+func (s *PublicBlockChainAPI) GetValidatorGroupInfo(ctx context.Context, blockNr rpc.BlockNumber) (interface{}, error) {
+	state, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || header == nil || err != nil {
+		return nil, err
+	}
+	vcStates := &vm.ValidatorContractState{}
+	getRetval, err := vcStates.GetValidatorGroupInfo(header.Time.Uint64(), state)
+	if err != nil {
+		return nil, err
+	}
+	info := MakeJsonInferface(&getRetval)
+	return info,nil
+}
+
+//退选信息
+type RpcWithDrawInfo struct {
+	WithDrawAmount *hexutil.Big
+	WithDrawTime   uint64 //退选时间
+}
+
+//没把定期DepositAmount和WithDrawTime放到ZeroDepositlist里，因为这样处理方便，暂时这样用
+type RpcDepositMsg struct {
+	DepositType      uint64 //0-活期,1-定期1个月,3-定期3个月,6-定期6个月
+	DepositAmount    *hexutil.Big
+	Interest         *hexutil.Big
+	Slash            *hexutil.Big
+	BeginTime        uint64 //定期起始时间，为当前确认时间(evm.Time)
+	EndTime          uint64 //定期到期时间，(BeginTime+定期时长)
+	Position         uint64 //仓位
+	WithDrawInfolist []RpcWithDrawInfo
+}
+type RpcDepositBase struct {
+	AddressA0     string
+	AddressA1     string
+	OnlineTime    *hexutil.Big
+	Role          *hexutil.Big
+	PositionNonce uint64
+	Dpstmsg       []RpcDepositMsg
+}
 
 func (s *PublicBlockChainAPI) GetDeposit(ctx context.Context, blockNr rpc.BlockNumber) ([]DepositDetail, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
@@ -805,6 +872,55 @@ func (s *PublicBlockChainAPI) GetDeposit(ctx context.Context, blockNr rpc.BlockN
 		depositNodesOutput = append(depositNodesOutput, tmp)
 	}
 	return depositNodesOutput, state.Error()
+}
+func (s *PublicBlockChainAPI) GetDepositByAddr(ctx context.Context, straddr string, blockNr rpc.BlockNumber) (*RpcDepositBase, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	addr, err := base58.Base58DecodeToAddress(straddr)
+	if err != nil {
+		return nil, err
+	}
+	depositOutput := depoistInfo.GetDepositBase(state, addr)
+	if depositOutput == nil {
+		return nil, err
+	}
+	rpcbase := RpcDepositBase{
+		AddressA1:     base58.Base58EncodeToString(params.MAN_COIN, depositOutput.AddressA1),
+		AddressA0:     base58.Base58EncodeToString(params.MAN_COIN, depositOutput.AddressA0),
+		OnlineTime:    new(hexutil.Big),
+		Role:          new(hexutil.Big),
+		PositionNonce: depositOutput.PositionNonce,
+	}
+	rpcbase.OnlineTime = (*hexutil.Big)(depositOutput.OnlineTime)
+	rpcbase.Role = (*hexutil.Big)(depositOutput.Role)
+	rpcbase.Dpstmsg = make([]RpcDepositMsg, 0)
+	for _, deposit := range depositOutput.Dpstmsg {
+		rpcmsg := RpcDepositMsg{
+			DepositType:   deposit.DepositType,
+			DepositAmount: new(hexutil.Big),
+			Interest:      new(hexutil.Big),
+			Slash:         new(hexutil.Big),
+			BeginTime:     deposit.BeginTime,
+			EndTime:       deposit.EndTime,
+			Position:      deposit.Position,
+		}
+		rpcmsg.DepositAmount = (*hexutil.Big)(deposit.DepositAmount)
+		rpcmsg.Interest = (*hexutil.Big)(deposit.Interest)
+		rpcmsg.Slash = (*hexutil.Big)(deposit.Slash)
+		rpcmsg.WithDrawInfolist = make([]RpcWithDrawInfo, 0)
+		for _, wd := range deposit.WithDrawInfolist {
+			rpcwd := RpcWithDrawInfo{
+				WithDrawAmount: new(hexutil.Big),
+				WithDrawTime:   wd.WithDrawTime,
+			}
+			rpcwd.WithDrawAmount = (*hexutil.Big)(wd.WithDrawAmount)
+			rpcmsg.WithDrawInfolist = append(rpcmsg.WithDrawInfolist, rpcwd)
+		}
+		rpcbase.Dpstmsg = append(rpcbase.Dpstmsg, rpcmsg)
+	}
+	return &rpcbase, nil
 }
 func (api *PublicBlockChainAPI) GetFutureRewards(ctx context.Context, number rpc.BlockNumber) (interface{}, error) {
 	state, _, err := api.b.StateAndHeaderByNumber(ctx, number-1)
@@ -1895,7 +2011,7 @@ func newRPCTransaction(tx types.SelfTransaction, blockHash common.Hash, blockNum
 	for _, ext := range extra {
 		for _, e := range ext.ExtraTo {
 			b := hexutil.Bytes(e.Payload)
-			b = nil //屏蔽input
+			//b = nil //屏蔽input
 			result.ExtraTo = append(result.ExtraTo, &ExtraTo_Mx{
 				To2:    e.Recipient,
 				Input2: &b,
@@ -1903,7 +2019,7 @@ func newRPCTransaction(tx types.SelfTransaction, blockHash common.Hash, blockNum
 			})
 		}
 	}
-	result.Input = nil //屏蔽input
+	//result.Input = nil //屏蔽input
 	return result
 }
 

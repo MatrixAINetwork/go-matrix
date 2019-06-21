@@ -60,7 +60,7 @@ func TestHeaderVerification(t *testing.T) {
 			case <-time.After(25 * time.Millisecond):
 			}
 		}
-		chain.InsertChain(blocks[i : i+1])
+		chain.InsertChain(blocks[i : i+1],0)
 	}
 }
 

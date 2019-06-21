@@ -301,15 +301,6 @@ func (env *Work) s_commitTransaction(tx types.SelfTransaction, coinbase common.A
 		env.State.RevertToSnapshot(tx.GetTxCurrency(), snap)
 		return err, nil, nil
 	}
-	//tmps := make([]types.SelfTransaction, 0)
-	//tmps = append(tmps, tx)
-	//tmps = append(tmps, env.transer...)
-	//env.transer = tmps
-
-	//tmpr := make([]*types.Receipt, 0)
-	//tmpr = append(tmpr, receipt)
-	//tmpr = append(tmpr, env.recpts...)
-	//env.recpts = tmpr
 	env.tcount++
 	return nil, receipt.Logs, receipt
 }
@@ -346,7 +337,7 @@ func (env *Work) ProcessTransactions(mux *event.TypeMux, tp txPoolReader, upTime
 	tim := env.header.Time.Uint64()
 	env.State.UpdateTxForBtree(uint32(tim))
 	env.State.UpdateTxForBtreeBytime(uint32(tim))
-	log.Info("work", "关键时间点", "开始执行交易", "time", time.Now(), "块高", env.header.Number)
+	log.Info("work", "关键时间点", "开始执行交易", "time", time.Now(), "块高", env.header.Number, "MAN交易数量", len(pending[params.MAN_COIN]))
 
 	coins := make([]string, 0)
 	coinsnoman := make([]string, 0)
@@ -399,6 +390,7 @@ func (env *Work) ProcessTransactions(mux *event.TypeMux, tp txPoolReader, upTime
 	from := make(map[string][]common.Address)
 	for _, tx := range originalTxs {
 		from[tx.GetTxCurrency()] = append(from[tx.GetTxCurrency()], tx.From())
+		log.Trace("关键时间点", "txNonce", tx.Nonce(), "txfrom", tx.From(), "txhash", tx.Hash().Hex(), "N", tx.GetTxN(0))
 	}
 
 	log.Info("work", "关键时间点", "执行交易完成，开始执行奖励", "time", time.Now(), "块高", env.header.Number, "tx num ", len(originalTxs))
@@ -524,7 +516,6 @@ func (env *Work) makeTransaction(rewarts []common.RewarTx) (coinTxs map[string]t
 		tx := types.NewTransactions(nonceMap[rewart.Fromaddr], to, value, 0, new(big.Int), databytes, nil, nil, nil, extra, 0, env.rewardTypetransformation(rewart.RewardTyp), 0, rewart.CoinType, 0)
 		tx.SetFromLoad(rewart.Fromaddr)
 		//txers = append(txers, tx)
-
 		rewartTxs := coinTxs[rewart.CoinRange]
 		rewartTxs = append(rewartTxs, tx)
 		coinTxs[rewart.CoinRange] = rewartTxs

@@ -1,7 +1,3 @@
-// Copyright (c) 2018 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package core
 
 import (
@@ -10,6 +6,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
+	"github.com/MatrixAINetwork/go-matrix/core/vm"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
@@ -90,7 +87,7 @@ func (bc *BlockChain) statsListToBlackListA(state *state.StateDBManage, statsLis
 	log.Trace(ModuleName, "黑名单更新后状态，高度", header.Number.Uint64())
 	blackListPrint(&mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist})
 	if err := matrixstate.SetBlockProduceBlackList(state, &mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist}); err != nil {
-		log.Crit("State Write Err : ", mc.MSKeyBlockProduceBlackList)
+		log.Crit(ModuleName, "State Write Err : ", err)
 	}
 }
 func (bc *BlockChain) statsListToBlackListB(state *state.StateDBManage, statsList *mc.BlockProduceStats, slashCfg *mc.BlockProduceSlashCfg, header *types.Header) {
@@ -98,12 +95,11 @@ func (bc *BlockChain) statsListToBlackListB(state *state.StateDBManage, statsLis
 	blackListPrint(preBlackList)
 	//新增退选后从黑名单移除
 	var handleBlackList = NewBlackListMaintainB(header.ParentHash, preBlackList.BlackList)
-	//todo:选举更新状态树做减法
 	handleBlackList.AddBlackListB(statsList.StatsList, slashCfg)
 	log.Trace(ModuleName, "黑名单更新后状态，高度", header.Number.Uint64())
 	blackListPrint(&mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist})
 	if err := matrixstate.SetBlockProduceBlackList(state, &mc.BlockProduceSlashBlackList{BlackList: handleBlackList.blacklist}); err != nil {
-		log.Crit("State Write Err : ", mc.MSKeyBlockProduceBlackList)
+		log.Crit(ModuleName, "State Write Err : ", err)
 	}
 }
 func statsListPrint(stats *mc.BlockProduceStats) {
@@ -308,9 +304,13 @@ func NewBlackListMaintainA(list []mc.UserBlockProduceSlash) *blacklistMaintain {
 
 func NewBlackListMaintainB(parentHash common.Hash, list []mc.UserBlockProduceSlash) *blacklistMaintain {
 	var bl = new(blacklistMaintain)
-
+	depoistlist, err := ca.GetElectedByHeightAndRoleByHash(parentHash, common.RoleValidator)
+	if nil != err {
+		log.Crit(ModuleName, "读取验证者抵押列表错误", err)
+		return nil
+	}
 	for _, v := range list {
-		if v.ProhibitCycleCounter > 0 && searchExistDeposit(parentHash, v.Address) {
+		if v.ProhibitCycleCounter > 0 && searchExistDeposit(depoistlist, v.Address) {
 			bl.blacklist = append(bl.blacklist, v)
 		}
 	}
@@ -325,19 +325,12 @@ func (bl *blacklistMaintain) CounterMaintain() {
 	}
 }
 
-func searchExistDeposit(parentHash common.Hash, target common.Address) bool {
-
-	depoistlist, err := ca.GetElectedByHeightAndRoleByHash(parentHash, common.RoleValidator)
-	if nil != err {
-		log.ERROR(ModuleName, "读取验证者抵押列表错误", err)
-		return false
-	}
+func searchExistDeposit(depoistlist []vm.DepositDetail, target common.Address) bool {
 	for _, v := range depoistlist {
 		if v.Address.Equal(target) {
 			return true
 		}
 	}
-
 	return false
 }
 

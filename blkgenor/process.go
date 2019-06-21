@@ -231,7 +231,7 @@ func (p *Process) canInsertBlock(bcInterval *mc.BCIntervalInfo, header *types.He
 			return false
 		}
 
-		if role, _ := ca.GetAccountOriginalRole(signAccount, p.preBlockHash); common.RoleBroadcast != role {
+		if role, _ := ca.GetAccountOriginalRole(signAccount, header.ParentHash); common.RoleBroadcast != role {
 			log.WARN(p.logExtraInfo(), "广播区块插入消息非法，签名人不是广播身份, 角色", role.String())
 			return false
 		}

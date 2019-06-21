@@ -804,7 +804,7 @@ func (bc *BlockChain) procFutureBlocks() {
 
 		// Insert one by one as chain insertion needs contiguous ancestry between blocks
 		for i := range blocks {
-			bc.InsertChain(blocks[i : i+1])
+			bc.InsertChain(blocks[i : i+1],0)
 		}
 	}
 }
@@ -853,7 +853,7 @@ func SetReceiptsData(config *params.ChainConfig, block *types.Block) error {
 
 	//transactions, txs,
 	logIndex := uint(0)
-	for _, currencie := range block.Currencies() { //TODO		BB
+	for _, currencie := range block.Currencies() {
 		txs := currencie.Transactions.GetTransactions()
 		receipts := currencie.Receipts.GetReceipts()
 		if len(txs) != len(receipts) {
@@ -916,7 +916,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks) (int, error) {
 	for i, block := range blockChain {
 		txs := make([]types.CoinSelfTransaction, 0)
 		res := make([]types.CoinReceipts, 0)
-		for _, currencie := range block.Currencies() { //TODO BB
+		for _, currencie := range block.Currencies() {
 			res = append(res, types.CoinReceipts{CoinType: currencie.CurrencyName, Receiptlist: currencie.Receipts.GetReceipts()})
 			txs = append(txs, types.CoinSelfTransaction{CoinType: currencie.CurrencyName, Txser: currencie.Transactions.GetTransactions()})
 		}
@@ -1170,7 +1170,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, state *state.State
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
 	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
-	//todo:超级区块序号判断
 	remoteSuperBlkCfg, err := matrixstate.GetSuperBlockCfg(state)
 	if err != nil {
 		return NonStatTy, err
@@ -1280,14 +1279,14 @@ func (bc *BlockChain) superBlkRewind(block *types.Block, oldBlock *types.Block) 
 // wrong.
 //
 // After insertion is done, all accumulated events will be fired.
-func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
-	n, events, logs, err := bc.insertChain(chain)
+func (bc *BlockChain) InsertChain(chain types.Blocks,flg int) (int, error) {
+	n, events, logs, err := bc.insertChain(chain,flg)
 	bc.PostChainEvents(events, logs)
 	return n, err
 }
 
 func (bc *BlockChain) InsertChainNotify(chain types.Blocks, notify bool) (int, error) {
-	n, events, logs, err := bc.insertChain(chain)
+	n, events, logs, err := bc.insertChain(chain,0)
 	if notify {
 		bc.PostChainEvents(events, logs)
 	}
@@ -1312,10 +1311,10 @@ func (r *randSeed) GetRandom(hash common.Hash, Type string) (*big.Int, error) {
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
-func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []types.CoinLogs, error) {
+func (bc *BlockChain) insertChain(chain types.Blocks,flg int) (int, []interface{}, []types.CoinLogs, error) {
 
 	// Do a sanity check that the provided chain is actually ordered and linked
-	log.Trace("BlockChain insertChain in")
+	log.Trace("BlockChain insertChain in","flg",flg)
 	for i := 1; i < len(chain); i++ {
 		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {
 			// Chain broke ancestry, log a messge (programming error) and skip insertion
@@ -1336,6 +1335,12 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []typ
 	// A queued approach to delivering events. This is generally
 	// faster than direct delivery and requires much less mutex
 	// acquiring.
+	if flg == 1 && len(chain) == 1 { 
+		if ( bc.CurrentBlock().NumberU64() >= chain[0].NumberU64() ){
+			log.Error("fetch insert blockchain error,err known","current block",bc.CurrentBlock().NumberU64(),"insert num",chain[0].NumberU64())
+			return 0,nil,nil,fmt.Errorf("fetch insert blockchain error,err known")
+		}
+	}
 	var (
 		stats         = insertStats{startTime: mclock.Now()}
 		events        = make([]interface{}, 0, len(chain))
@@ -1434,7 +1439,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []typ
 			}
 			// Import all the pruned blocks to make the state available
 			bc.chainmu.Unlock()
-			_, evs, logs, err := bc.insertChain(winner)
+			_, evs, logs, err := bc.insertChain(winner,0)
 			bc.chainmu.Lock()
 			events, coalescedLogs = evs, logs
 
@@ -1476,16 +1481,18 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []typ
 			usedGas uint64 = 0
 		)
 		if block.IsSuperBlock() {
-
+			log.Trace("BlockChain insertChain ProcessSuperBlk")
 			err := bc.Processor(header.Version).ProcessSuperBlk(block, state)
 			if nil != err {
 				return i, events, coalescedLogs, err
 			}
 		} else {
+			log.Trace("BlockChain insertChain Processor")
 			_, logs, usedGas, err = bc.Processor(block.Header().Version).Process(block, parent, state, bc.vmConfig)
 			if nil != err {
 				return i, events, coalescedLogs, err
 			}
+			log.Trace("BlockChain insertChain ValidateState")
 			// Validate the state using the default validator
 			err = bc.Validator(block.Header().Version).ValidateState(block, parent, state, usedGas)
 			if err != nil {
@@ -2122,7 +2129,6 @@ func (bc *BlockChain) InsertSuperBlock(superBlockGen *Genesis, notify bool) (*ty
 	if err := bc.DPOSEngine(block.Header().Version).VerifyBlock(bc, block.Header()); err != nil {
 		return nil, errors.Errorf("verify super block err(%v)", err)
 	}
-	//todo 应该在InsertChain时确定权威链，从而进行回滚
 	//if err := bc.SetHead(superBlockGen.Number - 1); err != nil {
 	//	return nil, errors.Errorf("rollback chain err(%v)", err)
 	//}
@@ -2556,7 +2562,7 @@ func (bc *BlockChain) LoadDumps(dumps []state.DumpDB, number int64) bool {
 		for _, itas := range dumpTrie.MapAccount {
 
 			storagetrie, _ := trie.NewSecure(common.Hash{}, triedb, 0)
-			fmt.Println()
+			//fmt.Println()
 			for _, it := range itas.DumpData {
 				storagetrie.Update(it.GetKey, it.Value)
 			}

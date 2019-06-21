@@ -20,7 +20,7 @@ import (
 const (
 	arriveTimeout = 500 * time.Millisecond // Time allowance before an announced block is explicitly requested
 	gatherSlack   = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
-	fetchTimeout  = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
+	fetchTimeout  = 9 * time.Second        // Maximum allotted time to return an explicitly requested block
 	maxUncleDist  = 7                      // Maximum allowed backward distance from the chain head
 	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
 	hashLimit     = 256                    // Maximum number of unique blocks a peer may have announced
@@ -35,7 +35,7 @@ var (
 type blockRetrievalFn func(common.Hash) *types.Block
 
 // headerRequesterFn is a callback type for sending a header retrieval request.
-type headerRequesterFn func(common.Hash) error
+type headerRequesterFn func(common.Hash , uint64) error
 
 // bodyRequesterFn is a callback type for sending a body retrieval request.
 type bodyRequesterFn func([]common.Hash) error
@@ -53,7 +53,7 @@ type chainHeightFn func() uint64
 type chainInsertFn func(types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string,flg int)
 
 // announce is the hash notification of the availability of a new block in the
 // network.
@@ -62,9 +62,9 @@ type announce struct {
 	number uint64        // Number of the block being announced (0 = unknown | old protocol)
 	header *types.Header // Header of the block partially reassembled (new protocol)
 	time   time.Time     // Timestamp of the announcement
-
+	
 	origin string // Identifier of the peer originating the notification
-
+	//hasSendReq  int
 	fetchHeader headerRequesterFn // Fetcher function to retrieve the header of an announced block
 	fetchBodies bodyRequesterFn   // Fetcher function to retrieve the body of an announced block
 }
@@ -104,14 +104,17 @@ type Fetcher struct {
 
 	done chan common.Hash
 	quit chan struct{}
-
+	MaxChainHeight  uint64 //lb
 	// Announce states
 	announces  map[string]int              // Per peer announce counts to prevent memory exhaustion
 	announced  map[common.Hash][]*announce // Announced blocks, scheduled for fetching
 	fetching   map[common.Hash]*announce   // Announced blocks, currently fetching
 	fetched    map[common.Hash][]*announce // Blocks with headers fetched, scheduled for body retrieval
 	completing map[common.Hash]*announce   // Blocks with headers, currently body-completing
-
+	fetchHeaderNum  map[common.Hash]int  //请求header数
+	fetchBlockNum  map[common.Hash]int
+	retransannounced  map[common.Hash][]*announce
+	//retransfetched    map[common.Hash][]*announce
 	// Block cache
 	queue  *prque.Prque            // Queue containing the import operations (block number sorted)
 	queues map[string]int          // Per peer block counts to prevent memory exhaustion
@@ -148,6 +151,10 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBloc
 		fetching:       make(map[common.Hash]*announce),
 		fetched:        make(map[common.Hash][]*announce),
 		completing:     make(map[common.Hash]*announce),
+		fetchHeaderNum: make(map[common.Hash]int),
+		fetchBlockNum:  make(map[common.Hash]int),
+		retransannounced: make(map[common.Hash][]*announce),
+		//retransfetched : make(map[common.Hash][]*announce),
 		queue:          prque.New(),
 		queues:         make(map[string]int),
 		queued:         make(map[common.Hash]*inject),
@@ -210,7 +217,7 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
-	log.Trace("download fetch Filtering headers", "peer", peer, "headers", len(headers))
+	//log.Trace("download fetch Filtering headers", "peer", peer, "headers", len(headers))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *headerFilterTask)
@@ -276,15 +283,82 @@ func (f *Fetcher) loop() {
 		for hash, announce := range f.fetching {
 			if time.Since(announce.time) > fetchTimeout {
 				log.Trace("fetch f.fetching timeout", " blockNum", announce.number, "hash", hash.String(), "origin peer", announce.origin)
-				f.forgetHash(hash)
+				if f.getBlock(hash) != nil || f.queued[hash] != nil {
+					f.forgetHash(hash)
+					f.forgetRetransHash(hash,1)
+					log.Trace("fetch f.fetching local has exist")
+					continue
+				}
+				if reqnum,ok := f.fetchHeaderNum[hash]; ok 	{
+					if reqnum < 3 {
+						//f.announces[rand.Intn(len(announces))]
+						left,ok := f.retransannounced[hash]
+						log.Trace("fetch f.fetching timeout retry","len",len(left))
+						if ok{
+							newannounce := left[rand.Intn(len(left))]
+							newannounce.time = time.Now()
+							f.fetching[hash] = newannounce
+							fetchHeader:= newannounce.fetchHeader							
+							log.Trace("fetch f.fetching timeout retry require", " newannounce",newannounce.origin,"reqnum",reqnum,"len",len(left),"id",announce.origin,"hash",hash)
+							go func(hashls common.Hash) {
+								fetchHeader(hashls,newannounce.number) 							
+							}(hash)
+						}else {
+							f.forgetHash(hash)
+						}
+						f.fetchHeaderNum[hash] = reqnum +1 
+						
+					} else {
+						f.forgetHash(hash)
+						f.forgetRetransHash(hash,1)
+					}
+				} else {
+					f.forgetHash(hash)
+				}
 			}
 		}
 		//lb
 		for hash, announce := range f.completing {
-			if time.Since(announce.time) > 4*fetchTimeout {
-				log.Trace("fetch f.completing timeout", " blockNum", announce.number, "hash", hash.String(), "origin peer", announce.origin)
-				f.forgetHash(hash)
-				f.forgetBlock(hash)
+			if time.Since(announce.time) > 3 *fetchTimeout {
+				log.Trace("fetch f.completing timeout body", " blockNum", announce.number, "hash", hash.String(), "origin peer", announce.origin)
+				//f.forgetHash(hash)
+				//f.forgetBlock(hash)
+				if f.getBlock(hash) != nil || f.queued[hash] != nil{
+					log.Trace("fetch f.fetching body local has exist")
+					f.forgetHash(hash)
+					f.forgetRetransHash(hash,1)
+					//f.forgetBlock(hash)					
+					continue
+				}
+				if reqnum,ok := f.fetchBlockNum[hash]; ok 	{
+					if reqnum < 3 {
+						//f.announces[rand.Intn(len(announces))]
+						left,ok := f.retransannounced[hash]//fetched[hash]
+						if ok{
+							newannounce := left[rand.Intn(len(left))]
+							//fetchHeader:= newannounce.fetchHeader
+							newannounce.time = time.Now()
+							newannounce.header = announce.header
+							f.completing[hash] =  newannounce
+							log.Trace("fetch f.fetching timeout retry require body", " newannounce",newannounce.origin,"reqnum",reqnum,"len",len(left),"id",announce.origin)
+							hashs := make([]common.Hash,0)
+							hashs = append(hashs,hash)
+							go newannounce.fetchBodies(hashs)
+						}else {
+							f.forgetHash(hash)
+							//f.forgetBlock(hash)	
+						}
+						f.fetchBlockNum[hash] = reqnum +1 
+						
+					} else {
+						f.forgetHash(hash)
+						f.forgetRetransHash(hash,1)
+						//f.forgetBlock(hash)	
+					}
+				} else {
+					f.forgetHash(hash)
+					//f.forgetBlock(hash)	
+				}
 			}
 		}
 		// Import any queued blocks that could potentially fit
@@ -310,7 +384,9 @@ func (f *Fetcher) loop() {
 				f.forgetBlock(hash)
 				continue
 			}
-			f.insert(op.origin, op.block)
+			if number > height {
+				f.insert(op.origin, op.block)
+			}
 		}
 		// Wait for an outside event to occur
 		select {
@@ -338,6 +414,11 @@ func (f *Fetcher) loop() {
 					break
 				}
 			}
+			if aucnd, ok := f.retransannounced[notification.hash]; ok {
+				if  len(aucnd) < 6 {
+					f.retransannounced[notification.hash] = append(f.retransannounced[notification.hash], notification)
+				}
+			}
 			// All is well, schedule the announce if block's not yet downloading
 			if _, ok := f.fetching[notification.hash]; ok {
 				break
@@ -345,8 +426,11 @@ func (f *Fetcher) loop() {
 			if _, ok := f.completing[notification.hash]; ok {
 				break
 			}
+			if _,ok := f.queued[notification.hash]; ok {
+				break
+			}
 			//lb
-			if len(f.announced[notification.hash]) > 10 {
+			if len(f.announced[notification.hash]) > 16 {
 				log.Debug("fetch f.announced[] too big,discard ", "hash", notification.hash.String(), "peer", notification.origin, "Number", notification.number)
 				break
 			}
@@ -362,8 +446,11 @@ func (f *Fetcher) loop() {
 		case op := <-f.inject:
 			// A direct block insertion was requested, try and fill any pending gaps
 			propBroadcastInMeter.Mark(1)
-			log.Trace("download fetcher enqueue  inject")
-			f.enqueue(op.origin, op.block)
+			//lb 
+			if len(f.queued) < 64 {
+				log.Trace("download fetcher enqueue  inject")
+				f.enqueue(op.origin, op.block)
+			}
 
 		case hash := <-f.done:
 			// A pending import finished, remove all traces of the notification
@@ -375,20 +462,30 @@ func (f *Fetcher) loop() {
 			request := make(map[string][]common.Hash)
 
 			for hash, announces := range f.announced {
-				if time.Since(announces[0].time) > arriveTimeout-gatherSlack {
+				if time.Since(announces[0].time) > arriveTimeout-gatherSlack /*&& f.fetchHeaderNum[hash] == 0 */ {
 					// Pick a random peer to retrieve from, reset all others
 					announce := announces[rand.Intn(len(announces))]
-					f.forgetHash(hash) //lb???? 为啥有
-
+					f.retransannounced[hash] = f.announced[hash]
+					f.forgetHash(hash) //
+					//f.fetchHeaderNum[hash]= 1  //请求header数
 					// If the block still didn't arrive, queue for fetching
 					if f.getBlock(hash) == nil {
-						request[announce.origin] = append(request[announce.origin], hash)
-						f.fetching[hash] = announce
+						if _,ok := f.queued[hash]; ok{
+							log.Trace("download fetcher Fetching scheduled headers not ,hash has exist ", "hash", hash)
+							f.forgetHash(hash) 
+							f.forgetRetransHash(hash,1)
+						} else {
+							request[announce.origin] = append(request[announce.origin], hash)
+							f.fetching[hash] = announce
+							f.fetchHeaderNum[hash]= 1  //请求header数
+							//f.retransannounced[hash] = f.announced[hash] 
+						}
 					} else {
 						//lb 加
 						//f.forgetHash(hash)
 						//f.forgetBlock(hash)
-					}
+						f.forgetRetransHash(hash,1)
+					}					
 				}
 			}
 			// Send out all block header requests
@@ -405,7 +502,7 @@ func (f *Fetcher) loop() {
 					}
 					for _, hash := range hashes {
 						headerFetchMeter.Mark(1)
-						fetchHeader(hash) // Suboptimal, but protocol doesn't allow batch header retrievals
+						fetchHeader(hash,1) // Suboptimal, but protocol doesn't allow batch header retrievals
 					}
 				}()
 			}
@@ -417,20 +514,26 @@ func (f *Fetcher) loop() {
 			request := make(map[string][]common.Hash)
 			var flg int
 			for hash, announces := range f.fetched {
-				// Pick a random peer to retrieve from, reset all others
-				announce := announces[rand.Intn(len(announces))]
-				f.forgetHash(hash)
-				flg = 0
-				// If the block still didn't arrive, queue for completion
-				if f.getBlock(hash) == nil {
-					request[announce.origin] = append(request[announce.origin], hash)
-					f.completing[hash] = announce
-					flg = 1
-				} else {
-					//lb
-					//forget
+				if f.fetchBlockNum[hash] == 0 {
+					// Pick a random peer to retrieve from, reset all others
+					announce := announces[rand.Intn(len(announces))]
+					flg = 0
+					f.forgetHash(hash)//		
+					//f.fetchBlockNum[hash] = 1
+					// If the block still didn't arrive, queue for completion
+					if f.getBlock(hash) == nil &&  f.queued[hash] == nil {
+						request[announce.origin] = append(request[announce.origin], hash)
+						f.completing[hash] = announce
+						flg = 1
+						f.fetchBlockNum[hash] = 1
+						//f.retransfetched[hash] = f.fetched[hash] 
+					} else {
+						//lb
+						//forget
+						f.forgetRetransHash(hash,1)
+					}
+					log.Trace("download fetcher Fetching scheduled bodies block number", "flg", flg, "number", announce.number)
 				}
-				log.Trace("download fetcher Fetching scheduled bodies block number", "flg", flg, "number", announce.number)
 			}
 			// Send out all block body requests
 			for peer, hashes := range request {
@@ -469,17 +572,20 @@ func (f *Fetcher) loop() {
 				// Filter fetcher-requested headers from other synchronisation algorithms
 				if announce := f.fetching[hash]; announce != nil && announce.origin == task.peer && f.fetched[hash] == nil && f.completing[hash] == nil && f.queued[hash] == nil {
 					// If the delivered header does not match the promised number, drop the announcer
+					log.Trace("fetch header recv sucess","hash",hash)
 					if header.Number.Uint64() != announce.number {
 						log.Trace("Invalid block number header fetched", "peer", announce.origin, "hash", header.Hash().String(), "announced", announce.number, "provided", header.Number)
-						f.dropPeer(announce.origin)
+						f.dropPeer(announce.origin,0)
 						f.forgetHash(hash)
 						continue
 					}
+					f.forgetRetransHash(hash,0)//lb add 
 					// Only keep if not imported by other means
 					if f.getBlock(hash) == nil {
 						announce.header = header
 						announce.time = task.time
 						isok := false
+						log.Trace("fetch header recv sucess local has block not")
 						// If the block is empty (header only), short circuit into the final import queue
 						for _, coinRoot := range header.Roots {
 							if coinRoot.TxHash != types.DeriveShaHash([]common.Hash{}) {
@@ -497,6 +603,7 @@ func (f *Fetcher) loop() {
 						}
 						// Otherwise add to the list of blocks needing completion
 						incomplete = append(incomplete, announce)
+						
 					} else {
 						log.Trace("fetch Block already imported, discarding header", "peer", announce.origin, "number", header.Number, "hash", header.Hash().String())
 						f.forgetHash(hash)
@@ -557,19 +664,29 @@ func (f *Fetcher) loop() {
 				for hash, announce := range f.completing {
 					if f.queued[hash] == nil {
 						isok := true
-						for _, coinHeader := range announce.header.Roots {
-							txnHash := tmpmap[coinHeader.Cointyp]
-							if txnHash == (common.Hash{}) {
-								txnHash = types.DeriveShaHash([]common.Hash{})
+						if announce.header != nil {
+							for _, coinHeader := range announce.header.Roots {
+								if announce.header != nil {
+								txnHash := tmpmap[coinHeader.Cointyp]
+								if txnHash == (common.Hash{}) {
+									txnHash = types.DeriveShaHash([]common.Hash{})
+								}
+								uncleHash := types.CalcUncleHash(task.uncles[i])
+								log.Trace("download fetch bodyFilter map", "hash", hash, "Cointyp", coinHeader.Cointyp, "announce", coinHeader.TxHash, "txnHash", txnHash, "origin id", announce.origin, "blockNum", announce.number)
+								if txnHash != coinHeader.TxHash || uncleHash != announce.header.UncleHash || announce.origin != task.peer {
+									log.Trace("fetchr err", "fetch body txhash != header txhash.  txnHash", txnHash.String(), "header txHash", coinHeader.TxHash.String(), "uncleHash", uncleHash.String(),
+										"announce.header.UncleHash", announce.header.UncleHash.String(), "announce.origin", announce.origin, "task.peer", task.peer)
+									isok = false
+									break
+								}
+								} else {
+									log.Trace("download fetch bodyFilter announce.header is nil", "number",announce.number)
+								}
 							}
-							uncleHash := types.CalcUncleHash(task.uncles[i])
-							log.Trace("download fetch bodyFilter map", "hash", hash, "Cointyp", coinHeader.Cointyp, "announce", coinHeader.TxHash, "txnHash", txnHash, "origin id", announce.origin, "blockNum", announce.number)
-							if txnHash != coinHeader.TxHash || uncleHash != announce.header.UncleHash || announce.origin != task.peer {
-								log.Trace("fetchr err", "fetch body txhash != header txhash.  txnHash", txnHash.String(), "header txHash", coinHeader.TxHash.String(), "uncleHash", uncleHash.String(),
-									"announce.header.UncleHash", announce.header.UncleHash.String(), "announce.origin", announce.origin, "task.peer", task.peer)
-								isok = false
-								break
-							}
+						} else {
+							log.Trace("download fetch bodyFilter  announce.header error","number",announce.number,"hash",announce.hash,"origin",announce.origin)
+							f.forgetHash(hash)							
+							continue
 						}
 						if isok {
 							// Mark the body matched, reassemble if still unknown
@@ -581,19 +698,19 @@ func (f *Fetcher) loop() {
 
 								blocks = append(blocks, block)
 							} else {
-								log.Trace("download fetch bodyFilter forgetHash")
+								log.Trace("download fetch bodyFilter forgetHash","hash", hash)
 								f.forgetHash(hash)
-							}
-							//lb
+							}						
 							break
 						}
 					} else {
 						log.Trace("fetch queued has this hash", "hash", hash.String())
 					}
 					//lb
-					if dist := int64(announce.number) - int64(height); dist < -maxUncleDist || dist > maxQueueDist {
-						log.Trace("fetch f.completing will delete hash", "hash", hash, "number", announce.number)
-						f.forgetBlock(hash)
+					if dist := int64(announce.number) - int64(height); dist <= 0/*-maxUncleDist*/ || dist > maxQueueDist {
+						log.Trace("fetch f.completing will delete hash", "hash", hash, "number", announce.number,"height",height)
+						f.forgetHash(hash)
+						//f.forgetBlock(hash)
 					}
 				}
 				if matched {
@@ -613,8 +730,11 @@ func (f *Fetcher) loop() {
 			// Schedule the retrieved blocks for ordered import
 			for _, block := range blocks {
 				if announce := f.completing[block.Hash()]; announce != nil {
-					log.Trace("download fetch before  enqueue")
+					log.Trace("download fetch before  enqueue","block",block.NumberU64())
 					f.enqueue(announce.origin, block)
+						//lb
+					f.forgetHash(block.Hash())
+					f.forgetRetransHash(block.Hash(),1)
 				}
 			}
 		}
@@ -625,8 +745,18 @@ func (f *Fetcher) loop() {
 func (f *Fetcher) rescheduleFetch(fetch *time.Timer) {
 	// Short circuit if no blocks are announced
 	if len(f.announced) == 0 {
+		log.Trace("download fetch rescheduleFetch time shutdown")
 		return
 	}
+
+	/*if len(f.announced) == 1 {
+		for  hash,_ := range f.announced {
+	       if f.fetchHeaderNum[hash] > 0  {
+				log.Trace("download fetch rescheduleFetch time shutdown")
+				return
+		   }
+		}
+	}*/
 	// Otherwise find the earliest expiring announcement
 	earliest := time.Now()
 	for _, announces := range f.announced {
@@ -634,7 +764,14 @@ func (f *Fetcher) rescheduleFetch(fetch *time.Timer) {
 			earliest = announces[0].time
 		}
 	}
-	fetch.Reset(arriveTimeout - time.Since(earliest))
+	
+	gaptime := arriveTimeout - time.Since(earliest)
+	if gaptime < 200*time.Millisecond{
+		gaptime  =  200*time.Millisecond
+	}
+	log.Trace("download fetch rescheduleFetch time","time",arriveTimeout - time.Since(earliest),"gaptime",gaptime)
+	fetch.Reset(gaptime)
+	//fetch.Reset(arriveTimeout - time.Since(earliest))
 }
 
 // rescheduleComplete resets the specified completion timer to the next fetch timeout.
@@ -650,7 +787,13 @@ func (f *Fetcher) rescheduleComplete(complete *time.Timer) {
 			earliest = announces[0].time
 		}
 	}
-	complete.Reset(gatherSlack - time.Since(earliest))
+	//complete.Reset(gatherSlack - time.Since(earliest))
+	gaptime := arriveTimeout - time.Since(earliest)
+	if gaptime < 100*time.Millisecond{
+		gaptime  =  100*time.Millisecond
+	}
+	log.Trace("download fetch rescheduleComplete time","time",arriveTimeout - time.Since(earliest),"gaptime",gaptime)
+	complete.Reset(gaptime)
 }
 
 // enqueue schedules a new future import operation, if the block to be imported
@@ -719,7 +862,7 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 		default:
 			// Something went very wrong, drop the peer
 			log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash.String(), "err", err)
-			f.dropPeer(peer)
+			f.dropPeer(peer,0)
 			return
 		}
 		// Run the actual import and log any issues
@@ -738,6 +881,14 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 	}()
 }
 
+func (f *Fetcher) forgetRetransHash(hash common.Hash,flg int) {
+	log.Debug("fether head forgetHash", "hash", hash.String())	
+	delete(f.fetchHeaderNum,hash)
+	if flg > 0 {
+		delete(f.retransannounced, hash)
+		delete(f.fetchBlockNum,hash)
+	}
+}
 // forgetHash removes all traces of a block announcement from the fetcher's
 // internal state.
 func (f *Fetcher) forgetHash(hash common.Hash) {

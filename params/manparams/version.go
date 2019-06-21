@@ -10,11 +10,13 @@ import (
 const (
 	VersionAlpha = "1.0.0.0"
 	//增加版本号示例
-	VersionBeta  = "1.0.0.1"
-	VersionGamma = "1.0.0.2"
-	//todo:上线后需要修改
-	VersionSignatureGamma = "0x69bd3f6dbbca1012d7f68b5263900c9561da66b675088bc613460701c59b056e7b2695e1c3f84de28afd8f6797f1244bef1652a96d6cb58de151969cdc0956f700" //jerry
+	VersionBeta            = "1.0.0.1"
+	VersionGamma           = "1.0.0.2"
+	VersionDelta           = "1.0.0.3"
+	VersionSignatureGamma  = "0x69bd3f6dbbca1012d7f68b5263900c9561da66b675088bc613460701c59b056e7b2695e1c3f84de28afd8f6797f1244bef1652a96d6cb58de151969cdc0956f700"
+	VersionSignatureDelta  = "0xa1499658f1a25095fc59d20db7cd4903c270ce4843566a6aaec851c2a371d3b035ec93152391b8c921eaed7611d735d88042bc8f97c213fbb878c020f070cae400"
 	VersionNumGamma        = uint64(330003)
+	VersionNumDelta        = uint64(560003)
 	newP2PVersionTimeStamp = 1558346400
 )
 
@@ -22,9 +24,10 @@ var VersionList [][]byte
 var VersionSignatureMap map[string][]common.Signature
 
 func init() {
-	VersionList = [][]byte{[]byte(VersionAlpha), []byte(VersionBeta), []byte(VersionGamma)}
+	VersionList = [][]byte{[]byte(VersionAlpha), []byte(VersionBeta), []byte(VersionGamma), []byte(VersionDelta)}
 	VersionSignatureMap = make(map[string][]common.Signature)
 	VersionSignatureMap[VersionGamma] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureGamma))}
+	VersionSignatureMap[VersionDelta] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureDelta))}
 }
 
 // version1 > version2 return 1

@@ -170,8 +170,13 @@ type Server struct {
 	loopWG        sync.WaitGroup // loop, listenLoop
 	peerFeed      event.Feed
 	log           log.Logger
-	tasks         map[common.Address]int
+	tasks         map[common.Address]*taskManager
 	taskLock      sync.RWMutex
+}
+
+type taskManager struct {
+	count   int
+	running bool
 }
 
 var ServerP2p = &Server{}
@@ -319,6 +324,7 @@ func (srv *Server) AddPeerByAddress(addr common.Address) {
 	node := srv.ntab.GetNodeByAddress(addr)
 	if node == nil {
 		srv.CouTask(addr)
+		srv.Reset(addr)
 		srv.log.Error("add peer by address failed, node info not found", "addr", addr.Hex())
 		return
 	}
@@ -466,7 +472,7 @@ func (srv *Server) Start() (err error) {
 	srv.removestatic = make(chan *discover.Node)
 	srv.peerOp = make(chan peerOpFunc)
 	srv.peerOpDone = make(chan struct{})
-	srv.tasks = make(map[common.Address]int)
+	srv.tasks = make(map[common.Address]*taskManager)
 
 	var (
 		conn *net.UDPConn
@@ -1047,7 +1053,7 @@ func (srv *Server) PeersInfo() []*PeerInfo {
 }
 
 func (srv *Server) runTask() {
-	tk := time.NewTicker(time.Second * 3)
+	tk := time.NewTicker(time.Second * 5)
 	defer tk.Stop()
 
 	for {
@@ -1055,7 +1061,10 @@ func (srv *Server) runTask() {
 		case <-tk.C:
 			srv.taskLock.Lock()
 			for a := range srv.tasks {
-				go srv.AddPeerByAddress(a)
+				if !srv.tasks[a].running {
+					srv.tasks[a].running = true
+					go srv.AddPeerByAddress(a)
+				}
 			}
 			srv.taskLock.Unlock()
 		case <-srv.quit:
@@ -1066,8 +1075,11 @@ func (srv *Server) runTask() {
 
 func (srv *Server) AddTasks(addr common.Address) {
 	srv.taskLock.Lock()
-	srv.tasks[addr] = 0
-	srv.taskLock.Unlock()
+	defer srv.taskLock.Unlock()
+	if _, ok := srv.tasks[addr]; ok {
+		return
+	}
+	srv.tasks[addr] = &taskManager{running: false, count: 0}
 }
 
 func (srv *Server) DelTasks(addr common.Address) {
@@ -1078,9 +1090,19 @@ func (srv *Server) DelTasks(addr common.Address) {
 
 func (srv *Server) CouTask(addr common.Address) {
 	srv.taskLock.Lock()
-	srv.tasks[addr] = srv.tasks[addr] + 1
-	if srv.tasks[addr] > 30 {
-		delete(srv.tasks, addr)
+	if srv.tasks[addr] != nil {
+		srv.tasks[addr].count++
+		if srv.tasks[addr].count > 30 {
+			delete(srv.tasks, addr)
+		}
+	}
+	srv.taskLock.Unlock()
+}
+
+func (srv *Server) Reset(addr common.Address) {
+	srv.taskLock.Lock()
+	if srv.tasks[addr] != nil {
+		srv.tasks[addr].running = false
 	}
 	srv.taskLock.Unlock()
 }

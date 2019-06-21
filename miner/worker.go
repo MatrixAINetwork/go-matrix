@@ -261,7 +261,6 @@ func (self *worker) MiningRequestHandle(data *mc.HD_MiningReqMsg) {
 		log.ERROR(ModuleMiner, "缓存挖矿请求", err)
 		return
 	}
-
 	if reqData != nil {
 		self.processAppointedMineReq(reqData)
 	}

@@ -75,7 +75,7 @@ func (b *SimulatedBackend) Commit() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if _, err := b.blockchain.InsertChain([]*types.Block{b.pendingBlock}); err != nil {
+	if _, err := b.blockchain.InsertChain([]*types.Block{b.pendingBlock},0); err != nil {
 		panic(err) // This cannot happen unless the simulator is wrong, fail in that case
 	}
 	b.rollback()

@@ -1,7 +1,3 @@
-// Copyright (c) 2018 The MATRIX Authors
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php
-
 package core
 
 import (
@@ -36,7 +32,7 @@ func Test_shouldBlockProduceStatsStartCase0(t *testing.T) {
 	diskdb := mandb.NewMemDatabase()
 	blockchain, _ := NewBlockChain(diskdb, nil, &params.ChainConfig{}, manash.NewFaker(), vm.Config{})
 
-	state, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
+	state, _ := state.NewStateDBManage(nil, diskdb, state.NewDatabase(diskdb))
 	matrixstate.SetVersionInfo(state, manparams.VersionAlpha)
 
 	status, err := blockchain.shouldBlockProduceStatsStart(nil, common.Hash{}, &SlashCfg)
@@ -60,7 +56,7 @@ func Test_shouldBlockProduceStatsStartCase1(t *testing.T) {
 	diskdb := mandb.NewMemDatabase()
 	blockchain, _ := NewBlockChain(diskdb, nil, &params.ChainConfig{}, manash.NewFaker(), vm.Config{})
 	var slashCfg = mc.BlockProduceSlashCfg{Switcher: true, LowTHR: 1, ProhibitCycleNum: 2}
-	state, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
+	state, _ := state.NewStateDBManage(nil, diskdb, state.NewDatabase(diskdb))
 	matrixstate.SetVersionInfo(state, manparams.VersionAlpha)
 
 	matrixstate.SetBlockProduceStatsStatus(state, &mc.BlockProduceSlashStatsStatus{Number: 0})
@@ -73,7 +69,7 @@ func Test_getSlashStatsList(t *testing.T) {
 	diskdb := mandb.NewMemDatabase()
 	_, _ = NewBlockChain(diskdb, nil, &params.ChainConfig{}, manash.NewFaker(), vm.Config{})
 
-	state, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
+	state, _ := state.NewStateDBManage(nil, diskdb, state.NewDatabase(diskdb))
 	matrixstate.SetVersionInfo(state, manparams.VersionAlpha)
 	statsList, err := getSlashStatsList(nil)
 
@@ -112,7 +108,7 @@ func Test_getLatestInitStatsNum(t *testing.T) {
 		t.Errorf("输入指针空检查失败")
 	}
 
-	state, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
+	state, _ := state.NewStateDBManage(nil, diskdb, state.NewDatabase(diskdb))
 	matrixstate.SetVersionInfo(state, manparams.VersionAlpha)
 
 	/*	_, err = getLatestInitStatsNum(state)
@@ -129,68 +125,12 @@ func Test_getLatestInitStatsNum(t *testing.T) {
 		t.Errorf("数据读取错误", readVal)
 	}
 }
-func Test_initStatsListCase0(t *testing.T) {
-	diskdb := mandb.NewMemDatabase()
-	NewBlockChain(diskdb, nil, &params.ChainConfig{}, manash.NewFaker(), vm.Config{})
 
-	//空指针不处理
-	initStatsList(nil)
-
-	//没有初选列表的情况下，应该设置空的统计列表
-	state, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
-	matrixstate.SetVersionInfo(state, manparams.VersionAlpha)
-
-	initStatsList(state)
-	statsList, err := matrixstate.GetBlockProduceStats(state)
-	if err != nil {
-		t.Errorf("读取统计列表错误, %s", err)
-	}
-	if 0 != len(statsList.StatsList) {
-		t.Errorf("读取数据错误")
-	}
-}
-func Test_initStatsListCase1(t *testing.T) {
-	diskdb := mandb.NewMemDatabase()
-	NewBlockChain(diskdb, nil, &params.ChainConfig{}, manash.NewFaker(), vm.Config{})
-	state, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
-	matrixstate.SetVersionInfo(state, manparams.VersionAlpha)
-
-	//创找初选列表
-	var electList = mc.ElectGraph{}
-	var recoderNum = 30
-	for i := 0; i < recoderNum; i++ {
-		node := mc.ElectNodeInfo{Account: common.BigToAddress(big.NewInt(int64(4*i + 0))), Position: 0 + uint16(i), Stock: 0, VIPLevel: 0, Type: common.RoleMiner}
-		electList.ElectList = append(electList.ElectList, node)
-		node = mc.ElectNodeInfo{Account: common.BigToAddress(big.NewInt(int64(4*i + 1))), Position: 0x1000 + uint16(i), Stock: 0, VIPLevel: 0, Type: common.RoleCandidateValidator}
-		electList.ElectList = append(electList.ElectList, node)
-		node = mc.ElectNodeInfo{Account: common.BigToAddress(big.NewInt(int64(4*i + 2))), Position: 0x2000 + uint16(i), Stock: 0, VIPLevel: 0, Type: common.RoleValidator}
-		electList.ElectList = append(electList.ElectList, node)
-		node = mc.ElectNodeInfo{Account: common.BigToAddress(big.NewInt(int64(4*i + 3))), Position: 0x3000 + uint16(i), Stock: 0, VIPLevel: 0, Type: common.RoleBackupValidator}
-		electList.ElectList = append(electList.ElectList, node)
-	}
-	matrixstate.SetElectGraph(state, &electList)
-	initStatsList(state)
-	statsList, err := matrixstate.GetBlockProduceStats(state)
-	if err != nil {
-		t.Errorf("读取统计列表错误, %s", err)
-	}
-
-	if recoderNum != len(statsList.StatsList) {
-		t.Errorf("读取数据错误")
-	} else {
-		for i := 0; i < recoderNum; i++ {
-			if !statsList.StatsList[i].Address.Equal(common.BigToAddress(big.NewInt(int64(4*i+2)))) || statsList.StatsList[i].ProduceNum != 0 {
-				t.Errorf("存储数据错误, %s, %d", statsList.StatsList[i].Address.String(), statsList.StatsList[i].ProduceNum)
-			}
-		}
-	}
-
-}
-func chainInit(rootHash common.Hash) (*BlockChain, *state.StateDB) {
+func chainInit(rootHash common.Hash) (*BlockChain, *state.StateDBManage) {
 	diskdb := mandb.NewMemDatabase()
 	blockchain, _ := NewBlockChain(diskdb, nil, &params.ChainConfig{}, manash.NewFaker(), vm.Config{})
 
-	state, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
+	state, _ := state.NewStateDBManage(nil, diskdb, state.NewDatabase(diskdb))
 	matrixstate.SetVersionInfo(state, manparams.VersionAlpha)
 
 	return blockchain, state
@@ -203,24 +143,6 @@ func slashstatsInit(state *state.StateDB) {
 	matrixstate.SetBlockProduceStats(state, &statList)
 }
 
-func Test_shouldAddRecorder(t *testing.T) {
-	bc, state := chainInit(common.Hash{})
-	slashCfg := &mc.BlockProduceSlashCfg{Switcher: false, LowTHR: 1, ProhibitCycleNum: 2}
-	if list, status := bc.shouldAddRecorder(state, slashCfg); status != false || list != nil {
-		t.Errorf("惩罚关闭下处理错误")
-	}
-	slashCfg = &mc.BlockProduceSlashCfg{Switcher: true, LowTHR: 1, ProhibitCycleNum: 2}
-	/*	if list, status := bc.shouldAddRecorder(state, slashCfg); status!= false||len(list.StatsList) != 0{
-		t.Errorf("未初始化统计列表下，处理错误")
-		fmt.Println(list)
-		fmt.Println(status)
-	}*/
-	slashstatsInit(state)
-	slashCfg = &mc.BlockProduceSlashCfg{Switcher: true, LowTHR: 1, ProhibitCycleNum: 2}
-	if _, status := bc.shouldAddRecorder(state, slashCfg); status != true {
-		t.Errorf("未初始化统计列表下，处理错误")
-	}
-}
 func statsListCompare(list0 *mc.BlockProduceStats, list1 *mc.BlockProduceStats) bool {
 	if len(list0.StatsList) != len(list1.StatsList) {
 		return false
@@ -371,74 +293,6 @@ func Test_BlackListMaitainCase1(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		if handle.blacklist[i].ProhibitCycleCounter != uint16(i%3) {
 			t.Errorf("self decrement err")
-			break
-		}
-	}
-}
-
-func Test_BlackListAddBlackListCase0(t *testing.T) {
-	slashCfg := mc.BlockProduceSlashCfg{Switcher: false, LowTHR: 2, ProhibitCycleNum: 10}
-	var blackList = mc.BlockProduceSlashBlackList{}
-	for i := 0; i < 100; i++ {
-		blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(int64(i))), uint16(i%3) + 1})
-	}
-	handle := NewBlackListMaintainA(blackList.BlackList)
-
-	var statsList []mc.UserBlockProduceNum
-	statsList = append(statsList, mc.UserBlockProduceNum{common.BigToAddress(big.NewInt(1)), 1})
-	handle.AddBlackList(statsList, &slashCfg)
-	//预期：关闭情况下，初始化黑名单
-	if 0 != len(handle.blacklist) {
-		t.Errorf("配置关闭情况下，未初始化黑名单")
-	}
-}
-
-func Test_BlackListAddBlackListCase1(t *testing.T) {
-	slashCfg := mc.BlockProduceSlashCfg{Switcher: true, LowTHR: 2, ProhibitCycleNum: 10}
-	var blackList = mc.BlockProduceSlashBlackList{}
-	for i := 0; i < 100; i++ {
-		blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(int64(i))), uint16(i%3) + 1})
-	}
-	handle := NewBlackListMaintainA(blackList.BlackList)
-
-	var statsList []mc.UserBlockProduceNum
-	statsList = append(statsList, mc.UserBlockProduceNum{common.BigToAddress(big.NewInt(1)), 1})
-	handle.AddBlackList(statsList, &slashCfg)
-	//预期：已存在黑名单中的节点，重置禁止值
-	blackList.BlackList[1].ProhibitCycleCounter = 10
-
-	for i := 0; i < 100; i++ {
-		if handle.blacklist[i].ProhibitCycleCounter != blackList.BlackList[i].ProhibitCycleCounter {
-			t.Errorf("self decrement err")
-			break
-		}
-		if !handle.blacklist[i].Address.Equal(blackList.BlackList[i].Address) {
-			t.Errorf("address decrement err")
-			break
-		}
-	}
-}
-func Test_BlackListAddBlackListCase2(t *testing.T) {
-	slashCfg := mc.BlockProduceSlashCfg{Switcher: true, LowTHR: 2, ProhibitCycleNum: 10}
-	var blackList = mc.BlockProduceSlashBlackList{}
-	for i := 0; i < 100; i++ {
-		blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(int64(i))), uint16(i%3) + 1})
-	}
-	handle := NewBlackListMaintainA(blackList.BlackList)
-
-	var statsList []mc.UserBlockProduceNum
-	statsList = append(statsList, mc.UserBlockProduceNum{common.BigToAddress(big.NewInt(100)), 1})
-	handle.AddBlackList(statsList, &slashCfg)
-	//预期：已存在黑名单中的节点，重置禁止值
-	blackList.BlackList = append(blackList.BlackList, mc.UserBlockProduceSlash{common.BigToAddress(big.NewInt(100)), 10})
-
-	for i := 0; i < 100; i++ {
-		if handle.blacklist[i].ProhibitCycleCounter != blackList.BlackList[i].ProhibitCycleCounter {
-			t.Errorf("self decrement err")
-			break
-		}
-		if !handle.blacklist[i].Address.Equal(blackList.BlackList[i].Address) {
-			t.Errorf("address decrement err")
 			break
 		}
 	}

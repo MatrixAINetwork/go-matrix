@@ -1093,18 +1093,39 @@ func (self *StateDB) Snapshot() int {
 // RevertToSnapshot reverts all state changes made since the given revision.
 func (self *StateDB) RevertToSnapshot(revid int) {
 	// Find the snapshot in the stack of valid snapshots.
-	idx := sort.Search(len(self.validRevisions), func(i int) bool {
-		return self.validRevisions[i].id >= revid
-	})
-	if idx == len(self.validRevisions) || self.validRevisions[idx].id != revid {
-		//		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
-		idx--
+	/*
+		idx := sort.Search(len(self.validRevisions), func(i int) bool {
+			if i == len(self.validRevisions)-1 {
+				return self.validRevisions[i].id <= revid
+			} else {
+				return self.validRevisions[i].id <= revid && self.validRevisions[i+1].id > revid
+			}
+		})
+		if idx == len(self.validRevisions) || self.validRevisions[idx].id > revid {
+			//		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
+			idx--
+		}
+	*/
+	idx := 0
+	for i := len(self.validRevisions) - 1; i >= 0; i-- {
+		if self.validRevisions[i].id <= revid {
+			idx = i
+			break
+		}
+	}
+	if self.validRevisions[idx].id > revid {
+		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
+		//		idx--
 	}
 	snapshot := self.validRevisions[idx].journalIndex
 
 	// Replay the journal to undo changes and remove invalidated snapshots
 	self.journal.revert(self, snapshot)
-	self.validRevisions = self.validRevisions[:idx]
+	if self.validRevisions[idx].id == revid {
+		self.validRevisions = self.validRevisions[:idx]
+	} else {
+		self.validRevisions = self.validRevisions[:idx+1]
+	}
 }
 
 // GetRefund returns the current value of the refund counter.

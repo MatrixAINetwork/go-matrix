@@ -388,6 +388,21 @@ web3._extend({
 			params: 2,
 			inputFormatter:[null, null],
 		}),
+		new web3._extend.Method({
+			name: 'setVersionNumGamma',
+			call: 'debug_setVersionNumGamma',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'setVersionNumDelta',
+			call: 'debug_setVersionNumDelta',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'setInterestPrintLevel',
+			call: 'debug_setInterestPrintLevel',
+			params: 1
+		}),
 	],
 	properties: []
 });
@@ -702,6 +717,10 @@ web3._extend({
 		new web3._extend.Property({
 			name: 'inspect',
 			getter: 'txpool_inspect'
+		}),
+		new web3._extend.Property({
+			name: 'getTxNmap',
+			getter: 'txpool_getTxNmap'
 		}),
 		new web3._extend.Property({
 			name: 'status',

@@ -411,6 +411,7 @@ func (nPool *NormalTxPool) ProcessMsg(m NetworkMsgData) {
 		msgData = m.Data[0]
 		err     error
 	)
+	log.Info("txpool recv Process", "sender addr", m.SendAddress.String(), "sender ID", p2p.ServerP2p.ConvertAddressToId(m.SendAddress).String()) //YY add log
 	switch msgData.Msgtype {
 	case SendFloodSN:
 		snMap := make(map[uint32]*big.Int)
@@ -597,6 +598,11 @@ func (nPool *NormalTxPool) Stats() (int, int) {
 	defer nPool.mu.RUnlock()
 	return nPool.stats()
 }
+func (nPool *NormalTxPool) GetTxNmap() map[uint32]*types.Transaction {
+	nPool.mu.RLock()
+	defer nPool.mu.RUnlock()
+	return nPool.NContainer
+}
 
 // stats retrieves the current pool stats, namely the number of pending and the
 // number of queued (non-executable) transactions.
@@ -633,22 +639,28 @@ func (nPool *NormalTxPool) Content() map[common.Address][]*types.Transaction {
 func (nPool *NormalTxPool) Pending() (map[string]map[common.Address]types.SelfTransactions, error) {
 	nPool.mu.Lock()
 	defer nPool.mu.Unlock()
+	count := 0
 	pending := make(map[string]map[common.Address]types.SelfTransactions)
 	for addr, list := range nPool.pending {
 		for coin, txs := range list.txs {
 			txlist := make([]*types.Transaction, 0)
 			txlist = txs.Flatten()
-			txsmap := make(map[common.Address]types.SelfTransactions)
+			txsmap := pending[coin]
+			if txsmap == nil {
+				txsmap = make(map[common.Address]types.SelfTransactions)
+			}
 			for _, tx := range txlist {
 				if len(tx.N) <= 0 {
 					continue
 				}
 				nPool.NContainer[tx.N[0]] = tx
 				txsmap[addr] = append(txsmap[addr], tx)
+				count++
 			}
 			pending[coin] = txsmap
 		}
 	}
+	log.Trace("txpool", "Pending txpool tx count", count, "len(pending)", len(pending[params.MAN_COIN]))
 	return pending, nil
 }
 
@@ -709,7 +721,7 @@ func (nPool *NormalTxPool) CheckTx(mapSN map[uint32]*big.Int, nid common.Address
 
 // 接收到Leader打包的交易共识消息时根据N获取tx (调用本方法需要启动协程)
 func (nPool *NormalTxPool) ReturnAllTxsByN(listN []uint32, resqe byte, addr common.Address, retch chan *RetChan_txpool) {
-	log.Info("txpool returnAllTxsByN", "len(listN)", len(listN))
+	log.Info("txpool returnAllTxsByN", "listN", listN)
 	if len(listN) <= 0 {
 		retch <- &RetChan_txpool{nil, nil, resqe}
 		return
@@ -987,6 +999,7 @@ func (nPool *NormalTxPool) RecvFloodTx(mapNtx map[uint32]*types.Floodtxdata, nid
 			tx.SetTxS(s)
 		}
 		_, err := nPool.add(tx, false)
+		log.Trace("txpool:RecvFloodTx", "tx N", tx.N, "nonce", tx.Nonce(), "hash", tx.Hash(), "from", tx.From())
 		if err != nil && err != ErrKnownTransaction {
 			log.Error("txpool", "msg_RecvFloodTx::Error=", err)
 			if _, ok := nPool.mapErrorTxs[s]; !ok {
@@ -1310,8 +1323,9 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 	nPool.pending[from].Add(tx, 0)
 	nPool.all.Add(tx)
 	nPool.pendingState.SetNonce(tx.Currency, from, tx.Nonce()+1)
-	selfRole := ca.GetRole()
-	if selfRole == common.RoleMiner || selfRole == common.RoleValidator {
+	//selfRole := ca.GetRole()
+	switch ca.GetRole() {
+	case common.RoleMiner, common.RoleValidator:
 		tx_s := tx.GetTxS()
 		nPool.setsTx(tx_s, tx)
 		if len(tx.N) == 0 {
@@ -1319,13 +1333,15 @@ func (nPool *NormalTxPool) add(tx *types.Transaction, local bool) (bool, error) 
 			//} else {
 			//	log.Trace("txpool:add()", "gSendst.notice::tx N ", tx.N)
 		}
-	} else if selfRole == common.RoleDefault || selfRole == common.RoleBucket {
+	case common.RoleDefault, common.RoleBucket:
 		promoted := make([]types.SelfTransaction, 0)
 		promoted = append(promoted, tx)
 		nPool.sendTxCh <- NewTxsEvent{promoted, types.NormalTxIndex}
-		//log.Trace("txpool:add()", "selfRole == common.RoleDefault", selfRole)
-	} else {
-		log.Trace("txpool:add()", "unknown selfRole ", selfRole)
+	case common.RoleBroadcast, common.RoleBackupValidator:
+		tx_s := tx.GetTxS()
+		nPool.setsTx(tx_s, tx)
+	default:
+		log.Trace("txpool:add()", "unknown selfRole ", ca.GetRole(), "txhash", tx.Hash(), "nonce", tx.Nonce(), "from", tx.From())
 	}
 	return true, nil
 }

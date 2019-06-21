@@ -710,7 +710,7 @@ func (n *Node) OpenDatabase(name string, cache, handles int) (mandb.Database, er
 	if n.config.DataDir == "" {
 		return mandb.NewMemDatabase(), nil
 	}
-	return mandb.NewLDBDatabase(n.config.resolvePath(name), cache, handles,2)
+	return mandb.NewLDBDatabase(n.config.resolvePath(name), cache, handles, 2)
 }
 
 // ResolvePath returns the absolute path of a resource in the instance directory.

@@ -74,7 +74,8 @@ type queue struct {
 	headerProced    int                            // [man/62] Number of headers already processed from the results
 	headerOffset    uint64                         // [man/62] Number of the first header in the result cache
 	headerContCh    chan bool                      // [man/62] Channel to notify when header download finishes
-
+	headerReqExpireNum    int
+	headerSkeletonErrNum  int 
 	// All data retrievals below are based on an already assembles header chain
 	blockTaskPool  map[common.Hash]*types.Header // [man/62] Pending block (body) retrieval tasks, mapping hashes to headers
 	blockTaskQueue *prque.Prque                  // [man/62] Priority queue of the headers to fetch the blocks (bodies) for
@@ -132,7 +133,7 @@ func (q *queue) Reset() {
 
 	q.headerHead = common.Hash{}
 	q.headerPendPool = make(map[string]*fetchRequest)
-
+	q.headerReqExpireNum = 0
 	q.blockTaskPool = make(map[common.Hash]*types.Header)
 	q.blockTaskQueue.Reset()
 	q.blockPendPool = make(map[string]*fetchRequest)
@@ -492,6 +493,11 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int, ipfsmode int) (*fet
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	/*if(q.headerReqExpireNum > 100){
+		log.Warn("download queue  ReserveHeaders  exipre too many,then exit download")
+		return nil,false
+	}*/
+
 	// Short circuit if the peer's already downloading something (sanity check to
 	// not corrupt state)
 	if _, ok := q.headerPendPool[p.id]; ok {
@@ -569,7 +575,12 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int, ipfsmode int) (*fet
 	q.headerPendPool[p.id] = request
 	return request, false
 }
-
+func (q *queue) ReserveLength(taskQueue *prque.Prque) int {
+	q.lock.Lock()
+	len := taskQueue.Size()
+	q.lock.Unlock()
+	return len
+} 
 // ReserveBodies reserves a set of body fetches for the given peer, skipping any
 // previously failed downloads. Beside the next batch of needed fetches, it also
 // returns a flag whether empty blocks were queued requiring processing.
@@ -910,6 +921,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 	// Short circuit if the pool has been depleted, or if the peer's already
 	// downloading something (sanity check not to corrupt state)
 	if taskQueue.Empty() {
+		log.Trace("download queue reserveHeaders taskQueue is nil")
 		return nil, false, false, nil
 	}
 	if _, ok := pendPool[p.id]; ok {
@@ -1107,7 +1119,7 @@ func (q *queue) expire(timeout time.Duration, pendPool map[string]*fetchRequest,
 func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh chan []*types.Header) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
-
+	q.headerReqExpireNum=0
 	// Short circuit if the data was never requested
 	request := q.headerPendPool[id]
 	if request == nil {
@@ -1151,8 +1163,8 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 	}
 	// If the batch of headers wasn't accepted, mark as unavailable
 	if !accepted {
-		log.Trace("Skeleton filling not accepted", "peer", id, "from", request.From)
-
+		q.headerSkeletonErrNum ++ 
+		log.Trace("Skeleton filling not accepted", "peer", id, "from", request.From,"q.headerSkeletonErrNum",q.headerSkeletonErrNum)	
 		miss := q.headerPeerMiss[id]
 		if miss == nil {
 			q.headerPeerMiss[id] = make(map[uint64]struct{})
@@ -1166,7 +1178,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 	// Clean up a successful fetch and try to deliver any sub-results
 	copy(q.headerResults[request.From-q.headerOffset:], headers)
 	delete(q.headerTaskPool, request.From)
-
+	q.headerSkeletonErrNum = 0 
 	log.Info("download  DeliverHeaders ", "num =", accepted, "from", request.From, "headers len", len(headers), "offset ", q.headerOffset)
 
 	ready := 0

@@ -1224,6 +1224,9 @@ func SetManConfig(ctx *cli.Context, stack *pod.Node, cfg *man.Config) {
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
 	}
+	//if ctx.GlobalIsSet(DbTableSizeFlag.Name) {
+	cfg.DatabaseTableSize = ctx.GlobalInt(DbTableSizeFlag.Name)
+	//}
 	cfg.DatabaseHandles = makeDatabaseHandles()
 
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {

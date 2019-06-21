@@ -1,34 +1,38 @@
 # go-matrix
 ---
 
+
+
+
+
+
 ## About
-It is with great excitement that the Matrix AI Network team releases the first major update to the Matrix AI Network! The primary goal of this update is to increase the stability of the network. This update includes tweaks to several attributes including:
+Following the successful deployment of the Matrix AI Network’s first major update in May, the Matrix team is happy to announce that a second major update is ready! It brings with it two major new features. They are: Fixed/Flexible Stakes and Verification Masternode Pools. This article will outline Fixed and Flexible Staking.
 
-### Verification Masternode Selection
-Any Verification Masternode with a stake exceeding 1/19th of the total MAN tokens staked by all Verification Masternodes is guaranteed selection. All other Verification Masternodes are selected according to their stake. The probability of selection can be estimated using a simple formula:
-
-〖Individual Stake〗^1.45/〖Total Verification Masternodes Stake〗^1.45 
-
-The real formula is considerably more complex but yields similar results. The reason we use a more complex algorithm to manage selection is to reduce selection variability in small time periods.
-
-As before, once selected, all Verification Masternodes in a given cycle (300 blocks) serve as the Block Leader, in turn, regardless of stake. The probability of everyone’s starting positions can also be estimated using a simple formula:
-
-〖Individual Stake〗^1.45/〖Total Stake of Selected Verification Masternodes〗^1.45  
+### Introducing Fixed and Flexible Staking
+Once this update goes live, the Matrix AI Network will support two different stake types: Fixed Stakes and Flexible Stakes. Both have slightly different behaviors, rules and attributes.
 
 
-### VIP System 
-The previous VIP system is completely eliminated and does not impact the selection of Masternodes in any way 
+|Flexible Stake|
+|--------------|---------------------------------------------|
+|Minimum Stake |100 MAN tokens each time you add to your stake|
+|Lockup Time   | None|
+|Stake Reward  | None. Flexible stakes are given a “Stake Weight” of 1 when calculating stake rew|
 
-### Voting Timeout
-As before, in order to verify and package transactions in a block, at least 13 of the selected Verification Masternodes must agree via a voting mechanism. If a Verification Masternode fails to vote, they timeout and are replaced. The time to timeout is changed from 20 seconds to 40 seconds
-### Block Timeout    
-If a block leader fails to perform their duties, they will timeout and be replaced. The time to timeout is changed from 40 seconds to 60 seconds. 
-### Penalties
-Penalties assigned to malicious, mis-deployed and offline Verification Masternodes are increased. Any Verification Masternode that fails to perform its duties for the entirety of a selection cycle will forfeit its next 10 selections.
-### Target Block Time
-The target block time is increased from 6 seconds to 9 seconds.
-### Block Rewards 
-Block rewards are increased from 10 MAN tokens to 16 MAN tokens.
+|Fixed Stake  |
+|---------------|---------------------------------------------|
+|Minimum Stake  | 2000 MAN tokens each time you add to your stake|
+|Lockup Time    | Fixed. When staking tokens, you must select a 1-, 3-, 6-, or 12-month lockup period.Prior to the end of your stake period, you must initiate unstake procedures or else it will be automatically renewed with the same lock-up period
+|
+|Stake Reward   | Fixed stakes are given increasingly heavy “Stake Weight” as the lock-up time increases|
+
+
+### Other Notes and Updates
+#### You can combine fixed and flexible stakes.
+#### If you have a fixed stake, you must initiate unstake procedures prior to the end of your stake period or else it will be automatically renewed at the same lock-up period.
+#### If you unstake a fixed stake, you must wait at least 2 hours before being able to transfer the funds to your personal wallet. You will not be able to transfer the funds until your lockup time is expired.
+#### If you unstake a flexible stake, you must wait at least 7 days before being able to transfer the funds your personal wallet.
+
 
 ### Blockchain Explorer
 
@@ -60,11 +64,11 @@ wget https://github.com/MatrixAINetwork/go-matrix/archive/master.zip
 
 - Branch: Master
 
-- Tag: v1.1.4
+- Tag: v1.1.5
 
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command 
 
-You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/5.17](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/5.17)
+You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/6.24](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/6.24)
 
 
 

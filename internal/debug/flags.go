@@ -98,7 +98,7 @@ var (
 
 // Flags holds all command-line flags required for debugging.
 var Flags = []cli.Flag{
-	verbosityFlag, verOutPutFlag, verOutPutDirFlag,verNetlogFlag, verNetlogModeFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
+	verbosityFlag, verOutPutFlag, verOutPutDirFlag, verNetlogFlag, verNetlogModeFlag, vmoduleFlag, backtraceAtFlag, debugFlag,
 	pprofFlag, pprofAddrFlag, pprofPortFlag,
 	memprofilerateFlag, blockprofilerateFlag, cpuprofileFlag, traceFlag,
 }
@@ -132,19 +132,19 @@ func Setup(ctx *cli.Context, logdir string) error {
 	flgnet := ctx.GlobalString(verNetlogFlag.Name)
 	var netHandler log.Handler = nil
 	var err error
-	if len(flgnet) > 0{
+	if len(flgnet) > 0 {
 		//netHandler,err = log.SetNetLogHandler("udp", "192.168.122.7:514","gman_netlog",log.TerminalFormat(false))
 		mode := ctx.GlobalString(verNetlogModeFlag.Name)
-		if len(mode)== 0 {
+		if len(mode) == 0 {
 			mode = "udp"
 		}
-		netHandler,err = log.SetNetLogHandler(mode, flgnet,"gman_netlog",log.TerminalFormat(false))
+		netHandler, err = log.SetNetLogHandler(mode, flgnet, "gman_netlog", log.TerminalFormat(false))
 		if err != nil {
 			netHandler = nil
 		}
 	}
 	//neth,err:= log.SetNetLogHandler("udp", "192.168.122.7:514","gman_netlog",log.TerminalFormat(false))
-	
+
 	flg := ctx.GlobalInt(verOutPutFlag.Name)
 	if flg > 0 {
 		if logPath != "" {
@@ -157,7 +157,7 @@ func Setup(ctx *cli.Context, logdir string) error {
 			if err != nil {
 				return err
 			}
-			if (netHandler == nil){
+			if netHandler == nil {
 				if flg == 1 {
 					glogger.SetHandler(log.MultiHandler(rfh))
 				} else {
@@ -165,9 +165,9 @@ func Setup(ctx *cli.Context, logdir string) error {
 				}
 			} else {
 				if flg == 1 {
-					glogger.SetHandler(log.MultiHandler(rfh,netHandler))
+					glogger.SetHandler(log.MultiHandler(rfh, netHandler))
 				} else {
-					glogger.SetHandler(log.MultiHandler(ostream, rfh,netHandler))
+					glogger.SetHandler(log.MultiHandler(ostream, rfh, netHandler))
 				}
 			}
 		}

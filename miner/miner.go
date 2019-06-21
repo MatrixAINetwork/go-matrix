@@ -26,6 +26,8 @@ import (
 const (
 	ModuleWork  = "Miner_Work"
 	ModuleMiner = "Miner"
+	OVERFLOWNUM = 10
+	OVERFLOWLEN = 10
 )
 
 var (
@@ -82,7 +84,6 @@ func (self *Miner) Start() {
 }
 
 func (self *Miner) Stop() {
-	// todo:
 
 	self.worker.Stop()
 	atomic.StoreInt32(&self.shouldStart, 0)

@@ -300,7 +300,7 @@ func makeExtraData(extra []byte) []byte {
 
 // CreateDB creates the chain database.
 func CreateDB(ctx *pod.ServiceContext, config *Config, name string) (mandb.Database, error) {
-	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles,config.DatabaseTableSize)
+	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles, config.DatabaseTableSize)
 	if err != nil {
 		return nil, err
 	}

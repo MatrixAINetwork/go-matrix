@@ -41,11 +41,11 @@ func (ctx *ServiceContext) GetConfig() *Config {
 // OpenDatabase opens an existing database with the given name (or creates one
 // if no previous can be found) from within the node's data directory. If the
 // node is an ephemeral one, a memory database is returned.
-func (ctx *ServiceContext) OpenDatabase(name string, cache int, handles int,dbsize int) (mandb.Database, error) {
+func (ctx *ServiceContext) OpenDatabase(name string, cache int, handles int, dbsize int) (mandb.Database, error) {
 	if ctx.config.DataDir == "" {
 		return mandb.NewMemDatabase(), nil
 	}
-	db, err := mandb.NewLDBDatabase(ctx.config.resolvePath(name), cache, handles,dbsize)
+	db, err := mandb.NewLDBDatabase(ctx.config.resolvePath(name), cache, handles, dbsize)
 	if err != nil {
 		return nil, err
 	}
