@@ -1,3 +1,6 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 // Package crc8 implements the 8-bit cyclic redundancy check, or CRC-8, checksum.
 //
 // It provides parameters for the majority of well-known CRC-8 algorithms.
