@@ -79,13 +79,13 @@ func (vg *ValidatorGroup) TransferMan(contract *Contract, evm *EVM) error {
 	value := contract.Value()
 	return vg.TransferRewards(value, evm.Time.Uint64(), contract.Address(), evm.StateDB)
 }
-func (vg *ValidatorGroup) Constructor(conAddr, signAddr, Owner common.Address, dType, OwnerRate *big.Int, lvlRate []*big.Int, contract *Contract, evm *EVM) error {
+func (vg *ValidatorGroup) Constructor(conAddr, signAddr, Owner common.Address, dType, OwnerRate,nodeRate *big.Int, lvlRate []*big.Int, contract *Contract, evm *EVM) error {
 	if !evm.StateDB.Exist(evm.Cointyp, conAddr) {
 		evm.StateDB.CreateAccount(evm.Cointyp, conAddr)
 	}
 	newCon := NewContract(contract, AccountRef(conAddr), contract.value, contract.Gas, evm.Cointyp)
 	vg.constate.OwnerInfo.Owner = Owner
-	err := vg.constate.SetRewardRate(OwnerRate, lvlRate)
+	err := vg.constate.SetRewardRate(OwnerRate,nodeRate, lvlRate)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,8 @@ func (vg *ValidatorGroup) WithdrawAllMethod() {
 
 		for i := 0; i < len(vg.constate.ValidatorMap); i++ {
 			info := &vg.constate.ValidatorMap[i]
-			if info.Current.Amount.Cmp(depositcfg.CruWithDrawAmountMin) >= 0 {
+			amount := new(big.Int).Add(info.Current.Amount,info.Current.Interest)
+			if amount.Cmp(depositcfg.CruWithDrawAmountMin) >= 0 {
 				ret, err := vg.withdrawCurrent(info, info.Current.Amount, contract, evm)
 				if err != nil {
 					return ret, err
@@ -259,8 +260,7 @@ func (vg *ValidatorGroup) GetRewardMethod() {
 				if err != nil {
 					return nil, err
 				}
-				vg.constate.SetState(contract.Address(), evm.StateDB)
-				return nil, nil
+				return nil, vg.constate.SetState(contract.Address(), evm.StateDB)
 			} else {
 				return nil, errArguments
 			}
@@ -278,8 +278,7 @@ func (vg *ValidatorGroup) GetRewardMethod() {
 		if err != nil {
 			return nil, err
 		}
-		vg.constate.SetState(contract.Address(), evm.StateDB)
-		return nil, nil
+		return nil, vg.constate.SetState(contract.Address(), evm.StateDB)
 	}
 	vg.AddMethod(bm)
 }
@@ -478,8 +477,7 @@ func (vg *ValidatorGroup) AddDepositMethod() {
 		if err != nil {
 			return nil, err
 		}
-		vg.constate.SetState(contract.Address(), evm.StateDB)
-		return ret, err
+		return ret, vg.constate.SetState(contract.Address(), evm.StateDB)
 	}
 	vg.AddMethod(bm)
 }
@@ -543,7 +541,7 @@ func (vg *ValidatorGroup) WithdrawMethod() {
 			}
 		}
 		if err == nil {
-			vg.constate.SetState(contract.Address(), evm.StateDB)
+			err = vg.constate.SetState(contract.Address(), evm.StateDB)
 		}
 		return ret, err
 	}
@@ -594,7 +592,7 @@ func (vg *ValidatorGroup) RefundMethod() {
 			}
 		}
 		if err == nil {
-			vg.constate.SetState(contract.Address(), evm.StateDB)
+			err = vg.constate.SetState(contract.Address(), evm.StateDB)
 		}
 		return ret, err
 	}

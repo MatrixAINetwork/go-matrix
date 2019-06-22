@@ -20,6 +20,8 @@ import (
 func TestEmuliateCurrentReward(t *testing.T) {
 	mdb := mandb.NewMemDatabase()
 	statedb, _ := state.NewStateDBManage([]common.CoinRoot{}, mdb, state.NewDatabase(mdb))
+	statedb.SetState(params.MAN_COIN, common.Address{}, common.BytesToHash([]byte(params.DepositVersionKey_1)), common.BytesToHash([]byte(params.DepositVersion_1)))
+	statedb.SetBalance(params.MAN_COIN, common.MainAccount,vm.ValidatorGroupContractAddress,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
 	statedb.SetBalance(params.MAN_COIN, common.MainAccount,testOwnerAddr,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
 	createValidatorGroup(statedb, t)
 	vcStates := &vm.ValidatorContractState{}
@@ -126,7 +128,9 @@ func TestEmuliateCurrentReward(t *testing.T) {
 func TestEmuliateTimeReward(t *testing.T) {
 	mdb := mandb.NewMemDatabase()
 	statedb, _ := state.NewStateDBManage([]common.CoinRoot{}, mdb, state.NewDatabase(mdb))
+	statedb.SetState(params.MAN_COIN, common.Address{}, common.BytesToHash([]byte(params.DepositVersionKey_1)), common.BytesToHash([]byte(params.DepositVersion_1)))
 	statedb.SetBalance(params.MAN_COIN, common.MainAccount,testOwnerAddr,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
+	statedb.SetBalance(params.MAN_COIN, common.MainAccount,vm.ValidatorGroupContractAddress,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
 	createValidatorGroup(statedb, t)
 	vcStates := &vm.ValidatorContractState{}
 	valiMap, err := vcStates.GetValidatorGroupInfo(uint64(time.Now().Unix()),statedb)
@@ -239,7 +243,9 @@ func TestEmuliateTimeReward(t *testing.T) {
 func TestEmuliateCurrentInterests(t *testing.T) {
 	mdb := mandb.NewMemDatabase()
 	statedb, _ := state.NewStateDBManage([]common.CoinRoot{}, mdb, state.NewDatabase(mdb))
+	statedb.SetState(params.MAN_COIN, common.Address{}, common.BytesToHash([]byte(params.DepositVersionKey_1)), common.BytesToHash([]byte(params.DepositVersion_1)))
 	statedb.SetBalance(params.MAN_COIN, common.MainAccount,testOwnerAddr,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
+	statedb.SetBalance(params.MAN_COIN, common.MainAccount,vm.ValidatorGroupContractAddress,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
 	createValidatorGroup(statedb, t)
 	vcStates := &vm.ValidatorContractState{}
 	valiMap, err := vcStates.GetValidatorGroupInfo(uint64(time.Now().Unix()),statedb)

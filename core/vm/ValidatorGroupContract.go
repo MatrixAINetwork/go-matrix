@@ -229,7 +229,8 @@ func (vg* ValidatorGroupContract)CreateValidatorGroupMethod(){
 			contract.CallerAddress,
 			data[1].(*big.Int),
 			data[2].(*big.Int),
-			data[3].([]*big.Int),
+			data[3].(*big.Int),
+			data[4].([]*big.Int),
 			contract,evm)
 		if err!=nil{
 			return nil,err

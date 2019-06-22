@@ -16,7 +16,7 @@ const (
 	VersionSignatureGamma  = "0x69bd3f6dbbca1012d7f68b5263900c9561da66b675088bc613460701c59b056e7b2695e1c3f84de28afd8f6797f1244bef1652a96d6cb58de151969cdc0956f700"
 	VersionSignatureDelta  = "0xa1499658f1a25095fc59d20db7cd4903c270ce4843566a6aaec851c2a371d3b035ec93152391b8c921eaed7611d735d88042bc8f97c213fbb878c020f070cae400"
 	VersionNumGamma        = uint64(330003)
-	VersionNumDelta        = uint64(560003)
+	VersionNumDelta        = uint64(567003)
 	newP2PVersionTimeStamp = 1558346400
 )
 

@@ -103,7 +103,7 @@ func ValidatorGroupTest(bm *vm.BaseMethod,data []byte,t *testing.T){
 	env.Transfer = func(vm.StateDBManager, common.Address, common.Address, *big.Int, string) { return }
 	//	contract.Run(bm.methodID()[:])
 	contract.Constructor(common.Address{11,11,11},common.Address{22,22,22},common.Address{123,112,111},
-	big.NewInt(0),big.NewInt(0),nil,conPtr,env)
+	big.NewInt(0),big.NewInt(0),big.NewInt(0),nil,conPtr,env)
 	_,err := vm.RunPrecompiledContract(contract,inputs,conPtr,env)
 	if err!= nil{
 		t.Error(err)

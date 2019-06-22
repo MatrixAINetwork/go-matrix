@@ -35,6 +35,7 @@ type RateInfo struct {
 //Rewards proportion to participants
 type RewardRate struct {
 	OwnerRate RateOption
+	NodeRate RateOption
 	//	CurrentRate RateOption
 	LevelRate []RateInfo
 }
@@ -58,7 +59,7 @@ type ValidatorGroupState struct {
 	ValidatorMap validatorGroup.ValidatorInfoSlice
 }
 
-func (vc *ValidatorGroupState) SetRewardRate(OwnerRate *big.Int, lvlRate []*big.Int) error {
+func (vc *ValidatorGroupState) SetRewardRate(OwnerRate,nodeRate *big.Int, lvlRate []*big.Int) error {
 	if OwnerRate.Sign() < 0 {
 		return errArguments
 	}
@@ -66,6 +67,10 @@ func (vc *ValidatorGroupState) SetRewardRate(OwnerRate *big.Int, lvlRate []*big.
 	if len(lvlRate) != len(depLvel) {
 		return errArguments
 	}
+	if nodeRate.Sign()<0 || nodeRate.Cmp(rateDecmalBig)>0{
+		return errArguments
+	}
+	vc.Reward.NodeRate = RateOption{nodeRate, rateDecmalBig}
 	vc.Reward.LevelRate = make([]RateInfo, len(lvlRate))
 	for i := 0; i < len(lvlRate); i++ {
 		if lvlRate[i].Sign() < 0 {
@@ -263,7 +268,48 @@ func (vc *ValidatorGroupState) CalDepositWeight(address common.Address, amount *
 	}
 	return big.NewInt(0)
 }
+func (vc *ValidatorGroupState) DistributeAmount(amount *big.Int,getDepoist func(*validatorGroup.ValidatorInfo) *big.Int,addFunc func(*validatorGroup.ValidatorInfo,*big.Int)) error{
+	if amount.Sign() == 0 {
+		return nil
+	}
+	nodeAmount := vc.Reward.NodeRate.Mul(amount)
+	rewards := new(big.Int).Sub(amount,nodeAmount)
+	weightInfo := make([]DepositInfo, 0, len(vc.ValidatorMap))
+	allWeight := big.NewInt(0)
+	for i := 0; i < len(vc.ValidatorMap); i++ {
+		valiInfo := &vc.ValidatorMap[i]
+		weight := vc.CalDepositWeight(valiInfo.Address, getDepoist(valiInfo))
+		allWeight.Add(allWeight, weight)
+		weightInfo = append(weightInfo, DepositInfo{valiInfo.Address, weight})
+	}
+	leftAmount := new(big.Int).Set(rewards)
+	if allWeight.Sign() > 0 {
+		for i, info := range weightInfo {
+			reward := new(big.Int).Mul(rewards, info.Amount)
+			reward.Div(reward, allWeight)
+			leftAmount.Sub(leftAmount,reward)
+			addFunc(&vc.ValidatorMap[i],reward)
+		}
+	}
+	if index, exist := vc.ValidatorMap.Find(vc.OwnerInfo.Owner);exist {
+		addFunc(&vc.ValidatorMap[index],nodeAmount)
+		if leftAmount.Sign()>0 {
+			addFunc(&vc.ValidatorMap[index],leftAmount)
+		}
+	}
+	return nil
+}
 func (vc *ValidatorGroupState) DistributeRewards(amount *big.Int) error {
+	getDepoist := func(info *validatorGroup.ValidatorInfo) *big.Int {
+		return info.AllAmount
+	}
+	addFunc := func(info *validatorGroup.ValidatorInfo, amount *big.Int){
+		info.Reward.Add(info.Reward,amount)
+	}
+	return vc.DistributeAmount(amount,getDepoist,addFunc)
+	/*
+	nodeAmount := vc.Reward.NodeRate.Mul(amount)
+	rewards := new(big.Int).Sub(amount,nodeAmount)
 	weightInfo := make([]DepositInfo, 0, len(vc.ValidatorMap))
 	allWeight := big.NewInt(0)
 	for i := 0; i < len(vc.ValidatorMap); i++ {
@@ -272,24 +318,30 @@ func (vc *ValidatorGroupState) DistributeRewards(amount *big.Int) error {
 		allWeight.Add(allWeight, weight)
 		weightInfo = append(weightInfo, DepositInfo{valiInfo.Address, weight})
 	}
-	leftAmount := new(big.Int).Set(amount)
+	leftAmount := new(big.Int).Set(rewards)
 	if allWeight.Sign() > 0 {
 		for i, info := range weightInfo {
-			reward := new(big.Int).Mul(amount, info.Amount)
+			reward := new(big.Int).Mul(rewards, info.Amount)
 			reward.Div(reward, allWeight)
 			leftAmount.Sub(leftAmount,reward)
 			vc.ValidatorMap[i].Reward.Add(vc.ValidatorMap[i].Reward, reward)
 		}
 	}
-	if leftAmount.Sign()>0{
-		if index, exist := vc.ValidatorMap.Find(vc.OwnerInfo.Owner);exist {
-			vc.ValidatorMap[index].Reward.Add(vc.ValidatorMap[index].Reward,leftAmount)
-		}
+	if index, exist := vc.ValidatorMap.Find(vc.OwnerInfo.Owner);exist {
+		vc.ValidatorMap[index].Reward.Add(vc.ValidatorMap[index].Reward,leftAmount)
 	}
 	return nil
-
+*/
 }
 func (vc *ValidatorGroupState) DistributeCurrentInterests(amount *big.Int) error {
+	getDepoist := func(info *validatorGroup.ValidatorInfo) *big.Int {
+		return info.Current.Amount
+	}
+	addFunc := func(info *validatorGroup.ValidatorInfo, amount *big.Int){
+		info.Current.Interest.Add(info.Current.Interest,amount)
+	}
+	return vc.DistributeAmount(amount,getDepoist,addFunc)
+	/*
 	if amount.Sign() == 0 {
 		return nil
 	}
@@ -321,5 +373,6 @@ func (vc *ValidatorGroupState) DistributeCurrentInterests(amount *big.Int) error
 		}
 	}
 	return nil
+	*/
 
 }

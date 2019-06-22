@@ -224,6 +224,10 @@ var (
           "type": "uint256"
         },
         {
+          "name": "nodeRate",
+          "type": "uint256"
+        },
+        {
           "name": "lvlRate",
           "type": "uint256[]"
         }

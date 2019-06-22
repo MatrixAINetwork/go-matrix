@@ -25,6 +25,7 @@ func TestEmuliateCurrent(t *testing.T){
 	mdb := mandb.NewMemDatabase()
 	statedb, _ := state.NewStateDBManage([]common.CoinRoot{},mdb, state.NewDatabase(mdb))
 	statedb.SetBalance(params.MAN_COIN, common.MainAccount,testOwnerAddr,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
+	statedb.SetBalance(params.MAN_COIN, common.MainAccount,vm.ValidatorGroupContractAddress,new(big.Int).Mul(big.NewInt(1e10),big.NewInt(1e18)))
 	createValidatorGroup(statedb,t)
 	vcStates := &vm.ValidatorContractState{}
 	valiMap,err := vcStates.GetValidatorGroupInfo(uint64(time.Now().Unix()),statedb)
@@ -325,7 +326,7 @@ func createValidatorGroup(state vm.StateDBManager,t *testing.T){
 	ID :=bm.MethodID()
 	copy(inputs,ID[:])
 	//function createValidatorGroup(address signAcount,uint amount,uint dType,uint ownerRate,uint[] lvlRate0)
-	data,err := bm.Inputs().Pack(testA1Addr,big.NewInt(0),big.NewInt(10),[]*big.Int{big.NewInt(10),big.NewInt(20),big.NewInt(30)})
+	data,err := bm.Inputs().Pack(testA1Addr,big.NewInt(0),big.NewInt(10),big.NewInt(2e8),[]*big.Int{big.NewInt(10),big.NewInt(20),big.NewInt(30)})
 	if err != nil {
 		t.Error(err)
 		return
