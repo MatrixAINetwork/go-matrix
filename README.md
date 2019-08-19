@@ -8,6 +8,7 @@ Following the successful deployment of the Matrix AI Network’s first major upd
 
 Using the officially available snapshot version, you can start at 861265 based on snapshot + simplified data after booting.The data size is 11G, and the original synchronization to 861265 requires 200G.
 
+     
 ​    （Linux&MAC）
       https://drive.google.com/file/d/10NIlXfCbEfZetz7nIIEBNn3IMfd_pfro/view?usp=sharing
       https://pan.baidu.com/s/1fI_CoXf8N-jcYupLzUlV7w
