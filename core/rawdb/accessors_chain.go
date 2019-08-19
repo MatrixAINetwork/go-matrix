@@ -10,11 +10,14 @@ import (
 	"math/big"
 
 	"encoding/json"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
+
+const BlockheaderModifyHeight = 861260
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
 func ReadCanonicalHash(db DatabaseReader, number uint64) common.Hash {
@@ -137,11 +140,39 @@ func ReadHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Heade
 	if len(data) == 0 {
 		return nil
 	}
+
 	header := new(types.Header)
+	//对区块数据解码
 	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
 		log.Error("Invalid block header RLP", "hash", hash, "err", err)
 		return nil
 	}
+	//创世区块，直接返回
+	if number == 0 {
+		return header
+	}
+
+	//根据number区块高度分别处理各段区块的写入，块高height1之前的块和height2（含）之后的块存储区块数据时需要删除多币种数据（重新构建主币种数据即可）
+	if number <= uint64(BlockheaderModifyHeight) { //BlockheaderModifyHeight块高和VersionNumEpsilon块高作为height1和height2的临界点，需要替换成统一的宏配置管理
+		//log.Debug("ReadHeader", "块高height1之前的块，从创世区块中读取多币种信息..."+"number:", number)
+		//获取创世区块数据
+		ManSharding := header.Sharding[0]
+		ManRoots := header.Roots[0]
+		genesishash := ReadCanonicalHash(db, 0)
+		genesisblock := ReadBlock(db, genesishash, 0)
+
+		//根据多币种个数创建切片容量
+		header.Sharding = make([]common.Coinbyte, len(genesisblock.Sharding()))
+		header.Roots = make([]common.CoinRoot, len(genesisblock.Root()))
+		header.Sharding[0] = ManSharding
+		header.Roots[0] = ManRoots
+		//循环读取多币种数据
+		for i := 1; i < len(genesisblock.Sharding()); i++ {
+			header.Sharding[i] = genesisblock.Sharding()[i]
+			header.Roots[i] = genesisblock.Root()[i]
+		}
+	}
+
 	return header
 }
 
@@ -152,14 +183,27 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 	var (
 		hash    = header.Hash().Bytes()
 		number  = header.Number.Uint64()
-		encoded = encodeBlockNumber(number)
+		encoded = encodeBlockNumber(number) //对区块高度编码
 	)
+
+	//保存区块头数据
+	storeHeader := types.CopyHeader(header)
+
+	//根据number区块高度分别处理各段区块的写入，块高height1之前的块和height2（含）之后的块存储区块数据时需要删除多币种冗余数据（重新构建主币种数据即可）
+	if number <= uint64(BlockheaderModifyHeight) && number != 0 { //BlockheaderModifyHeight块高和VersionNumEpsilon块高作为height1和height2的临界点，需要替换成统一的宏配置管理
+		//组装只有主币种Roots和Sharding的区块头数据（删除多余的区块头其他多币种）
+		//log.Debug("blockchain", "number:", number, "--删除多币种冗余数据，只写入主币种Roots和.Sharding")
+		storeHeader.Roots = append([]common.CoinRoot{}, header.Roots[0])
+		storeHeader.Sharding = append([]common.Coinbyte{}, header.Sharding[0])
+	}
+
+	//组建number 的 key值，带有 headerNumberPrefix前缀
 	key := append(headerNumberPrefix, hash...)
-	if err := db.Put(key, encoded); err != nil {
+	if err := db.Put(key, encoded); err != nil { //区块高度的key,value(经过编码）存入数据库
 		log.Crit("Failed to store hash to number mapping", "err", err)
 	}
 	// Write the encoded header
-	data, err := rlp.EncodeToBytes(header)
+	data, err := rlp.EncodeToBytes(storeHeader)
 	if err != nil {
 		log.Error("", "", err)
 	}
@@ -167,7 +211,7 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 		log.Crit("Failed to RLP encode header", "err", err)
 	}
 	key = append(append(headerPrefix, encoded...), hash...)
-	if err := db.Put(key, data); err != nil {
+	if err := db.Put(key, data); err != nil { //区块数据的key,value(经过编码）存入数据库
 		log.Crit("Failed to store header", "err", err)
 	}
 }

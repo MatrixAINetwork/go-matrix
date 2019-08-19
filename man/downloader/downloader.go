@@ -249,9 +249,10 @@ type BlockChain interface {
 	GetBlockSuperAccounts(blockHash common.Hash) ([]common.Address, error)
 	GetBroadcastIntervalByHash(blockHash common.Hash) (*mc.BCIntervalInfo, error)
 	GetA0AccountFromAnyAccount(account common.Address, blockHash common.Hash) (common.Address, common.Address, error)
-	SynSnapshot(blockNum uint64, hash string, filePath string) bool
+	SynSnapshot(blockNum uint64, hash string, filePath string) (uint64,bool)
 	SetSnapshotParam(period uint64, start uint64)
 	PrintSnapshotAccountMsg(blockNum uint64, hash string, filePath string)
+	SaveSnapshot(blockNum uint64, period uint64, NewBlocknum uint64)
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -1024,6 +1025,8 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 	defer timeout.Stop()
 	var reqBeginNum uint64//lb 
 	var ttl time.Duration
+	
+	p.ResetPeerWorkTime()
 	getHeaders := func(from uint64) uint64 {
 		request = time.Now()
 

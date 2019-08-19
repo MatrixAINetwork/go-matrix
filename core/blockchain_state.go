@@ -314,6 +314,18 @@ func (bc *BlockChain) GetSuperBlockNum() (uint64, error) {
 	return superBlkCfg.Num, nil
 }
 
+func (bc *BlockChain) GetBlockSuperBlockInfo(blockHash common.Hash)  (uint64,uint64,error) {
+	st, err := bc.StateAtBlockHash(blockHash)
+	if err != nil {
+		return 0, 0, errors.Errorf("get state err by hash(%s) err(%v)", blockHash.Hex(), err)
+	}
+	superBlkCfg, err := matrixstate.GetSuperBlockCfg(st)
+	if err != nil {
+		return 0, 0, err
+	}
+	return superBlkCfg.Num,superBlkCfg.Seq,nil
+}
+
 func (bc *BlockChain) GetSuperBlockInfo() (*mc.SuperBlkCfg, error) {
 	st, err := bc.State()
 	if err != nil {

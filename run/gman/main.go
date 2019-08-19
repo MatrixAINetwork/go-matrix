@@ -137,6 +137,9 @@ var (
 		utils.DbTableSizeFlag,
 		utils.GetGenesisFlag,
 		utils.LessDiskEnabledFlag,
+		utils.ManualSaveSnapNum,
+		utils.AutoSnapStartFlag,
+		utils.SnapLoadFileName,
 	}
 
 	rpcFlags = []cli.Flag{

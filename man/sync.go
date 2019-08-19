@@ -6,6 +6,7 @@ package man
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -39,6 +40,9 @@ var (
 	SaveSnapStart     uint64
 	SaveSnapPeriod    uint64 = 300
 	SnaploadFromLocal int    = 0
+	ManualSaveSnapNum uint64 = 0
+	AutoLoadSnapFlg   bool   = false
+	SnapLoadFile      string
 )
 
 type txsync struct {
@@ -178,9 +182,61 @@ func (pm *ProtocolManager) syncer() {
 		pm.WaitForDownLoadMode()
 	}
 	pm.blockchain.SetSnapshotParam(SaveSnapPeriod, SaveSnapStart)
+	//手动保存快照功能
+	if ManualSaveSnapNum != 0 {
+		fmt.Println("matrix begin save snapshot! snapshot block Number", ManualSaveSnapNum)
+		go pm.blockchain.SaveSnapshot(0, 0, ManualSaveSnapNum)
+	}
+	curBlkNum := pm.blockchain.CurrentBlock().NumberU64()
+	//自动加载手动保存的快照
+	if SnapLoadFile != "" {
+		filePath := path.Join(snapshot.SNAPDIR, SnapLoadFile)
+		if common.FileExist(filePath) == false {
+			fmt.Println("matrix  load local snapshoot not find file", SnapLoadFile)
+			log.Error("matrix  load local snapshoot not find file", "file", SnapLoadFile)
+			os.Exit(1)
+		} else {
+			fmt.Println("matrix  load local snapshoot start", SnapLoadFile)
+			blockNum, flg := pm.blockchain.SynSnapshot(0, "", filePath)
+			if flg == false {
+				fmt.Println("Info!  matrix  can't load and use snapshoot because local chaindata is heigher than snap or other, SnapNum=", blockNum, curBlkNum)
+				log.Warn("Info!  matrix  can't load and use snapshoot because local chaindata is heigher than snap or other", "SnapNum", blockNum, "curBlkNum", curBlkNum)
+			} else {
+				pm.downloader.SetSnapshootNum(blockNum)
+				fmt.Println("matrix  load local snapshoot and use sucess, blockNum=", blockNum)
+				log.Debug("matrix  load local snapshoot and use sucess", "blockNum", blockNum)
+			}
+		}
+	} else if AutoLoadSnapFlg == true {
+		var (
+			maxTime  int64
+			fileName string
+		)
+		files, _ := ioutil.ReadDir(snapshot.SNAPDIR)
+		for _, onefile := range files {
+			if onefile.ModTime().Unix() > maxTime {
+				maxTime = onefile.ModTime().Unix()
+				fileName = onefile.Name()
+			}
+		}
+		if fileName == "" {
+			fmt.Println("matrix auto load local snapshoot can't find snap file")
+			log.Error("matrix auto load local snapshoot can't find snap file")
+		} else {
+			fmt.Println("matrix auto load local snapshoot start", fileName)
+			filePath := path.Join(snapshot.SNAPDIR, fileName)
+			blockNum, flg := pm.blockchain.SynSnapshot(0, "", filePath)
+			if flg == false {
+				fmt.Println("Info!  matrix  can't auto load and use snapshoot because local chaindata is heigher than snap or other,SnapNum=", blockNum, curBlkNum)
+				log.Warn("Info!  matrix  can't auto load and use snapshoot because local chaindata is heigher than snap or other,please check", "SnapNum", blockNum, "curBlkNum", curBlkNum)
+			} else {
+				pm.downloader.SetSnapshootNum(blockNum)
+				fmt.Println("matrix auto load local snapshoot and use sucess, blockNum=", blockNum)
+				log.Debug("matrix auto load local snapshoot and use sucess", "AutoLoadSnapNum", blockNum)
+			}
+		}
 
-	//快照下载 SnaploadFromLoacl
-	if SnapshootNumber != 0 {
+	} else if SnapshootNumber != 0 { //快照下载 SnaploadFromLoacl
 		if SnaploadFromLocal == 0 {
 			fmt.Println("snapshoot  DownLoad start blockNum=", SnapshootNumber)
 			pm.downloader.SetSnapshootNum(SnapshootNumber)
@@ -188,25 +244,25 @@ func (pm *ProtocolManager) syncer() {
 			time.Sleep(10 * time.Second)
 			err := pm.downloader.ProcessSnapshoot(uint64(SnapshootNumber), SnapshootHash)
 			if err != nil {
-				log.Debug(" ipfs download snapshoot  error ", "err", err)
+				log.Error(" ipfs download snapshoot  error ", "err", err)
 				os.Exit(1)
 			}
 			res := <-pm.downloader.WaitSnapshoot
 			log.Debug(" ipfs download DownloadBatchBlock get status MPT over")
 			if res == 0 {
-				log.Debug(" ipfs download snapshoot or deal error and exit,please check")
+				log.Error(" ipfs download snapshoot or deal error and exit,please check")
 				os.Exit(1)
 			}
 		} else {
 			pm.downloader.SetSnapshootNum(SnapshootNumber)
 			filePath := path.Join(snapshot.SNAPDIR, "/TrieData"+strconv.Itoa(int(SnapshootNumber)))
-			if pm.blockchain.SynSnapshot(SnapshootNumber, "", filePath) == false {
-				log.Debug(" ipfs local snapshoot deal error and exit,please check")
+			if blkNum, flg := pm.blockchain.SynSnapshot(SnapshootNumber, "", filePath); flg == false {
+				log.Error(" ipfs local snapshoot deal error and exit,please check", "blkNum", blkNum)
 				os.Exit(1)
 			}
 		}
-		if SnapshootNumber != pm.blockchain.CurrentBlock().NumberU64() {
-			log.Debug(" snapshoot deal over,but block Num is illegal", "SnapshootNumber", SnapshootNumber, "current block", pm.blockchain.CurrentBlock().NumberU64())
+		if SnapshootNumber != curBlkNum {
+			log.Error(" snapshoot deal over,but block Num is illegal", "SnapshootNumber", SnapshootNumber, "current block", curBlkNum)
 			os.Exit(1)
 		}
 		fmt.Println("snapshoot  DownLoad and use sucess, blockNum=", SnapshootNumber)
@@ -241,7 +297,7 @@ func (pm *ProtocolManager) synchronise(peer *peer, flg int) {
 		return
 	}
 	// Make sure the peer's TD is higher than our own
-	if flg == 3 || flg == 1 {
+	if flg == 3 || flg == 4 || flg == 10 || flg == 0 {
 		nowCheckTime := time.Now().Unix()
 		//if pm.LastCheckBlkNum == bn {
 		if nowCheckTime-pm.LastCheckTime < 2 {

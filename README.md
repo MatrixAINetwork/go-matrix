@@ -1,30 +1,25 @@
 # go-matrix
 ------
 ## About
-Following the successful deployment of the Matrix AI Network’s first major update in May, the Matrix team is happy to announce that a second major update is ready! It brings with it two major new features. They are: Fixed/Flexible Stakes and Verification Masternode Pools. This article will outline Fixed and Flexible Staking.
 
-### Introducing Fixed and Flexible Staking
-Once this update goes live, the Matrix AI Network will support two different stake types: Fixed Stakes and Flexible Stakes. Both have slightly different behaviors, rules and attributes.
+Following the successful deployment of the Matrix AI Network’s first major update in August, the Matrix team is happy to announce that a third major update is ready! It brings with it third major new features. They are: snapshot and data storage optimization. This article will outline  snapshot and data storage optimization.
 
+### Snapshot
 
-|Flexible Stake||
-|--------------|---------------------------------------------|
-|Minimum Stake |100 MAN tokens each time you add to your stake|
-|Lockup Time   | None|
-|Stake Reward  | None. Flexible stakes are given a “Stake Weight” of 1 when calculating stake rew|
+Using the officially available snapshot version, you can start at 861265 based on snapshot + simplified data after booting.The data size is 11G, and the original synchronization to 861265 requires 200G.
 
-|Fixed Stake  ||
-|---------------|---------------------------------------------|
-|Minimum Stake  | 2000 MAN tokens each time you add to your stake|
-|Lockup Time    | Fixed. When staking tokens, you must select a 1-, 3-, 6-, or 12-month lockup period.Prior to the end of your stake period, you must initiate unstake procedures or else it will be automatically renewed with the same lock-up period|
-|Stake Reward   | Fixed stakes are given increasingly heavy “Stake Weight” as the lock-up time increases|
+​    （Linux&MAC）
+      https://drive.google.com/file/d/10NIlXfCbEfZetz7nIIEBNn3IMfd_pfro/view?usp=sharing
+      https://pan.baidu.com/s/1fI_CoXf8N-jcYupLzUlV7w
+      （Windows） 
+      https://drive.google.com/file/d/1MWu9QMpW4sXqgbD_6kj27_v8YC4aihlO/view?usp=sharing
+      https://pan.baidu.com/s/1UFnQVSEnCNanqv40U2wVyA
 
 
-### Other Notes and Updates
-#### You can combine fixed and flexible stakes.
-#### If you have a fixed stake, you must initiate unstake procedures prior to the end of your stake period or else it will be automatically renewed at the same lock-up period.
-#### If you unstake a fixed stake, you must wait at least 2 hours before being able to transfer the funds to your personal wallet. You will not be able to transfer the funds until your lockup time is expired.
-#### If you unstake a flexible stake, you must wait at least 7 days before being able to transfer the funds your personal wallet.
+
+### Data storage optimization     
+
+ Do not use the above snapshot mode to start, use this version to boot from the genesis block, the database file downloaded before the block height 861260 can be optimized 25% than the previous version
 
 
 ### Blockchain Explorer
@@ -61,7 +56,7 @@ wget https://github.com/MatrixAINetwork/go-matrix/archive/master.zip
 
 Building gman requires both a Go (version 1.7 or later) and a C compiler. You can install them using your favourite package manager. Once the dependencies are installed, run your 'make gman' command 
 
-You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0620)
+You can also obtain our compiled gman from github [https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0816](https://github.com/MatrixAINetwork/GMAN_CLIENT/tree/master/MAINNET/0816)
 
 
 

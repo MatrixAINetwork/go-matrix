@@ -59,7 +59,6 @@ func DeltaNew(st util.StateDB, preSt util.StateDB, depositCfgVersion string) *in
 func (ic *interestDelta) calcWeightDeposit(deposit *big.Int, blockInterest uint64) *big.Int {
 
 	if deposit.Cmp(big.NewInt(0)) <= 0 {
-		log.ERROR(PackageName, "抵押获取错误", deposit)
 		return big.NewInt(0)
 	}
 

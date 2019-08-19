@@ -283,7 +283,9 @@ func (p *peerConnection) setIdle(started time.Time, delivered int, throughput *f
 		"rps", p.receiptThroughput, "sps", p.stateThroughput,
 		"miss", len(p.lacking), "rtt", p.rtt)
 }
-
+func (p *peerConnection)ResetPeerWorkTime() {
+	p.waitTimeNextStart = time.Now().Unix()
+}
 // HeaderCapacity retrieves the peers header download allowance based on its
 // previously discovered throughput.
 func (p *peerConnection) HeaderCapacity(targetRTT time.Duration) int {

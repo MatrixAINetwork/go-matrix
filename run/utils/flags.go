@@ -583,6 +583,20 @@ var (
 		Name:  "lessdisk",
 		Usage: "Enable the Less Disk Server",
 	}
+	ManualSaveSnapNum = cli.Uint64Flag{
+		Name:  "manualsavesnapnum",
+		Usage: "manual save snap number begin",
+		Value: man.SaveSnapStart,
+	}
+	AutoSnapStartFlag = cli.BoolFlag{
+		Name:  "autosnap",
+		Usage: "auto load snap and start matrix with it",
+	}
+	SnapLoadFileName = cli.StringFlag{
+		Name:  "loadsnapfile",
+		Usage: "load snap withName and start matrix with it",
+		Value: man.SnapLoadFile,
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1086,6 +1100,12 @@ func SetNodeConfig(ctx *cli.Context, cfg *pod.Config) {
 	man.SaveSnapStart = ctx.GlobalUint64(SaveSnapStartFlg.Name)
 	man.SaveSnapPeriod = ctx.GlobalUint64(SaveSnapPeriodFlg.Name)
 	man.SnaploadFromLocal = ctx.GlobalInt(SnapModeFlg.Name)
+	man.ManualSaveSnapNum = ctx.GlobalUint64(ManualSaveSnapNum.Name)
+	if ctx.GlobalIsSet(AutoSnapStartFlag.Name){
+		man.AutoLoadSnapFlg = true
+	}
+	man.SnapLoadFile = ctx.GlobalString(SnapLoadFileName.Name)	
+
 }
 
 func setGPO(ctx *cli.Context, cfg *gasprice.Config) {
