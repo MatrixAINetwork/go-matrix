@@ -142,31 +142,31 @@ func ReadHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Heade
 	}
 
 	header := new(types.Header)
-	//¶ÔÇø¿éÊı¾İ½âÂë
+	//å¯¹åŒºå—æ•°æ®è§£ç 
 	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
 		log.Error("Invalid block header RLP", "hash", hash, "err", err)
 		return nil
 	}
-	//´´ÊÀÇø¿é£¬Ö±½Ó·µ»Ø
+	//åˆ›ä¸–åŒºå—ï¼Œç›´æ¥è¿”å›
 	if number == 0 {
 		return header
 	}
 
-	//¸ù¾İnumberÇø¿é¸ß¶È·Ö±ğ´¦Àí¸÷¶ÎÇø¿éµÄĞ´Èë£¬¿é¸ßheight1Ö®Ç°µÄ¿éºÍheight2£¨º¬£©Ö®ºóµÄ¿é´æ´¢Çø¿éÊı¾İÊ±ĞèÒªÉ¾³ı¶à±ÒÖÖÊı¾İ£¨ÖØĞÂ¹¹½¨Ö÷±ÒÖÖÊı¾İ¼´¿É£©
-	if number <= uint64(BlockheaderModifyHeight) { //BlockheaderModifyHeight¿é¸ßºÍVersionNumEpsilon¿é¸ß×÷Îªheight1ºÍheight2µÄÁÙ½çµã£¬ĞèÒªÌæ»»³ÉÍ³Ò»µÄºêÅäÖÃ¹ÜÀí
-		//log.Debug("ReadHeader", "¿é¸ßheight1Ö®Ç°µÄ¿é£¬´Ó´´ÊÀÇø¿éÖĞ¶ÁÈ¡¶à±ÒÖÖĞÅÏ¢..."+"number:", number)
-		//»ñÈ¡´´ÊÀÇø¿éÊı¾İ
+	//æ ¹æ®numberåŒºå—é«˜åº¦åˆ†åˆ«å¤„ç†å„æ®µåŒºå—çš„å†™å…¥ï¼Œå—é«˜height1ä¹‹å‰çš„å—å’Œheight2ï¼ˆå«ï¼‰ä¹‹åçš„å—å­˜å‚¨åŒºå—æ•°æ®æ—¶éœ€è¦åˆ é™¤å¤šå¸ç§æ•°æ®ï¼ˆé‡æ–°æ„å»ºä¸»å¸ç§æ•°æ®å³å¯ï¼‰
+	if number <= uint64(BlockheaderModifyHeight) { //BlockheaderModifyHeightå—é«˜å’ŒVersionNumEpsilonå—é«˜ä½œä¸ºheight1å’Œheight2çš„ä¸´ç•Œç‚¹ï¼Œéœ€è¦æ›¿æ¢æˆç»Ÿä¸€çš„å®é…ç½®ç®¡ç†
+		//log.Debug("ReadHeader", "å—é«˜height1ä¹‹å‰çš„å—ï¼Œä»åˆ›ä¸–åŒºå—ä¸­è¯»å–å¤šå¸ç§ä¿¡æ¯..."+"number:", number)
+		//è·å–åˆ›ä¸–åŒºå—æ•°æ®
 		ManSharding := header.Sharding[0]
 		ManRoots := header.Roots[0]
 		genesishash := ReadCanonicalHash(db, 0)
 		genesisblock := ReadBlock(db, genesishash, 0)
 
-		//¸ù¾İ¶à±ÒÖÖ¸öÊı´´½¨ÇĞÆ¬ÈİÁ¿
+		//æ ¹æ®å¤šå¸ç§ä¸ªæ•°åˆ›å»ºåˆ‡ç‰‡å®¹é‡
 		header.Sharding = make([]common.Coinbyte, len(genesisblock.Sharding()))
 		header.Roots = make([]common.CoinRoot, len(genesisblock.Root()))
 		header.Sharding[0] = ManSharding
 		header.Roots[0] = ManRoots
-		//Ñ­»·¶ÁÈ¡¶à±ÒÖÖÊı¾İ
+		//å¾ªç¯è¯»å–å¤šå¸ç§æ•°æ®
 		for i := 1; i < len(genesisblock.Sharding()); i++ {
 			header.Sharding[i] = genesisblock.Sharding()[i]
 			header.Roots[i] = genesisblock.Root()[i]
@@ -183,23 +183,23 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 	var (
 		hash    = header.Hash().Bytes()
 		number  = header.Number.Uint64()
-		encoded = encodeBlockNumber(number) //¶ÔÇø¿é¸ß¶È±àÂë
+		encoded = encodeBlockNumber(number) //å¯¹åŒºå—é«˜åº¦ç¼–ç 
 	)
 
-	//±£´æÇø¿éÍ·Êı¾İ
+	//ä¿å­˜åŒºå—å¤´æ•°æ®
 	storeHeader := types.CopyHeader(header)
 
-	//¸ù¾İnumberÇø¿é¸ß¶È·Ö±ğ´¦Àí¸÷¶ÎÇø¿éµÄĞ´Èë£¬¿é¸ßheight1Ö®Ç°µÄ¿éºÍheight2£¨º¬£©Ö®ºóµÄ¿é´æ´¢Çø¿éÊı¾İÊ±ĞèÒªÉ¾³ı¶à±ÒÖÖÈßÓàÊı¾İ£¨ÖØĞÂ¹¹½¨Ö÷±ÒÖÖÊı¾İ¼´¿É£©
-	if number <= uint64(BlockheaderModifyHeight) && number != 0 { //BlockheaderModifyHeight¿é¸ßºÍVersionNumEpsilon¿é¸ß×÷Îªheight1ºÍheight2µÄÁÙ½çµã£¬ĞèÒªÌæ»»³ÉÍ³Ò»µÄºêÅäÖÃ¹ÜÀí
-		//×é×°Ö»ÓĞÖ÷±ÒÖÖRootsºÍShardingµÄÇø¿éÍ·Êı¾İ£¨É¾³ı¶àÓàµÄÇø¿éÍ·ÆäËû¶à±ÒÖÖ£©
-		//log.Debug("blockchain", "number:", number, "--É¾³ı¶à±ÒÖÖÈßÓàÊı¾İ£¬Ö»Ğ´ÈëÖ÷±ÒÖÖRootsºÍ.Sharding")
+	//æ ¹æ®numberåŒºå—é«˜åº¦åˆ†åˆ«å¤„ç†å„æ®µåŒºå—çš„å†™å…¥ï¼Œå—é«˜height1ä¹‹å‰çš„å—å’Œheight2ï¼ˆå«ï¼‰ä¹‹åçš„å—å­˜å‚¨åŒºå—æ•°æ®æ—¶éœ€è¦åˆ é™¤å¤šå¸ç§å†—ä½™æ•°æ®ï¼ˆé‡æ–°æ„å»ºä¸»å¸ç§æ•°æ®å³å¯ï¼‰
+	if number <= uint64(BlockheaderModifyHeight) && number != 0 { //BlockheaderModifyHeightå—é«˜å’ŒVersionNumEpsilonå—é«˜ä½œä¸ºheight1å’Œheight2çš„ä¸´ç•Œç‚¹ï¼Œéœ€è¦æ›¿æ¢æˆç»Ÿä¸€çš„å®é…ç½®ç®¡ç†
+		//ç»„è£…åªæœ‰ä¸»å¸ç§Rootså’ŒShardingçš„åŒºå—å¤´æ•°æ®ï¼ˆåˆ é™¤å¤šä½™çš„åŒºå—å¤´å…¶ä»–å¤šå¸ç§ï¼‰
+		//log.Debug("blockchain", "number:", number, "--åˆ é™¤å¤šå¸ç§å†—ä½™æ•°æ®ï¼Œåªå†™å…¥ä¸»å¸ç§Rootså’Œ.Sharding")
 		storeHeader.Roots = append([]common.CoinRoot{}, header.Roots[0])
 		storeHeader.Sharding = append([]common.Coinbyte{}, header.Sharding[0])
 	}
 
-	//×é½¨number µÄ keyÖµ£¬´øÓĞ headerNumberPrefixÇ°×º
+	//ç»„å»ºnumber çš„ keyå€¼ï¼Œå¸¦æœ‰ headerNumberPrefixå‰ç¼€
 	key := append(headerNumberPrefix, hash...)
-	if err := db.Put(key, encoded); err != nil { //Çø¿é¸ß¶ÈµÄkey,value(¾­¹ı±àÂë£©´æÈëÊı¾İ¿â
+	if err := db.Put(key, encoded); err != nil { //åŒºå—é«˜åº¦çš„key,value(ç»è¿‡ç¼–ç ï¼‰å­˜å…¥æ•°æ®åº“
 		log.Crit("Failed to store hash to number mapping", "err", err)
 	}
 	// Write the encoded header
@@ -211,7 +211,7 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 		log.Crit("Failed to RLP encode header", "err", err)
 	}
 	key = append(append(headerPrefix, encoded...), hash...)
-	if err := db.Put(key, data); err != nil { //Çø¿éÊı¾İµÄkey,value(¾­¹ı±àÂë£©´æÈëÊı¾İ¿â
+	if err := db.Put(key, data); err != nil { //åŒºå—æ•°æ®çš„key,value(ç»è¿‡ç¼–ç ï¼‰å­˜å…¥æ•°æ®åº“
 		log.Crit("Failed to store header", "err", err)
 	}
 }
