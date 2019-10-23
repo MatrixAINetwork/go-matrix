@@ -165,11 +165,11 @@ Testing from our lab stores that for 3000 staked accounts, 212000 have balance a
 
 ### Fixed mining block rewards
 
-1.	In the previous edition block mining rewards were issued once per block. In the update distribution will be once per election  cycle. The cycle payout will be 297 times greater than the single block payout (broadcast nodes don’t participate), the current number is 570.25 MAN.
+1.	In the previous edition block mining rewards were issued once per block. In the update distribution will be once per election  cycle. The cycle payout will be 297 times greater than the single block payout (broadcast nodes don’t participate), the current number is 570.24 MAN.
 2.	An individual miner participation reward is equal to the total miner participation count / miner masternode count.
 3.	In an election cycle, blacklisted nodes don’t receive mining participation awards.
 4.	The mining participation rewards on the update will be reduced from 50% to 40%.
-5.	Miner POW rewards will change from being issued each block to issuing three times the volume (5.6MAN) every third block.
+5.	Miner POW rewards will change from being issued each block to issuing three times the volume (5.76MAN) every third block.
 6.	A fixed 10% of block rewards will be distributed for AI rewards every third block. At the current rate 1.44 MAN (compute method: 10% of the individual block mining rewards times 3).
 
 
