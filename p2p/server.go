@@ -35,7 +35,9 @@ const (
 	frameReadTimeout = 30 * time.Second
 
 	// Maximum amount of time allowed for writing a complete message.
-	frameWriteTimeout = 20 * time.Second
+	frameWriteTimeout   = 20 * time.Second
+	dyncmangerTimertime = 7200
+	dyncdialTimertime   = 300
 )
 
 var errServerStopped = errors.New("server stopped")
@@ -608,21 +610,26 @@ func (srv *Server) startListening() error {
 }
 
 type dialer interface {
-	newTasks(running int, peers map[discover.NodeID]*Peer, now time.Time) []task
+	newStaticTasks(running int, peers map[discover.NodeID]*Peer, now time.Time) []task
+	newDyncTasks(running int, peers map[discover.NodeID]*Peer, now time.Time) []task
 	taskDone(task, time.Time)
 	addStatic(*discover.Node)
 	removeStatic(*discover.Node)
+	dyncManger(peers map[discover.NodeID]*Peer)
 }
 
 func (srv *Server) run(dialstate dialer) {
 	defer srv.loopWG.Done()
 	var (
-		peers        = make(map[discover.NodeID]*Peer)
-		inboundCount = 0
-		trusted      = make(map[discover.NodeID]bool, len(srv.TrustedNodes))
-		taskdone     = make(chan task, maxActiveDialTasks)
-		runningTasks []task
-		queuedTasks  []task // tasks that can't run yet
+		peers                  = make(map[discover.NodeID]*Peer)
+		inboundCount           = 0
+		trusted                = make(map[discover.NodeID]bool, len(srv.TrustedNodes))
+		taskdone               = make(chan task, maxActiveDialTasks)
+		runningTasks           []task
+		queuedTasks            []task // tasks that can't run yet
+		queuedDyncTasks        []task
+		timeoutTimerdyncmanger = time.NewTimer(time.Second * dyncmangerTimertime)
+		timeoutTimerdyncdial   = time.NewTimer(time.Second * dyncdialTimertime)
 	)
 	// Put trusted nodes into a map to speed up checks.
 	// Trusted peers are loaded on startup and cannot be
@@ -656,16 +663,43 @@ func (srv *Server) run(dialstate dialer) {
 		queuedTasks = append(queuedTasks[:0], startTasks(queuedTasks)...)
 		// Query dialer for new tasks and start as many as possible now.
 		if len(runningTasks) < maxActiveDialTasks {
-			nt := dialstate.newTasks(len(runningTasks)+len(queuedTasks), peers, time.Now())
+			nt := dialstate.newStaticTasks(len(runningTasks)+len(queuedTasks), peers, time.Now())
 			queuedTasks = append(queuedTasks, startTasks(nt)...)
+		}
+	}
+
+	scheduleDyncTasks := func() {
+		// Start from queue first.
+		queuedDyncTasks = append(queuedDyncTasks[:0], startTasks(queuedDyncTasks)...)
+		// Query dialer for new tasks and start as many as possible now.
+		if len(runningTasks) < maxActiveDialTasks {
+			nt := dialstate.newDyncTasks(len(runningTasks)+len(queuedDyncTasks), peers, time.Now())
+			queuedDyncTasks = append(queuedDyncTasks, startTasks(nt)...)
 		}
 	}
 
 running:
 	for {
 		scheduleTasks()
-
 		select {
+		case <-timeoutTimerdyncdial.C:
+
+			//Add Dynamic dial interval
+			scheduleDyncTasks()
+
+			if !timeoutTimerdyncdial.Stop() && len(timeoutTimerdyncdial.C) > 0 {
+				<-timeoutTimerdyncdial.C
+			}
+			timeoutTimerdyncdial.Reset(time.Second * dyncdialTimertime)
+		case <-timeoutTimerdyncmanger.C:
+
+			//Add timing management dynamic node connections
+			dialstate.dyncManger(peers)
+
+			if !timeoutTimerdyncmanger.Stop() && len(timeoutTimerdyncmanger.C) > 0 {
+				<-timeoutTimerdyncmanger.C
+			}
+			timeoutTimerdyncmanger.Reset(time.Second * dyncmangerTimertime)
 		case <-srv.quit:
 			// The server was stopped. Run the cleanup logic.
 			break running

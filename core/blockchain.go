@@ -26,7 +26,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/mclock"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
-	"github.com/MatrixAINetwork/go-matrix/consensus/mtxdpos"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/rawdb"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
@@ -47,6 +46,7 @@ import (
 	//"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
 	"github.com/MatrixAINetwork/go-matrix/params/enstrust"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 )
 
 var (
@@ -139,10 +139,11 @@ type BlockChain struct {
 	validator  map[string]Validator // block and state validator interface
 
 	defaultEngine     consensus.Engine
-	defaultDposEngine consensus.DPOSEngine
+	defaultDPOSEngine consensus.DPOSEngine
 	defaultProcessor  Processor
 	defaultValidator  Validator
-	vmConfig          vm.Config
+
+	vmConfig vm.Config
 
 	badBlocks *lru.Cache // Bad block cache
 	msgceter  *mc.Center
@@ -162,7 +163,7 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Matrix Validator and
 // Processor.
-func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, vmConfig vm.Config, engine map[string]consensus.Engine, dposEngine map[string]consensus.DPOSEngine) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
 			TrieNodeLimit: 256 * 1024 * 1024,
@@ -198,15 +199,7 @@ func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 	bc.topologyStore = NewTopologyStore(bc)
 
-	validator := NewBlockValidator(chainConfig, bc, engine)
-	processor := NewStateProcessor(chainConfig, bc, engine)
-	bc.SetValidator(manparams.VersionAlpha, validator)
-	bc.SetProcessor(manparams.VersionAlpha, processor)
-	bc.engine[manparams.VersionAlpha] = engine
-	dpos := mtxdpos.NewMtxDPOS(chainConfig.SimpleMode)
-	bc.dposEngine[manparams.VersionAlpha] = dpos
-
-	bc.defaultEngine, bc.defaultDposEngine, bc.defaultProcessor, bc.defaultValidator = engine, dpos, processor, validator
+	bc.initVersionConfig(chainConfig, engine, dposEngine)
 
 	bc.RegisterMatrixStateDataProducer(mc.MSKeyTopologyGraph, bc.topologyStore.ProduceTopologyStateData)
 	bc.RegisterMatrixStateDataProducer(mc.MSKeyBroadcastInterval, ProduceBroadcastIntervalData)
@@ -216,8 +209,8 @@ func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err != nil {
 		return nil, err
 	}
-	bc.hc.SetEngine(manparams.VersionAlpha, engine)
-	bc.hc.SetDposEngine(manparams.VersionAlpha, dpos)
+	bc.hc.SetEngine(manversion.VersionAlpha, engine[manversion.VersionAlpha])
+	bc.hc.SetDposEngine(manversion.VersionAlpha, dposEngine[manversion.VersionAlpha])
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
@@ -253,7 +246,7 @@ func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *par
 			case <-reqCh:
 				block := chain.CurrentBlock()
 				num := block.Number().Uint64()
-				log.DEBUG("MAIN", "本地区块插入消息已发送", num, "hash", block.Hash())
+				log.Debug("MAIN", "本地区块插入消息已发送", num, "hash", block.Hash())
 				mc.PublishEvent(mc.NewBlockMessage, block)
 				sub.Unsubscribe()
 				close(reqCh)
@@ -261,7 +254,7 @@ func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *par
 			}
 		}(bc, reqCh, sub)
 	} else {
-		log.ERROR(ModuleName, "订阅CA请求当前区块事件失败", err)
+		log.Error(ModuleName, "订阅CA请求当前区块事件失败", err)
 	}
 
 	manparams.SetStateReader(bc)
@@ -269,6 +262,26 @@ func NewBlockChain(db mandb.Database, cacheConfig *CacheConfig, chainConfig *par
 	// Take ownership of this particular state
 	go bc.update()
 	return bc, nil
+}
+
+func (bc *BlockChain) initVersionConfig(chainConfig *params.ChainConfig, engine map[string]consensus.Engine, dposEngine map[string]consensus.DPOSEngine) {
+	bc.engine = engine
+	bc.dposEngine = dposEngine
+
+	for version, item := range bc.engine {
+		validator := NewBlockValidator(chainConfig, bc, item)
+		processor := NewStateProcessor(chainConfig, bc, item)
+		bc.SetValidator(version, validator)
+		bc.SetProcessor(version, processor)
+
+		if version == manversion.VersionAlpha {
+			bc.defaultProcessor = processor
+			bc.defaultValidator = validator
+		}
+	}
+
+	bc.defaultEngine = engine[manversion.VersionAlpha]
+	bc.defaultDPOSEngine = dposEngine[manversion.VersionAlpha]
 }
 
 func (bc *BlockChain) getProcInterrupt() bool {
@@ -294,8 +307,8 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	// Make sure the state associated with the block is available
 	if _, err := state.NewStateDBManage(currentBlock.Root(), bc.db, bc.stateCache); err != nil {
-		log.INFO("Get State Err", "err", err)
-		//log.INFO("Get State Err", "root", currentBlock.Root().TerminalString(), "err", err)
+		log.Info("Get State Err", "err", err)
+		//log.Info("Get State Err", "root", currentBlock.Root().TerminalString(), "err", err)
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 		if err := bc.repair(&currentBlock); err != nil {
@@ -510,7 +523,7 @@ func (bc *BlockChain) repair(head **types.Block) error {
 	for {
 		// Abort if we've rewound to a head block that does have associated state
 		if _, err := state.NewStateDBManage((*head).Root(), bc.db, bc.stateCache); err == nil {
-			log.WARN("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
+			log.Warn("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
 			return nil
 		}
 		// Otherwise rewind one block and recheck state availability there
@@ -804,7 +817,7 @@ func (bc *BlockChain) procFutureBlocks() {
 
 		// Insert one by one as chain insertion needs contiguous ancestry between blocks
 		for i := range blocks {
-			bc.InsertChain(blocks[i : i+1],0)
+			bc.InsertChain(blocks[i:i+1], 0)
 		}
 	}
 }
@@ -1107,7 +1120,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, state *state.State
 		}
 	}
 	if isok {
-		log.INFO("blockChain", "WriteBlockWithState", "root信息", "root", roothash, "header root", blockroothash, "intermediateRoot",
+		log.Info("blockChain", "WriteBlockWithState", "root信息", "root", roothash, "header root", blockroothash, "intermediateRoot",
 			types.RlpHash(intermediateRoot), "intermediateSharding", types.RlpHash(intermediateSharding), "deleteEmptyObjects", deleteEmptyObjects)
 		return NonStatTy, errors.New("root not match")
 	}
@@ -1176,7 +1189,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, state *state.State
 	}
 
 	var reorg bool
-	if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+	if manversion.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
 		reorg = bc.isGammaCanonicalChain(remoteSuperBlkCfg, block, currentBlock)
 	} else {
 		localSbs, err := bc.GetSuperBlockSeq()
@@ -1260,7 +1273,7 @@ func (bc *BlockChain) isGammaCanonicalChain(superBlkCfg *mc.SuperBlkCfg, block *
 
 func (bc *BlockChain) superBlkRewind(block *types.Block, oldBlock *types.Block) {
 	if oldBlock.NumberU64() >= block.NumberU64() {
-		log.INFO(ModuleName, "rewind to", block.NumberU64()-1)
+		log.Info(ModuleName, "rewind to", block.NumberU64()-1)
 
 		delFn := func(hash common.Hash, num uint64) {
 			rawdb.DeleteBody(bc.db, hash, num)
@@ -1279,14 +1292,14 @@ func (bc *BlockChain) superBlkRewind(block *types.Block, oldBlock *types.Block) 
 // wrong.
 //
 // After insertion is done, all accumulated events will be fired.
-func (bc *BlockChain) InsertChain(chain types.Blocks,flg int) (int, error) {
-	n, events, logs, err := bc.insertChain(chain,flg)
+func (bc *BlockChain) InsertChain(chain types.Blocks, flg int) (int, error) {
+	n, events, logs, err := bc.insertChain(chain, flg)
 	bc.PostChainEvents(events, logs)
 	return n, err
 }
 
 func (bc *BlockChain) InsertChainNotify(chain types.Blocks, notify bool) (int, error) {
-	n, events, logs, err := bc.insertChain(chain,0)
+	n, events, logs, err := bc.insertChain(chain, 0)
 	if notify {
 		bc.PostChainEvents(events, logs)
 	}
@@ -1311,10 +1324,10 @@ func (r *randSeed) GetRandom(hash common.Hash, Type string) (*big.Int, error) {
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
-func (bc *BlockChain) insertChain(chain types.Blocks,flg int) (int, []interface{}, []types.CoinLogs, error) {
+func (bc *BlockChain) insertChain(chain types.Blocks, flg int) (int, []interface{}, []types.CoinLogs, error) {
 
 	// Do a sanity check that the provided chain is actually ordered and linked
-	log.Trace("BlockChain insertChain in","flg",flg)
+	log.Trace("BlockChain insertChain in", "flg", flg)
 	for i := 1; i < len(chain); i++ {
 		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {
 			// Chain broke ancestry, log a messge (programming error) and skip insertion
@@ -1336,9 +1349,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks,flg int) (int, []interface{
 	// faster than direct delivery and requires much less mutex
 	// acquiring.
 	if flg == 1 && len(chain) == 1 {
-		if bc.CurrentBlock().NumberU64() >= chain[0].NumberU64() {
-			log.Error("fetch insert blockchain error,err known", "current block", bc.CurrentBlock().NumberU64(), "insert num", chain[0].NumberU64())
-			return 0,nil,nil,fmt.Errorf("fetch insert blockchain error,err known")
+		hasBlock := bc.GetBlockByHash(chain[0].Hash())
+		if nil != hasBlock {
+			return 0, nil, nil, fmt.Errorf("fetch insert blockchain error block has exist, err known")
 		}
 	}
 	var (
@@ -1378,7 +1391,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks,flg int) (int, []interface{
 		if manparams.IsBroadcastNumberByHash(block.NumberU64(), block.ParentHash()) || block.IsSuperBlock() {
 			seal = false
 		}
-		err := bc.Engine(header.Version).VerifyHeader(bc, header, seal)
+		err := bc.Engine(header.Version).VerifyHeader(bc, header, seal, false)
 		if err == nil {
 			err = bc.Validator(header.Version).ValidateBody(block)
 		}
@@ -1439,7 +1452,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks,flg int) (int, []interface{
 			}
 			// Import all the pruned blocks to make the state available
 			bc.chainmu.Unlock()
-			_, evs, logs, err := bc.insertChain(winner,0)
+			_, evs, logs, err := bc.insertChain(winner, 0)
 			bc.chainmu.Lock()
 			events, coalescedLogs = evs, logs
 
@@ -1799,7 +1812,7 @@ func (bc *BlockChain) sendBroadTx() {
 	}
 	bcInterval, err := matrixstate.GetBroadcastInterval(st)
 	if err != nil {
-		log.ERROR("sendBroadTx", "获取广播周期失败", err)
+		log.Error("sendBroadTx", "获取广播周期失败", err)
 		return
 	}
 
@@ -1811,14 +1824,14 @@ func (bc *BlockChain) sendBroadTx() {
 		viSendHeartTx = true
 		//广播区块的roothash与99取余如果与广播账户与99取余的结果一样那么发送广播交易
 
-		log.INFO(ModuleName, "sendBroadTx获取所有心跳交易", "")
+		log.Info(ModuleName, "sendBroadTx获取所有心跳交易", "")
 
 		preBroadcastRoot, err := matrixstate.GetPreBroadcastRoot(st)
 		if err != nil {
 			log.Error(ModuleName, "获取之前广播区块的root值失败 err", err)
 			return
 		}
-		log.INFO(ModuleName, "sendBroadTx获取最新的root", types.RlpHash(preBroadcastRoot.LastStateRoot).String())
+		log.Info(ModuleName, "sendBroadTx获取最新的root", types.RlpHash(preBroadcastRoot.LastStateRoot).String())
 		currentAcc := ca.GetDepositAddress().Big()
 		ret := new(big.Int).Rem(currentAcc, big.NewInt(int64(bcInterval.BCInterval)-1))
 		broadcastBlock := types.RlpHash(preBroadcastRoot.LastStateRoot).Big()
@@ -2014,7 +2027,7 @@ func (bc *BlockChain) DPOSEngine(version []byte) consensus.DPOSEngine {
 	if dposEngine, ok := bc.dposEngine[string(version)]; ok {
 		return dposEngine
 	}
-	return bc.defaultDposEngine
+	return bc.defaultDPOSEngine
 }
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
@@ -2040,10 +2053,6 @@ func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Su
 // SubscribeLogsEvent registers a subscription of []*types.Log.
 func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []types.CoinLogs) event.Subscription {
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
-}
-
-func (bc *BlockChain) VerifyHeader(header *types.Header) error {
-	return bc.Engine(header.Version).VerifyHeader(bc, header, false)
 }
 
 func (bc *BlockChain) SetDposEngine(version string, dposEngine consensus.DPOSEngine) {
@@ -2115,7 +2124,7 @@ func (bc *BlockChain) InsertSuperBlock(superBlockGen *Genesis, notify bool) (*ty
 	superBlock := bc.GetBlockByNumber(sbh)
 	if nil != superBlock {
 		if block.Hash() == superBlock.Hash() {
-			log.WARN(ModuleName, "has the same super block", "")
+			log.Warn(ModuleName, "has the same super block", "")
 			return block, nil
 		}
 	}
@@ -2214,7 +2223,7 @@ func (bc *BlockChain) GetSignAccountPassword(signAccounts []common.Address) (com
 			return signAccount, password, nil
 		}
 	}
-	log.ERROR(common.SignLog, "获取签名账户密码", "失败, 未找到")
+	log.Error(common.SignLog, "获取签名账户密码", "失败, 未找到")
 	return common.Address{}, "", errors.New("未找到密码")
 }
 
@@ -2228,7 +2237,7 @@ func (bc *BlockChain) GetA2AccountsFromA1Account(a1Account common.Address, block
 	//根据区块高度、A1账户从区块链数据库中获取A2账户
 	a2Accounts = st.GetEntrustFrom(params.MAN_COIN, a1Account, height)
 	if len(a2Accounts) == 0 {
-		log.INFO(common.SignLog, "获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "高度", height)
+		log.Info(common.SignLog, "获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "高度", height)
 	}
 	a2Accounts = append(a2Accounts, a1Account)
 	//返回A2账户
@@ -2241,13 +2250,13 @@ func (bc *BlockChain) GetA1AccountFromA2Account(a2Account common.Address, block 
 	/*
 		block := bc.GetBlockByHash(blockHash)
 		if block == nil {
-			log.ERROR(common.SignLog, "从A2账户获取A1账户", "失败", "根据区块hash算区块失败", "err")
+			log.Error(common.SignLog, "从A2账户获取A1账户", "失败", "根据区块hash算区块失败", "err")
 			return common.Address{}, errors.Errorf("获取区块(%s)失败", blockHash.TerminalString())
 		}
 		//根据区块根得到区块链数据库
 		st, err := bc.StateAt(block.Root())
 		if err != nil {
-			log.ERROR(common.SignLog, "从A2账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
+			log.Error(common.SignLog, "从A2账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
 			return common.Address{}, errors.New("获取stateDB失败")
 		}
 	*/
@@ -2307,13 +2316,13 @@ func (bc *BlockChain) GetA2AccountsFromA0Account(a0Account common.Address, block
 	//根据区块哈希得到区块
 	block := bc.GetBlockByHash(blockHash)
 	if block == nil {
-		log.ERROR(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块hash获取区块失败", "err")
+		log.Error(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块hash获取区块失败", "err")
 		return nil, errors.Errorf("获取区块(%s)失败", blockHash.TerminalString())
 	}
 	//根据区块根得到区块链数据库
 	st, err := bc.getStateCache(block.Root())
 	if err != nil {
-		log.ERROR(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
+		log.Error(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
 		return nil, errors.New("获取stateDB失败")
 	}
 
@@ -2333,13 +2342,13 @@ func (bc *BlockChain) GetA0AccountFromAnyAccount(account common.Address, blockHa
 	//根据区块哈希得到区块
 	block := bc.GetBlockByHash(blockHash)
 	if block == nil {
-		log.ERROR(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块hash获取区块失败", "err")
+		log.Error(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块hash获取区块失败", "err")
 		return common.Address{}, common.Address{}, errors.Errorf("获取区块(%s)失败", blockHash.TerminalString())
 	}
 	//根据区块根得到区块链数据库
 	st, err := bc.getStateCache(block.Root())
 	if err != nil {
-		log.ERROR(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
+		log.Error(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
 		return common.Address{}, common.Address{}, errors.New("获取stateDB失败")
 	}
 	//假设传入的account为A1账户
@@ -2368,13 +2377,13 @@ func (bc *BlockChain) GetA2AccountsFromA0AccountAtSignHeight(a0Account common.Ad
 	//根据区块哈希得到区块
 	block := bc.GetBlockByHash(blockHash)
 	if block == nil {
-		log.ERROR(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块hash获取区块失败", "err")
+		log.Error(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块hash获取区块失败", "err")
 		return nil, errors.Errorf("获取区块(%s)失败", blockHash.TerminalString())
 	}
 	//根据区块根得到区块链数据库
 	st, err := bc.getStateCache(block.Root())
 	if err != nil {
-		log.ERROR(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
+		log.Error(common.SignLog, "从A0账户获取A1账户", "失败", "根据区块root获取状态树失败 err", err)
 		return nil, errors.New("获取stateDB失败")
 	}
 	a1Account, err := bc.GetA1AccountFromA0Account(a0Account, block, st)
@@ -2394,7 +2403,7 @@ func (bc *BlockChain) GetA2AccountsFromA1AccountAtSignHeight(a1Account common.Ad
 	//根据区块高度、A1账户从区块链数据库中获取A2账户
 	a2Accounts = st.GetEntrustFrom(params.MAN_COIN, a1Account, signHeight)
 	if len(a2Accounts) == 0 {
-		log.INFO(common.SignLog, "获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
+		log.Info(common.SignLog, "获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
 	}
 	a2Accounts = append(a2Accounts, a1Account)
 	//返回A2账户
@@ -2405,13 +2414,13 @@ func (bc *BlockChain) GetA2AccountsFromA1AccountAtSignHeight(a1Account common.Ad
 func (bc *BlockChain) GetA0AccountFromAnyAccountAtSignHeight(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error) {
 	block := bc.GetBlockByHash(blockHash)
 	if block == nil {
-		log.ERROR(common.SignLog, "从A1账户获取A0账户", "失败", "根据区块hash获取区块失败", "err")
+		log.Error(common.SignLog, "从A1账户获取A0账户", "失败", "根据区块hash获取区块失败", "err")
 		return common.Address{}, common.Address{}, nil
 	}
 	//根据区块根得到区块链数据库
 	st, err := bc.getStateCache(block.Root())
 	if err != nil {
-		log.ERROR(common.SignLog, "从A1账户获取A0账户", "失败", "根据区块root获取状态树失败 err", err)
+		log.Error(common.SignLog, "从A1账户获取A0账户", "失败", "根据区块root获取状态树失败 err", err)
 		return common.Address{}, common.Address{}, nil
 	}
 	//假设传入的account为A1账户
@@ -2469,7 +2478,7 @@ func (bc *BlockChain) SynSnapshot(blockNum uint64, hash string, filePath string)
 
 	if blockNum != 0 {
 		if blockNum <= bc.CurrentBlock().NumberU64() {
-			log.DEBUG("BlockChain synSnapshot", "the blockNum is too low ,sblockNum", blockNum)
+			log.Debug("BlockChain synSnapshot", "the blockNum is too low ,sblockNum", blockNum)
 			return 0, false
 		}
 	}
@@ -2482,8 +2491,17 @@ func (bc *BlockChain) SynSnapshot(blockNum uint64, hash string, filePath string)
 	var snapshotDatas snapshot.SnapshotDatas
 	rlperr := rlp.DecodeBytes(rb, &snapshotDatas)
 	if rlperr != nil {
-		log.Error("BlockChain synSnapshot", "Unmarshal TrieData err: ", rlperr)
-		return 0, false
+		var oldsnapshotDatas snapshot.SnapshotDatasV1
+		rlperr := rlp.DecodeBytes(rb, &oldsnapshotDatas)
+		if rlperr != nil {
+			log.Error("BlockChain synSnapshot", "Unmarshal TrieData err: ", rlperr)
+			return 0, false
+		}
+		snapshotDatas.OtherTries = oldsnapshotDatas.OtherTries
+		snapshotDatas.Datas = make([]snapshot.SnapshotData, 0)
+		for _, v := range oldsnapshotDatas.Datas {
+			snapshotDatas.Datas = append(snapshotDatas.Datas, snapshot.SnapshotData{CoinTries: v.CoinTries, Seq: v.Seq, Td: v.Td, Block: *(v.Block.TransferBlock())})
+		}
 	}
 	if blockNum != 0 {
 		if blockNum != snapshotDatas.Datas[len(snapshotDatas.Datas)-1].Block.NumberU64() {
@@ -2520,14 +2538,14 @@ func (bc *BlockChain) SynSnapshot(blockNum uint64, hash string, filePath string)
 		currentBlock.SetHeadNum(block.Number().Int64())
 		err := bc.WriteBlockWithoutState(&block, snapshotData.Td)
 		if err != nil {
-			log.ERROR("BlockChain synSnapshot", " Failed writing block to chain", err)
+			log.Error("BlockChain synSnapshot", " Failed writing block to chain", err)
 		}
 		rawdb.WriteHeadHeaderHash(bc.GetDB(), block.Hash())
 		rawdb.WriteHeadBlockHash(bc.GetDB(), block.Hash())
 		rawdb.WriteHeadFastBlockHash(bc.GetDB(), block.Hash())
 		rawdb.WriteCanonicalHash(bc.GetDB(), block.Hash(), block.NumberU64())
 		bc.CurrentBlockStore(&block)
-		log.INFO("BlockChain synSnapshot super", "block insert ok, number", block.NumberU64())
+		log.Info("BlockChain synSnapshot super", "block insert ok, number", block.NumberU64())
 
 	}
 	return snapBlockNum, true
@@ -2606,14 +2624,17 @@ func (bc *BlockChain) LoadDumps(dumps []state.DumpDB, number int64) bool {
 
 }
 
+const (
+	MaxTraceBackCommonBlockNum = 50
+	)
 func (bc *BlockChain) SaveSnapshot(blockNum uint64, period uint64, NewBlocknum uint64) {
-
 	var sblock *types.Block
 	var superSeq uint64
 	var superNum uint64
 	log.Info("BlockChain savesnapshot enter", "blockNum", blockNum, "saveSnapPeriod", SaveSnapPeriod, "saveSnapStart", SaveSnapStart, "NewBlocknum", NewBlocknum)
 	if NewBlocknum == 0 {
-		if SaveSnapStart < 4 || SaveSnapStart > blockNum {
+		//保存指定个数的普通区块和1个superblock
+		if SaveSnapStart < (MaxTraceBackCommonBlockNum + 1) || SaveSnapStart > blockNum {
 			return
 		}
 		times := blockNum / uint64(period)
@@ -2631,9 +2652,9 @@ func (bc *BlockChain) SaveSnapshot(blockNum uint64, period uint64, NewBlocknum u
 		nums = make([]uint64, 0)
 
 		haveSuperBlock := false
-		nums = append(nums, num)
-		nums = append(nums, num-1)
-		nums = append(nums, num-2)
+		for i := uint64(0); i < MaxTraceBackCommonBlockNum; i++{
+			nums = append(nums, num - i)
+		}
 
 		for _, value := range nums {
 			if bc.GetBlockByNumber(value).IsSuperBlock() {
@@ -2641,13 +2662,13 @@ func (bc *BlockChain) SaveSnapshot(blockNum uint64, period uint64, NewBlocknum u
 				superNum, superSeq, _ = bc.GetBlockSuperBlockInfo(sblock.Hash())
 				log.Info("BlockChain savesnapshot superblock", "superNum", superNum, "superSeq", superSeq)
 				if superNum != value {
-					log.ERROR("BlockChain savesnapshot get superblock error", "number", value, "superNum", superNum)
+					log.Error("BlockChain savesnapshot get superblock error", "number", value, "superNum", superNum)
 				}
 				break
 			}
 		}
 		if haveSuperBlock {
-			nums = append(nums, num-3)
+			nums = append(nums, num - MaxTraceBackCommonBlockNum)
 		} else {
 			//增加超级区块
 			var err error = nil
@@ -2668,7 +2689,7 @@ func (bc *BlockChain) SaveSnapshot(blockNum uint64, period uint64, NewBlocknum u
 		Datas: make([]snapshot.SnapshotData, 0),
 	}
 
-	tmpstatedb, stateerr := bc.StateAtBlockHash(sblock.Hash()) //bc.State()
+	tmpstatedb, stateerr := bc.StateAtBlockHash(sblock.Hash())
 	if stateerr != nil {
 		log.Error("BlockChain savesnapshot ", "open state fialed,err ", stateerr)
 		return
@@ -2724,21 +2745,21 @@ func (bc *BlockChain) SaveSnapshot(blockNum uint64, period uint64, NewBlocknum u
 			snapshotData := snapshot.SnapshotData{coinTries, td, *block, Seq}
 			snapshotDatas.Datas = append(snapshotDatas.Datas, snapshotData)
 		} else {
-			log.ERROR("BlockChain savesnapshot ", "GetBlockByNumber  error ,blkNum ", correct)
+			log.Error("BlockChain savesnapshot ", "GetBlockByNumber  error ,blkNum ", correct)
 		}
 	}
 	wb, err := rlp.EncodeToBytes(&snapshotDatas)
 	if err != nil {
-		log.ERROR("BlockChain savesnapshot ", "encode  err: ", err)
+		log.Error("BlockChain savesnapshot ", "encode  err: ", err)
 	}
 	filePath = path.Join(snapshot.SNAPDIR, "/TrieData"+strconv.Itoa(int(nums[len(nums)-1])))
 	f, ferr := os.Create(filePath)
 	if ferr != nil {
-		log.ERROR("BlockChain Create TrieData", "ferr", ferr, "f", f)
+		log.Error("BlockChain Create TrieData", "ferr", ferr, "f", f)
 	}
 	count, err := f.Write(wb)
 	if err != nil {
-		log.ERROR("BlockChain savesnapshot ", "Write snapshot err: ", err)
+		log.Error("BlockChain savesnapshot ", "Write snapshot err: ", err)
 	} else {
 		log.Info("BlockChain savesnapshot ", "Write snapshot bytes : ", count)
 	}

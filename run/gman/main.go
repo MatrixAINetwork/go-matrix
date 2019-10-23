@@ -34,6 +34,7 @@ import (
 	_ "github.com/MatrixAINetwork/go-matrix/crypto/vrf"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layered"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layeredbss"
+	_ "github.com/MatrixAINetwork/go-matrix/election/layereddp"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layeredmep"
 	_ "github.com/MatrixAINetwork/go-matrix/election/nochoice"
 	_ "github.com/MatrixAINetwork/go-matrix/election/stock"
@@ -325,7 +326,7 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 	if err := stack.Service(&matrix); err != nil {
 		utils.Fatalf("Matrix service not running :%v", err)
 	}
-	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
+	log.Info("MainBootNode", "data", params.MainnetBootnodes)
 
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
@@ -342,20 +343,17 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 			type threaded interface {
 				SetThreads(threads int)
 			}
-			if th, ok := matrix.Engine().(threaded); ok {
-				th.SetThreads(threads)
-			}
-		}
-		// Set the gas price to the limits from the CLI and start mining
-		//matrix.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
-		if err := matrix.StartMining(true); err != nil {
-			utils.Fatalf("Failed to start mining: %v", err)
 
+			for _, engine := range matrix.EngineAll() {
+				if th, ok := engine.(threaded); ok {
+					th.SetThreads(threads)
+				}
+			}
 		}
 	}
 }
 func Init_Config_PATH(ctx *cli.Context) {
-	log.INFO("开始读取配置文件", "", "")
+	log.Info("开始读取配置文件", "", "")
 	config_dir := utils.MakeDataDir(ctx)
 	if config_dir == "" {
 		log.Error("无创世文件", "请在启动时使用--datadir", "")

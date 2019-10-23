@@ -22,7 +22,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
-const Version = 8
+const Version = 9
 
 // Errors
 var (

@@ -159,7 +159,7 @@ func (self *BlockVerify) handleLeaderChangeNotify(leaderMsg *mc.LeaderChangeNoti
 	msgNumber := leaderMsg.Number
 	process, err := self.processManage.GetProcess(msgNumber)
 	if err != nil {
-		log.INFO(self.logExtraInfo(), "Leader变更消息 获取Process失败", err)
+		log.Info(self.logExtraInfo(), "Leader变更消息 获取Process失败", err)
 		return
 	}
 
@@ -173,13 +173,13 @@ func (self *BlockVerify) handleRequestMsg(reqMsg *mc.HD_BlkConsensusReqMsg) {
 	}
 	log.Debug(self.logExtraInfo(), "区块共识请求消息", "开始处理", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn.String(), "Leader", reqMsg.Header.Leader.Hex())
 	if (reqMsg.Header.Leader == common.Address{}) {
-		log.WARN(self.logExtraInfo(), "请求消息", "leader is nil")
+		log.Warn(self.logExtraInfo(), "请求消息", "leader is nil")
 		return
 	}
 	msgNumber := reqMsg.Header.Number.Uint64()
 	process, err := self.processManage.GetProcess(msgNumber)
 	if err != nil {
-		log.INFO(self.logExtraInfo(), "请求消息 获取Process失败", err)
+		log.Info(self.logExtraInfo(), "请求消息 获取Process失败", err)
 		return
 	}
 
@@ -188,19 +188,19 @@ func (self *BlockVerify) handleRequestMsg(reqMsg *mc.HD_BlkConsensusReqMsg) {
 
 func (self *BlockVerify) handleLocalRequestMsg(localReq *mc.LocalBlockVerifyConsensusReq) {
 	if nil == localReq || nil == localReq.BlkVerifyConsensusReq {
-		log.WARN(self.logExtraInfo(), "本地请求消息", "msg is nil")
+		log.Warn(self.logExtraInfo(), "本地请求消息", "msg is nil")
 		return
 	}
 	msgNumber := localReq.BlkVerifyConsensusReq.Header.Number.Uint64()
 	log.Trace(self.logExtraInfo(), "本地请求消息处理", "开始", "高度", msgNumber)
 	defer log.Trace(self.logExtraInfo(), "本地请求消息处理", "结束", "高度", msgNumber)
 	if (localReq.BlkVerifyConsensusReq.Header.Leader == common.Address{}) {
-		log.WARN(self.logExtraInfo(), "本地请求消息", "leader is nil")
+		log.Warn(self.logExtraInfo(), "本地请求消息", "leader is nil")
 		return
 	}
 	process, err := self.processManage.GetProcess(msgNumber)
 	if err != nil {
-		log.INFO(self.logExtraInfo(), "本地请求消息 获取Process失败", err)
+		log.Info(self.logExtraInfo(), "本地请求消息 获取Process失败", err)
 		return
 	}
 
@@ -242,7 +242,7 @@ func (self *BlockVerify) handleRecoveryMsg(msg *mc.RecoveryStateMsg) {
 	curProcess := self.processManage.GetCurrentProcess()
 	if curProcess != nil {
 		if curProcess.number != number {
-			log.INFO(self.logExtraInfo(), "状态恢复消息", "高度不是当前处理高度，忽略消息", "高度", number, "当前高度", curProcess.number)
+			log.Info(self.logExtraInfo(), "状态恢复消息", "高度不是当前处理高度，忽略消息", "高度", number, "当前高度", curProcess.number)
 			return
 		}
 		curProcess.ProcessRecoveryMsg(msg)

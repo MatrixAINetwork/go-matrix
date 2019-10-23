@@ -802,7 +802,7 @@ func (md *MatrixDeposit001) ConversionDeposit(contract *Contract, statedb StateD
 		}
 		encodeDeposit, err := rlp.EncodeToBytes(depositlist)
 		if err != nil {
-			log.ERROR("translateDeposit", "rlp encode err", err)
+			log.Error("translateDeposit", "rlp encode err", err)
 			return nil
 		}
 		depositKeystr := append(deposit.Address[:], 'A', '0')

@@ -58,17 +58,17 @@ func CheckVoteDataIsCompare(private []byte, public []byte) bool {
 	curve := btcec.S256()
 	pk1, err := btcec.ParsePubKey(public, curve)
 	if err != nil {
-		log.WARN(ModeleRandomCommon, "比对公私钥数据阶段 转换公钥失败:", err)
+		log.Warn(ModeleRandomCommon, "比对公私钥数据阶段 转换公钥失败:", err)
 		return false
 	}
 	if pk1 == nil {
-		log.WARN(ModeleRandomCommon, "比对公私钥数据阶段 转换的公钥为空:", err)
+		log.Warn(ModeleRandomCommon, "比对公私钥数据阶段 转换的公钥为空:", err)
 		return false
 	}
 
 	pk1_1 := (*ecdsa.PublicKey)(pk1)
 	if pk1_1 == nil {
-		log.WARN(ModeleRandomCommon, "比对公私钥数据阶段 公钥转换失败", "空")
+		log.Warn(ModeleRandomCommon, "比对公私钥数据阶段 公钥转换失败", "空")
 		return false
 	}
 

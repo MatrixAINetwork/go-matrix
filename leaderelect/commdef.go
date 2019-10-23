@@ -32,8 +32,8 @@ var (
 type Matrix interface {
 	BlockChain() *core.BlockChain
 	SignHelper() *signhelper.SignHelper
-	DPOSEngine() consensus.DPOSEngine
-	Engine() consensus.Engine
+	DPOSEngine(version string) consensus.DPOSEngine
+	Engine(version string) consensus.Engine
 	HD() *msgsend.HD
 	FetcherNotify(hash common.Hash, number uint64, addr common.Address)
 }

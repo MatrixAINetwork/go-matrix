@@ -5,6 +5,7 @@ package msgsend
 
 import (
 	"encoding/json"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
@@ -36,6 +37,12 @@ func (self *HD) initCodec() {
 	self.registerCodec(mc.HD_V2_LeaderReelectVote, new(lrVoteCodecV2))
 	self.registerCodec(mc.HD_V2_LeaderReelectBroadcast, new(lrResultBCCodecV2))
 	self.registerCodec(mc.HD_V2_LeaderReelectBroadcastRsp, new(lrResultBCRspCodecV2))
+	self.registerCodec(mc.HD_V2_FullBlockReq, new(fullBlockReqCodecV2))
+	self.registerCodec(mc.HD_V2_FullBlockRsp, new(fullBlockRspCodecV2))
+	self.registerCodec(mc.HD_V2_MiningReq, new(miningReqCodecV2))
+	self.registerCodec(mc.HD_V2_PowMiningRsp, new(powMiningRspMsgcV2))
+	self.registerCodec(mc.HD_V2_AIMiningRsp, new(aiMiningRspMsgcV2))
+	self.registerCodec(mc.HD_BasePowerResult, new(basePowerDifficultyMsgcV2))
 }
 
 //每个模块需要自己实现这两个接口
@@ -170,14 +177,29 @@ func (*broadcastMiningRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
 func (*broadcastMiningRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
 	msg := new(mc.HD_BroadcastMiningRspMsg)
 	err := rlp.DecodeBytes(data, &msg)
-	if err != nil {
-		return nil, errors.Errorf("rlp decode failed: %s", err)
+	if err == nil {
+		if msg.BlockMainData == nil || msg.BlockMainData.Header == nil {
+			return nil, errors.Errorf("'Header' of the msg is nil")
+		}
+		msg.From = from
+		return msg, nil
+
+	} else {
+		oldmsg := new(mc.HD_BroadcastMiningRspMsgV1)
+		err = rlp.DecodeBytes(data, &oldmsg)
+		if err == nil {
+
+			if oldmsg.BlockMainData == nil || oldmsg.BlockMainData.Header == nil {
+				return nil, errors.Errorf("'Header' of the msg is nil")
+			}
+			msg.BlockMainData = new(mc.BlockData)
+			msg.BlockMainData.Header = oldmsg.BlockMainData.Header.TransferHeader()
+			msg.BlockMainData.Txs = oldmsg.BlockMainData.Txs
+			msg.From = from
+			return msg, nil
+		}
 	}
-	if msg.BlockMainData == nil || msg.BlockMainData.Header == nil {
-		return nil, errors.Errorf("'Header' of the msg is nil")
-	}
-	msg.From = from
-	return msg, nil
+	return nil, errors.Errorf("rlp decode failed: %s", err)
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -484,12 +506,26 @@ func (*fullBlockRspCodec) EncodeFn(msg interface{}) ([]byte, error) {
 func (*fullBlockRspCodec) DecodeFn(data []byte, from common.Address) (interface{}, error) {
 	msg := new(mc.HD_FullBlockRspMsg)
 	err := rlp.DecodeBytes(data, &msg)
-	if err != nil {
-		return nil, errors.Errorf("rlp decode failed: %v", err)
+	if err == nil {
+		if msg.Header == nil {
+			return nil, errors.Errorf("'header' of the msg is nil")
+		}
+		msg.From = from
+		return msg, nil
+	} else {
+		oldmsg := new(mc.HD_FullBlockRspMsgV1)
+		err = rlp.DecodeBytes(data, &oldmsg)
+		if err == nil {
+			if oldmsg.Header == nil {
+				return nil, errors.Errorf("'header' of the msg is nil")
+			}
+			msg.Header = oldmsg.Header.TransferHeader()
+			msg.Txs = oldmsg.Txs
+			msg.From = from
+			return msg, nil
+		}
+
 	}
-	if msg.Header == nil {
-		return nil, errors.Errorf("'header' of the msg is nil")
-	}
-	msg.From = from
-	return msg, nil
+
+	return nil, errors.Errorf("rlp decode failed: %v", err)
 }

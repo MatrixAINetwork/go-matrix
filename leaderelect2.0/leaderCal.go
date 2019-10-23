@@ -50,9 +50,10 @@ func (self *leaderCalculator) getRealPreLeader(preHeader *types.Header, bcInterv
 		if number == 0 {
 			return header.Leader, preAppearSuper, nil
 		}
-		header = self.chain.GetHeader(header.ParentHash, number-1)
+		parentHash := header.ParentHash
+		header = self.chain.GetHeader(parentHash, number-1)
 		if header == nil {
-			return common.Address{}, preAppearSuper, errors.Errorf("获取父区块(%d, %s)失败, header is nil! ", number-1, header.ParentHash.TerminalString())
+			return common.Address{}, preAppearSuper, errors.Errorf("获取父区块(%d, %s)失败, header is nil! ", number-1, parentHash.TerminalString())
 		}
 		number = header.Number.Uint64()
 	}

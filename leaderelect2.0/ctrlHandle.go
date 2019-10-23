@@ -10,12 +10,12 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 )
 
 func (self *controller) handleMsg(data interface{}) {
 	if nil == data {
-		log.WARN(self.logInfo, "消息处理", "收到nil消息")
+		log.Warn(self.logInfo, "消息处理", "收到nil消息")
 		return
 	}
 
@@ -53,7 +53,7 @@ func (self *controller) handleMsg(data interface{}) {
 		self.handleBroadcastRsp(msg)
 
 	default:
-		log.WARN(self.logInfo, "消息处理", "未知消息类型")
+		log.Warn(self.logInfo, "消息处理", "未知消息类型")
 	}
 }
 
@@ -66,11 +66,11 @@ func (self *controller) SetSelfAddress(addr common.Address, nodeAddr common.Addr
 
 func (self *controller) handleStartMsg(msg *startControllerMsg) {
 	if nil == msg || nil == msg.parentHeader {
-		log.WARN(self.logInfo, "开始消息处理", ErrParamsIsNil)
+		log.Warn(self.logInfo, "开始消息处理", ErrParamsIsNil)
 		return
 	}
 
-	if manparams.VersionCmp(string(msg.parentHeader.Version), manparams.VersionGamma) < 0 {
+	if manversion.VersionCmp(string(msg.parentHeader.Version), manversion.VersionGamma) < 0 {
 		log.Trace(self.logInfo, "开始消息处理", "版本号不匹配, 不处理消息", "header version", string(msg.parentHeader.Version))
 		return
 	}
@@ -128,7 +128,7 @@ func (self *controller) handleStartMsg(msg *startControllerMsg) {
 
 func (self *controller) handleBlockPOSFinishedNotify(msg *mc.BlockPOSFinishedNotify) {
 	if nil == msg || nil == msg.Header {
-		log.WARN(self.logInfo, "POS完成通知消息处理", ErrParamsIsNil)
+		log.Warn(self.logInfo, "POS完成通知消息处理", ErrParamsIsNil)
 		return
 	}
 	if err := self.mp.SavePOSNotifyMsg(msg); err == nil {

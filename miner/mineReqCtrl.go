@@ -57,7 +57,6 @@ func (self *mineReqData) ResendMineResult(curTime int64) error {
 }
 
 type mineReqCtrl struct {
-	curSuperSeq     uint64
 	curNumber       uint64
 	currentMineReq  *mineReqData
 	role            common.RoleType
@@ -70,7 +69,6 @@ type mineReqCtrl struct {
 
 func newMinReqCtrl(bc ChainReader) *mineReqCtrl {
 	return &mineReqCtrl{
-		curSuperSeq:     0,
 		curNumber:       0,
 		currentMineReq:  nil,
 		role:            common.RoleNil,
@@ -100,7 +98,7 @@ func (ctrl *mineReqCtrl) SetNewNumber(number uint64, role common.RoleType) {
 	ctrl.role = role
 	bcInterval, err := manparams.GetBCIntervalInfoByNumber(number - 1)
 	if err != nil {
-		log.ERROR("miner ctrl", "获取广播周期失败", err)
+		log.Error("miner ctrl", "获取广播周期失败", err)
 	} else {
 		ctrl.bcInterval = bcInterval
 	}
@@ -183,7 +181,7 @@ func (ctrl *mineReqCtrl) GetUnMinedReq() *mineReqData {
 
 	for hash, req := range ctrl.reqCache {
 		if req == nil {
-			log.ERROR(ModuleMiner, "GetUnMinedReq", "有reqData为nil", "hash", hash.TerminalString())
+			log.Error(ModuleMiner, "GetUnMinedReq", "有reqData为nil", "hash", hash.TerminalString())
 			continue
 		}
 		if req.mined {
@@ -236,6 +234,7 @@ func (ctrl *mineReqCtrl) SetMiningResult(result *types.Header) (*mineReqData, er
 		req.header.Coinbase = result.Coinbase
 		req.header.MixDigest = result.MixDigest
 		req.header.Signatures = result.Signatures
+		req.header.AIHash = result.AIHash
 	}
 
 	req.mined = true
@@ -285,7 +284,7 @@ func (ctrl *mineReqCtrl) fixMap() {
 		}
 		err := ctrl.checkMineReq(reqData.header)
 		if err != nil {
-			log.WARN(ModuleMiner, "fixMap", "检测请求时，验证失败", err, "高度", ctrl.curNumber)
+			log.Warn(ModuleMiner, "fixMap", "检测请求时，验证失败", err, "高度", ctrl.curNumber)
 			continue
 		}
 		ctrl.reqCache[reqData.headerHash] = reqData

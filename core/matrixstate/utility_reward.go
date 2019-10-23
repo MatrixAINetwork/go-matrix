@@ -297,6 +297,32 @@ func SetSlashNum(st StateDB, num uint64) error {
 	return opt.SetValue(st, num)
 }
 
+func GetSelMinerNum(st StateDB) (uint64, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return uint64(0), ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeySelMinerNum)
+	if err != nil {
+		return uint64(0), err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return uint64(0), err
+	}
+	return value.(uint64), nil
+}
+func SetSelMinerNum(st StateDB, num uint64) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeySelMinerNum)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, num)
+}
 func GetUpTimeNum(st StateDB) (uint64, error) {
 	mgr := GetManager(GetVersionInfo(st))
 	if mgr == nil {
@@ -549,4 +575,143 @@ func SetSlashCalc(st StateDB, Calc string) error {
 		return err
 	}
 	return opt.SetValue(st, Calc)
+}
+
+/////////////////////////////////////////////////////////////////////
+// 区块奖励相关
+func GetAIBlkRewardCfg(st StateDB) (*mc.AIBlkRewardCfg, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAIBlkRewardCfg)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*mc.AIBlkRewardCfg), nil
+}
+
+func SetAIBlkRewardCfg(st StateDB, cfg *mc.AIBlkRewardCfg) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyAIBlkRewardCfg)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, cfg)
+}
+
+func GetBLKSelValidatorNum(st StateDB) (uint64, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return uint64(0), ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyBLKSelValidatorNum)
+	if err != nil {
+		return uint64(0), err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return uint64(0), err
+	}
+	return value.(uint64), nil
+}
+func SetBLKSelValidatorNum(st StateDB, num uint64) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyBLKSelValidatorNum)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, num)
+}
+
+func GetBLKSelValidator(st StateDB) (mc.ValidatorSelReward, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return mc.ValidatorSelReward{}, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyBLKSelValidator)
+	if err != nil {
+		return mc.ValidatorSelReward{}, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return mc.ValidatorSelReward{}, err
+	}
+	return value.(mc.ValidatorSelReward), nil
+}
+func SetBLKSelValidator(st StateDB, selReward mc.ValidatorSelReward) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyBLKSelValidator)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, selReward)
+}
+
+func GetTXSSelValidator(st StateDB) ([]mc.ValidatorSelReward, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return []mc.ValidatorSelReward{}, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyTXSSelValidator)
+	if err != nil {
+		return []mc.ValidatorSelReward{}, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return []mc.ValidatorSelReward{}, err
+	}
+	return value.([]mc.ValidatorSelReward), nil
+}
+
+func SetTXSSelValidator(st StateDB, selReward []mc.ValidatorSelReward) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyTXSSelValidator)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, selReward)
+}
+
+func GetTXSSelValidatorNum(st StateDB) (uint64, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return uint64(0), ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyTXSSelValidatorNum)
+	if err != nil {
+		return uint64(0), err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return uint64(0), err
+	}
+	return value.(uint64), nil
+}
+func SetTXSSelValidatorNum(st StateDB, num uint64) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyTXSSelValidatorNum)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, num)
 }

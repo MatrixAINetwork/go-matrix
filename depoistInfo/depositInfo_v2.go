@@ -219,7 +219,7 @@ func (v2 *DepositMnger_v2) CheckDeposit(statedb vm.StateDBManager) []common.Depo
 	}
 	addrlist, err := v2.MatrixDeposit.GetA0list(v2.Contract, statedb)
 	if err != nil {
-		log.ERROR("CheckDeposit err", "can not get A0 address list")
+		log.Error("CheckDeposit err", "can not get A0 address list")
 		return nil
 	}
 	var depositlist []common.DepositBase

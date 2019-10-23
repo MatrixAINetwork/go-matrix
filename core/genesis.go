@@ -13,6 +13,8 @@ import (
 	"math/big"
 	"strings"
 
+	"sort"
+
 	"github.com/MatrixAINetwork/go-matrix/base58"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
@@ -25,7 +27,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
-	"sort"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -356,7 +357,7 @@ func (g *Genesis) ToBlock(db mandb.Database) (*types.Block, error) {
 
 func (g *Genesis) GenSuperBlock(parentHeader *types.Header, mdb mandb.Database, sdb state.Database, chainCfg *params.ChainConfig) *types.Block {
 	if nil == parentHeader || nil == sdb {
-		log.ERROR("genesis super block", "param err", "nil")
+		log.Error("genesis super block", "param err", "nil")
 		return nil
 	}
 
@@ -414,12 +415,12 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, mdb mandb.Database, 
 	g.Alloc = make(GenesisAlloc)
 	data, err := json.Marshal(g.Alloc)
 	if err != nil {
-		log.ERROR("genesis super block", "marshal alloc info err", err)
+		log.Error("genesis super block", "marshal alloc info err", err)
 		return nil
 	}
 	tx0 := types.NewTransaction(g.Number, common.Address{}, nil, 0, nil, data, nil, nil, nil, common.ExtraSuperBlockTx, 0, params.MAN_COIN, 0)
 	if tx0 == nil {
-		log.ERROR("genesis super block", "create super block tx err", "NewTransaction return nil")
+		log.Error("genesis super block", "create super block tx err", "NewTransaction return nil")
 		return nil
 	}
 	txs = append(txs, tx0)
@@ -428,13 +429,13 @@ func (g *Genesis) GenSuperBlock(parentHeader *types.Header, mdb mandb.Database, 
 	if nil != g.MState {
 		msData, err = json.Marshal(g.MState)
 		if err != nil {
-			log.ERROR("genesis super block", "marshal alloc info err", err)
+			log.Error("genesis super block", "marshal alloc info err", err)
 			return nil
 		}
 	}
 	txMState := types.NewTransaction(g.Number, common.Address{}, nil, 1, nil, msData, nil, nil, nil, common.ExtraSuperBlockTx, 0, params.MAN_COIN, 0)
 	if txMState == nil {
-		log.ERROR("genesis super block", "create super block matrix state tx err", "NewTransaction return nil")
+		log.Error("genesis super block", "create super block matrix state tx err", "NewTransaction return nil")
 		return nil
 	}
 	txs = append(txs, txMState)
@@ -465,6 +466,7 @@ func (g *Genesis) ToSuperBlock() *types.Block {
 		Coinbase:          g.Coinbase,
 		Roots:             g.Roots,
 		Sharding:          g.Sharding,
+		BasePowers:        make([]types.BasePowers, 0),
 	}
 
 	// 创建超级区块交易
@@ -472,12 +474,12 @@ func (g *Genesis) ToSuperBlock() *types.Block {
 	g.Alloc = make(GenesisAlloc)
 	data, err := json.Marshal(g.Alloc)
 	if err != nil {
-		log.ERROR("genesis super block", "marshal alloc info err", err)
+		log.Error("genesis super block", "marshal alloc info err", err)
 		return nil
 	}
 	tx0 := types.NewTransaction(g.Number, common.Address{}, nil, 0, nil, data, nil, nil, nil, common.ExtraSuperBlockTx, 0, params.MAN_COIN, 0)
 	if tx0 == nil {
-		log.ERROR("genesis super block", "create super block tx err", "NewTransaction return nil")
+		log.Error("genesis super block", "create super block tx err", "NewTransaction return nil")
 		return nil
 	}
 	txs = append(txs, tx0)
@@ -486,13 +488,13 @@ func (g *Genesis) ToSuperBlock() *types.Block {
 	if nil != g.MState {
 		msData, err = json.Marshal(g.MState)
 		if err != nil {
-			log.ERROR("genesis super block", "marshal alloc info err", err)
+			log.Error("genesis super block", "marshal alloc info err", err)
 			return nil
 		}
 	}
 	txMState := types.NewTransaction(g.Number, common.Address{}, nil, 1, nil, msData, nil, nil, nil, common.ExtraSuperBlockTx, 0, params.MAN_COIN, 0)
 	if txMState == nil {
-		log.ERROR("genesis super block", "create super block matrix state tx err", "NewTransaction return nil")
+		log.Error("genesis super block", "create super block matrix state tx err", "NewTransaction return nil")
 		return nil
 	}
 	txs = append(txs, txMState)

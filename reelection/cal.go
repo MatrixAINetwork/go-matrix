@@ -37,13 +37,13 @@ func (self *ReElection) GetElectConfig(hash common.Hash) (*mc.ElectConfigInfo_Al
 	}
 	electInfo, err := matrixstate.GetElectConfigInfo(st)
 	if err != nil || electInfo == nil {
-		log.ERROR("GetElectInfo", "获取选举基础信息失败 err", err)
+		log.Error("GetElectInfo", "获取选举基础信息失败 err", err)
 		return nil, err
 	}
 
 	electMinerNum, err := matrixstate.GetElectMinerNum(st)
 	if err != nil {
-		log.ERROR("MSKeyElectMinerNum", "获取MSKeyElectMinerNum err", err)
+		log.Error("MSKeyElectMinerNum", "获取MSKeyElectMinerNum err", err)
 		return nil, err
 	}
 
@@ -91,7 +91,7 @@ func (self *ReElection) GetViPList(hash common.Hash) ([]mc.VIPConfig, error) {
 	}
 	vipList, err := matrixstate.GetVIPConfig(st)
 	if err != nil || vipList == nil {
-		log.ERROR("GetViPList", "获取选举基础信息失败 err", err)
+		log.Error("GetViPList", "获取选举基础信息失败 err", err)
 		return nil, err
 	}
 	return vipList, nil
@@ -105,7 +105,7 @@ func (self *ReElection) GetElectPlug(hash common.Hash) (baseinterface.ElectionIn
 	}
 	electInfo, err := matrixstate.GetElectConfigInfo(st)
 	if err != nil || electInfo == nil {
-		log.ERROR("GetElectPlug", "获取选举基础信息失败 err", err)
+		log.Error("GetElectPlug", "获取选举基础信息失败 err", err)
 		return nil, err
 	}
 	return baseinterface.NewElect(electInfo.ElectPlug), nil

@@ -4,6 +4,7 @@
 package rewardexec
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/MatrixAINetwork/go-matrix/params"
@@ -33,16 +34,16 @@ type BlockReward struct {
 
 func New(chain util.ChainReader, rewardCfg *cfg.RewardCfg, st util.StateDB, interval *mc.BCIntervalInfo, foundationAccount common.Address, top *mc.TopologyGraph, elect *mc.ElectGraph) *BlockReward {
 	if util.RewardFullRate != rewardCfg.RewardMount.RewardRate.MinerOutRate+rewardCfg.RewardMount.RewardRate.ElectedMinerRate+rewardCfg.RewardMount.RewardRate.FoundationMinerRate {
-		log.ERROR(PackageName, "矿工固定区块奖励比例配置错误", "")
+		log.Error(PackageName, "矿工固定区块奖励比例配置错误", "")
 		return nil
 	}
 	if util.RewardFullRate != rewardCfg.RewardMount.RewardRate.LeaderRate+rewardCfg.RewardMount.RewardRate.ElectedValidatorsRate+rewardCfg.RewardMount.RewardRate.FoundationValidatorRate {
-		log.ERROR(PackageName, "验证者固定区块奖励比例配置错误", "")
+		log.Error(PackageName, "验证者固定区块奖励比例配置错误", "")
 		return nil
 	}
 
 	if util.RewardFullRate != rewardCfg.RewardMount.RewardRate.OriginElectOfflineRate+rewardCfg.RewardMount.RewardRate.BackupRewardRate {
-		log.ERROR(PackageName, "替补固定区块奖励比例配置错误", "")
+		log.Error(PackageName, "替补固定区块奖励比例配置错误", "")
 		return nil
 	}
 
@@ -73,7 +74,7 @@ func (br *BlockReward) CalcMinerRateMount(blockReward *big.Int) (*big.Int, *big.
 	return minerOutReward, electedReward, FoundationsBlkReward
 }
 
-func (br *BlockReward) CalcValidatorRewards(Leader common.Address, num uint64) map[common.Address]*big.Int {
+func (br *BlockReward) CalcValidatorRewards(Leader common.Address, num uint64, shouldPaySelectReward bool) map[common.Address]*big.Int {
 	//广播区块不给矿工发钱
 	RewardMan := new(big.Int).Mul(new(big.Int).SetUint64(br.rewardCfg.RewardMount.ValidatorMount), util.GetPrice(br.rewardCfg.Calc))
 	halfNum := br.rewardCfg.RewardMount.ValidatorAttenuationNum
@@ -90,7 +91,7 @@ func (br *BlockReward) CalcValidatorRewards(Leader common.Address, num uint64) m
 	}
 
 	if br.bcInterval.IsBroadcastNumber(num) {
-		log.WARN(PackageName, "广播周期不处理", "")
+		log.Warn(PackageName, "广播周期不处理", "")
 		return nil
 	}
 
@@ -114,7 +115,7 @@ func (br *BlockReward) getMinerRewards(blockReward *big.Int, num uint64, rewardT
 	rewards := make(map[common.Address]*big.Int, 0)
 
 	minerOutAmount, electedMount, FoundationsMount := br.CalcMinerRateMount(blockReward)
-	minerOutReward := br.rewardCfg.SetReward.SetMinerOutRewards(minerOutAmount, br.st, br.chain, num, parentHash, coinType)
+	minerOutReward := br.rewardCfg.SetReward.SetMinerOutRewards(big.NewInt(0), minerOutAmount, br.st, br.chain, num, parentHash, coinType)
 	electReward := br.rewardCfg.SetReward.GetSelectedRewards(electedMount, br.st, common.RoleMiner|common.RoleBackupMiner, num, br.rewardCfg.RewardMount.RewardRate.BackupRewardRate, br.topology, br.elect)
 	foundationReward := br.calcFoundationRewards(FoundationsMount, num)
 	util.MergeReward(rewards, minerOutReward)
@@ -139,7 +140,7 @@ func (br *BlockReward) CalcMinerRewards(num uint64, parentHash common.Hash) map[
 	}
 
 	if br.bcInterval.IsBroadcastNumber(num) {
-		log.WARN(PackageName, "广播周期不处理", "")
+		log.Warn(PackageName, "广播周期不处理", "")
 		return nil
 	}
 	return br.getMinerRewards(blockReward, num, util.BlkReward, parentHash, params.MAN_COIN)
@@ -150,7 +151,7 @@ func (br *BlockReward) canCalcFoundationRewards(blockReward *big.Int, num uint64
 	}
 
 	if blockReward.Cmp(big.NewInt(0)) <= 0 {
-		//log.ERROR(PackageName, "奖励金额错误", blockReward)
+		//log.Error(PackageName, "奖励金额错误", blockReward)
 		return false
 	}
 	return true
@@ -167,7 +168,7 @@ func (br *BlockReward) calcFoundationRewards(blockReward *big.Int, num uint64) m
 	return accountRewards
 }
 
-func (br *BlockReward) CalcNodesRewards(blockReward *big.Int, Leader common.Address, num uint64, parentHash common.Hash, coinType string) map[common.Address]*big.Int {
+func (br *BlockReward) CalcNodesRewards(blockReward *big.Int, Leader common.Address, num uint64, parentHash common.Hash, coinType string, shouldPaySelectReward bool) map[common.Address]*big.Int {
 
 	if nil == br.rewardCfg {
 		log.Error(PackageName, "奖励配置为空", "")
@@ -175,7 +176,7 @@ func (br *BlockReward) CalcNodesRewards(blockReward *big.Int, Leader common.Addr
 	}
 
 	if br.bcInterval.IsBroadcastNumber(num) {
-		log.WARN(PackageName, "广播周期不处理", "")
+		log.Warn(PackageName, "广播周期不处理", "")
 		return nil
 	}
 
@@ -199,4 +200,10 @@ func (br *BlockReward) CalcNodesRewards(blockReward *big.Int, Leader common.Addr
 func (br *BlockReward) GetRewardCfg() *cfg.RewardCfg {
 
 	return br.rewardCfg
+}
+func (br *BlockReward) CanPaySelectValidatorReward(num uint64) bool {
+	return false
+}
+func (br *BlockReward) SetPaySelectValidatorReward(num uint64) error {
+	return errors.New("使用引擎错误")
 }

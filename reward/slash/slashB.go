@@ -31,7 +31,7 @@ func DeltaNew(chain util.ChainReader, st util.StateDB, preSt *state.StateDBManag
 
 	SC, err := matrixstate.GetSlashCfg(preSt)
 	if nil != err || nil == SC {
-		log.ERROR(PackageName, "获取状态树配置错误", "")
+		log.Error(PackageName, "获取状态树配置错误", "")
 		return nil
 	}
 	var SlashRate uint64
@@ -44,7 +44,7 @@ func DeltaNew(chain util.ChainReader, st util.StateDB, preSt *state.StateDBManag
 
 	bcInterval, err := matrixstate.GetBroadcastInterval(preSt)
 	if err != nil {
-		log.ERROR(PackageName, "获取广播周期数据结构失败", err)
+		log.Error(PackageName, "获取广播周期数据结构失败", err)
 		return nil
 	}
 	return &SlashDelta{chain: chain, eleMaxOnlineTime: bcInterval.GetBroadcastInterval() - 3, SlashRate: SlashRate, bcInterval: bcInterval, preSt: preSt} // 周期固定3倍关系
@@ -79,7 +79,7 @@ func (bp *SlashDelta) getCurrentInterest(preBcState *state.StateDBManage, curren
 
 	latestNum, err := matrixstate.GetInterestPayNum(currentState)
 	if nil != err {
-		log.ERROR(PackageName, "状态树获取前一计算利息高度错误", err)
+		log.Error(PackageName, "状态树获取前一计算利息高度错误", err)
 		return nil
 	}
 	//前一个广播周期支付利息，利息会清空，直接用当前值,其它时间点用差值
@@ -129,14 +129,14 @@ func (bp *SlashDelta) getCurrentInterest(preBcState *state.StateDBManage, curren
 func (bp *SlashDelta) GetDeposit(parentHash common.Hash) []common.DepositBase {
 	depositNodes, err := depoistInfo.GetAllDepositByHash_v2(parentHash)
 	if nil != err {
-		log.ERROR(PackageName, "获取的抵押列表错误", err)
+		log.Error(PackageName, "获取的抵押列表错误", err)
 		return nil
 	}
 	return depositNodes
 }
 func (bp *SlashDelta) CalcSlash(currentState *state.StateDBManage, num uint64, upTimeMap map[common.Address]uint64, parentHash common.Hash, time uint64) {
 	if bp.bcInterval.IsBroadcastNumber(num) {
-		log.WARN(PackageName, "广播周期不处理", "")
+		log.Warn(PackageName, "广播周期不处理", "")
 		return
 	}
 	//选举周期的开始分配
@@ -158,12 +158,12 @@ func (bp *SlashDelta) SetSlash(electGraph *mc.ElectGraph, upTimeMap map[common.A
 
 			upTime, ok := upTimeMap[v.Account]
 			if !ok {
-				log.WARN(PackageName, "获取uptime错误，账户", v.Account)
+				log.Warn(PackageName, "获取uptime错误，账户", v.Account)
 				continue
 			}
 			bcInterest, ok := allAccountInterest[v.Account]
 			if !ok {
-				log.WARN(PackageName, "账户退选", v.Account)
+				log.Warn(PackageName, "账户退选", v.Account)
 				continue
 			}
 			slashRate := bp.getSlashRate(upTime)
@@ -217,7 +217,7 @@ func (bp *SlashDelta) GetElectAndInterest(currentState *state.StateDBManage, num
 		return nil, nil, errors.New("获取到利息为空")
 	}
 	if 0 == len(upTimeMap) {
-		log.WARN(PackageName, "获取到uptime为空", "")
+		log.Warn(PackageName, "获取到uptime为空", "")
 		return nil, nil, errors.New("获取到uptime为空")
 	}
 	//计算选举的拓扑图的高度
@@ -251,7 +251,7 @@ func (bp *SlashDelta) GetElectAndInterest(currentState *state.StateDBManage, num
 func (bp *SlashDelta) canSlash(currentState *state.StateDBManage) bool {
 	latestNum, err := matrixstate.GetSlashNum(currentState)
 	if nil != err {
-		log.ERROR(PackageName, "状态树获取前一发放惩罚高度错误", err)
+		log.Error(PackageName, "状态树获取前一发放惩罚高度错误", err)
 		return false
 	}
 	if latestNum > bp.bcInterval.GetLastBroadcastNumber() {

@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"encoding/json"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -340,6 +341,90 @@ func SetSuperBlockCfg(st StateDB, cfg *mc.SuperBlkCfg) error {
 	return opt.SetValue(st, cfg)
 }
 
+func GetMinDifficulty(st StateDB) (*big.Int, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyMinimumDifficulty)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*big.Int), nil
+}
+
+func SetMinDifficulty(st StateDB, minDifficulty *big.Int) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyMinimumDifficulty)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, minDifficulty)
+}
+
+func GetMaxDifficulty(st StateDB) (*big.Int, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyMaximumDifficulty)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*big.Int), nil
+}
+
+func SetMaxDifficulty(st StateDB, maxDifficulty *big.Int) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyMaximumDifficulty)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, maxDifficulty)
+}
+
+func GetReelectionDifficulty(st StateDB) (*big.Int, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyReelectionDifficulty)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*big.Int), nil
+}
+
+func SetReelectionDifficulty(st StateDB, reelectionDifficulty *big.Int) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyReelectionDifficulty)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, reelectionDifficulty)
+}
+
 //func GetBroadcastTxs(st StateDB) (map[string]map[common.Address][]byte, error)
 func GetBroadcastTxs(st StateDB) (common.BroadTxSlice, error) {
 	mgr := GetManager(GetVersionInfo(st))
@@ -429,4 +514,59 @@ func GetCoinConfig(st StateDB) ([]common.CoinConfig, error) {
 		}
 	}
 	return coincfglist, nil
+}
+func GetCurrenyHeader(st StateDB) (*mc.CurrencyHeader, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSCurrencyHeader)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*mc.CurrencyHeader), nil
+}
+
+func SetCurrenyHeader(st StateDB, cfg *mc.CurrencyHeader) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSCurrencyHeader)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, cfg)
+}
+
+func GetBlockDuration(st StateDB) (*mc.BlockDurationStatus, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyBlockDurationStatus)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*mc.BlockDurationStatus), nil
+}
+
+func SetBlockDuration(st StateDB, duration *mc.BlockDurationStatus) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyBlockDurationStatus)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, duration)
 }

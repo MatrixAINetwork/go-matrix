@@ -11,6 +11,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 )
 
 func (p *ReElection) GenElection(state *state.StateDBManage, preBlockHash common.Hash) []common.Elect {
@@ -91,11 +92,11 @@ func (p *ReElection) getOnlineStatus(version string, onlineResults []*mc.HD_Onli
 	for i := 0; i < len(onlineResults); i++ {
 		result := onlineResults[i]
 		if result.Req == nil {
-			log.WARN(Module, "生成拓扑变化信息", "共识请求为空")
+			log.Warn(Module, "生成拓扑变化信息", "共识请求为空")
 			continue
 		}
 		if result.IsValidity(num, manparams.OnlineConsensusValidityTime) == false {
-			log.WARN(Module, "生成拓扑变化信息", "高度 不合法", "请求高度", result.Req.Number, "当前高度", num)
+			log.Warn(Module, "生成拓扑变化信息", "高度 不合法", "请求高度", result.Req.Number, "当前高度", num)
 			continue
 		}
 
@@ -104,7 +105,7 @@ func (p *ReElection) getOnlineStatus(version string, onlineResults []*mc.HD_Onli
 		// 节点为当前拓扑图节点
 		if topology.AccountIsInGraph(node) {
 			if state == mc.OffLine {
-				if manparams.VersionCmp(version, manparams.VersionGamma) >= 0 {
+				if manversion.VersionCmp(version, manversion.VersionGamma) >= 0 {
 					if node == ca.GetDepositAddress() {
 						log.Trace(Module, "生成拓扑变化信息", "不将自己的下线共识放入出块共识中", "状态", state, "node", node.Hex())
 						continue
@@ -113,7 +114,7 @@ func (p *ReElection) getOnlineStatus(version string, onlineResults []*mc.HD_Onli
 				offlineNodes = append(offlineNodes, node)
 				consensusList = append(consensusList, result)
 			} else {
-				log.ERROR(Module, "生成拓扑变化信息", "当前拓扑图中的节点，顶点共识状态错误", "状态", state)
+				log.Error(Module, "生成拓扑变化信息", "当前拓扑图中的节点，顶点共识状态错误", "状态", state)
 			}
 			continue
 		}

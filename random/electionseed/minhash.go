@@ -26,7 +26,7 @@ type MinHashPlug struct {
 func (self *MinHashPlug) Prepare(height uint64, hash common.Hash, support baseinterface.RandomChainSupport) error {
 	data, err := commonsupport.GetElectGenTimes(support.BlockChain(), hash)
 	if err != nil {
-		log.ERROR(ModuleElectSeed, "获取通用配置失败:", err)
+		log.Error(ModuleElectSeed, "获取通用配置失败:", err)
 		return err
 	}
 	voteBeforeTime := uint64(data.VoteBeforeTime)
@@ -39,12 +39,12 @@ func (self *MinHashPlug) Prepare(height uint64, hash common.Hash, support basein
 	}
 	privatekey, publickeySend, err := commonsupport.GetVoteData()
 	if err != nil {
-		log.ERROR(ModuleElectSeed, "获取投票数据失败:", err)
+		log.Error(ModuleElectSeed, "获取投票数据失败:", err)
 		return err
 	}
 	privatekeySend := common.BigToHash(self.privatekey).Bytes()
 
-	log.TRACE(ModuleElectSeed, "投票:", (height + voteBeforeTime))
+	log.Trace(ModuleElectSeed, "投票:", (height + voteBeforeTime))
 	mc.PublishEvent(mc.SendBroadCastTx, mc.BroadCastEvent{Txtyps: mc.Publickey, Height: big.NewInt(int64(height + voteBeforeTime)), Data: publickeySend})
 	mc.PublishEvent(mc.SendBroadCastTx, mc.BroadCastEvent{Txtyps: mc.Privatekey, Height: big.NewInt(int64(height + voteBeforeTime)), Data: privatekeySend})
 
@@ -55,12 +55,12 @@ func (self *MinHashPlug) Prepare(height uint64, hash common.Hash, support basein
 func (self *MinHashPlug) CalcSeed(hash common.Hash, support baseinterface.RandomChainSupport) (*big.Int, error) {
 	SeedSum, err := commonsupport.GetValidVoteSum(hash, support)
 	if err != nil {
-		log.ERROR(ModuleElectSeed, "获取数据错误:", err)
+		log.Error(ModuleElectSeed, "获取数据错误:", err)
 		return nil, err
 	}
 	minHash, err := commonsupport.GetMinHash(hash, support)
 	if err != nil {
-		log.ERROR(ModuleElectSeed, "获取最小hash错误:", err)
+		log.Error(ModuleElectSeed, "获取最小hash错误:", err)
 		return nil, err
 	}
 	SeedSum.Add(SeedSum, minHash.Big())

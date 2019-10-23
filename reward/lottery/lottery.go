@@ -68,28 +68,28 @@ type LotterySeed interface {
 func New(chain ChainReader, st util.StateDB, seed LotterySeed, preSt util.StateDB) *TxsLottery {
 	bcInterval, err := matrixstate.GetBroadcastInterval(preSt)
 	if err != nil {
-		log.ERROR(PackageName, "获取广播周期失败", err)
+		log.Error(PackageName, "获取广播周期失败", err)
 		return nil
 	}
 
 	data, err := matrixstate.GetLotteryCalc(preSt)
 	if nil != err {
-		log.ERROR(PackageName, "获取状态树配置错误")
+		log.Error(PackageName, "获取状态树配置错误")
 		return nil
 	}
 
 	if data == util.Stop {
-		log.ERROR(PackageName, "停止发放区块奖励", "")
+		log.Error(PackageName, "停止发放区块奖励", "")
 		return nil
 	}
 
 	cfg, err := matrixstate.GetLotteryCfg(preSt)
 	if nil != err || nil == cfg {
-		log.ERROR(PackageName, "获取状态树配置错误", "")
+		log.Error(PackageName, "获取状态树配置错误", "")
 		return nil
 	}
 	if len(cfg.LotteryInfo) == 0 {
-		log.ERROR(PackageName, "没有配置彩票名额", "")
+		log.Error(PackageName, "没有配置彩票名额", "")
 		return nil
 	}
 	tlr := &TxsLottery{
@@ -141,7 +141,7 @@ func (tlr *TxsLottery) ResetAccountToState() {
 }
 func (tlr *TxsLottery) LotterySaveAccount(accounts []common.Address, vrfInfo []byte) {
 	if 0 == len(accounts) {
-		//log.INFO(PackageName, "当前区块没有普通交易", "")
+		//log.Info(PackageName, "当前区块没有普通交易", "")
 		return
 	}
 
@@ -174,7 +174,7 @@ func (tlr *TxsLottery) LotteryCalc(parentHash common.Hash, num uint64) map[commo
 
 	txsCmpResultList := tlr.getLotteryList(parentHash, num, lotteryNum)
 	if 0 == len(txsCmpResultList) {
-		log.ERROR(PackageName, "本周期没有交易不抽奖", "")
+		log.Error(PackageName, "本周期没有交易不抽奖", "")
 		return nil
 	}
 
@@ -182,7 +182,7 @@ func (tlr *TxsLottery) LotteryCalc(parentHash common.Hash, num uint64) map[commo
 	tlr.lotteryChoose(txsCmpResultList, LotteryAccount)
 
 	if 0 == len(LotteryAccount) {
-		log.ERROR(PackageName, "抽奖结果为nil", "")
+		log.Error(PackageName, "抽奖结果为nil", "")
 		return nil
 	}
 	return LotteryAccount
@@ -195,23 +195,23 @@ func (tlr *TxsLottery) canChooseLottery(num uint64) bool {
 
 	balance := tlr.state.GetBalance(params.MAN_COIN, common.LotteryRewardAddress)
 	if len(balance) == 0 {
-		log.ERROR(PackageName, "状态树获取彩票账户余额错误", "")
+		log.Error(PackageName, "状态树获取彩票账户余额错误", "")
 		//return false
 	}
 	var allPrice uint64
 	for _, v := range tlr.lotteryCfg.LotteryInfo {
 		if v.PrizeMoney < 0 {
-			log.ERROR(PackageName, "彩票奖励配置错误，金额", v.PrizeMoney, "奖项", v.PrizeLevel)
+			log.Error(PackageName, "彩票奖励配置错误，金额", v.PrizeMoney, "奖项", v.PrizeLevel)
 			return false
 		}
 		allPrice = allPrice + v.PrizeMoney*v.PrizeNum
 	}
 	if allPrice <= 0 {
-		log.ERROR(PackageName, "总奖励不合法", allPrice)
+		log.Error(PackageName, "总奖励不合法", allPrice)
 		return false
 	}
 	if balance[common.MainAccount].Balance.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(allPrice), util.ManPrice)) < 0 {
-		log.ERROR(PackageName, "彩票账户余额不足，余额为", balance[common.MainAccount].Balance.String(), "总奖励", util.ManPrice)
+		log.Error(PackageName, "彩票账户余额不足，余额为", balance[common.MainAccount].Balance.String(), "总奖励", util.ManPrice)
 		return false
 	}
 	return true
@@ -219,12 +219,12 @@ func (tlr *TxsLottery) canChooseLottery(num uint64) bool {
 
 func (tlr *TxsLottery) ProcessMatrixState(num uint64) bool {
 	if tlr.bcInterval.IsBroadcastNumber(num) {
-		log.WARN(PackageName, "广播周期不处理", "")
+		log.Warn(PackageName, "广播周期不处理", "")
 		return false
 	}
 	latestNum, err := matrixstate.GetLotteryNum(tlr.state)
 	if nil != err {
-		log.ERROR(PackageName, "状态树获取前一发放彩票高度错误", err)
+		log.Error(PackageName, "状态树获取前一发放彩票高度错误", err)
 		return false
 	}
 	if latestNum > tlr.bcInterval.GetLastReElectionNumber() {

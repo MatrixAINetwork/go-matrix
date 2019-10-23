@@ -13,9 +13,9 @@ import (
 	"reflect"
 	"unicode"
 
-	"github.com/MatrixAINetwork/go-matrix/log"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/log"
 
 	"crypto/sha256"
 	"encoding/base64"
@@ -98,7 +98,7 @@ func loadConfig(file string, cfg *gmanConfig) error {
 func defaultNodeConfig() pod.Config {
 	cfg := pod.DefaultConfig
 	cfg.Name = clientIdentifier
-	cfg.Version = manparams.VersionDelta + "_" + gitCommit
+	cfg.Version = manversion.VersionAIMine + "_" + gitCommit
 	cfg.HTTPModules = append(cfg.HTTPModules, "man", "eth", "shh")
 	cfg.WSModules = append(cfg.WSModules, "man", "eth", "shh")
 	cfg.IPCPath = "gman.ipc"
@@ -141,7 +141,7 @@ func makeFullNode(ctx *cli.Context) *pod.Node {
 	stack, cfg := makeConfigNode(ctx)
 	err := CheckEntrust(ctx)
 	if err != nil {
-		log.ERROR("Init", "Entrust File Err", err)
+		log.Error("Init", "Entrust File Err", err)
 		os.Exit(1)
 	}
 	utils.RegisterManService(stack, &cfg.Man)

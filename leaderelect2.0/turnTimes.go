@@ -8,6 +8,7 @@ import (
 
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/pkg/errors"
 )
 
@@ -29,12 +30,16 @@ func newTurnTimes() *turnTimes {
 	return tt
 }
 
-func (tt *turnTimes) SetTimeConfig(config *mc.LeaderConfig) error {
+func (tt *turnTimes) SetTimeConfig(config *mc.LeaderConfig, isAIBlock bool) error {
 	if config == nil {
 		return ErrParamsIsNil
 	}
 
-	tt.parentMiningTime = int64(config.ParentMiningTime)
+	if isAIBlock {
+		tt.parentMiningTime = int64(config.ParentMiningTime * params.AIMineLeaderAIBlockMiningTimeRatio)
+	} else {
+		tt.parentMiningTime = int64(config.ParentMiningTime)
+	}
 	tt.turnOutTime = int64(config.PosOutTime)
 	tt.reelectHandleInterval = int64(config.ReelectHandleInterval)
 	return nil

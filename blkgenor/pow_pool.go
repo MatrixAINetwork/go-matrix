@@ -39,7 +39,7 @@ func (bpc *blockPowCache) addPow(diff *big.Int, minerResult *mc.HD_MiningRspMsg)
 
 	_, exist := fromMap[minerResult.From]
 	if exist {
-		log.WARN(bpc.powPool.logInfo, "添加挖矿结果池,已存在的挖矿结果from", minerResult.From.Hex(), "diff", diff, "block hash", bpc.blockHash.TerminalString())
+		log.Warn(bpc.powPool.logInfo, "添加挖矿结果池,已存在的挖矿结果from", minerResult.From.Hex(), "diff", diff, "block hash", bpc.blockHash.TerminalString())
 		return errors.Errorf("矿工挖矿结果已经存在")
 	}
 	fromMap[minerResult.From] = minerResult
@@ -125,7 +125,7 @@ func (self *PowPool) AddMinerResult(blockHash common.Hash, diff *big.Int, minerR
 		return err
 	}
 	self.plusFromCount(minerResult.From)
-	log.INFO(self.logInfo, "加入挖矿结果池成功 账户", minerResult.From.Hex(), "难度", diff, "区块 hash", blockHash.TerminalString())
+	log.Info(self.logInfo, "加入挖矿结果池成功 账户", minerResult.From.Hex(), "难度", diff, "区块 hash", blockHash.TerminalString())
 	return nil
 }
 
@@ -152,7 +152,7 @@ func (self *PowPool) DelOneResult(blockHash common.Hash, diff *big.Int, from com
 	success := blockCache.delPow(diff, from)
 	if success {
 		count := self.getFromCount(from)
-		log.INFO(self.logInfo, "删除挖矿结果成功, 账户", from.Hex(), "原结果总数", count)
+		log.Info(self.logInfo, "删除挖矿结果成功, 账户", from.Hex(), "原结果总数", count)
 		self.minusFromCount(from)
 	}
 	return nil

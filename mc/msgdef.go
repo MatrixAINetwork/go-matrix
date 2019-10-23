@@ -25,6 +25,11 @@ type BlockData struct {
 	Txs    []types.CoinSelfTransaction
 }
 
+type BlockDataV1 struct {
+	Header *types.HeaderV1
+	Txs    []types.CoinSelfTransaction
+}
+
 //Miner Module
 type HD_MiningReqMsg struct {
 	From   common.Address
@@ -40,6 +45,7 @@ type HD_MiningRspMsg struct {
 	Coinbase   common.Address
 	MixDigest  common.Hash
 	Signatures []common.Signature
+	AIHash     common.Hash `json:"aiHash, omitempty"`
 }
 
 type BlockGenor_BroadcastMiningReqMsg struct {
@@ -49,6 +55,11 @@ type BlockGenor_BroadcastMiningReqMsg struct {
 type HD_BroadcastMiningRspMsg struct {
 	From          common.Address
 	BlockMainData *BlockData
+}
+
+type HD_BroadcastMiningRspMsgV1 struct {
+	From          common.Address
+	BlockMainData *BlockDataV1
 }
 
 //拓扑生成模块
@@ -136,6 +147,7 @@ type RoleUpdatedMsg struct {
 	BlockHash common.Hash
 	Leader    common.Address
 	SuperSeq  uint64
+	Version   string
 }
 
 type LeaderChangeNotify struct {
@@ -335,6 +347,12 @@ type HD_FullBlockReqMsg struct {
 	HeaderHash common.Hash
 	Number     uint64
 	From       common.Address
+}
+
+type HD_FullBlockRspMsgV1 struct {
+	Header *types.HeaderV1
+	Txs    []types.CoinSelfTransaction
+	From   common.Address
 }
 
 type HD_FullBlockRspMsg struct {

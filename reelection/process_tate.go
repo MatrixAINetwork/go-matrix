@@ -15,48 +15,52 @@ import (
 )
 
 func (self *ReElection) ProduceElectGraphData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
-	log.INFO(Module, "ProduceElectGraphData", "start", "height", block.Header().Number.Uint64())
-	defer log.INFO(Module, "ProduceElectGraphData", "end", "height", block.Header().Number.Uint64())
+	log.Trace(Module, "ProduceElectGraphData", "start", "height", block.Header().Number.Uint64())
+	defer log.Trace(Module, "ProduceElectGraphData", "end", "height", block.Header().Number.Uint64())
 	if err := CheckBlock(block); err != nil {
-		log.ERROR(Module, "ProduceElectGraphData CheckBlock err ", err)
+		log.Error(Module, "ProduceElectGraphData CheckBlock err ", err)
 		return nil, err
 	}
-	data, err := readFn(mc.MSKeyElectGraph)
-	if err != nil {
-		log.ERROR(Module, "readFn 失败 key", mc.MSKeyElectGraph, "err", err)
+	electStates, bcInterval, genData, err := self.getElectStates(readFn, block)
+	if nil != err {
 		return nil, err
 	}
-	electStates, OK := data.(*mc.ElectGraph)
-	if OK == false || electStates == nil {
-		log.ERROR(Module, "ElectStates 非法", "反射失败")
-		return nil, err
-	}
-	electStates.Number = block.Header().Number.Uint64()
 
-	currentHash := block.ParentHash()
-	topState, err := self.HandleTopGen(currentHash, stateDb)
-	if self.IsMinerTopGenTiming(currentHash) {
+	height := block.Header().Number.Uint64()
+	electStates.Number = height
+
+	if self.IsMinerTopGenTiming(bcInterval, height, genData) {
+		currentHash := block.ParentHash()
+		log.Info(Module, "计算矿工拓扑计算 ", currentHash.String())
 		electStates.NextMinerElect = []mc.ElectNodeInfo{}
-		electStates.NextMinerElect = append(electStates.NextMinerElect, topState.MastM...)
-		electStates.NextMinerElect = append(electStates.NextMinerElect, topState.BackM...)
-		electStates.NextMinerElect = append(electStates.NextMinerElect, topState.CandM...)
+
+		MastM, BackM, CandM, err := self.ToGenMinerTop(currentHash, stateDb)
+		if err != nil {
+			log.Error(Module, "矿工拓扑生成错误 err", err)
+			return nil, err
+		} else {
+			electStates.NextMinerElect = append(electStates.NextMinerElect, MastM...)
+			electStates.NextMinerElect = append(electStates.NextMinerElect, BackM...)
+			electStates.NextMinerElect = append(electStates.NextMinerElect, CandM...)
+		}
+
 	}
-	if self.IsValidatorTopGenTiming(currentHash) {
+	if self.IsValidatorTopGenTiming(bcInterval, height, genData) {
 		electStates.NextValidatorElect = []mc.ElectNodeInfo{}
-		electStates.NextValidatorElect = append(electStates.NextValidatorElect, topState.MastV...)
-		electStates.NextValidatorElect = append(electStates.NextValidatorElect, topState.BackV...)
-		electStates.NextValidatorElect = append(electStates.NextValidatorElect, topState.CandV...)
+		currentHash := block.ParentHash()
+		log.Info(Module, "计算验证者拓扑计算 ", currentHash)
+		MastV, BackV, CandV, err := self.ToGenValidatorTop(currentHash, stateDb)
+		if err != nil {
+			log.Error(Module, "验证者拓扑生成错误 err", err)
+			return nil, err
+		} else {
+			electStates.NextValidatorElect = append(electStates.NextValidatorElect, MastV...)
+			electStates.NextValidatorElect = append(electStates.NextValidatorElect, BackV...)
+			electStates.NextValidatorElect = append(electStates.NextValidatorElect, CandV...)
+		}
+
 	}
 
-	bciData, err := readFn(mc.MSKeyBroadcastInterval)
-	if err != nil {
-		log.Error(Module, "ProducePreAllTopData read broadcast interval err", err)
-		return nil, err
-	}
-	bcInterval, OK := bciData.(*mc.BCIntervalInfo)
-	if err != nil {
-		log.Error(Module, "ProducePreAllTopData broadcast interval reflect err", err)
-	}
 	if bcInterval.IsReElectionNumber(block.NumberU64() + 1) {
 		nextElect := electStates.NextMinerElect
 		nextElect = append(nextElect, electStates.NextValidatorElect...)
@@ -81,13 +85,57 @@ func (self *ReElection) ProduceElectGraphData(block *types.Block, stateDb *state
 	return electStates, nil
 }
 
-func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
-	if err := CheckBlock(block); err != nil {
-		log.ERROR(Module, "ProduceElectGraphData CheckBlock err ", err)
-		return nil, err
+func (self *ReElection) IsValidatorTopGenTiming(bcInterval *mc.BCIntervalInfo, height uint64, genData *mc.ElectGenTimeStruct) bool {
+	return bcInterval.IsReElectionNumber(height + uint64(genData.ValidatorNetChange))
+}
+
+func (self *ReElection) IsMinerTopGenTiming(bcInterval *mc.BCIntervalInfo, height uint64, genData *mc.ElectGenTimeStruct) bool {
+	return bcInterval.IsReElectionNumber(height + uint64(genData.MinerNetChange))
+}
+
+func (self *ReElection) getElectStates(readFn core.PreStateReadFn, block *types.Block) (*mc.ElectGraph, *mc.BCIntervalInfo, *mc.ElectGenTimeStruct, error) {
+	data, err := readFn(mc.MSKeyElectGraph)
+	if err != nil {
+		log.Error(Module, "readFn 失败 key", mc.MSKeyElectGraph, "err", err)
+		return nil, nil, nil, err
 	}
+	electStates, OK := data.(*mc.ElectGraph)
+	if OK == false || electStates == nil {
+		log.Error(Module, "ElectStates 非法", "反射失败")
+		return nil, nil, nil, errors.New("ElectStates 反射失败")
+	}
+
+	bciData, err := readFn(mc.MSKeyBroadcastInterval)
+	if err != nil {
+		log.Error(Module, "ProducePreAllTopData read broadcast interval err", err)
+		return nil, nil, nil, err
+	}
+	bcInterval, OK := bciData.(*mc.BCIntervalInfo)
+	if !OK || bcInterval == nil {
+		log.Error(Module, "ProducePreAllTopData broadcast interval reflect err", err)
+		return nil, nil, nil, errors.New("ProducePreAllTopData broadcast interval reflect err")
+	}
+	genOldData, err := readFn(mc.MSKeyElectGenTime)
+	if err != nil {
+		log.Error(Module, "ProducePreAllTopData read broadcast interval err", err)
+		return nil, nil, nil, err
+	}
+	genData, OK := genOldData.(*mc.ElectGenTimeStruct)
+	if !OK || genData == nil {
+		log.Error(Module, "ProducePreAllTopData broadcast interval reflect err", err)
+		return nil, nil, nil, errors.New("ProducePreAllTopData broadcast interval reflect err")
+	}
+	return electStates, bcInterval, genData, nil
+}
+
+func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
 	log.Trace(Module, "ProduceElectOnlineStateData", "start", "height", block.Header().Number.Uint64())
 	defer log.Trace(Module, "ProduceElectOnlineStateData", "end", "height", block.Header().Number.Uint64())
+	if err := CheckBlock(block); err != nil {
+		log.Error(Module, "ProduceElectGraphData CheckBlock err ", err)
+		return nil, err
+	}
+
 	height := block.Header().Number.Uint64()
 
 	bciData, err := readFn(mc.MSKeyBroadcastInterval)
@@ -118,7 +166,7 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, stateDb 
 		}
 		masterV, backupV, CandV, err := self.GetNextElectNodeInfo(electGraph, common.RoleValidator)
 		if err != nil {
-			log.ERROR(Module, "获取验证者全拓扑图失败 err", err)
+			log.Error(Module, "获取验证者全拓扑图失败 err", err)
 			return nil, err
 		}
 		for _, v := range masterV {
@@ -136,7 +184,7 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, stateDb 
 			tt.Position = common.PosOnline
 			electOnline.ElectOnline = append(electOnline.ElectOnline, tt)
 		}
-		log.DEBUG(Module, "高度", block.Number().Uint64(), "ProduceElectOnlineStateData data", electOnline)
+		log.Debug(Module, "高度", block.Number().Uint64(), "ProduceElectOnlineStateData data", electOnline)
 		return electOnline, nil
 	}
 
@@ -144,12 +192,12 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, stateDb 
 	data, err := readFn(mc.MSKeyElectOnlineState)
 	//log.INFO(Module, "data", data, "err", err)
 	if err != nil {
-		log.ERROR(Module, "readFn 失败 key", mc.MSKeyElectOnlineState, "err", err)
+		log.Error(Module, "readFn 失败 key", mc.MSKeyElectOnlineState, "err", err)
 		return nil, err
 	}
 	electStates, OK := data.(*mc.ElectOnlineStatus)
 	if OK == false || electStates == nil {
-		log.ERROR(Module, "ElectStates 非法", "反射失败")
+		log.Error(Module, "ElectStates 非法", "反射失败")
 		return nil, err
 	}
 	mappStatus := make(map[common.Address]uint16)
@@ -168,13 +216,13 @@ func (self *ReElection) ProduceElectOnlineStateData(block *types.Block, stateDb 
 		electStates.ElectOnline[k].Position = mappStatus[v.Account]
 	}
 
-	log.DEBUG(Module, "高度", block.Number().Uint64(), "ProduceElectOnlineStateData data", electStates)
+	log.Debug(Module, "高度", block.Number().Uint64(), "ProduceElectOnlineStateData data", electStates)
 	return electStates, nil
 }
 
 func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
-		log.ERROR(Module, "ProducePreBroadcastStateData CheckBlock err ", err)
+		log.Error(Module, "ProducePreBroadcastStateData CheckBlock err ", err)
 		return []byte{}, err
 	}
 	bciData, err := readFn(mc.MSKeyBroadcastInterval)
@@ -200,17 +248,17 @@ func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, stateDb
 	}
 	data, err := readFn(mc.MSKeyPreBroadcastRoot)
 	if err != nil {
-		log.ERROR(Module, "readFn 失败 key", mc.MSKeyPreBroadcastRoot, "err", err)
+		log.Error(Module, "readFn 失败 key", mc.MSKeyPreBroadcastRoot, "err", err)
 		return nil, err
 	}
 	preBroadcast, OK := data.(*mc.PreBroadStateRoot)
 	if OK == false || preBroadcast == nil {
-		log.ERROR(Module, "PreBroadStateRoot 非法", "反射失败")
+		log.Error(Module, "PreBroadStateRoot 非法", "反射失败")
 		return nil, err
 	}
 	header := self.bc.GetHeaderByHash(block.ParentHash())
 	if header == nil {
-		log.ERROR(Module, "根据hash算区块头失败 高度", block.Number().Uint64())
+		log.Error(Module, "根据hash算区块头失败 高度", block.Number().Uint64())
 		return nil, errors.New("header is nil")
 	}
 	preBroadcast.BeforeLastStateRoot = make([]common.CoinRoot, len(preBroadcast.LastStateRoot))
@@ -224,7 +272,7 @@ func (self *ReElection) ProducePreBroadcastStateData(block *types.Block, stateDb
 }
 func (self *ReElection) ProduceMinHashData(block *types.Block, stateDb *state.StateDBManage, readFn core.PreStateReadFn) (interface{}, error) {
 	if err := CheckBlock(block); err != nil {
-		log.ERROR(Module, "ProduceMinHashData CheckBlock err ", err)
+		log.Error(Module, "ProduceMinHashData CheckBlock err ", err)
 		return []byte{}, err
 	}
 	bciData, err := readFn(mc.MSKeyBroadcastInterval)
@@ -239,7 +287,7 @@ func (self *ReElection) ProduceMinHashData(block *types.Block, stateDb *state.St
 	height := block.Number().Uint64()
 	preHeader := self.bc.GetHeaderByHash(block.ParentHash())
 	if preHeader == nil {
-		log.ERROR(Module, "根据hash算区块头失败 高度", block.Number().Uint64())
+		log.Error(Module, "根据hash算区块头失败 高度", block.Number().Uint64())
 		return nil, errors.New("header is nil")
 	}
 	if bcInterval.IsBroadcastNumber(height - 1) {
@@ -248,12 +296,12 @@ func (self *ReElection) ProduceMinHashData(block *types.Block, stateDb *state.St
 	}
 	data, err := readFn(mc.MSKeyMinHash)
 	if err != nil {
-		log.ERROR(Module, "readFn 失败 key", mc.MSKeyMinHash, "err", err)
+		log.Error(Module, "readFn 失败 key", mc.MSKeyMinHash, "err", err)
 		return nil, err
 	}
 	randomInfo, OK := data.(*mc.RandomInfoStruct)
 	if OK == false || randomInfo == nil {
-		log.ERROR(Module, "PreBroadStateRoot 非法", "反射失败")
+		log.Error(Module, "PreBroadStateRoot 非法", "反射失败")
 		return nil, err
 	}
 

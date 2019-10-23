@@ -12,7 +12,6 @@ import (
 
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
 
 	"github.com/MatrixAINetwork/go-matrix/log"
 
@@ -21,12 +20,11 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/params"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 )
 
 const (
-	PackageName = "奖励util"
-)
-const (
+	PackageName    = "奖励util"
 	RewardFullRate = uint64(10000)
 	Stop           = "0"
 	TxsReward      = 0
@@ -45,10 +43,11 @@ var (
 
 	ThousandthManPrice *big.Int = big.NewInt(1e15)
 
-	Precision *big.Int = big.NewInt(1)
-	CalcAlpha          = "1"
-	CalcGamma          = "2"
-	CalcDelta          = "3"
+	Precision   *big.Int = big.NewInt(1)
+	CalcAlpha            = "1"
+	CalcGamma            = "2"
+	CalcDelta            = "3"
+	CalcEpsilon          = "4"
 )
 
 type ChainReader interface {
@@ -69,6 +68,7 @@ type ChainReader interface {
 	StateAt(root []common.CoinRoot) (*state.StateDBManage, error)
 	State() (*state.StateDBManage, error)
 	GetGraphByState(state matrixstate.StateDB) (*mc.TopologyGraph, *mc.ElectGraph, error)
+	GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGraph, error)
 	StateAtBlockHash(hash common.Hash) (*state.StateDBManage, error)
 	GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error)
 }
@@ -93,7 +93,7 @@ func SetAccountRewards(rewards map[common.Address]*big.Int, account common.Addre
 		return
 	}
 	if account.Equal(common.Address{}) {
-		log.ERROR(PackageName, "奖励的地址非法", account.Hex())
+		log.Error(PackageName, "奖励的地址非法", account.Hex())
 		return
 	}
 	if _, ok := rewards[account]; ok {
@@ -111,7 +111,7 @@ func CalcRateReward(rewardAmount *big.Int, rate uint64) *big.Int {
 func CalcStockRate(reward *big.Int, depositNodes map[common.Address]DepositInfo) map[common.Address]*big.Int {
 
 	if 0 == len(depositNodes) {
-		log.ERROR(PackageName, "抵押列表为空", "")
+		log.Error(PackageName, "抵押列表为空", "")
 		return nil
 	}
 	totalStock := uint64(0)
@@ -121,7 +121,7 @@ func CalcStockRate(reward *big.Int, depositNodes map[common.Address]DepositInfo)
 		totalStock = v.FixStock + totalStock
 	}
 
-	//log.INFO(PackageName, "计算抵押总额,账户股权", totalStock)
+	//log.Info(PackageName, "计算抵押总额,账户股权", totalStock)
 
 	sortedKeys := make([]string, 0)
 
@@ -142,7 +142,7 @@ func CalcStockRate(reward *big.Int, depositNodes map[common.Address]DepositInfo)
 func CalcInterestReward(reward *big.Int, interest map[common.Address]*big.Int) map[common.Address]*big.Int {
 
 	if 0 == len(interest) {
-		log.ERROR(PackageName, "利息列表为空", "")
+		log.Error(PackageName, "利息列表为空", "")
 		return nil
 	}
 	totalInterest := new(big.Int)
@@ -152,13 +152,13 @@ func CalcInterestReward(reward *big.Int, interest map[common.Address]*big.Int) m
 		totalInterest.Add(totalInterest, v)
 	}
 	if totalInterest.Cmp(big.NewInt(0)) <= 0 {
-		log.ERROR(PackageName, "计算的总利息值非法", totalInterest)
+		log.Error(PackageName, "计算的总利息值非法", totalInterest)
 		return nil
 	}
 	log.Trace(PackageName, "计算的总抵押值", totalInterest)
 
 	if 0 == reward.Cmp(big.NewInt(0)) {
-		log.ERROR(PackageName, "定点化奖励金额为0", "")
+		log.Error(PackageName, "定点化奖励金额为0", "")
 		return nil
 	}
 
@@ -175,7 +175,7 @@ func MergeReward(dst map[common.Address]*big.Int, src map[common.Address]*big.In
 		return
 	}
 	if nil == dst {
-		log.ERROR(PackageName, "dst is nil", dst)
+		log.Error(PackageName, "dst is nil", dst)
 		return
 	}
 	for account, reward := range src {
@@ -209,22 +209,21 @@ func CalcRewardMount(blockReward *big.Int, n uint64, x uint16) *big.Int {
 func CalcRewardMountByNumber(st StateDB, blockReward *big.Int, num uint64, halfNum uint64, address common.Address, attenuationRate uint16) *big.Int {
 
 	if blockReward.Cmp(big.NewInt(0)) < 0 {
-		log.WARN(PackageName, "折半计算的奖励金额不合法", blockReward)
+		log.Warn(PackageName, "折半计算的奖励金额不合法", blockReward)
 		return big.NewInt(0)
 	}
 
 	balance, err := getBalance(st, address)
 	if nil != err {
-		log.ERROR(PackageName, "账户余额获取错误，账户为", address.Hex())
+		log.Error(PackageName, "账户余额获取错误，账户为", address.Hex())
 		return big.NewInt(0)
 	}
 
 	n := CalcN(halfNum, num)
 
 	reward := CalcRewardMount(blockReward, n, attenuationRate)
-	log.Debug(PackageName, "计算衰减奖励金额:", reward.String())
 	if balance[common.MainAccount].Balance.Cmp(reward) < 0 {
-		log.ERROR(PackageName, "账户余额不足，余额为", balance[common.MainAccount].Balance.String())
+		log.Error(PackageName, "账户余额不足，余额为", balance[common.MainAccount].Balance.String())
 		return big.NewInt(0)
 	} else {
 		return reward
@@ -236,11 +235,11 @@ func getBalance(st StateDB, address common.Address) (common.BalanceType, error) 
 
 	balance := st.GetBalance(params.MAN_COIN, address)
 	if len(balance) == 0 {
-		log.ERROR(PackageName, "账户余额获取不到", "")
+		log.Error(PackageName, "账户余额获取不到", "")
 		return nil, errors.New("账户余额获取不到")
 	}
 	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) < 0 {
-		log.WARN(PackageName, "发送账户余额不合法，地址", address.Hex(), "余额", balance[common.MainAccount].Balance)
+		log.Warn(PackageName, "发送账户余额不合法，地址", address.Hex(), "余额", balance[common.MainAccount].Balance)
 		return nil, errors.New("发送账户余额不合法")
 	}
 	return balance, nil
@@ -249,11 +248,11 @@ func getBalanceByCoinType(st StateDB, address common.Address, cointype string) (
 
 	balance := st.GetBalance(cointype, address)
 	if len(balance) == 0 {
-		log.ERROR(PackageName, "账户余额获取不到", "")
+		log.Error(PackageName, "账户余额获取不到", "")
 		return nil, errors.New("账户余额获取不到")
 	}
 	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) < 0 {
-		log.WARN(PackageName, "发送账户余额不合法，地址", address.Hex(), "余额", balance[common.MainAccount].Balance)
+		log.Warn(PackageName, "发送账户余额不合法，地址", address.Hex(), "余额", balance[common.MainAccount].Balance)
 		return nil, errors.New("发送账户余额不合法")
 	}
 	return balance, nil
@@ -395,21 +394,21 @@ func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutR
 	if TxsReward == rewardType {
 		version := matrixstate.GetVersionInfo(state)
 		switch version {
-		case manparams.VersionAlpha:
+		case manversion.VersionAlpha:
 			currentReward, err = matrixstate.GetPreMinerTxsReward(state)
 			if err != nil {
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
 				return nil, errors.New("获取矿工交易金额错误")
 			}
-		case manparams.VersionBeta, manparams.VersionGamma, manparams.VersionDelta:
+		case manversion.VersionBeta, manversion.VersionGamma, manversion.VersionDelta, manversion.VersionAIMine:
 			multiCoin, err := matrixstate.GetPreMinerMultiCoinTxsReward(state)
 			if err != nil {
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
 				return make([]mc.MultiCoinMinerOutReward, 0), errors.New("获取矿工交易金额错误")
 			}
-			for _, v := range multiCoin {
-				log.Trace(PackageName, "获取前一个矿工奖励值为", v.Reward, "type", v.CoinType)
-			}
+			/*			for _, v := range multiCoin {
+						log.Trace(PackageName, "获取前一个矿工奖励值为", v.Reward, "type", v.CoinType)
+					}*/
 			return multiCoin, nil
 		default:
 			log.Error(PackageName, "获取前矿工奖励值版本号错误", version)
@@ -423,7 +422,6 @@ func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutR
 	}
 	multiCoinMinerOut := make([]mc.MultiCoinMinerOutReward, 0)
 	minerOutReward := mc.MultiCoinMinerOutReward{CoinType: params.MAN_COIN, Reward: currentReward.Reward}
-	log.INFO(PackageName, "获取前一个矿工奖励值为", currentReward.Reward, "type", rewardType)
 	multiCoinMinerOut = append(multiCoinMinerOut, minerOutReward)
 	return multiCoinMinerOut, nil
 

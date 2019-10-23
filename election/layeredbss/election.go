@@ -30,7 +30,7 @@ func RegInit() baseinterface.ElectionInterface {
 	return &layeredBss{}
 }
 
-func (self *layeredBss) MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg) *mc.MasterMinerReElectionRsp {
+func (self *layeredBss) MinerTopGen(mmrerm *mc.MasterMinerReElectionReqMsg, stateDb *state.StateDBManage) *mc.MasterMinerReElectionRsp {
 	log.Trace("MEP分层方案", "矿工拓扑生成", mmrerm)
 
 	vipEle := support.NewMEPElection(nil, mmrerm.MinerList, mmrerm.ElectConfig, mmrerm.RandSeed, mmrerm.SeqNum, common.RoleMiner)

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
+
 	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
 
 	"github.com/davecgh/go-spew/spew"
@@ -39,6 +41,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/rawdb"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/core/vm"
+	"github.com/MatrixAINetwork/go-matrix/core/vm/validatorGroup"
 	"github.com/MatrixAINetwork/go-matrix/crc8"
 	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/crypto/aes"
@@ -49,7 +52,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/params/enstrust"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"github.com/MatrixAINetwork/go-matrix/rpc"
-	"github.com/MatrixAINetwork/go-matrix/core/vm/validatorGroup"
 )
 
 const (
@@ -720,7 +722,18 @@ func (s *PublicBlockChainAPI) GetDestroyBalance(ctx context.Context, blockNr rpc
 	}
 	return value, nil
 }
-func (s *PublicBlockChainAPI) GetMatrixCoinConfig(ctx context.Context, cointpy string, blockNr rpc.BlockNumber) ([]common.CoinConfig, error) {
+
+type ManCoinConfig struct {
+	CoinRange   string       `json:"CoinRange"`   //coinrange和cointype是一个类型，为了扩展方便保留该字段
+	CoinType    string       `json:"CoinType"`    //支付币种
+	PackNum     uint64       `json:"PackNum"`     //打包数量限制 如果为0则不打包
+	CoinUnit    *hexutil.Big `json:"CoinUnit"`    //单位
+	CoinTotal   *hexutil.Big `json:"CoinTotal"`   //总发行量
+	CoinAddress string       `json:"CoinAddress"` //币种交易费账户
+	//PayCoinType	string 		 `json:"PayCoinType"` //发放币种
+}
+
+func (s *PublicBlockChainAPI) GetMatrixCoinConfig(ctx context.Context, cointpy string, blockNr rpc.BlockNumber) ([]ManCoinConfig, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
 		return nil, err
@@ -735,17 +748,31 @@ func (s *PublicBlockChainAPI) GetMatrixCoinConfig(ctx context.Context, cointpy s
 			return nil, err
 		}
 	}
-	var coinlist []common.CoinConfig
+	var coinlist []ManCoinConfig
 	for _, coin := range tmpcoinlist {
 		if !common.IsValidityCurrency(coin.CoinType) {
 			continue
 		}
 		if cointpy == "" {
-			coinlist = append(coinlist, coin)
+			coinlist = append(coinlist, ManCoinConfig{
+				CoinRange:   coin.CoinRange,
+				CoinType:    coin.CoinType,
+				PackNum:     coin.PackNum,
+				CoinUnit:    coin.CoinUnit,
+				CoinTotal:   coin.CoinTotal,
+				CoinAddress: base58.Base58EncodeToString("MAN", coin.CoinAddress),
+			})
 			continue
 		}
 		if cointpy == coin.CoinType {
-			coinlist = append(coinlist, coin)
+			coinlist = append(coinlist, ManCoinConfig{
+				CoinRange:   coin.CoinRange,
+				CoinType:    coin.CoinType,
+				PackNum:     coin.PackNum,
+				CoinUnit:    coin.CoinUnit,
+				CoinTotal:   coin.CoinTotal,
+				CoinAddress: base58.Base58EncodeToString(coin.CoinType, coin.CoinAddress),
+			})
 			break
 		}
 	}
@@ -824,7 +851,7 @@ func (s *PublicBlockChainAPI) GetValidatorGroupInfo(ctx context.Context, blockNr
 		return nil, err
 	}
 	info := MakeJsonInferface(&getRetval)
-	return info,nil
+	return info, nil
 }
 
 //退选信息
@@ -1774,6 +1801,13 @@ func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx
 	return fields, nil
 }
 
+//
+type BasePowers1 struct {
+	Miner     string
+	Nonce     types.BlockNonce
+	MixDigest common.Hash
+}
+
 /************************************************************/
 func (s *PublicBlockChainAPI) rpcOutputBlock1(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	head := b.Header() // copies the header once
@@ -1830,7 +1864,17 @@ func (s *PublicBlockChainAPI) rpcOutputBlock1(b *types.Block, inclTx bool, fullT
 		"version":     hexutil.Bytes(head.Version),
 		"VrfValue":    hexutil.Bytes(head.VrfValue),
 	}
+	if manversion.VersionCmp(string(head.Version), manversion.VersionAIMine) >= 0 {
+		fields["AIHash"] = head.AIHash
+		fields["AIMiner"] = base58.Base58EncodeToString(params.MAN_COIN, head.AICoinbase)
+		fields["Sm3Nonce"] = head.Sm3Nonce
+		basePowers1 := make([]BasePowers1, 0)
+		for _, bp := range head.BasePowers {
 
+			basePowers1 = append(basePowers1, BasePowers1{Miner: base58.Base58EncodeToString(params.MAN_COIN, bp.Miner), Nonce: bp.Nonce, MixDigest: bp.MixDigest})
+		}
+		fields["basePowers"] = basePowers1
+	}
 	if inclTx {
 		formatTx := func(tx types.SelfTransaction, cointy string) (interface{}, error) {
 			return tx.Hash(), nil
@@ -2244,7 +2288,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
 		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
 		"contractAddress":   nil,
-		"logs":              receipt.Logs,
+		"logs":              nil,
 		"logsBloom":         receipt.Bloom,
 	}
 	fields["from"] = base58.Base58EncodeToString(tx.GetTxCurrency(), from)
@@ -2259,6 +2303,8 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	}
 	if receipt.Logs == nil {
 		fields["logs"] = [][]*types.Log{}
+	} else {
+		fields["logs"] = types.Log2ManLog(tx.GetTxCurrency(), receipt.Logs)
 	}
 	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
 	if receipt.ContractAddress != (common.Address{}) {

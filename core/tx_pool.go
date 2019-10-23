@@ -528,7 +528,7 @@ func (nPool *NormalTxPool) ListenUdp() {
 						nc = nc | params.NonceAddOne
 						tx.SetNonce(nc)
 					}
-					log.INFO("==udp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", tx.Hash().String())
+					log.Info("==udp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", tx.Hash().String())
 					tmptxs = append(tmptxs, tx)
 				}
 				nPool.getFromByTx(tmptxs)

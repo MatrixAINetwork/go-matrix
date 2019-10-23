@@ -384,9 +384,11 @@ func (f *Fetcher) loop() {
 				f.forgetBlock(hash)
 				continue
 			}
+			/* 去掉重复高度插入判断
 			if number > height {
 				f.insert(op.origin, op.block)
-			}
+			}*/
+			f.insert(op.origin, op.block)
 		}
 		// Wait for an outside event to occur
 		select {
@@ -707,7 +709,7 @@ func (f *Fetcher) loop() {
 						log.Trace("fetch queued has this hash", "hash", hash.String())
 					}
 					//lb
-					if dist := int64(announce.number) - int64(height); dist <= 0/*-maxUncleDist*/ || dist > maxQueueDist {
+					if dist := int64(announce.number) - int64(height); dist <= -maxUncleDist || dist > maxQueueDist {
 						log.Trace("fetch f.completing will delete hash", "hash", hash, "number", announce.number,"height",height)
 						f.forgetHash(hash)
 						//f.forgetBlock(hash)

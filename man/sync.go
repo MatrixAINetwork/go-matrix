@@ -6,7 +6,6 @@ package man
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -14,15 +13,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/man/downloader"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/MatrixAINetwork/go-matrix/snapshot"
+	"io/ioutil"
 )
 
 const (
@@ -145,7 +144,7 @@ func (pm *ProtocolManager) WaitForDownLoadMode() {
 	syncRoleCH := make(chan mc.SyncIdEvent, 1)
 	sub, _ := mc.SubscribeEvent(mc.SendSyncRole, syncRoleCH)
 	fmt.Println("download sync.go  WaitForDownLoadMode enter")
-	log.WARN("download sync.go  WaitForDownLoadMode enter")
+	log.Warn("download sync.go  WaitForDownLoadMode enter")
 	select {
 	case id := <-syncRoleCH:
 		if id.Role == common.RoleBroadcast {
@@ -166,7 +165,7 @@ func (pm *ProtocolManager) WaitForDownLoadMode() {
 		}
 	}
 	sub.Unsubscribe()
-	log.WARN("download sync.go  WaitForDownLoadMode out")
+	log.Warn("download sync.go  WaitForDownLoadMode out")
 
 }
 
@@ -177,7 +176,7 @@ func (pm *ProtocolManager) syncer() {
 	pm.fetcher.Start()
 	defer pm.fetcher.Stop()
 	defer pm.downloader.Terminate()
-	log.WARN("syncer", "syncer IpfsDownloadflg", pm.downloader.IpfsMode)
+	log.Warn("syncer", "syncer IpfsDownloadflg", pm.downloader.IpfsMode)
 	if pm.downloader.IpfsMode {
 		pm.WaitForDownLoadMode()
 	}
@@ -343,7 +342,7 @@ func (pm *ProtocolManager) synchronise(peer *peer, flg int) {
 	if needForceDownload {
 		log.Trace("download sync.go force into")
 	} else if pSbs == sbs {
-		if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+		if manversion.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
 			if bn < currentBlock.NumberU64() {
 				log.Trace("对端peer高度小于本地的高度", "本地高度", currentBlock.NumberU64(), "对端高度", bn, "peer hex", peer.id)
 				return

@@ -5,14 +5,15 @@ package support
 
 import (
 	"fmt"
+	"math"
+	"math/big"
+	"math/rand"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/mt19937"
 	"github.com/MatrixAINetwork/go-matrix/core/vm"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"math"
-	"math/big"
-	"math/rand"
 )
 
 const (
@@ -70,6 +71,170 @@ type Electoion struct {
 	MapMoney                   map[common.Address]uint64
 	BlockProduceSlashBlackList mc.BlockProduceSlashBlackList
 	BlockBlackProc             *BlockProduceProc
+}
+
+type ElectDP struct {
+	RandSeed    *mt19937.RandUniform
+	EleCfg      *mc.ElectConfigInfo_All
+	ChosedNum   uint64
+	DepositNode []vm.DepositDetail
+	DepostiA0   map[common.Address]bool
+	DepostiA1   map[common.Address]common.Address
+	BpBlackList *mc.BasePowerSlashBlackList
+	Num         uint64
+	UpdateSeq   bool
+}
+
+func getAccountListInDeposit(minerList []vm.DepositDetail, candidateList []common.Address) []common.Address {
+	newCandidateList := make([]common.Address, 0, 1024)
+	for i := 0; i < len(minerList); i++ {
+		if FindAddress(minerList[i].Address, candidateList) {
+			newCandidateList = append(newCandidateList, minerList[i].Address)
+		} else {
+			//log.Trace("动态选举方案", "节点不存在", minerList[i].Address)
+		}
+
+	}
+	return newCandidateList
+}
+
+func (self *ElectDP) getAccountListInDepositMap(candidateList []common.Address) []common.Address {
+	newCandidateList := make([]common.Address, 0, 1024)
+	for _, v := range candidateList {
+		if _, ok := self.DepostiA0[v]; ok {
+			newCandidateList = append(newCandidateList, v)
+		}
+	}
+	return newCandidateList
+}
+
+func (self *ElectDP) GetUsableNodeList(candidateList, excludeNode []common.Address) []common.Address {
+	var newCandidateList []common.Address
+	if len(candidateList) == 0 {
+		for _, v := range self.DepositNode {
+			newCandidateList = append(newCandidateList, v.Address)
+		}
+	} else {
+		newCandidateList = self.getAccountListInDepositMap(candidateList)
+	}
+
+	canUseNodeList := self.NewFilterWhiteBlackList(newCandidateList, excludeNode)
+	log.Info("动态选举方案", "黑白名单处理输入节点个数", len(candidateList), "输出节点个数", len(canUseNodeList))
+	return canUseNodeList
+}
+func (self *ElectDP) NewFilterWhiteBlackList(CandidateList, excludeNode []common.Address) []common.Address {
+	nodeUserMap := make(map[common.Address]bool, 1024)
+
+	for _, v := range CandidateList {
+		nodeUserMap[v] = true
+	}
+	//白名单
+	if self.EleCfg.WhiteListSwitcher {
+		for _, v := range CandidateList {
+			if !FindAddress(v, self.EleCfg.WhiteList) {
+				nodeUserMap[v] = false
+			}
+		}
+	}
+	//黑名单A0
+	for _, v := range self.EleCfg.BlackList {
+		nodeUserMap[v] = false
+	}
+
+	//黑名单,过滤A1
+	for _, v := range self.EleCfg.BlackList {
+		if A0, ok := self.DepostiA1[v]; ok {
+			nodeUserMap[A0] = false
+		}
+	}
+
+	//extra
+	for _, v := range excludeNode {
+		nodeUserMap[v] = false
+	}
+	//算力黑名单
+	for _, v := range self.BpBlackList.BlackList {
+		if v.ProhibitCycleCounter > 0 {
+			nodeUserMap[v.Address] = false
+		}
+	}
+	//转换为节点列表
+	canUseNodeList := make([]common.Address, 0)
+	for _, v := range CandidateList {
+		if nodeUserMap[v] {
+			canUseNodeList = append(canUseNodeList, v)
+		}
+	}
+	return canUseNodeList
+}
+
+func (self *ElectDP) OldFilterWhiteBlackList(CandidateList, excludeNode []common.Address) []common.Address {
+	nodeUserMap := make(map[common.Address]bool, 1024)
+
+	for _, v := range CandidateList {
+		nodeUserMap[v] = true
+	}
+	//白名单
+	if self.EleCfg.WhiteListSwitcher {
+		for _, v := range CandidateList {
+			if !FindAddress(v, self.EleCfg.WhiteList) {
+				nodeUserMap[v] = false
+			}
+		}
+	}
+	//黑名单A0
+	for _, v := range CandidateList {
+		if FindAddress(v, self.EleCfg.BlackList) {
+			nodeUserMap[v] = false
+		}
+	}
+	//黑名单,过滤A1
+	for _, v := range self.DepositNode {
+		if FindAddress(v.SignAddress, self.EleCfg.BlackList) {
+			nodeUserMap[v.Address] = false
+			continue
+		}
+	}
+	//extra
+	for _, v := range CandidateList {
+		if FindAddress(v, excludeNode) {
+			nodeUserMap[v] = false
+		}
+	}
+	//算力黑名单
+	for _, v := range self.BpBlackList.BlackList {
+		if v.ProhibitCycleCounter > 0 && FindAddress(v.Address, CandidateList) {
+			nodeUserMap[v.Address] = false
+			continue
+		}
+	}
+	//转换为节点列表
+	canUseNodeList := make([]common.Address, 0)
+	for _, v := range CandidateList {
+		if nodeUserMap[v] {
+			canUseNodeList = append(canUseNodeList, v)
+		}
+	}
+	return canUseNodeList
+}
+
+func (self *ElectDP) AddChosedNum(hasChosedNum uint64) {
+	self.ChosedNum = self.ChosedNum + hasChosedNum
+}
+
+//todo:按照轮次减
+func (self *ElectDP) DecrementBpSlashCount() {
+	if self.UpdateSeq == false {
+		return
+	}
+	newBlackList := make([]mc.BasePowerSlash, 0)
+	for i := 0; i < len(self.BpBlackList.BlackList); i++ {
+		if self.BpBlackList.BlackList[i].ProhibitCycleCounter > 0 {
+			self.BpBlackList.BlackList[i].ProhibitCycleCounter = self.BpBlackList.BlackList[i].ProhibitCycleCounter - 1
+			newBlackList = append(newBlackList, self.BpBlackList.BlackList[i])
+		}
+	}
+	self.BpBlackList.BlackList = newBlackList
 }
 
 func (node *Node) SetUsable(status bool) {
@@ -168,6 +333,23 @@ func NewMEPElection(VipLevelCfg []mc.VIPConfig, vm []vm.DepositDetail, EleCfg mc
 		vip.MapMoney[vip.NodeList[i].Address] = DefaultMinerDeposit
 	}
 	return &vip
+}
+func NewDpElection(mmrerm *mc.MasterMinerReElectionReqMsg, bpBlackList *mc.BasePowerSlashBlackList) *ElectDP {
+	var edp ElectDP
+	edp.RandSeed = mt19937.RandUniformInit(mmrerm.RandSeed.Int64())
+	edp.EleCfg = &mmrerm.ElectConfig
+	edp.ChosedNum = 0
+	edp.DepositNode = mmrerm.MinerList
+	edp.DepostiA0 = make(map[common.Address]bool)
+	edp.DepostiA1 = make(map[common.Address]common.Address)
+	for _, v := range edp.DepositNode {
+		edp.DepostiA0[v.Address] = false
+		edp.DepostiA1[v.SignAddress] = v.Address
+	}
+	edp.BpBlackList = bpBlackList
+	edp.Num = mmrerm.SeqNum
+	edp.UpdateSeq = false
+	return &edp
 }
 func (vip *Electoion) GetAvailableNodeNum() int {
 	var availableNodeNum = 0
@@ -415,7 +597,7 @@ func (vip *Electoion) GenSuperNode(superThreshold int64) ([]Strallyint, []Node) 
 		if index, ok := vipNodeMap[v.Address]; ok {
 			vip.NodeList[index].SetUsable(false)
 		} else {
-			log.ERROR("Election Module", "Pre SuperNode Invalid", v.Address.String())
+			log.Error("Election Module", "Pre SuperNode Invalid", v.Address.String())
 		}
 	}
 

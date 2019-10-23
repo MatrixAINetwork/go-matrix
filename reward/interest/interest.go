@@ -47,42 +47,42 @@ func New(st util.StateDB, preSt util.StateDB) *interest {
 
 	calc, err := matrixstate.GetInterestCalc(preSt)
 	if nil != err {
-		log.ERROR(PackageName, "获取状态树配置错误")
+		log.Error(PackageName, "获取状态树配置错误")
 		return nil
 	}
 
 	if calc == util.Stop {
-		log.ERROR(PackageName, "停止发放区块奖励", "")
+		log.Error(PackageName, "停止发放区块奖励", "")
 		return nil
 	}
 
 	_, err = matrixstate.GetBroadcastInterval(preSt)
 	if err != nil {
-		log.ERROR(PackageName, "获取广播周期数据结构失败", err)
+		log.Error(PackageName, "获取广播周期数据结构失败", err)
 		return nil
 	}
 	IC, err := matrixstate.GetInterestCfg(preSt)
 	if nil != err {
-		log.ERROR(PackageName, "获取利息状态树配置错误", "")
+		log.Error(PackageName, "获取利息状态树配置错误", "")
 		return nil
 	}
 	if IC == nil {
-		log.ERROR(PackageName, "利息配置", "配置为nil")
+		log.Error(PackageName, "利息配置", "配置为nil")
 		return nil
 	}
 
 	if IC.PayInterval == 0 {
-		log.ERROR(PackageName, "利息周期配置错误，支付周期", IC.PayInterval)
+		log.Error(PackageName, "利息周期配置错误，支付周期", IC.PayInterval)
 		return nil
 	}
 
 	VipCfg, err := matrixstate.GetVIPConfig(preSt)
 	if nil != err {
-		log.ERROR(PackageName, "获取VIP状态树配置错误", "")
+		log.Error(PackageName, "获取VIP状态树配置错误", "")
 		return nil
 	}
 	if 0 == len(VipCfg) {
-		log.ERROR(PackageName, "利率表为空", "")
+		log.Error(PackageName, "利率表为空", "")
 		return nil
 	}
 
@@ -91,13 +91,13 @@ func New(st util.StateDB, preSt util.StateDB) *interest {
 func (ic *interest) calcNodeInterest(deposit *big.Int, depositInterestRate []*DepositInterestRate, denominator uint64) *big.Int {
 
 	if deposit.Cmp(big.NewInt(0)) <= 0 {
-		log.ERROR(PackageName, "抵押获取错误", deposit)
+		log.Error(PackageName, "抵押获取错误", deposit)
 		return big.NewInt(0)
 	}
 	var blockInterest uint64
 	for i, depositInterest := range depositInterestRate {
 		if deposit.Cmp(big.NewInt(0)) <= 0 {
-			log.ERROR(PackageName, "抵押获取错误", deposit)
+			log.Error(PackageName, "抵押获取错误", deposit)
 			return big.NewInt(0)
 		}
 		if deposit.Cmp(depositInterest.Deposit) < 0 {
@@ -116,7 +116,7 @@ func (ic *interest) calcNodeInterest(deposit *big.Int, depositInterestRate []*De
 func (ic *interest) calcNodeInterestB(deposit *big.Int) *big.Int {
 
 	if deposit.Cmp(big.NewInt(0)) <= 0 {
-		log.ERROR(PackageName, "抵押获取错误", deposit)
+		//log.Error(PackageName, "抵押获取错误", deposit)
 		return big.NewInt(0)
 	}
 
@@ -138,18 +138,18 @@ func (ic *interest) PayInterest(state vm.StateDBManager, num uint64, time uint64
 
 	for account, originInterest := range AllInterestMap {
 		if originInterest.Cmp(big.NewInt(0)) <= 0 {
-			log.ERROR(PackageName, "获取的利息非法", originInterest)
+			log.Error(PackageName, "获取的利息非法", originInterest)
 			continue
 		}
 		slash, _ := depoistInfo.GetSlash(state, account)
 		if slash.Cmp(big.NewInt(0)) < 0 {
-			log.ERROR(PackageName, "获取的惩罚非法", originInterest)
+			log.Error(PackageName, "获取的惩罚非法", originInterest)
 			continue
 		}
 
 		finalInterest := new(big.Int).Sub(originInterest, slash)
 		if finalInterest.Cmp(big.NewInt(0)) <= 0 {
-			log.ERROR(PackageName, "支付的的利息非法", finalInterest)
+			log.Error(PackageName, "支付的的利息非法", finalInterest)
 			continue
 		}
 		if slash.Cmp(big.NewInt(0)) > 0 {
@@ -161,7 +161,7 @@ func (ic *interest) PayInterest(state vm.StateDBManager, num uint64, time uint64
 	}
 	balance := state.GetBalance(params.MAN_COIN, common.InterestRewardAddress)
 	if balance[common.MainAccount].Balance.Cmp(allInterest) < 0 {
-		log.ERROR(PackageName, "利息账户余额不足，余额为", balance[common.MainAccount].Balance.String())
+		log.Error(PackageName, "利息账户余额不足，余额为", balance[common.MainAccount].Balance.String())
 		return nil
 	}
 	AllInterestMap[common.ContractAddress] = allInterest
@@ -171,7 +171,7 @@ func (ic *interest) PayInterest(state vm.StateDBManager, num uint64, time uint64
 func (ic *interest) canPayInterest(state vm.StateDBManager, num uint64, payInterestPeriod uint64) bool {
 	latestNum, err := matrixstate.GetInterestPayNum(state)
 	if nil != err {
-		log.ERROR(PackageName, "状态树获取前一计算利息高度错误", err)
+		log.Error(PackageName, "状态树获取前一计算利息高度错误", err)
 		return false
 	}
 	if latestNum >= ic.getLastInterestNumber(num-1, payInterestPeriod)+1 {
@@ -216,7 +216,7 @@ func (ic *interest) GetInterest(num uint64, parentHash common.Hash) map[common.A
 	depositInterestRateList := make(DepositInterestRateList, 0)
 	for _, v := range ic.VIPConfig {
 		if v.MinMoney < 0 {
-			log.ERROR(PackageName, "最小金额设置非法", "")
+			log.Error(PackageName, "最小金额设置非法", "")
 			return nil
 		}
 		deposit := new(big.Int).Mul(new(big.Int).SetUint64(v.MinMoney), util.ManPrice)
@@ -225,11 +225,11 @@ func (ic *interest) GetInterest(num uint64, parentHash common.Hash) map[common.A
 	//sort.Sort(depositInterestRateList
 	depositNodes, err := ca.GetElectedByHeightByHash(parentHash)
 	if nil != err {
-		log.ERROR(PackageName, "获取的抵押列表错误", err)
+		log.Error(PackageName, "获取的抵押列表错误", err)
 		return nil
 	}
 	if 0 == len(depositNodes) {
-		log.ERROR(PackageName, "获取的抵押列表为空", "")
+		log.Error(PackageName, "获取的抵押列表为空", "")
 		return nil
 	}
 
@@ -240,7 +240,7 @@ func (ic *interest) GetInterest(num uint64, parentHash common.Hash) map[common.A
 
 			result := ic.calcNodeInterestB(dv.Deposit)
 			if result.Cmp(big.NewInt(0)) <= 0 {
-				log.ERROR(PackageName, "计算的利息非法", result)
+				log.Error(PackageName, "计算的利息非法", result)
 				continue
 			}
 			InterestMap[dv.Address] = result
@@ -251,7 +251,7 @@ func (ic *interest) GetInterest(num uint64, parentHash common.Hash) map[common.A
 
 			result := ic.calcNodeInterest(dv.Deposit, depositInterestRateList, Denominator)
 			if result.Cmp(big.NewInt(0)) <= 0 {
-				log.ERROR(PackageName, "计算的利息非法", result)
+				log.Error(PackageName, "计算的利息非法", result)
 				continue
 			}
 			InterestMap[dv.Address] = result
@@ -265,7 +265,7 @@ func (ic *interest) GetInterest(num uint64, parentHash common.Hash) map[common.A
 func (ic *interest) canCalcInterest(state vm.StateDBManager, num uint64, calcInterestInterval uint64) bool {
 	latestNum, err := matrixstate.GetInterestCalcNum(state)
 	if nil != err {
-		log.ERROR(PackageName, "状态树获取前一计算利息高度错误", err)
+		log.Error(PackageName, "状态树获取前一计算利息高度错误", err)
 		return false
 	}
 	if latestNum >= ic.getLastInterestNumber(num-1, calcInterestInterval)+1 {

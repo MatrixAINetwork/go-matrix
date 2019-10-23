@@ -4,6 +4,8 @@
 package matrixstate
 
 import (
+	"math/big"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -520,6 +522,238 @@ func (opt *operatorSuperBlockCfg) SetValue(st StateDB, value interface{}) error 
 	data, err := rlp.EncodeToBytes(value)
 	if err != nil {
 		log.Error(logInfo, "superBlkCfg rlp encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 最小挖矿难度
+type operatorMinDifficulty struct {
+	key common.Hash
+}
+
+func newMinDiffcultyOpt() *operatorMinDifficulty {
+	return &operatorMinDifficulty{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyMinimumDifficulty),
+	}
+}
+
+func (opt *operatorMinDifficulty) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorMinDifficulty) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		log.Error(logInfo, "minDifficulty data", "is empty")
+		return nil, ErrDataEmpty
+	}
+
+	minDifficulty := big.NewInt(0).SetBytes(data)
+	return minDifficulty, nil
+}
+
+func (opt *operatorMinDifficulty) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	minDifficulty, OK := value.(*big.Int)
+	if !OK {
+		log.Error(logInfo, "input param(minDifficulty) err", "reflect failed")
+		return ErrParamReflect
+	}
+	data := minDifficulty.Bytes()
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 最大挖矿难度
+type operatorMaxDifficulty struct {
+	key common.Hash
+}
+
+func newMaxDiffcultyOpt() *operatorMaxDifficulty {
+	return &operatorMaxDifficulty{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyMaximumDifficulty),
+	}
+}
+
+func (opt *operatorMaxDifficulty) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorMaxDifficulty) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		log.Error(logInfo, "MaxDifficulty data", "is empty")
+		return nil, ErrDataEmpty
+	}
+
+	MaxDifficulty := big.NewInt(0).SetBytes(data)
+	return MaxDifficulty, nil
+}
+
+func (opt *operatorMaxDifficulty) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	MaxDifficulty, OK := value.(*big.Int)
+	if !OK {
+		log.Error(logInfo, "input param(MaxDifficulty) err", "reflect failed")
+		return ErrParamReflect
+	}
+	data := MaxDifficulty.Bytes()
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 换届初始挖矿难度
+type operatorReelectionDifficulty struct {
+	key common.Hash
+}
+
+func newReelectionDiffcultyOpt() *operatorReelectionDifficulty {
+	return &operatorReelectionDifficulty{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyReelectionDifficulty),
+	}
+}
+
+func (opt *operatorReelectionDifficulty) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorReelectionDifficulty) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		log.Error(logInfo, "ReelectionDifficulty data", "is empty")
+		return nil, ErrDataEmpty
+	}
+
+	ReelectionDifficulty := big.NewInt(0).SetBytes(data)
+	return ReelectionDifficulty, nil
+}
+
+func (opt *operatorReelectionDifficulty) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	ReelectionDifficulty, OK := value.(*big.Int)
+	if !OK {
+		log.Error(logInfo, "input param(ReelectionDifficulty) err", "reflect failed")
+		return ErrParamReflect
+	}
+	data := ReelectionDifficulty.Bytes()
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 多币种区块头
+type operatorCurrencyHeaderCfg struct {
+	key common.Hash
+}
+
+func newCurrencyHeaderCfgOpt() *operatorCurrencyHeaderCfg {
+	return &operatorCurrencyHeaderCfg{
+		key: types.RlpHash(matrixStatePrefix + mc.MSCurrencyHeader),
+	}
+}
+
+func (opt *operatorCurrencyHeaderCfg) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorCurrencyHeaderCfg) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return &mc.CurrencyHeader{Roots: []common.CoinRoot{}, Sharding: []common.Coinbyte{}}, nil
+	}
+
+	value := new(mc.CurrencyHeader)
+	err := rlp.DecodeBytes(data, &value)
+	if err != nil {
+		log.Error(logInfo, "currency header rlp decode failed", err)
+		return nil, err
+	}
+	return value, nil
+}
+
+func (opt *operatorCurrencyHeaderCfg) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	data, err := rlp.EncodeToBytes(value)
+	if err != nil {
+		log.Error(logInfo, "currency header rlp encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 出块时间
+type operatorBlockDuration struct {
+	key common.Hash
+}
+
+func newBlockDurationOpt() *operatorBlockDuration {
+	return &operatorBlockDuration{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyBlockDurationStatus),
+	}
+}
+
+func (opt *operatorBlockDuration) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorBlockDuration) GetValue(st StateDB) (interface{}, error) {
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return &mc.BlockDurationStatus{Status: []uint8{}}, nil
+	}
+
+	value := new(mc.BlockDurationStatus)
+	err := rlp.DecodeBytes(data, &value)
+	if err != nil {
+		log.Error(logInfo, "BlockDuration rlp decode failed", err)
+		return nil, err
+	}
+	return value, nil
+}
+
+func (opt *operatorBlockDuration) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	data, err := rlp.EncodeToBytes(value)
+	if err != nil {
+		log.Error(logInfo, "BlockDuration rlp encode failed", err)
 		return err
 	}
 	st.SetMatrixData(opt.key, data)

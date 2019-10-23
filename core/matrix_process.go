@@ -4,13 +4,14 @@
 package core
 
 import (
+	"sync"
+
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/pkg/errors"
-	"sync"
 )
 
 type PreStateReadFn func(key string) (interface{}, error)

@@ -12,6 +12,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/pkg/errors"
 )
 
@@ -99,9 +100,11 @@ func (dc *cdc) AnalysisState(parentHeader *types.Header, parentState StateReader
 	} else {
 		dc.reelectMaster.Set(common.Address{})
 	}
-	if err := dc.turnTime.SetTimeConfig(config); err != nil {
+	if err := dc.turnTime.SetTimeConfig(config, dc.nextBlockIsAIBlock(parentHeader, bcInterval)); err != nil {
 		log.Error(dc.logInfo, "turnTime设置时间配置参数失败", err)
 		return err
+	} else {
+		log.Trace(dc.logInfo, "turnTime params", dc.number, "parentMiningTime", dc.turnTime.parentMiningTime, "turnOutTime", dc.turnTime.turnOutTime, "reelectHandleInterval", dc.turnTime.reelectHandleInterval)
 	}
 	dc.bcInterval = bcInterval
 	dc.consensusLeader.Set(consensusLeader)
@@ -109,6 +112,15 @@ func (dc *cdc) AnalysisState(parentHeader *types.Header, parentState StateReader
 	dc.role = role
 
 	return nil
+}
+
+func (dc *cdc) nextBlockIsAIBlock(header *types.Header, bcInterval *mc.BCIntervalInfo) bool {
+	if manversion.VersionCmp(string(header.Version), manversion.VersionAIMine) < 0 && dc.number < manversion.VersionNumAIMine {
+		log.Trace(dc.logInfo, "nextBlockIsAIBlock", "版本号且高度均未满足AI版本要求", "header version", string(header.Version), "number", dc.number)
+		return false
+	}
+
+	return params.IsAIBlock(dc.number, bcInterval.GetBroadcastInterval())
 }
 
 func (dc *cdc) SetConsensusTurn(consensusTurn mc.ConsensusTurnInfo) error {
@@ -331,7 +343,7 @@ func (dc *cdc) GetA2AccountsFromA0Account(a0Account common.Address, blockHash co
 
 func (dc *cdc) GetA0AccountFromAnyAccount(account common.Address, blockHash common.Hash) (common.Address, common.Address, error) {
 	if blockHash == (common.Hash{}) {
-		log.ERROR(common.SignLog, "CDC获取A0账户", "输入的hash为空")
+		log.Error(common.SignLog, "CDC获取A0账户", "输入的hash为空")
 		return common.Address{}, common.Address{}, errors.New("cdc: 输入hash为空")
 	}
 	if blockHash != dc.leaderCal.preHash {
@@ -358,7 +370,7 @@ func (dc *cdc) GetA2AccountsFromA0AccountAtSignHeight(a0Account common.Address, 
 
 func (dc *cdc) GetA0AccountFromAnyAccountAtSignHeight(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error) {
 	if blockHash == (common.Hash{}) {
-		log.ERROR(common.SignLog, "CDC获取A0账户", "输入的hash为空")
+		log.Error(common.SignLog, "CDC获取A0账户", "输入的hash为空")
 		return common.Address{}, common.Address{}, errors.New("cdc: 输入hash为空")
 	}
 	if blockHash != dc.leaderCal.preHash {
@@ -382,7 +394,7 @@ func (dc *cdc) getA2Accounts(a0Account common.Address, blockHash common.Hash, si
 
 	a2Accounts := dc.parentState.GetEntrustFrom(params.MAN_COIN, a1Account, signHeight)
 	if len(a2Accounts) == 0 {
-		log.INFO(common.SignLog, "cdc获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
+		log.Info(common.SignLog, "cdc获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
 	} else {
 		log.Info(common.SignLog, "cdc获得A2账户", "成功", "账户数量", len(a2Accounts), "签名高度", signHeight)
 		for i, account := range a2Accounts {
@@ -395,7 +407,7 @@ func (dc *cdc) getA2Accounts(a0Account common.Address, blockHash common.Hash, si
 
 func (dc *cdc) getA0Account(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error) {
 	if nil == dc.parentState {
-		log.ERROR(common.SignLog, "CDC获取A0账户", "dc.parentState is nil")
+		log.Error(common.SignLog, "CDC获取A0账户", "dc.parentState is nil")
 		return common.Address{}, common.Address{}, errors.New("cdc: parent stateDB is nil, can't reader data")
 	}
 

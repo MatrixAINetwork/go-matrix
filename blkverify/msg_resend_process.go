@@ -6,9 +6,12 @@ package blkverify
 
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
+	"time"
 )
 
 func (p *Process) stopSender() {
@@ -17,9 +20,28 @@ func (p *Process) stopSender() {
 	p.closeVoteMsgSender()
 }
 
-func (p *Process) startSendMineReq(req *mc.HD_MiningReqMsg) {
+func (p *Process) startSendMineReq(posHeader *types.Header) {
+	var reqMsg interface{}
+	if manversion.VersionCmp(string(posHeader.Version), manversion.VersionAIMine) < 0 {
+		reqMsg = &mc.HD_MiningReqMsg{Header: posHeader}
+	} else {
+		// 新版本，只有AI区块才发送挖矿请求
+		bcInterval, err := p.pm.bc.GetBroadcastIntervalByHash(posHeader.ParentHash)
+		if err != nil {
+			log.Info(p.logExtraInfo(), "发送挖矿请求失败", "获取广播周期失败", "err", err, "hash", posHeader.ParentHash.TerminalString())
+			return
+		}
+
+		if posHeader.IsAIHeader(bcInterval.GetBroadcastInterval()) == false {
+			log.Debug(p.logExtraInfo(), "发送挖矿请求", "非AI区块不发送挖矿请求", "number", posHeader.Number, "broadcastInterval", bcInterval.GetBroadcastInterval())
+			return
+		}
+		reqMsg = &mc.HD_V2_MiningReqMsg{Header: posHeader}
+	}
+
+	log.Trace(p.logExtraInfo(), "关键时间点", "共识投票完毕，发送挖矿请求", "time", time.Now(), "块高", p.number)
 	p.closeMineReqMsgSender()
-	sender, err := common.NewResendMsgCtrl(req, p.sendMineReqFunc, manparams.MinerReqSendInterval, 0)
+	sender, err := common.NewResendMsgCtrl(reqMsg, p.sendMineReqFunc, manparams.MinerReqSendInterval, 0)
 	if err != nil {
 		log.Error(p.logExtraInfo(), "创建挖矿请求发送器", "失败", "err", err)
 		return
@@ -36,19 +58,40 @@ func (p *Process) closeMineReqMsgSender() {
 }
 
 func (p *Process) sendMineReqFunc(data interface{}, times uint32) {
-	req, OK := data.(*mc.HD_MiningReqMsg)
-	if !OK {
-		log.Error(p.logExtraInfo(), "发出挖矿请求", "反射消息失败")
+
+	switch data.(type) {
+	case *mc.HD_MiningReqMsg:
+		req, OK := data.(*mc.HD_MiningReqMsg)
+		if !OK {
+			log.Error(p.logExtraInfo(), "发出挖矿请求", "反射消息失败")
+			return
+		}
+		hash := req.Header.HashNoSignsAndNonce()
+		//给矿工发送区块验证结果
+		if times == 1 {
+			log.Info(p.logExtraInfo(), "发出挖矿请求, Header hash with signs", hash, "高度", p.number)
+		} else {
+			log.Trace(p.logExtraInfo(), "发出挖矿请求, Header hash with signs", hash, "次数", times, "高度", p.number)
+		}
+		p.pm.hd.SendNodeMsg(mc.HD_MiningReq, req, common.RoleMiner|common.RoleInnerMiner, nil)
+	case *mc.HD_V2_MiningReqMsg:
+		req, OK := data.(*mc.HD_V2_MiningReqMsg)
+		if !OK {
+			log.Error(p.logExtraInfo(), "发出挖矿请求V2", "反射消息失败")
+			return
+		}
+		hash := req.Header.HashNoSignsAndNonce()
+		//给矿工发送区块验证结果
+		if times == 1 {
+			log.Info(p.logExtraInfo(), "发出挖矿请求V2, Header hash with signs", hash, "高度", p.number)
+		} else {
+			log.Trace(p.logExtraInfo(), "发出挖矿请求V2, Header hash with signs", hash, "次数", times, "高度", p.number)
+		}
+		p.pm.hd.SendNodeMsg(mc.HD_V2_MiningReq, req, common.RoleMiner|common.RoleInnerMiner, nil)
+	default:
+		log.Error(p.logExtraInfo(), "未知的data类型")
 		return
 	}
-	hash := req.Header.HashNoSignsAndNonce()
-	//给矿工发送区块验证结果
-	if times == 1 {
-		log.Info(p.logExtraInfo(), "发出挖矿请求, Header hash with signs", hash, "高度", p.number)
-	} else {
-		log.Trace(p.logExtraInfo(), "发出挖矿请求, Header hash with signs", hash, "次数", times, "高度", p.number)
-	}
-	p.pm.hd.SendNodeMsg(mc.HD_MiningReq, req, common.RoleMiner|common.RoleInnerMiner, nil)
 }
 
 func (p *Process) startPosedReqSender(req *mc.HD_BlkConsensusReqMsg) {

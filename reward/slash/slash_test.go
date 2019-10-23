@@ -1,3 +1,6 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package slash
 
 import (
@@ -18309,7 +18312,7 @@ func TestBlockSlash_CalcSlash(t *testing.T) {
 			slashdata := slash.getSlash(v.RealValue, reward)
 			result, _ := new(big.Int).SetString(v.SlashValue, 10)
 			if 0 != slashdata.Cmp(result) {
-				log.ERROR(PackageName, "数据不一致,地址", v.Address, "计算结果", slashdata, "目标结果", result.String())
+				log.Error(PackageName, "数据不一致,地址", v.Address, "计算结果", slashdata, "目标结果", result.String())
 				t.Fail()
 			}
 		}
@@ -18364,10 +18367,10 @@ func TestBlockSlash_CalcSlash2(t *testing.T) {
 			slashdata := slash.getSlash(v.RealValue, reward)
 			result, _ := new(big.Int).SetString(v.SlashValue, 10)
 			if 0 != slashdata.Cmp(result) {
-				log.ERROR(PackageName, "数据不一致,地址", v.Address, "计算结果", slashdata, "目标结果", result.String())
+				log.Error(PackageName, "数据不一致,地址", v.Address, "计算结果", slashdata, "目标结果", result.String())
 				t.Fail()
 			}
-			//log.INFO(PackageName, "成功，地址", v.Address, "计算结果", slashdata, "目标结果", result.String())
+			//log.Info(PackageName, "成功，地址", v.Address, "计算结果", slashdata, "目标结果", result.String())
 		}
 
 	})

@@ -18,10 +18,10 @@ import (
 )
 
 func (p *Process) processBcHeaderGen() error {
-	log.INFO(p.logExtraInfo(), "processBCHeaderGen", "start")
-	defer log.INFO(p.logExtraInfo(), "processBCHeaderGen", "end")
+	log.Info(p.logExtraInfo(), "processBCHeaderGen", "start")
+	defer log.Info(p.logExtraInfo(), "processBCHeaderGen", "end")
 	if p.bcInterval == nil {
-		log.ERROR(p.logExtraInfo(), "区块生成阶段", "广播周期信息为空")
+		log.Error(p.logExtraInfo(), "区块生成阶段", "广播周期信息为空")
 		return errors.New("广播周期信息为空")
 	}
 	parent, err := p.getParentBlock(p.number)
@@ -58,10 +58,10 @@ func (p *Process) processBcHeaderGen() error {
 }
 
 func (p *Process) processHeaderGen() error {
-	log.INFO(p.logExtraInfo(), "processHeaderGen", "start")
-	defer log.INFO(p.logExtraInfo(), "processHeaderGen", "end")
+	log.Info(p.logExtraInfo(), "processHeaderGen", "start")
+	defer log.Info(p.logExtraInfo(), "processHeaderGen", "end")
 	if p.bcInterval == nil {
-		log.ERROR(p.logExtraInfo(), "区块生成阶段", "广播周期信息为空")
+		log.Error(p.logExtraInfo(), "区块生成阶段", "广播周期信息为空")
 		return errors.New("广播周期信息为空")
 	}
 	parent, err := p.getParentBlock(p.number)
@@ -103,21 +103,21 @@ func (p *Process) sendHeaderVerifyReq(header *types.Header, txsCode []*common.Re
 		TxsCode:                txsCode,
 		ConsensusTurn:          p.consensusTurn,
 		OnlineConsensusResults: onlineConsensusResults,
-		From:                   ca.GetSignAddress(),
+		From: ca.GetSignAddress(),
 	}
 	//send to local block verify module
 	localBlock := &mc.LocalBlockVerifyConsensusReq{BlkVerifyConsensusReq: p2pBlock, OriginalTxs: originalTxs, FinalTxs: finalTxs, Receipts: receipts, State: stateDB}
 	if len(originalTxs) > 0 {
 		txpoolCache.MakeStruck(types.GetTX(originalTxs), header.HashNoSignsAndNonce(), p.number)
 	}
-	log.INFO(p.logExtraInfo(), "本地发送区块验证请求, root", p2pBlock.Header.Roots, "高度", p.number)
+	log.Info(p.logExtraInfo(), "本地发送区块验证请求, root", p2pBlock.Header.Roots, "高度", p.number)
 	mc.PublishEvent(mc.BlockGenor_HeaderVerifyReq, localBlock)
 	p.startConsensusReqSender(p2pBlock)
 }
 
 func (p *Process) sendBroadcastMiningReq(header *types.Header, finalTxs []types.CoinSelfTransaction) {
 	sendMsg := &mc.BlockData{Header: header, Txs: finalTxs}
-	log.INFO(p.logExtraInfo(), "广播挖矿请求(本地), number", sendMsg.Header.Number, "root", header.Roots, "tx数量", len(types.GetTX(finalTxs)))
+	log.Info(p.logExtraInfo(), "广播挖矿请求(本地), number", sendMsg.Header.Number, "root", header.Roots, "tx数量", len(types.GetTX(finalTxs)))
 	mc.PublishEvent(mc.HD_BroadcastMiningReq, &mc.BlockGenor_BroadcastMiningReqMsg{sendMsg})
 }
 
@@ -126,7 +126,7 @@ func (p *Process) setSignatures(header *types.Header) error {
 	signHash := header.HashNoSignsAndNonce()
 	sign, err := p.signHelper().SignHashWithValidateByAccount(signHash.Bytes(), true, ca.GetDepositAddress())
 	if err != nil {
-		log.ERROR(p.logExtraInfo(), "广播区块生成，签名错误", err)
+		log.Error(p.logExtraInfo(), "广播区块生成，签名错误", err)
 		return err
 	}
 
@@ -140,7 +140,7 @@ func (p *Process) startConsensusReqSender(req *mc.HD_BlkConsensusReqMsg) {
 	p.closeConsensusReqSender()
 	sender, err := common.NewResendMsgCtrl(req, p.sendConsensusReqFunc, manparams.BlkPosReqSendInterval, manparams.BlkPosReqSendTimes)
 	if err != nil {
-		log.ERROR(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
+		log.Error(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
 		return
 	}
 	p.consensusReqSender = sender
@@ -157,10 +157,10 @@ func (p *Process) closeConsensusReqSender() {
 func (p *Process) sendConsensusReqFunc(data interface{}, times uint32) {
 	req, OK := data.(*mc.HD_BlkConsensusReqMsg)
 	if !OK {
-		log.ERROR(p.logExtraInfo(), "发出区块共识req", "反射消息失败", "次数", times)
+		log.Error(p.logExtraInfo(), "发出区块共识req", "反射消息失败", "次数", times)
 		return
 	}
-	log.INFO(p.logExtraInfo(), "!!!!网络发送区块验证请求, hash", req.Header.HashNoSignsAndNonce(), "tx数量", req.TxsCodeCount(), "次数", times)
+	log.Info(p.logExtraInfo(), "!!!!网络发送区块验证请求, hash", req.Header.HashNoSignsAndNonce(), "tx数量", req.TxsCodeCount(), "次数", times)
 	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, req, common.RoleValidator, nil)
 }
 

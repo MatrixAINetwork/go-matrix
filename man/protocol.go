@@ -173,6 +173,13 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 }
 
 // newBlockData is the network packet for the block propagation message.
+type newOldBlockData struct {
+	Block *types.BlockV1
+	TD    *big.Int //
+	SBH   uint64   //超级区块高度
+	SBS   uint64   //超级区块序号
+}
+
 type newBlockData struct {
 	Block *types.Block
 	TD    *big.Int //

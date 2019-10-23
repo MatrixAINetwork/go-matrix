@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/MatrixAINetwork/go-matrix/log"
@@ -34,6 +35,7 @@ const (
 	// Endpoint resolution is throttled with bounded backoff.
 	initialResolveDelay = 12 * time.Second
 	maxResolveDelay     = time.Hour
+	numCandidatescount  = 4
 )
 
 // NodeDialer is used to connect to nodes in the network, typically by using
@@ -151,24 +153,59 @@ func (s *dialstate) removeStatic(n *discover.Node) {
 	s.hist.remove(n.ID)
 }
 
-func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now time.Time) []task {
+func (s *dialstate) disconnectOnePeer(peer *Peer) {
+	ServerP2p.RemovePeer(discover.NewNode(peer.ID(), nil, 0, 0))
+}
+
+// disconnectPeers disconnect  peers
+func (s *dialstate) dyncManger(peers map[discover.NodeID]*Peer) {
+	count := 0
+	for _, p := range peers {
+		if p.rw.is(dynDialedConn) {
+			count++
+		}
+	}
+
+	deldynccount := count / 2
+	for id, p := range peers {
+		if p.rw.is(dynDialedConn) && deldynccount > 0 {
+			if p, ok := peers[id]; ok {
+				delete(peers, p.ID())
+				s.hist.remove(p.ID())
+				p.Disconnect(DiscRequested)
+			}
+			deldynccount--
+		}
+	}
+}
+
+func (s *dialstate) isbootnode(node *discover.Node) bool {
+	for _, bootnode := range s.bootnodes {
+		if bootnode.ID == node.ID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *dialstate) newDyncTasks(nRunning int, peers map[discover.NodeID]*Peer, now time.Time) []task {
 	if s.start.IsZero() {
 		s.start = now
 	}
 
 	var newtasks []task
-	//addDial := func(flag connFlag, n *discover.Node) bool {
-	//	if err := s.checkDial(n, peers); err != nil {
-	//		log.Trace("Skipping dial candidate", "id", n.ID, "addr", &net.TCPAddr{IP: n.IP, Port: int(n.TCP)}, "err", err)
-	//		return false
-	//	}
-	//	s.dialing[n.ID] = flag
-	//	newtasks = append(newtasks, &dialTask{flags: flag, dest: n})
-	//	return true
-	//}
+
+	addDial := func(flag connFlag, n *discover.Node) (bool, error) {
+		if err := s.checkDial(n, peers); err != nil {
+			return false, err
+		}
+		s.dialing[n.ID] = flag
+		newtasks = append(newtasks, &dialTask{flags: flag, dest: n})
+		return true, nil
+	}
 
 	// Compute number of dynamic dials necessary at this point.
-	needDynDials := s.maxDynDials
+	needDynDials := numCandidatescount
 	for _, p := range peers {
 		if p.rw.is(dynDialedConn) {
 			needDynDials--
@@ -183,55 +220,84 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 	// Expire the dial history on every invocation.
 	s.hist.expire(now)
 
+	//// Use random nodes from the table for half of the necessary 	- dynamic dials.
+	if needDynDials <= 0 {
+		return newtasks
+	} else {
+		n := s.ntab.ReadRandomNodes(s.randomNodes)
+		for i := 0; i < needDynDials && i < n; i++ {
+			if s.isbootnode(s.randomNodes[i]) {
+				continue
+			}
+			isadd, errinfo := addDial(dynDialedConn, s.randomNodes[i])
+			if isadd {
+				needDynDials--
+			} else if errinfo == errAlreadyConnected {
+				needDynDials--
+			}
+		}
+	}
+	//// Create dynamic dials from random lookup results, removing tried
+	//// items from the result buffer.
+	i := 0
+	for ; i < len(s.lookupBuf) && needDynDials > 0; i++ {
+		if s.isbootnode(s.lookupBuf[i]) {
+			continue
+		}
+		isadd, errinfo := addDial(dynDialedConn, s.lookupBuf[i])
+		if isadd {
+			needDynDials--
+		} else if errinfo == errAlreadyConnected {
+			needDynDials--
+		}
+	}
+	//s.lookupBuf = s.lookupBuf[:copy(s.lookupBuf, s.lookupBuf[i:])]
+	//// Launch a discovery lookup if more candidates are needed.
+	if len(s.lookupBuf) < needDynDials && !s.lookupRunning {
+		s.lookupRunning = true
+		newtasks = append(newtasks, &discoverTask{})
+	}
+
+	// Launch a timer to wait for the next node to expire if all
+	// candidates have been tried and no task is currently active.
+	// This should prevent cases where the dialer logic is not ticked
+	// because there are no pending events.
+	if nRunning == 0 && len(newtasks) == 0 && s.hist.Len() > 0 {
+		t := &waitExpireTask{s.hist.min().exp.Sub(now)}
+		newtasks = append(newtasks, t)
+	}
+	return newtasks
+}
+
+func (s *dialstate) newStaticTasks(nRunning int, peers map[discover.NodeID]*Peer, now time.Time) []task {
+	if s.start.IsZero() {
+		s.start = now
+	}
+
+	var newtasks []task
+
+	// Expire the dial history on every invocation.
+	s.hist.expire(now)
+
 	// Create dials for static nodes if they are not connected.
 	for id, t := range s.static {
 		err := s.checkDial(t.dest, peers)
 		switch err {
 		case errNotWhitelisted, errSelf:
-			log.Warn("Removing static dial candidate", "id", t.dest.ID, "addr", &net.TCPAddr{IP: t.dest.IP, Port: int(t.dest.TCP)}, "err", err)
 			delete(s.static, t.dest.ID)
+		case errAlreadyConnected:
+			var m *sync.RWMutex
+			m = new(sync.RWMutex)
+			m.Lock()
+			if peers[id].rw.flags == dynDialedConn { //Update the dynamic connection flag
+				peers[id].rw.flags = t.flags
+			}
+			m.Unlock()
 		case nil:
 			s.dialing[id] = t.flags
 			newtasks = append(newtasks, t)
 		}
 	}
-	// If we don't have any peers whatsoever, try to dial a random bootnode. This
-	// scenario is useful for the testnet (and private networks) where the discovery
-	// table might be full of mostly bad peers, making it hard to find good ones.
-	//if len(peers) == 0 && len(s.bootnodes) > 0 && needDynDials > 0 && now.Sub(s.start) > fallbackInterval {
-	//	bootnode := s.bootnodes[0]
-	//	s.bootnodes = append(s.bootnodes[:0], s.bootnodes[1:]...)
-	//	s.bootnodes = append(s.bootnodes, bootnode)
-	//
-	//	if addDial(dynDialedConn, bootnode) {
-	//		needDynDials--
-	//	}
-	//}
-	//// Use random nodes from the table for half of the necessary
-	//// dynamic dials.
-	//randomCandidates := needDynDials / 2
-	//if randomCandidates > 0 {
-	//	n := s.ntab.ReadRandomNodes(s.randomNodes)
-	//	for i := 0; i < randomCandidates && i < n; i++ {
-	//		if addDial(dynDialedConn, s.randomNodes[i]) {
-	//			needDynDials--
-	//		}
-	//	}
-	//}
-	//// Create dynamic dials from random lookup results, removing tried
-	//// items from the result buffer.
-	//i := 0
-	//for ; i < len(s.lookupBuf) && needDynDials > 0; i++ {
-	//	if addDial(dynDialedConn, s.lookupBuf[i]) {
-	//		needDynDials--
-	//	}
-	//}
-	//s.lookupBuf = s.lookupBuf[:copy(s.lookupBuf, s.lookupBuf[i:])]
-	//// Launch a discovery lookup if more candidates are needed.
-	//if len(s.lookupBuf) < needDynDials && !s.lookupRunning {
-	//	s.lookupRunning = true
-	//	newtasks = append(newtasks, &discoverTask{})
-	//}
 
 	// Launch a timer to wait for the next node to expire if all
 	// candidates have been tried and no task is currently active.

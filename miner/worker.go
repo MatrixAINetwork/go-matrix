@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"errors"
+
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
@@ -21,7 +23,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/msgsend"
 	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-	"gopkg.in/fatih/set.v0"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 )
 
 const (
@@ -44,13 +46,8 @@ type Work struct {
 	config *params.ChainConfig
 	signer types.Signer
 
-	state     *state.StateDBManage // apply state changes here
-	ancestors *set.Set             // ancestor set (used for checking uncle parent validity)
-	family    *set.Set             // family set (used for checking uncle invalidity)
-	uncles    *set.Set             // uncle set
-	tcount    int                  // tx count in cycle
-
-	Block *types.Block // the new block
+	state *state.StateDBManage // apply state changes here
+	Block *types.Block         // the new block
 
 	header   *types.Header
 	txs      []types.SelfTransaction
@@ -58,8 +55,9 @@ type Work struct {
 
 	createdAt time.Time
 
-	threadNum       int
 	isBroadcastNode bool
+
+	mineType mineTaskType
 }
 
 type Result struct {
@@ -86,7 +84,6 @@ type worker struct {
 	current   *Work
 	// atomic status counters
 	mining int32
-	atWork int32
 
 	quitCh                chan struct{}
 	roleUpdateCh          chan *mc.RoleUpdatedMsg
@@ -95,16 +92,23 @@ type worker struct {
 	miningRequestSub      event.Subscription
 	localMiningRequestCh  chan *mc.BlockGenor_BroadcastMiningReqMsg
 	localMiningRequestSub event.Subscription
+	v2MiningRequestCh     chan *mc.HD_V2_MiningReqMsg
+	v2MiningRequestSub    event.Subscription
+	registerAgentCh       chan Agent
+	unRegisterAgentCh     chan Agent
 	mineReqCtrl           *mineReqCtrl
 	hd                    *msgsend.HD
 	mineResultSender      *common.ResendMsgCtrl
+
+	curSuperSeq uint64
+	curVersion  string
+	handlerV2   *workerV2
 }
 
 type ChainReader interface {
 	Config() *params.ChainConfig
 	Engine(version []byte) consensus.Engine
 	DPOSEngine(version []byte) consensus.DPOSEngine
-	VerifyHeader(header *types.Header) error
 	GetCurrentHash() common.Hash
 	GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGraph, error)
 	GetBroadcastAccounts(blockHash common.Hash) ([]common.Address, error)
@@ -123,6 +127,13 @@ type ChainReader interface {
 
 	// GetHeaderByHash retrieves a block header from the database by its hash.
 	GetHeaderByHash(hash common.Hash) *types.Header
+
+	GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error)
+
+	GetMinDifficulty(blockHash common.Hash) (*big.Int, error)
+	GetMaxDifficulty(blockHash common.Hash) (*big.Int, error)
+	GetReelectionDifficulty(blockHash common.Hash) (*big.Int, error)
+	GetBlockDurationStatus(blockHash common.Hash) (*mc.BlockDurationStatus, error)
 }
 
 func newWorker(config *params.ChainConfig, bc ChainReader, mux *event.TypeMux, hd *msgsend.HD) (*worker, error) {
@@ -135,12 +146,19 @@ func newWorker(config *params.ChainConfig, bc ChainReader, mux *event.TypeMux, h
 		quitCh:               make(chan struct{}),
 		miningRequestCh:      make(chan *mc.HD_MiningReqMsg, 100),
 		roleUpdateCh:         make(chan *mc.RoleUpdatedMsg, 100),
+		v2MiningRequestCh:    make(chan *mc.HD_V2_MiningReqMsg, 10),
 		recv:                 make(chan *types.Header, resultQueueSize),
 		localMiningRequestCh: make(chan *mc.BlockGenor_BroadcastMiningReqMsg, 100),
+		registerAgentCh:      make(chan Agent, 2),
+		unRegisterAgentCh:    make(chan Agent, 2),
 		mineReqCtrl:          newMinReqCtrl(bc),
 		hd:                   hd,
 		mineResultSender:     nil,
+		curSuperSeq:          0,
+		curVersion:           "",
 	}
+
+	worker.handlerV2 = newWorkerV2(worker)
 
 	atomic.StoreInt32(&worker.mining, 0)
 
@@ -150,8 +168,7 @@ func newWorker(config *params.ChainConfig, bc ChainReader, mux *event.TypeMux, h
 		return nil, err
 	}
 	go worker.update()
-	go worker.wait()
-	log.INFO(ModuleMiner, "worker创建成功", err)
+	log.Info(ModuleMiner, "worker创建成功", err)
 	return worker, nil
 }
 func (self *worker) init_SubscribeEvent() error {
@@ -161,25 +178,26 @@ func (self *worker) init_SubscribeEvent() error {
 	if err != nil {
 		log.Error(ModuleMiner, "广播节点挖矿请求订阅失败", err)
 		return err
-	} else {
-		log.INFO(ModuleMiner, "广播节点挖矿请求订阅成功", "")
 	}
 
 	self.roleUpdateSub, err = mc.SubscribeEvent(mc.CA_RoleUpdated, self.roleUpdateCh) //身份到达
 	if err != nil {
 		log.Error(ModuleMiner, "身份更新订阅失败", err)
 		return err
-	} else {
-		log.INFO(ModuleMiner, "身份更新订阅成功", "")
 	}
 
 	self.miningRequestSub, err = mc.SubscribeEvent(mc.HD_MiningReq, self.miningRequestCh) //挖矿请求
 	if err != nil {
 		log.Error(ModuleMiner, "普通矿工挖矿请求订阅失败", err)
 		return err
-	} else {
-		log.INFO(ModuleMiner, "普通矿工挖矿请求订阅成功", err)
 	}
+
+	self.v2MiningRequestSub, err = mc.SubscribeEvent(mc.HD_V2_MiningReq, self.v2MiningRequestCh) //V2挖矿请求
+	if err != nil {
+		log.Error(ModuleMiner, "V2挖矿请求订阅失败", err)
+		return err
+	}
+
 	return nil
 
 }
@@ -200,7 +218,7 @@ func (self *worker) update() {
 		self.StopAgent()
 		self.stopMineResultSender()
 		self.mineReqCtrl.Clear()
-		log.INFO("矿工节点退出成功")
+		log.Info("矿工节点退出成功")
 	}()
 
 	for {
@@ -214,11 +232,37 @@ func (self *worker) update() {
 		case data := <-self.localMiningRequestCh:
 			self.BroadcastHashLocalMiningReqMsgHandle(data.BlockMainData)
 
-		case <-self.localMiningRequestSub.Err():
+		case reqMsg := <-self.v2MiningRequestCh:
+			self.handlerV2.MineReqMsgHandle(reqMsg)
+
+		case minedHeader := <-self.recv:
+			if minedHeader == nil {
+				continue
+			}
+
+			if manversion.VersionCmp(self.curVersion, manversion.VersionAIMine) >= 0 {
+				self.handlerV2.foundHandle(minedHeader)
+			} else {
+				self.foundHandle(minedHeader)
+			}
+
+		case agent := <-self.registerAgentCh:
+			self.addAgent(agent)
+
+		case agent := <-self.unRegisterAgentCh:
+			self.delAgent(agent)
+
+		case err := <-self.localMiningRequestSub.Err():
+			log.Error(ModuleMiner, "localMiningRequestSub err", err)
 			return
-		case <-self.miningRequestSub.Err():
+		case err := <-self.miningRequestSub.Err():
+			log.Error(ModuleMiner, "miningRequestSub err", err)
 			return
-		case <-self.roleUpdateSub.Err():
+		case err := <-self.roleUpdateSub.Err():
+			log.Error(ModuleMiner, "roleUpdateSub err", err)
+			return
+		case err := <-self.v2MiningRequestSub.Err():
+			log.Error(ModuleMiner, "v2MiningRequestSub err", err)
 			return
 		case <-self.quitCh:
 			return
@@ -226,11 +270,36 @@ func (self *worker) update() {
 	}
 }
 func (self *worker) RoleUpdatedMsgHandler(data *mc.RoleUpdatedMsg) {
-	if data.SuperSeq > self.mineReqCtrl.curSuperSeq {
+	if data.SuperSeq > self.curSuperSeq {
 		self.StopAgent()
 		self.stopMineResultSender()
 		self.mineReqCtrl.Clear()
-		self.mineReqCtrl.curSuperSeq = data.SuperSeq
+		self.curSuperSeq = data.SuperSeq
+		self.curVersion = data.Version
+	} else if data.SuperSeq < self.curSuperSeq {
+		return
+	}
+
+	switch manversion.VersionCmp(self.curVersion, data.Version) {
+	case 1: // self.curVersion > data.Version
+		log.Warn(ModuleMiner, "CA消息处理", "版本号回退,抛弃消息", "msg version", data.Version, "缓存version", self.curVersion)
+		return
+	case -1: // self.curVersion < data.Version return -1
+		self.stopMineResultSender()
+		self.curVersion = data.Version
+	}
+
+	if manversion.VersionCmp(self.curVersion, manversion.VersionDelta) == 0 && data.BlockNum+1 == manversion.VersionNumAIMine {
+		// 版本切换零界点，使用新版本挖矿
+		log.Trace(ModuleMiner, "CA身份消息处理", "版本切换零界点，使用新版本挖矿", "msg version", data.Version, "msg number", data.BlockNum)
+		self.stopMineResultSender()
+		self.curVersion = manversion.VersionAIMine
+	}
+
+	if manversion.VersionCmp(self.curVersion, manversion.VersionAIMine) >= 0 {
+		// 新版本号，使用v2版处理流程
+		self.handlerV2.RoleUpdatedMsgHandler(data)
+		return
 	}
 
 	if data.BlockNum+1 > self.mineReqCtrl.curNumber {
@@ -251,14 +320,14 @@ func (self *worker) RoleUpdatedMsgHandler(data *mc.RoleUpdatedMsg) {
 
 func (self *worker) MiningRequestHandle(data *mc.HD_MiningReqMsg) {
 	if nil == data || nil == data.Header {
-		log.ERROR(ModuleMiner, "挖矿请求Msg", "nil")
+		log.Error(ModuleMiner, "挖矿请求Msg", "nil")
 		return
 	}
 	log.Trace(ModuleMiner, "请求高度", data.Header.Number)
 
 	reqData, err := self.mineReqCtrl.AddMineReq(data.Header, nil, false)
 	if err != nil {
-		log.ERROR(ModuleMiner, "缓存挖矿请求", err)
+		log.Error(ModuleMiner, "缓存挖矿请求", err)
 		return
 	}
 	if reqData != nil {
@@ -268,13 +337,13 @@ func (self *worker) MiningRequestHandle(data *mc.HD_MiningReqMsg) {
 
 func (self *worker) BroadcastHashLocalMiningReqMsgHandle(req *mc.BlockData) {
 	if nil == req || nil == req.Header {
-		log.ERROR(ModuleMiner, "广播挖矿请求Msg", "nil")
+		log.Error(ModuleMiner, "广播挖矿请求Msg", "nil")
 		return
 	}
 	log.Trace(ModuleMiner, "广播请求", req.Header.Number)
 	reqData, err := self.mineReqCtrl.AddMineReq(req.Header, req.Txs, true)
 	if err != nil {
-		log.ERROR(ModuleMiner, "缓存请求Err", err)
+		log.Error(ModuleMiner, "缓存请求Err", err)
 		return
 	}
 
@@ -287,23 +356,10 @@ func (self *worker) Stop() {
 	close(self.quitCh)
 }
 
-func (self *worker) wait() {
-	for {
-		for header := range self.recv {
-			atomic.AddInt32(&self.atWork, -1)
-
-			if header == nil {
-				continue
-			}
-			self.foundHandle(header)
-		}
-	}
-}
-
 func (self *worker) foundHandle(header *types.Header) {
 	cache, err := self.mineReqCtrl.SetMiningResult(header)
 	if err != nil {
-		log.ERROR(ModuleMiner, "结果保存失败", err)
+		log.Error(ModuleMiner, "结果保存失败", err)
 		return
 	}
 	self.startMineResultSender(cache)
@@ -370,19 +426,40 @@ func (self *worker) StopAgent() {
 		}
 	}
 	atomic.StoreInt32(&self.mining, 0)
-	atomic.StoreInt32(&self.atWork, 0)
 }
 
 func (self *worker) Register(agent Agent) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	self.agents[agent] = struct{}{}
-	agent.SetReturnCh(self.recv)
+	self.registerAgentCh <- agent
 }
 
 func (self *worker) Unregister(agent Agent) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
+	self.unRegisterAgentCh <- agent
+}
+
+func (self *worker) addAgent(agent Agent) {
+	if atomic.LoadInt32(&self.mining) > 0 {
+		agent.Start()
+	}
+
+	self.agents[agent] = struct{}{}
+	agent.SetReturnCh(self.recv)
+
+	if manversion.VersionCmp(self.curVersion, manversion.VersionAIMine) >= 0 {
+		if isNilTask(self.handlerV2.curMineTask) {
+			return
+		}
+		log.Debug(ModuleMiner, "add new agent", "当前有挖矿,向其推送挖矿任务V2", "number", self.handlerV2.curMineTask.MineNumber(),
+			"type", self.handlerV2.curMineTask.TaskType(), "hash", self.handlerV2.curMineTask.MineHash().Hex())
+		agent.Work() <- self.current
+	} else {
+		if curMineReq := self.mineReqCtrl.GetCurrentMineReq(); curMineReq != nil && curMineReq.mined == false {
+			log.Debug(ModuleMiner, "add new agent", "当前有挖矿,向其推送挖矿任务", "number", curMineReq.header.Number, "hash", curMineReq.headerHash.Hex())
+			agent.Work() <- self.current
+		}
+	}
+}
+
+func (self *worker) delAgent(agent Agent) {
 	delete(self.agents, agent)
 	agent.Stop()
 }
@@ -393,7 +470,6 @@ func (self *worker) push(work *Work) {
 		return
 	}
 	for agent := range self.agents {
-		atomic.AddInt32(&self.atWork, 1)
 		if ch := agent.Work(); ch != nil {
 			ch <- work
 		}
@@ -405,6 +481,7 @@ func (self *worker) makeCurrent(header *types.Header, isBroadcastNode bool) erro
 	work := &Work{
 		header:          types.CopyHeader(header),
 		isBroadcastNode: isBroadcastNode,
+		mineType:        mineTaskTypePow,
 	}
 
 	work.header.Coinbase = ca.GetDepositAddress()
@@ -414,16 +491,62 @@ func (self *worker) makeCurrent(header *types.Header, isBroadcastNode bool) erro
 }
 
 func (self *worker) CommitNewWork(header *types.Header, isBroadcastNode bool) {
+	if manversion.VersionCmp(self.curVersion, manversion.VersionAIMine) >= 0 {
+		log.Error(ModuleMiner, "调用CommitNewWork版本错误", self.curVersion)
+		return
+	}
+
 	err := self.makeCurrent(header, isBroadcastNode)
 	if err != nil {
 		log.Error(ModuleMiner, "创建挖矿work失败", err)
 		return
 	}
-	log.INFO(ModuleMiner, "挖矿", "开始")
+
+	log.Info(ModuleMiner, "挖矿", "开始")
 
 	//// Create the current work task and check any fork transitions needed
 	work := self.current
+	self.push(work)
+}
 
+func (self *worker) makeCurrentV2(task mineTask, version []byte) error {
+	if task == nil {
+		return errors.New("task is nil")
+	}
+
+	work := &Work{
+		header: &types.Header{
+			Number:     task.MineNumber(),
+			ParentHash: task.MineHash(),
+			Difficulty: task.MineDifficulty(),
+			VrfValue:   task.VrfValue(),
+			Version:    version,
+			Coinbase:   ca.GetDepositAddress(),
+			AICoinbase: ca.GetDepositAddress(),
+		},
+		isBroadcastNode: false,
+		mineType:        task.TaskType(),
+	}
+
+	self.current = work
+	return nil
+}
+
+func (self *worker) CommitNewWorkV2(task mineTask) {
+	if manversion.VersionCmp(self.curVersion, manversion.VersionAIMine) < 0 {
+		log.Error(ModuleMiner, "调用CommitNewWorkV2版本错误", self.curVersion)
+		return
+	}
+
+	err := self.makeCurrentV2(task, []byte(self.curVersion))
+	if err != nil {
+		log.Error(ModuleMiner, "创建挖矿work v2失败", err)
+		return
+	}
+	log.Info(ModuleMiner, "挖矿", "开始")
+
+	//// Create the current work task and check any fork transitions needed
+	work := self.current
 	self.push(work)
 }
 
@@ -464,14 +587,14 @@ func (self *worker) beginMine(reqData *mineReqData) {
 
 	if curMineReq := self.mineReqCtrl.GetCurrentMineReq(); curMineReq != nil {
 		if curMineReq.mined == false && curMineReq.header.Time.Cmp(reqData.header.Time) >= 0 {
-			log.DEBUG(ModuleMiner, "beginMine", "当前挖矿时间较大，不处理本次挖矿",
+			log.Debug(ModuleMiner, "beginMine", "当前挖矿时间较大，不处理本次挖矿",
 				"当前挖矿header时间", curMineReq.header.Time, "请求挖矿header时间", reqData.header.Time)
 			return
 		}
 	}
 
 	if err := self.mineReqCtrl.SetCurrentMineReq(reqData.headerHash); err != nil {
-		log.ERROR(ModuleMiner, "保存挖矿请求:", err)
+		log.Error(ModuleMiner, "保存挖矿请求:", err)
 		return
 	}
 	self.CommitNewWork(reqData.header, reqData.isBroadcastReq)
@@ -481,7 +604,7 @@ func (self *worker) startMineResultSender(data *mineReqData) {
 	self.stopMineResultSender()
 	sender, err := common.NewResendMsgCtrl(data, self.sendMineResultFunc, manparams.MinerResultSendInterval, 0)
 	if err != nil {
-		log.ERROR(ModuleMiner, "创建挖矿结果发送器", "失败", "err", err)
+		log.Error(ModuleMiner, "创建挖矿结果发送器", "失败", "err", err)
 		return
 	}
 	log.Trace(ModuleMiner, "创建挖矿结果发送器", "成功", "高度", data.header.Number.Uint64(), "hash", data.headerHash.TerminalString())
@@ -500,17 +623,17 @@ func (self *worker) stopMineResultSender() {
 func (self *worker) sendMineResultFunc(data interface{}, times uint32) {
 	resultData, OK := data.(*mineReqData)
 	if !OK {
-		log.ERROR(ModuleMiner, "发出挖矿结果", "反射消息失败", "次数", times)
+		log.Error(ModuleMiner, "发出挖矿结果", "反射消息失败", "次数", times)
 		return
 	}
 
 	if nil == resultData || nil == resultData.header || resultData.mined == false {
-		log.ERROR(ModuleMiner, "发出挖矿结果", "入参错误", "次数", times)
+		log.Error(ModuleMiner, "发出挖矿结果", "入参错误", "次数", times)
 		return
 	}
 
 	if err := resultData.ResendMineResult(time.Now().Unix()); err != nil {
-		log.ERROR(ModuleMiner, "发出挖矿结果", "发送挖矿结果失败", "原因", err, "次数", times)
+		log.Error(ModuleMiner, "发出挖矿结果", "发送挖矿结果失败", "原因", err, "次数", times)
 		return
 	}
 

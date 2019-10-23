@@ -40,6 +40,14 @@ type ChainReader interface {
 	GetGraphByHash(hash common.Hash) (*mc.TopologyGraph, *mc.ElectGraph, error)
 
 	GetInnerMinerAccounts(blockHash common.Hash) ([]common.Address, error)
+
+	GetMinDifficulty(blockHash common.Hash) (*big.Int, error)
+	GetMaxDifficulty(blockHash common.Hash) (*big.Int, error)
+	GetReelectionDifficulty(blockHash common.Hash) (*big.Int, error)
+	GetBroadcastIntervalByHash(blockHash common.Hash) (*mc.BCIntervalInfo, error)
+
+	GetAncestorHash(sonHash common.Hash, ancestorNumber uint64) (common.Hash, error)
+	GetBlockDurationStatus(blockHash common.Hash) (*mc.BlockDurationStatus, error)
 }
 
 // Engine is an algorithm agnostic consensus engine.
@@ -52,13 +60,13 @@ type Engine interface {
 	// VerifyHeader checks whether a header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
+	VerifyHeader(chain ChainReader, header *types.Header, seal bool, ai bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
-	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool, ais []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
@@ -67,6 +75,10 @@ type Engine interface {
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
 	VerifySeal(chain ChainReader, header *types.Header) error
+
+	VerifyAISeal(chain ChainReader, header *types.Header) error
+
+	VerifyBasePow(chain ChainReader, header *types.Header, basePower types.BasePowers) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
@@ -79,13 +91,28 @@ type Engine interface {
 	Finalize(chain ChainReader, header *types.Header, state *state.StateDBManage,
 		uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error)
 
+	// Finalize runs any post-transaction state modifications (e.g. block rewards)
+	// and assembles the final block.
+	// Note: The block header and state database might be updated to reflect any
+	// consensus rules that happen at finalization (e.g. block rewards).
+	GenOtherCurrencyBlock(chain ChainReader, header *types.Header, state *state.StateDBManage,
+		uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error)
+
+	// Finalize runs any post-transaction state modifications (e.g. block rewards)
+	// and assembles the final block.
+	// Note: The block header and state database might be updated to reflect any
+	// consensus rules that happen at finalization (e.g. block rewards).
+	GenManBlock(chain ChainReader, header *types.Header, state *state.StateDBManage,
+		uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error)
+
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	Seal(chain ChainReader, header *types.Header, stop <-chan struct{}, isBroadcastNode bool) (*types.Header, error)
+	SealAI(chain ChainReader, header *types.Header, stop <-chan struct{}) (*types.Header, error)
+	SealPow(chain ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *types.Header, isBroadcastNode bool) (*types.Header, error)
 
 	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 	// that a new block should have.
-	CalcDifficulty(chain ChainReader, version string, time uint64, parent *types.Header) *big.Int
+	CalcDifficulty(chain ChainReader, version string, time uint64, parent *types.Header) (*big.Int, error)
 
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API

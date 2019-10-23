@@ -55,17 +55,9 @@ func Root() Logger {
 func Trace(msg string, ctx ...interface{}) {
 	root.write(msg, LvlTrace, ctx, skipLevel)
 }
-func TRACE(msg string, ctx ...interface{}) {
-	//msg = AppendMsg(msg)
-	root.write(msg, LvlTrace, ctx, skipLevel)
-}
 
 // Debug is a convenient alias for Root().Debug
 func Debug(msg string, ctx ...interface{}) {
-	root.write(msg, LvlDebug, ctx, skipLevel)
-}
-func DEBUG(msg string, ctx ...interface{}) {
-	//msg = AppendMsg(msg)
 	root.write(msg, LvlDebug, ctx, skipLevel)
 }
 
@@ -73,26 +65,14 @@ func DEBUG(msg string, ctx ...interface{}) {
 func Info(msg string, ctx ...interface{}) {
 	root.write(msg, LvlInfo, ctx, skipLevel)
 }
-func INFO(msg string, ctx ...interface{}) {
-	//msg = AppendMsg(msg)
-	root.write(msg, LvlInfo, ctx, skipLevel)
-}
 
 // Warn is a convenient alias for Root().Warn
 func Warn(msg string, ctx ...interface{}) {
 	root.write(msg, LvlWarn, ctx, skipLevel)
 }
-func WARN(msg string, ctx ...interface{}) {
-	//msg = AppendMsg(msg)
-	root.write(msg, LvlWarn, ctx, skipLevel)
-}
 
 // Error is a convenient alias for Root().Error
 func Error(msg string, ctx ...interface{}) {
-	root.write(msg, LvlError, ctx, skipLevel)
-}
-func ERROR(msg string, ctx ...interface{}) {
-	//msg = AppendMsg(msg)
 	root.write(msg, LvlError, ctx, skipLevel)
 }
 

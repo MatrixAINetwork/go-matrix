@@ -4,15 +4,15 @@
 package vm
 
 import (
+	"errors"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/core/vm/validatorGroup"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/reward/depositcfg"
 	"math"
 	"math/big"
-	"errors"
-	"github.com/MatrixAINetwork/go-matrix/reward/depositcfg"
 )
 
 func NewValidatorGroup() *ValidatorGroup {
@@ -79,13 +79,13 @@ func (vg *ValidatorGroup) TransferMan(contract *Contract, evm *EVM) error {
 	value := contract.Value()
 	return vg.TransferRewards(value, evm.Time.Uint64(), contract.Address(), evm.StateDB)
 }
-func (vg *ValidatorGroup) Constructor(conAddr, signAddr, Owner common.Address, dType, OwnerRate,nodeRate *big.Int, lvlRate []*big.Int, contract *Contract, evm *EVM) error {
+func (vg *ValidatorGroup) Constructor(conAddr, signAddr, Owner common.Address, dType, OwnerRate, nodeRate *big.Int, lvlRate []*big.Int, contract *Contract, evm *EVM) error {
 	if !evm.StateDB.Exist(evm.Cointyp, conAddr) {
 		evm.StateDB.CreateAccount(evm.Cointyp, conAddr)
 	}
 	newCon := NewContract(contract, AccountRef(conAddr), contract.value, contract.Gas, evm.Cointyp)
 	vg.constate.OwnerInfo.Owner = Owner
-	err := vg.constate.SetRewardRate(OwnerRate,nodeRate, lvlRate)
+	err := vg.constate.SetRewardRate(OwnerRate, nodeRate, lvlRate)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (vg *ValidatorGroup) WithdrawAllMethod() {
 
 		for i := 0; i < len(vg.constate.ValidatorMap); i++ {
 			info := &vg.constate.ValidatorMap[i]
-			amount := new(big.Int).Add(info.Current.Amount,info.Current.Interest)
+			amount := new(big.Int).Add(info.Current.Amount, info.Current.Interest)
 			if amount.Cmp(depositcfg.CruWithDrawAmountMin) >= 0 {
 				ret, err := vg.withdrawCurrent(info, info.Current.Amount, contract, evm)
 				if err != nil {
@@ -250,8 +250,8 @@ func (vg *ValidatorGroup) GetRewardMethod() {
 			if vg.constate.OwnerInfo.Owner == contract.CallerAddress && len(vg.constate.ValidatorMap) == 0 {
 				balance := evm.StateDB.GetBalance(params.MAN_COIN, contract.Address())
 				amount := balance[common.MainAccount].Balance
-				if amount.Sign()>0{
-					if !evm.CanTransfer(evm.StateDB, contract.Address(), amount, evm.Cointyp){
+				if amount.Sign() > 0 {
+					if !evm.CanTransfer(evm.StateDB, contract.Address(), amount, evm.Cointyp) {
 						return nil, errors.New("insufficient balance for getReward")
 					}
 					evm.Transfer(evm.StateDB, contract.Address(), contract.CallerAddress, amount, evm.Cointyp)
@@ -268,8 +268,8 @@ func (vg *ValidatorGroup) GetRewardMethod() {
 		valInfo := &vg.constate.ValidatorMap[index]
 		amount := valInfo.Reward
 		valInfo.Reward = big.NewInt(0)
-		if amount.Sign()>0 {
-			if !evm.CanTransfer(evm.StateDB, contract.Address(), amount, evm.Cointyp){
+		if amount.Sign() > 0 {
+			if !evm.CanTransfer(evm.StateDB, contract.Address(), amount, evm.Cointyp) {
 				return nil, errors.New("insufficient balance for getReward")
 			}
 			evm.Transfer(evm.StateDB, contract.Address(), contract.CallerAddress, amount, evm.Cointyp)
@@ -293,7 +293,7 @@ func (vg *ValidatorGroup) addDeposit(valiInfo *validatorGroup.ValidatorInfo, sig
 	if err == nil {
 		vg.AddDepositLog(new(big.Int).SetUint64(dType), contract, evm)
 	} else {
-		log.ERROR("ValidatorGroup", "addDeposit evm.Call err", err)
+		log.Error("ValidatorGroup", "addDeposit evm.Call err", err)
 		return ret, err
 	}
 	if dType == 0 {
@@ -311,16 +311,16 @@ func (vg *ValidatorGroup) addDeposit(valiInfo *validatorGroup.ValidatorInfo, sig
 	}
 	return ret, err
 }
-func (vg* ValidatorGroup)withdrawCurrent(valiInfo *validatorGroup.ValidatorInfo,amount *big.Int,contract *Contract, evm *EVM)([]byte,error) {
-	if valiInfo.Current.Amount.Cmp(amount)<0  {
+func (vg *ValidatorGroup) withdrawCurrent(valiInfo *validatorGroup.ValidatorInfo, amount *big.Int, contract *Contract, evm *EVM) ([]byte, error) {
+	if valiInfo.Current.Amount.Cmp(amount) < 0 {
 		return nil, errors.New("insufficient balance for withdraw")
 	}
 	interest := big.NewInt(0)
-	if valiInfo.Current.Amount.Sign()>0 {
-		interest = new(big.Int).Mul(amount,valiInfo.Current.Interest)
-		interest.Div(interest,valiInfo.Current.Amount)
-	}else{
-		if valiInfo.Current.Interest.Sign()<0{
+	if valiInfo.Current.Amount.Sign() > 0 {
+		interest = new(big.Int).Mul(amount, valiInfo.Current.Interest)
+		interest.Div(interest, valiInfo.Current.Amount)
+	} else {
+		if valiInfo.Current.Interest.Sign() < 0 {
 			return nil, errors.New("insufficient balance for withdraw")
 		}
 		interest.Set(valiInfo.Current.Interest)
@@ -342,7 +342,7 @@ func (vg* ValidatorGroup)withdrawCurrent(valiInfo *validatorGroup.ValidatorInfo,
 	if err == nil {
 		vg.AddWithdrawLog(currentAmount, big.NewInt(0), contract, evm)
 	} else {
-		log.ERROR("ValidatorGroup", "withdrawCurrent evm.Call err", err)
+		log.Error("ValidatorGroup", "withdrawCurrent evm.Call err", err)
 		return ret, err
 	}
 	allDepInfo := vg.constate.GetAllDepositInfo(contract.Address(), evm.StateDB)
@@ -380,7 +380,7 @@ func (vg *ValidatorGroup) refundCurrent(contract *Contract, evm *EVM) ([]byte, e
 	if err == nil {
 		vg.AddRefundLog(new(big.Int).SetUint64(0), contract, evm)
 	} else {
-		log.ERROR("ValidatorGroup", "refundCurrent evm.Call err", err)
+		log.Error("ValidatorGroup", "refundCurrent evm.Call err", err)
 		return ret, err
 	}
 	allDepInfo := vg.constate.GetAllDepositInfo(contract.Address(), evm.StateDB)
@@ -420,7 +420,7 @@ func (vg *ValidatorGroup) refundCurrent(contract *Contract, evm *EVM) ([]byte, e
 			}
 		}
 	}
-	if !evm.CanTransfer(evm.StateDB, contract.Address(), refundAmount, evm.Cointyp){
+	if !evm.CanTransfer(evm.StateDB, contract.Address(), refundAmount, evm.Cointyp) {
 		return nil, errors.New("insufficient balance for withdraw")
 	}
 	evm.Transfer(evm.StateDB, contract.Address(), contract.CallerAddress, refundAmount, evm.Cointyp)
@@ -435,9 +435,9 @@ func (vg *ValidatorGroup) refund(valiInfo *validatorGroup.ValidatorInfo, index i
 	}
 	input10 = append(input10, args...)
 	refundAmount := valiInfo.Positions[index].Amount
-	ret, _, _, err := evm.Call(contract,developContractAddress,input10,contract.Gas,contract.value)
-	if err == nil{
-		if !evm.CanTransfer(evm.StateDB, contract.Address(), refundAmount, evm.Cointyp){
+	ret, _, _, err := evm.Call(contract, developContractAddress, input10, contract.Gas, contract.value)
+	if err == nil {
+		if !evm.CanTransfer(evm.StateDB, contract.Address(), refundAmount, evm.Cointyp) {
 			return nil, errors.New("insufficient balance for Refund")
 		}
 		evm.Transfer(evm.StateDB, contract.Address(), contract.CallerAddress, refundAmount, evm.Cointyp)
@@ -512,9 +512,9 @@ func (vg *ValidatorGroup) WithdrawMethod() {
 			if position == 0 {
 				allAmount.Sub(allAmount, amount)
 			}
-			for i:=0;i<len(valInfo.Positions);i++{
+			for i := 0; i < len(valInfo.Positions); i++ {
 				if valInfo.Positions[i].EndTime == 0 && valInfo.Positions[i].Position != position {
-					allAmount.Add(allAmount,valInfo.Positions[i].Amount)
+					allAmount.Add(allAmount, valInfo.Positions[i].Amount)
 				}
 			}
 			if allAmount.Cmp(validatorThreshold) < 0 {

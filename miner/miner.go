@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/core"
@@ -21,6 +19,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/msgsend"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
+	"sync"
 )
 
 const (
@@ -48,8 +48,10 @@ type Miner struct {
 	coinbase common.Address
 	bc       *core.BlockChain
 
-	canStart    int32 // can start indicates whether we can start the mining operation
-	shouldStart int32 // should start indicates whether we should start after sync
+	canStart int32 // can start indicates whether we can start the mining operation
+
+	muCpuAgent sync.Mutex
+	cpuAgent   *CpuAgent
 }
 
 func (s *Miner) Getworker() *worker { return s.worker }
@@ -64,36 +66,40 @@ func New(bc *core.BlockChain, config *params.ChainConfig, mux *event.TypeMux, hd
 	var err error
 	miner.worker, err = newWorker(config, bc, mux, hd)
 	if err != nil {
-		log.ERROR(ModuleMiner, "创建work", "失败")
+		log.Error(ModuleMiner, "创建work", "失败")
 		return miner, err
 	}
-	miner.Register(NewCpuAgent(bc))
-	//go miner.update()
-	log.INFO(ModuleMiner, "创建miner", "成功")
+	miner.StartCpuMining()
+	log.Info(ModuleMiner, "创建miner", "成功")
 	return miner, nil
 }
 
-//Start
-func (self *Miner) Start() {
-	atomic.StoreInt32(&self.shouldStart, 1)
-
-	if atomic.LoadInt32(&self.canStart) == 0 {
-		log.Info("Network syncing, will start miner afterwards")
-		return
-	}
+func (self *Miner) Stop() {
+	self.worker.Stop()
 }
 
-func (self *Miner) Stop() {
+func (self *Miner) StartCpuMining() {
+	self.muCpuAgent.Lock()
+	defer self.muCpuAgent.Unlock()
 
-	self.worker.Stop()
-	atomic.StoreInt32(&self.shouldStart, 0)
+	if self.cpuAgent != nil {
+		return
+	}
+	self.cpuAgent = NewCpuAgent(self.bc)
+	self.Register(self.cpuAgent)
+}
 
+func (self *Miner) StopCpuMining() {
+	self.muCpuAgent.Lock()
+	defer self.muCpuAgent.Unlock()
+	if self.cpuAgent == nil {
+		return
+	}
+	self.Unregister(self.cpuAgent)
+	self.cpuAgent = nil
 }
 
 func (self *Miner) Register(agent Agent) {
-	if self.Mining() {
-		agent.Start()
-	}
 	self.worker.Register(agent)
 }
 
@@ -106,7 +112,7 @@ func (self *Miner) Mining() bool {
 }
 
 func (self *Miner) HashRate() (tot int64) {
-	if pow, ok := self.bc.Engine([]byte(manparams.VersionAlpha)).(consensus.PoW); ok {
+	if pow, ok := self.bc.Engine([]byte(manversion.VersionAlpha)).(consensus.PoW); ok {
 		tot += int64(pow.Hashrate())
 	}
 	// do we care this might race? is it worth we're rewriting some

@@ -319,3 +319,31 @@ func GetMinHash(st StateDB) (*mc.RandomInfoStruct, error) {
 	}
 	return value.(*mc.RandomInfoStruct), nil
 }
+
+func GetElectDynamicPollingInfo(st StateDB) (*mc.ElectDynamicPollingInfo, error) {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return nil, ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyElectDynamicPollingInfo)
+	if err != nil {
+		return nil, err
+	}
+	value, err := opt.GetValue(st)
+	if err != nil {
+		return nil, err
+	}
+	return value.(*mc.ElectDynamicPollingInfo), nil
+}
+
+func SetElectDynamicPollingInfo(st StateDB, info *mc.ElectDynamicPollingInfo) error {
+	mgr := GetManager(GetVersionInfo(st))
+	if mgr == nil {
+		return ErrFindManager
+	}
+	opt, err := mgr.FindOperator(mc.MSKeyElectDynamicPollingInfo)
+	if err != nil {
+		return err
+	}
+	return opt.SetValue(st, info)
+}

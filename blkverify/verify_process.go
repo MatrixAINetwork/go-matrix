@@ -17,6 +17,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/MatrixAINetwork/go-matrix/reelection"
 	"github.com/MatrixAINetwork/go-matrix/txpoolCache"
 	"github.com/pkg/errors"
@@ -98,6 +100,7 @@ type Process struct {
 	voteMsgSender    *common.ResendMsgCtrl
 	mineReqMsgSender *common.ResendMsgCtrl
 	posedReqSender   *common.ResendMsgCtrl
+	bcProcessedHash  []common.Hash
 }
 
 func newProcess(number uint64, pm *ProcessManage) *Process {
@@ -123,6 +126,7 @@ func newProcess(number uint64, pm *ProcessManage) *Process {
 		voteMsgSender:    nil,
 		mineReqMsgSender: nil,
 		posedReqSender:   nil,
+		bcProcessedHash:  nil,
 	}
 
 	return p
@@ -134,6 +138,8 @@ func (p *Process) StartRunning(role common.RoleType) {
 	p.role = role
 	p.changeState(StateStart)
 	p.reqCache.CheckUnknownReq()
+
+	p.resendMineReq()
 
 	if p.role == common.RoleBroadcast {
 		p.startReqVerifyBC()
@@ -180,6 +186,7 @@ func (p *Process) SetLeaderInfo(info *mc.LeaderChangeNotify) {
 	p.stopSender()
 	if p.state > StateIdle {
 		p.state = StateStart
+		p.resendMineReq()
 		if p.role == common.RoleValidator {
 			p.startReqVerifyCommon()
 		} else if p.role == common.RoleBroadcast {
@@ -284,7 +291,7 @@ func (p *Process) AddLocalReq(localReq *mc.LocalBlockVerifyConsensusReq) {
 	leader := localReq.BlkVerifyConsensusReq.Header.Leader
 	reqData, err := p.reqCache.AddLocalReq(localReq)
 	if err != nil {
-		log.ERROR(p.logExtraInfo(), "本地请求添加缓存失败", err, "高度", p.number, "leader", leader.Hex())
+		log.Error(p.logExtraInfo(), "本地请求添加缓存失败", err, "高度", p.number, "leader", leader.Hex())
 		return
 	}
 	log.Trace(p.logExtraInfo(), "本地请求添加成功, 高度", p.number, "leader", leader.Hex())
@@ -349,7 +356,7 @@ func (p *Process) ProcessDPOSOnce() {
 
 func (p *Process) startReqVerifyCommon() {
 	if p.checkState(StateStart) == false {
-		log.WARN(p.logExtraInfo(), "准备开始请求验证阶段，状态错误", p.state.String(), "高度", p.number)
+		log.Warn(p.logExtraInfo(), "准备开始请求验证阶段，状态错误", p.state.String(), "高度", p.number)
 		return
 	}
 
@@ -409,7 +416,7 @@ func (p *Process) processReqOnce() {
 	curVersion := string(p.curProcessReq.req.Header.Version)
 	err := p.pm.manblk.VerifyBlockVersion(p.number, curVersion, string(parent.Version()))
 	if err != nil {
-		log.ERROR(p.logExtraInfo(), "验证版本号失败", err, "高度", p.number)
+		log.Error(p.logExtraInfo(), "验证版本号失败", err, "高度", p.number)
 		p.startDPOSVerify(localVerifyResultStateFailed)
 		return
 	}
@@ -633,7 +640,7 @@ func (p *Process) processDPOSOnce() {
 func (p *Process) finishedProcess() {
 	result := p.curProcessReq.localVerifyResult
 	if result == localVerifyResultProcessing {
-		log.ERROR(p.logExtraInfo(), "req is processing now, can't finish!", "validator", "高度", p.number)
+		log.Error(p.logExtraInfo(), "req is processing now, can't finish!", "validator", "高度", p.number)
 		return
 	}
 	if result == localVerifyResultStateFailed {
@@ -651,11 +658,21 @@ func (p *Process) finishedProcess() {
 			TxsCode:       p.curProcessReq.req.TxsCode,
 		}
 		mc.PublishEvent(mc.BlkVerify_POSFinishedNotify, &notify)
+
+		posMsg := mc.BlockPOSFinishedV2{
+			Header:      p.curProcessReq.req.Header,
+			BlockHash:   p.curProcessReq.hash,
+			OriginalTxs: p.curProcessReq.originalTxs,
+			FinalTxs:    p.curProcessReq.finalTxs,
+			Receipts:    p.curProcessReq.receipts,
+			State:       p.curProcessReq.stateDB,
+		}
+		mc.PublishEvent(mc.BlkVerify_POSFinishedNotifyV2, &posMsg)
 	}
 
-	log.Trace(p.logExtraInfo(), "关键时间点", "共识投票完毕，发送挖矿请求", "time", time.Now(), "块高", p.number)
 	//给矿工发送区块验证结果
-	p.startSendMineReq(&mc.HD_MiningReqMsg{Header: p.curProcessReq.req.Header})
+	p.startSendMineReq(p.curProcessReq.req.Header)
+
 	//给广播节点发送区块验证请求(带签名列表)
 	p.startPosedReqSender(p.curProcessReq.req)
 	p.state = StateEnd
@@ -690,6 +707,50 @@ func (p *Process) verifyVote(signHash common.Hash, vote common.Signature, from c
 		Validate: validate,
 		Stock:    0,
 	}, nil
+}
+
+func (p *Process) resendMineReq() {
+	parentHeader := p.pm.bc.GetHeaderByNumber(p.number - 1)
+	if parentHeader == nil {
+		log.Trace(p.logExtraInfo(), "补发挖矿请求处理", "获取区块失败", "number", p.number)
+		return
+	}
+
+	if manversion.VersionCmp(string(parentHeader.Version), manversion.VersionAIMine) < 0 {
+		log.Trace(p.logExtraInfo(), "补发挖矿请求处理", "区块版本号过低", "cur version", string(parentHeader.Version))
+		return
+	}
+
+	bcInterval, err := p.pm.bc.GetBroadcastIntervalByNumber(p.number - 1)
+	if err != nil {
+		log.Info(p.logExtraInfo(), "补发挖矿请求处理", "获取广播周期失败", "err", err, "number", p.number)
+		return
+	}
+
+	var aiHeader *types.Header = nil
+	if parentHeader.IsAIHeader(bcInterval.GetBroadcastInterval()) {
+		// 父区块即是AI区块
+		aiHeader = parentHeader
+	} else {
+		// 获取上一个AI区块
+		aiHeaderNumber := params.GetCurAIBlockNumber(parentHeader.Number.Uint64(), bcInterval.GetBroadcastInterval())
+		aiHeaderHash, err := p.pm.bc.GetAncestorHash(parentHeader.ParentHash, aiHeaderNumber)
+		if err != nil {
+			log.Info(p.logExtraInfo(), "补发挖矿请求处理", "获取pre ai header hash 失败", "err", err, "aiHeaderNumber", aiHeaderNumber, "cur header number", parentHeader.Number)
+			return
+		}
+		aiHeader = p.pm.bc.GetHeaderByHash(aiHeaderHash)
+		if aiHeader == nil {
+			log.Info(p.logExtraInfo(), "补发挖矿请求处理", "get pre ai header failed", "header hash", aiHeaderHash.TerminalString())
+			return
+		}
+
+		if manversion.VersionCmp(string(aiHeader.Version), manversion.VersionAIMine) < 0 {
+			log.Trace(p.logExtraInfo(), "补发挖矿请求处理", "AI区块版本号过低", "ai header version", string(aiHeader.Version))
+			return
+		}
+	}
+	p.startSendMineReq(aiHeader)
 }
 
 func (p *Process) signHelper() *signhelper.SignHelper { return p.pm.signHelper }

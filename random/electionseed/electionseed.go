@@ -46,7 +46,7 @@ func RegisterElectSeedPlugs(name string, plug ElectSeedPlugs) {
 func (self *ElectionSeed) CalcData(calcData common.Hash) (*big.Int, error) {
 	ans, err := mapElectSeedPlugs[self.plug].CalcSeed(calcData, self.support)
 	if err != nil {
-		log.ERROR(ModuleElectSeed, "随机数计算错误:", "err", err)
+		log.Error(ModuleElectSeed, "随机数计算错误:", "err", err)
 	}
 	return ans, err
 
@@ -55,7 +55,7 @@ func (self *ElectionSeed) CalcData(calcData common.Hash) (*big.Int, error) {
 func (self *ElectionSeed) Prepare(height uint64, hash common.Hash) error {
 	err := mapElectSeedPlugs[self.plug].Prepare(height, hash, self.support)
 	if err != nil {
-		log.ERROR(ModuleElectSeed, "随机数计算错误:", "err", err)
+		log.Error(ModuleElectSeed, "随机数计算错误:", "err", err)
 	}
 	return err
 }

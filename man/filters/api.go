@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MatrixAINetwork/go-matrix/base58"
 	"math/big"
 	"sync"
 	"time"
@@ -311,7 +312,7 @@ func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
 // GetLogs returns logs matching the given argument that are stored within the state.
 //
 // https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_getlogs
-func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([]types.CoinLogs, error) {
+func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([]types.ManCoinLogs, error) {
 	// Convert the RPC block numbers into internal representations
 	if crit.FromBlock == nil {
 		crit.FromBlock = big.NewInt(rpc.LatestBlockNumber.Int64())
@@ -326,7 +327,7 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 	if err != nil {
 		return nil, err
 	}
-	return logs, err
+	return types.TransferCoinLogs2ManLogs(logs), err
 }
 
 // UninstallFilter removes the filter with the given filter id.
@@ -350,7 +351,7 @@ func (api *PublicFilterAPI) UninstallFilter(id rpc.ID) bool {
 // If the filter could not be found an empty array of logs is returned.
 //
 // https://github.com/MatrixAINetwork/wiki/wiki/JSON-RPC#man_getfilterlogs
-func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]types.CoinLogs, error) {
+func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]types.ManCoinLogs, error) {
 	api.filtersMu.Lock()
 	f, found := api.filters[id]
 	api.filtersMu.Unlock()
@@ -374,7 +375,7 @@ func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]typ
 	if err != nil {
 		return nil, err
 	}
-	return logs, nil
+	return types.TransferCoinLogs2ManLogs(logs), nil
 }
 
 // GetFilterChanges returns the logs for the filter with the given id since
@@ -459,7 +460,7 @@ func (args *FilterCriteria) UnmarshalJSON(data []byte) error {
 		case []interface{}:
 			for i, addr := range rawAddr {
 				if strAddr, ok := addr.(string); ok {
-					addr, err := decodeAddress(strAddr)
+					addr, err := decodeManAddress(strAddr)
 					if err != nil {
 						return fmt.Errorf("invalid address at index %d: %v", i, err)
 					}
@@ -469,7 +470,7 @@ func (args *FilterCriteria) UnmarshalJSON(data []byte) error {
 				}
 			}
 		case string:
-			addr, err := decodeAddress(rawAddr)
+			addr, err := decodeManAddress(rawAddr)
 			if err != nil {
 				return fmt.Errorf("invalid address: %v", err)
 			}
@@ -523,12 +524,14 @@ func (args *FilterCriteria) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func decodeAddress(s string) (common.Address, error) {
-	b, err := hexutil.Decode(s)
+func decodeManAddress(s string) (common.Address, error) {
+	return base58.Base58DecodeToAddress(s)
+	/*b, err := hexutil.Decode(s)
 	if err == nil && len(b) != common.AddressLength {
 		err = fmt.Errorf("hex has invalid length %d after decoding", len(b))
 	}
 	return common.BytesToAddress(b), err
+	*/
 }
 
 func decodeTopic(s string) (common.Hash, error) {

@@ -62,6 +62,14 @@ type RewardCfg struct {
 	RewardMount    *mc.BlkRewardCfg
 	SetReward      SetRewardsExec
 }
+type AIRewardCfg struct {
+	RewardType     uint8
+	Calc           string
+	MinersRate     uint64 //矿工网络奖励
+	ValidatorsRate uint64 //验证者网络奖励
+	RewardMount    *mc.AIBlkRewardCfg
+	SetReward      SetRewardsExec
+}
 type ChainReader interface {
 	// Config retrieves the blockchain's chain configuration.
 	Config() *params.ChainConfig
@@ -87,7 +95,7 @@ type ChainReader interface {
 }
 type SetRewardsExec interface {
 	SetLeaderRewards(reward *big.Int, Leader common.Address, num uint64) map[common.Address]*big.Int
-	SetMinerOutRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, coinType string) map[common.Address]*big.Int
+	SetMinerOutRewards(AIReward, reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, coinType string) map[common.Address]*big.Int
 	GetSelectedRewards(reward *big.Int, state util.StateDB, roleType common.RoleType, number uint64, rate uint64, topology *mc.TopologyGraph, elect *mc.ElectGraph) map[common.Address]*big.Int //todo 金额
 }
 type DefaultSetRewards struct {
@@ -113,9 +121,9 @@ func (str *DefaultSetRewards) GetSelectedRewards(reward *big.Int, state util.Sta
 
 	return str.selected.GetSelectedRewards(reward, state, roleType, number, rate, topology, elect)
 }
-func (str *DefaultSetRewards) SetMinerOutRewards(reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, coinType string) map[common.Address]*big.Int {
+func (str *DefaultSetRewards) SetMinerOutRewards(aireward, reward *big.Int, state util.StateDB, chain util.ChainReader, num uint64, parentHash common.Hash, coinType string) map[common.Address]*big.Int {
 
-	return str.miner.SetMinerOutRewards(reward, state, num, parentHash, chain, coinType)
+	return str.miner.SetMinerOutRewards(aireward, reward, state, num, parentHash, chain, coinType)
 }
 
 func New(RewardMount *mc.BlkRewardCfg, SetReward SetRewardsExec, preMiner []mc.MultiCoinMinerOutReward, innerMiners []common.Address, rewardType uint8, calc string) *RewardCfg {

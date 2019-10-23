@@ -174,7 +174,7 @@ func SendToGroup(to common.RoleType, msgCode uint64, data interface{}) error {
 			}
 		}
 		if !bSend {
-			log.ERROR("message.go", "该节点未发送成功 nodeId", id)
+			log.Error("message.go", "该节点未发送成功 nodeId", id)
 		}
 	}
 	return nil

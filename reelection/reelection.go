@@ -57,20 +57,31 @@ func (self *ReElection) GetElection(state *state.StateDBManage, hash common.Hash
 	defer log.Trace(Module, "GetElection", "end", "hash", hash)
 	preElectGraph, err := matrixstate.GetElectGraph(state)
 	if err != nil || nil == preElectGraph {
-		log.ERROR(Module, "GetElection err", err)
+		log.Error(Module, "GetElection err", err)
 		return nil, err
 	}
 
-	//log.INFO(Module, "开始获取选举信息 hash", hash.String())
+	//log.Info(Module, "开始获取选举信息 hash", hash.String())
 	height, err := self.GetNumberByHash(hash)
-	//log.INFO(Module, "preElectGraph", preElectGraph, "高度", height, "err", err)
+	//log.Info(Module, "preElectGraph", preElectGraph, "高度", height, "err", err)
 	if err != nil {
 		log.Error(Module, "GetElection", "获取hash的高度失败")
 		return nil, err
 	}
 	data := &ElectReturnInfo{}
 
-	if self.IsMinerTopGenTiming(hash) {
+	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
+	if err != nil {
+		log.Error(Module, "获取广播区间失败 err", err)
+		return nil, err
+	}
+
+	genData, err := self.GetElectGenTimes(hash)
+	if err != nil {
+		log.Error(Module, "获取配置错误 高度", height, "err", err)
+		return nil, err
+	}
+	if bcInterval.IsReElectionNumber(height + 1 + uint64(genData.MinerNetChange)) {
 		log.Trace(Module, "GetElection", "IsMinerTopGenTiming", "高度", height)
 		for _, v := range preElectGraph.NextMinerElect {
 			switch v.Type {
@@ -80,7 +91,7 @@ func (self *ReElection) GetElection(state *state.StateDBManage, hash common.Hash
 			}
 		}
 	}
-	if self.IsValidatorTopGenTiming(hash) {
+	if bcInterval.IsReElectionNumber(height + 1 + uint64(genData.ValidatorNetChange)) {
 		log.Trace(Module, "GetElection", "IsValidatorTopGenTiming", "高度", height)
 		for _, v := range preElectGraph.NextValidatorElect {
 			switch v.Type {
@@ -92,7 +103,7 @@ func (self *ReElection) GetElection(state *state.StateDBManage, hash common.Hash
 		}
 	}
 
-	//log.INFO(Module, "不是任何网络切换时间点 height", height)
+	//log.Info(Module, "不是任何网络切换时间点 height", height)
 
 	return data, nil
 }
@@ -101,21 +112,21 @@ func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address
 	defer log.Trace(Module, "GetTopoChange", "end", "hash", hash, "online", online, "offline", offline)
 	height, err := self.GetNumberByHash(hash)
 	if err != nil {
-		log.ERROR(Module, "根据hash获取高度失败 err", err)
+		log.Error(Module, "根据hash获取高度失败 err", err)
 		return []mc.Alternative{}, err
 	}
 	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
 	if err != nil {
-		log.ERROR(Module, "根据hash获取广播周期信息 err", err)
+		log.Error(Module, "根据hash获取广播周期信息 err", err)
 		return []mc.Alternative{}, err
 	}
 	if bcInterval.IsReElectionNumber(height + 1) {
-		log.ERROR(Module, "当前是广播区块 无差值", "height", height+1)
+		log.Error(Module, "当前是广播区块 无差值", "height", height+1)
 		return []mc.Alternative{}, err
 	}
 	lastHash, err := self.GetHeaderHashByNumber(hash, height)
 	if err != nil {
-		log.ERROR(Module, "根据hash找高度失败 hash ", hash, "高度", height-1)
+		log.Error(Module, "根据hash找高度失败 hash ", hash, "高度", height-1)
 		return []mc.Alternative{}, err
 	}
 
@@ -130,7 +141,7 @@ func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address
 
 	electOnlineState, err := matrixstate.GetElectOnlineState(stateDB)
 	if err != nil || nil == electOnlineState {
-		log.ERROR(Module, "get electOnlineState from state err", err)
+		log.Error(Module, "get electOnlineState from state err", err)
 		return []mc.Alternative{}, err
 	}
 
@@ -142,16 +153,16 @@ func (self *ReElection) GetTopoChange(hash common.Hash, offline []common.Address
 	antive := GetAllNativeDataForUpdate(*electState, *electOnlineState, TopoGrap)
 	block := self.bc.GetBlockByHash(hash)
 	if block == nil {
-		log.ERROR(Module, "获取区块失败,hash", hash)
+		log.Error(Module, "获取区块失败,hash", hash)
 	}
 	DiffValidatot, err := self.TopoUpdate(antive, TopoGrap, block.ParentHash())
 	if err != nil {
-		log.ERROR(Module, "拓扑更新失败 err", err, "高度", height)
+		log.Error(Module, "拓扑更新失败 err", err, "高度", height)
 	}
 
 	olineStatus := GetOnlineAlter(offline, online, *electOnlineState)
 	DiffValidatot = append(DiffValidatot, olineStatus...)
-	log.DEBUG(Module, "获取拓扑改变 end ", DiffValidatot)
+	log.Debug(Module, "获取拓扑改变 end ", DiffValidatot)
 	return DiffValidatot, nil
 }
 
@@ -161,12 +172,12 @@ func (self *ReElection) GetNetTopologyAll(hash common.Hash) (*ElectReturnInfo, e
 	log.Trace(Module, "GetNetTopologyAll", "start", "height", height)
 	defer log.Trace(Module, "GetNetTopologyAll", "end", "height", height)
 	if err != nil {
-		log.ERROR(Module, "根据hash获取高度失败 err", err)
+		log.Error(Module, "根据hash获取高度失败 err", err)
 		return nil, err
 	}
 	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
 	if err != nil {
-		log.ERROR(Module, "根据hash获取广播周期信息 err", err)
+		log.Error(Module, "根据hash获取广播周期信息 err", err)
 		return nil, err
 	}
 	if bcInterval.IsReElectionNumber(height+2) == false {
@@ -176,23 +187,23 @@ func (self *ReElection) GetNetTopologyAll(hash common.Hash) (*ElectReturnInfo, e
 
 	stateDB, err := self.bc.StateAtBlockHash(hash)
 	if err != nil {
-		log.ERROR(Module, "获取state失败", err)
+		log.Error(Module, "获取state失败", err)
 		return nil, err
 	}
 	electGraph, err := matrixstate.GetElectGraph(stateDB)
 	if err != nil || electGraph == nil {
-		log.ERROR(Module, "获取elect graph 失败", err)
+		log.Error(Module, "获取elect graph 失败", err)
 		return nil, errors.Errorf("获取elect graph 失败: %v", err)
 	}
 
 	masterV, backupV, _, err := self.GetNextElectNodeInfo(electGraph, common.RoleValidator)
 	if err != nil {
-		log.ERROR(Module, "获取验证者全拓扑图失败 err", err)
+		log.Error(Module, "获取验证者全拓扑图失败 err", err)
 		return nil, err
 	}
 	masterM, backupM, _, err := self.GetNextElectNodeInfo(electGraph, common.RoleMiner)
 	if err != nil {
-		log.ERROR(Module, "获取矿工全拓扑图失败 err", err)
+		log.Error(Module, "获取矿工全拓扑图失败 err", err)
 		return nil, err
 	}
 

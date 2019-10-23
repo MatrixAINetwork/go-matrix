@@ -45,7 +45,7 @@ func (self *vrfWithHash) verifyVrf(pk *ecdsa.PublicKey, prevVrf, newVrf, proof [
 }
 
 func (self *vrfWithHash) DecodeVrf(header *types.Header, preHeader *types.Header) (common.Address, error) {
-	log.INFO("vrf", "len header.VrfValue", len(header.VrfValue), "data", header.VrfValue, "高度", header.Number.Uint64())
+	log.Info("vrf", "len header.VrfValue", len(header.VrfValue), "data", header.VrfValue, "高度", header.Number.Uint64())
 	account, _, _ := self.GetVrfInfoFromHeader(header.VrfValue)
 
 	log.Error("vrf", "从区块头重算出账户户", account, "高度", header.Number.Uint64())

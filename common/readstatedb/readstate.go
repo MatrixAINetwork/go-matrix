@@ -37,7 +37,7 @@ func GetElectGenTimes(stateReader matrix.StateReader, hash common.Hash) (*mc.Ele
 	//	return nil,fmt.Errorf("获取选举时间点信息阶段,检查入参失败,获取到的信息为空")
 	//}
 	if electGenConfig == nil {
-		log.ERROR(ModuleReadStateDB, "获取到的选举配置信息错误", "反射后的数据为空")
+		log.Error(ModuleReadStateDB, "获取到的选举配置信息错误", "反射后的数据为空")
 		return nil, err
 	}
 	return electGenConfig, nil
@@ -65,7 +65,7 @@ func GetPreBroadcastRoot(stateReader matrix.StateReader, hash common.Hash) (*mc.
 	//	return nil,fmt.Errorf("获取前两个广播区块root值阶段,检查入参失败,获取到的信息为空")
 	//}
 	if preBroadStateRoot == nil {
-		log.ERROR(ModuleReadStateDB, "获取前两个广播区块root值阶段", "反射后的数据为空")
+		log.Error(ModuleReadStateDB, "获取前两个广播区块root值阶段", "反射后的数据为空")
 		return nil, err
 	}
 	return preBroadStateRoot, nil
@@ -90,7 +90,7 @@ func GetRandomInfo(stateReader matrix.StateReader, hash common.Hash) (*mc.Random
 	//	return nil,fmt.Errorf("获取最小阶段,检查入参失败,获取到的信息为空")
 	//}
 	if randomInfo == nil {
-		log.ERROR(ModuleReadStateDB, "获取前两个广播区块root值阶段", "反射后的数据为空")
+		log.Error(ModuleReadStateDB, "获取前两个广播区块root值阶段", "反射后的数据为空")
 		return nil, err
 	}
 	return randomInfo, nil

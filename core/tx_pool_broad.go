@@ -113,7 +113,7 @@ func ProduceMatrixStateData(block *types.Block, stateDb *state.StateDBManage, re
 		}
 	}
 	if len(tempMap) > 0 {
-		log.INFO("ProduceMatrixStateData", "tempMap", tempMap)
+		log.Info("ProduceMatrixStateData", "tempMap", tempMap)
 		//这里需把map转成slice存储在状态树上
 		var broadtxSlice common.BroadTxSlice
 		for keystring, valmap := range tempMap {
@@ -299,7 +299,7 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 				}
 			}
 		}
-		log.WARN("Unknown account information (func filter()   BroadCastTxPool),mc.Heartbeat")
+		log.Warn("Unknown account information (func filter()   BroadCastTxPool),mc.Heartbeat")
 		return false
 	case mc.Privatekey, mc.Publickey:
 		fromDepositAccount, _, err := bPool.chain.GetA0AccountFromAnyAccountAtSignHeight(from, blockHash, bcInterval.GetNextBroadcastNumber(height.Uint64()))
@@ -317,10 +317,10 @@ func (bPool *BroadCastTxPool) filter(from common.Address, keydata string) (isok 
 				return true
 			}
 		}
-		log.WARN("Unknown account information ,mc.Privatekey,mc.Publickey")
+		log.Warn("Unknown account information ,mc.Privatekey,mc.Publickey")
 		return false
 	default:
-		log.WARN("Broadcast transaction type unknown")
+		log.Warn("Broadcast transaction type unknown")
 		return false
 	}
 }

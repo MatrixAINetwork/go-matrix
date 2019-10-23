@@ -206,11 +206,11 @@ func RandSampleFilterBlackList(randNodeValue []Pnormalized, superNodeValue []Pno
 
 		if _, ok := blackList.IsBlackList(node); ok {
 			if err, _ := mapCounter(blackListDict, node); err != nil {
-				log.ERROR("Election Module", "blackListDict", "uninitialized")
+				log.Error("Election Module", "blackListDict", "uninitialized")
 			}
 		} else {
 			if err, status := mapCounter(nonBlackListDict, node); err != nil {
-				log.ERROR("Election Module", "blackListDict", "uninitialized")
+				log.Error("Election Module", "blackListDict", "uninitialized")
 			} else if status {
 				orderAddress = append(orderAddress, node)
 			}

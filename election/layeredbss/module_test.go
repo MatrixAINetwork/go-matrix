@@ -5,6 +5,10 @@ package layeredBss
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"math/big"
+	"testing"
+
 	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
@@ -13,11 +17,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/pkg/errors"
-	"io/ioutil"
-	"math/big"
-	"testing"
 )
 
 type VipCfg struct {
@@ -67,7 +68,7 @@ func genState() *state.StateDBManage {
 	chaindb := mandb.NewMemDatabase()
 	roots := make([]common.CoinRoot, 0)
 	State, _ := state.NewStateDBManage(roots, chaindb, state.NewDatabase(chaindb))
-	matrixstate.SetVersionInfo(State, manparams.VersionAlpha)
+	matrixstate.SetVersionInfo(State, manversion.VersionAIMine)
 	return State
 }
 
@@ -77,7 +78,7 @@ func readTestCfg(path string, cfg *ElectInfo) error {
 		return errors.New("case not open case file")
 	}
 	if err := json.Unmarshal([]byte(data), cfg); err != nil {
-		log.ERROR("", "", err)
+		log.Error("", "", err)
 		return errors.New("unmarshal case file failed")
 	}
 	return nil
@@ -165,7 +166,7 @@ func validatorDataCmp(goResult *mc.MasterValidatorReElectionRsq, matlabResult []
 		log.Trace("GO Result", "Address", v.Account.String(), "Vip", v.VIPLevel, "Stock", v.Stock, "Type", v.Type)
 	}
 	if len(reshape) != len(matlabResult) {
-		log.ERROR("输出结果长度不一致", "MatLab", len(matlabResult), "Go", len(reshape))
+		log.Error("输出结果长度不一致", "MatLab", len(matlabResult), "Go", len(reshape))
 		return false, errors.New("比较长度不一致")
 	}
 
@@ -235,9 +236,9 @@ func MinerElectProcess(vectorPath string) (bool, error) {
 func minerDataCmp(goResult *mc.MasterMinerReElectionRsp, matlabResult []Election) (bool, error) {
 	var reshape = make([]mc.ElectNodeInfo, 0)
 	reshape = append(reshape, goResult.MasterMiner...)
-	log.INFO("GO输出")
+	log.Info("GO输出")
 	for _, v := range reshape {
-		log.INFO("GO Result", "Address", v.Account.String(), "Vip", v.VIPLevel, "Stock", v.Stock, "Type", v.Type)
+		log.Info("GO Result", "Address", v.Account.String(), "Vip", v.VIPLevel, "Stock", v.Stock, "Type", v.Type)
 	}
 	if len(reshape) != len(matlabResult) {
 		return false, errors.New("比较长度不一致")
@@ -247,11 +248,11 @@ func minerDataCmp(goResult *mc.MasterMinerReElectionRsp, matlabResult []Election
 		mdata := matlabResult[i]
 		gdata := reshape[i]
 		if !common.HexToAddress(mdata.Account).Equal(gdata.Account) {
-			log.INFO("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String())
+			log.Info("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String())
 			return false, errors.New("地址不一致")
 		}
 		if mdata.Stock != gdata.Stock {
-			log.INFO("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String(), "M Stock", mdata.Stock, "GO Stock", gdata.Stock)
+			log.Info("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String(), "M Stock", mdata.Stock, "GO Stock", gdata.Stock)
 			return false, errors.New("股权不一致")
 		}
 	}

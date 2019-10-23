@@ -713,6 +713,53 @@ func (opt *operatorSlashNum) SetValue(st StateDB, value interface{}) error {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
+// 参与奖励状态
+type operatorSelMinerNum struct {
+	key common.Hash
+}
+
+func newSelMinerNumOpt() *operatorSelMinerNum {
+	return &operatorSelMinerNum{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeySelMinerNum),
+	}
+}
+
+func (opt *operatorSelMinerNum) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorSelMinerNum) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return uint64(0), err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return uint64(0), nil
+	}
+	num, err := decodeUint64(data)
+	if err != nil {
+		log.Error(logInfo, "SelMinerNum decode failed", err)
+		return uint64(0), err
+	}
+	return num, nil
+}
+
+func (opt *operatorSelMinerNum) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	num, OK := value.(uint64)
+	if !OK {
+		log.Error(logInfo, "input param(SelMinerNum) err", "reflect failed")
+		return ErrParamReflect
+	}
+	st.SetMatrixData(opt.key, encodeUint64(num))
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
 // 固定区块算法配置
 type operatorBlkCalc struct {
 	key common.Hash
@@ -1154,5 +1201,264 @@ func (opt *operatorAccountBlackList) SetValue(st StateDB, value interface{}) err
 		return err
 	}
 	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 区块奖励配置
+type operatorAIBlkRewardCfg struct {
+	key common.Hash
+}
+
+func newAIBlkRewardCfgOpt() *operatorAIBlkRewardCfg {
+	return &operatorAIBlkRewardCfg{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyAIBlkRewardCfg),
+	}
+}
+
+func (opt *operatorAIBlkRewardCfg) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorAIBlkRewardCfg) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		log.Error(logInfo, "AIblkRewardCfg data", "is empty")
+		return nil, ErrDataEmpty
+	}
+
+	value := new(mc.AIBlkRewardCfg)
+	err := rlp.DecodeBytes(data, &value)
+	if err != nil {
+		log.Error(logInfo, "AIblkRewardCfg rlp decode failed", err)
+		return nil, err
+	}
+	return value, nil
+}
+
+func (opt *operatorAIBlkRewardCfg) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	data, err := rlp.EncodeToBytes(value)
+	if err != nil {
+		log.Error(logInfo, "AIblkRewardCfg rlp encode failed", err)
+		return err
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 验证者参与奖励
+type operatorValidatorBLKSelReward struct {
+	key common.Hash
+}
+
+func newValidatorBLKSelRewardOpt() *operatorValidatorBLKSelReward {
+	return &operatorValidatorBLKSelReward{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyBLKSelValidator),
+	}
+}
+
+func (opt *operatorValidatorBLKSelReward) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorValidatorBLKSelReward) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return mc.ValidatorSelReward{}, nil
+	}
+	msg := mc.ValidatorSelReward{}
+	err := rlp.DecodeBytes(data, &msg)
+
+	if err != nil {
+		log.Error(logInfo, "ValidatorSelReward decode failed", err)
+		return nil, err
+	}
+	return msg, nil
+}
+
+func (opt *operatorValidatorBLKSelReward) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	accounts, OK := value.(mc.ValidatorSelReward)
+	if !OK {
+		log.Error(logInfo, "input param(ValidatorSelReward) err", "reflect failed")
+		return ErrParamReflect
+	}
+
+	data, err := rlp.EncodeToBytes(accounts)
+	if err != nil {
+		return errors.Errorf("rlp encode failed: %s", err)
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 验证者参与奖励状态
+type operatorBLKSelValidatorNum struct {
+	key common.Hash
+}
+
+func newSelValidatorBLKNumOpt() *operatorBLKSelValidatorNum {
+	return &operatorBLKSelValidatorNum{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyBLKSelValidatorNum),
+	}
+}
+
+func (opt *operatorBLKSelValidatorNum) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorBLKSelValidatorNum) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return uint64(0), err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return uint64(0), nil
+	}
+	num, err := decodeUint64(data)
+	if err != nil {
+		log.Error(logInfo, "SelValidatorNum decode failed", err)
+		return uint64(0), err
+	}
+	return num, nil
+}
+
+func (opt *operatorBLKSelValidatorNum) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	num, OK := value.(uint64)
+	if !OK {
+		log.Error(logInfo, "input param(SelValidatorNum) err", "reflect failed")
+		return ErrParamReflect
+	}
+	st.SetMatrixData(opt.key, encodeUint64(num))
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 验证者交易费参与奖励
+type operatorValidatorTXSSelReward struct {
+	key common.Hash
+}
+
+func newValidatorTXSSelRewardOpt() *operatorValidatorTXSSelReward {
+	return &operatorValidatorTXSSelReward{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyTXSSelValidator),
+	}
+}
+
+func (opt *operatorValidatorTXSSelReward) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorValidatorTXSSelReward) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return nil, err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return []mc.ValidatorSelReward{}, nil
+	}
+	msg := make([]mc.ValidatorSelReward, 0)
+	err := rlp.DecodeBytes(data, &msg)
+
+	if err != nil {
+		log.Error(logInfo, "ValidatorSelReward decode failed", err)
+		return nil, err
+	}
+	return msg, nil
+}
+
+func (opt *operatorValidatorTXSSelReward) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+	//取消
+	v1 := reflect.ValueOf(value)
+	if v1.Kind() == reflect.Slice && v1.Len() == 0 {
+		nilSlice := make([]byte, 0)
+		st.SetMatrixData(opt.key, nilSlice)
+		return nil
+	}
+
+	accounts, OK := value.([]mc.ValidatorSelReward)
+	if !OK {
+		log.Error(logInfo, "input param(ValidatorSelReward) err", "reflect failed")
+		return ErrParamReflect
+	}
+
+	data, err := rlp.EncodeToBytes(accounts)
+	if err != nil {
+		return errors.Errorf("rlp encode failed: %s", err)
+	}
+	st.SetMatrixData(opt.key, data)
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// 验证者交易费参与奖励状态
+type operatorTXSSelValidatorNum struct {
+	key common.Hash
+}
+
+func newSelValidatorTXSNumOpt() *operatorTXSSelValidatorNum {
+	return &operatorTXSSelValidatorNum{
+		key: types.RlpHash(matrixStatePrefix + mc.MSKeyTXSSelValidatorNum),
+	}
+}
+
+func (opt *operatorTXSSelValidatorNum) KeyHash() common.Hash {
+	return opt.key
+}
+
+func (opt *operatorTXSSelValidatorNum) GetValue(st StateDB) (interface{}, error) {
+	if err := checkStateDB(st); err != nil {
+		return uint64(0), err
+	}
+
+	data := st.GetMatrixData(opt.key)
+	if len(data) == 0 {
+		return uint64(0), nil
+	}
+	num, err := decodeUint64(data)
+	if err != nil {
+		log.Error(logInfo, "SelValidatorNum decode failed", err)
+		return uint64(0), err
+	}
+	return num, nil
+}
+
+func (opt *operatorTXSSelValidatorNum) SetValue(st StateDB, value interface{}) error {
+	if err := checkStateDB(st); err != nil {
+		return err
+	}
+
+	num, OK := value.(uint64)
+	if !OK {
+		log.Error(logInfo, "input param(SelTxsValidatorNum) err", "reflect failed")
+		return ErrParamReflect
+	}
+	st.SetMatrixData(opt.key, encodeUint64(num))
 	return nil
 }

@@ -9,6 +9,12 @@ import (
 	"encoding/binary"
 	"math/big"
 
+	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+
+	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
+	"github.com/MatrixAINetwork/go-matrix/core/state"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
+
 	"encoding/json"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
@@ -16,8 +22,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
-
-const BlockheaderModifyHeight = 861260
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
 func ReadCanonicalHash(db DatabaseReader, number uint64) common.Hash {
@@ -144,36 +148,72 @@ func ReadHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Heade
 	header := new(types.Header)
 	//对区块数据解码
 	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
-		log.Error("Invalid block header RLP", "hash", hash, "err", err)
-		return nil
+		// 再次尝试使用旧header解析
+		oldHeader := new(types.HeaderV1)
+		if err := rlp.Decode(bytes.NewReader(data), oldHeader); err != nil {
+			log.Error("Invalid block header RLP", "hash", hash, "err", err)
+			return nil
+		} else {
+			header = oldHeader.TransferHeader()
+		}
 	}
+
 	//创世区块，直接返回
 	if number == 0 {
 		return header
 	}
 
+	//备份区块头数据
+	reader := new(types.Header)
+	reader = types.CopyHeader(header)
+
 	//根据number区块高度分别处理各段区块的写入，块高height1之前的块和height2（含）之后的块存储区块数据时需要删除多币种数据（重新构建主币种数据即可）
-	if number <= uint64(BlockheaderModifyHeight) { //BlockheaderModifyHeight块高和VersionNumEpsilon块高作为height1和height2的临界点，需要替换成统一的宏配置管理
-		//log.Debug("ReadHeader", "块高height1之前的块，从创世区块中读取多币种信息..."+"number:", number)
+	if number < uint64(manparams.BlockHeaderModifyHeight) { //BlockheaderModifyHeight块高和VersionNumEpsilon块高作为height1和height2的临界点，需要替换成统一的宏配置管理
 		//获取创世区块数据
-		ManSharding := header.Sharding[0]
-		ManRoots := header.Roots[0]
 		genesishash := ReadCanonicalHash(db, 0)
 		genesisblock := ReadBlock(db, genesishash, 0)
 
 		//根据多币种个数创建切片容量
-		header.Sharding = make([]common.Coinbyte, len(genesisblock.Sharding()))
-		header.Roots = make([]common.CoinRoot, len(genesisblock.Root()))
-		header.Sharding[0] = ManSharding
-		header.Roots[0] = ManRoots
+		reader.Sharding = make([]common.Coinbyte, len(genesisblock.Sharding()))
+		reader.Roots = make([]common.CoinRoot, len(genesisblock.Root()))
+
+		//保存本区块number高度主币种数据
+		reader.Sharding[0] = header.Sharding[0]
+		reader.Roots[0] = header.Roots[0]
+
 		//循环读取多币种数据
 		for i := 1; i < len(genesisblock.Sharding()); i++ {
-			header.Sharding[i] = genesisblock.Sharding()[i]
-			header.Roots[i] = genesisblock.Root()[i]
+			reader.Sharding[i] = genesisblock.Sharding()[i]
+			reader.Roots[i] = genesisblock.Root()[i]
 		}
+	} else if number >= uint64(manparams.BlockHeaderModifyHeight) && number < uint64(manversion.VersionNumAIMine) { //按原逻辑处理，直接返回读出来的区块数据信息
+		return reader
+	} else {
+		//todo   状态树读取多币种数据的分支处理
+		st, err := state.NewStateDBManage(reader.Roots, db, state.NewDatabase(db))
+		if nil != err {
+			log.Error("ReadHeader", "读取状态树施错误", err)
+			return nil
+		}
+		readCurrencyHeader, err := matrixstate.GetCurrenyHeader(st)
+		if nil != err {
+			log.Error("ReadHeader", "读取多币种区块头错误", err)
+			log.Error("ReadHeader", "readCurrencyHeader:", readCurrencyHeader)
+			return nil
+		}
+		//根据多币种个数创建切片容量
+		reader.Sharding = make([]common.Coinbyte, 1)
+		reader.Roots = make([]common.CoinRoot, 1)
+
+		//保存本区块number高度主币种数据
+		reader.Sharding[0] = header.Sharding[0]
+		reader.Roots[0] = header.Roots[0]
+
+		reader.Sharding = append(reader.Sharding, readCurrencyHeader.Sharding...)
+		reader.Roots = append(reader.Roots, readCurrencyHeader.Roots...)
 	}
 
-	return header
+	return reader
 }
 
 // WriteHeader stores a block header into the database and also stores the hash-
@@ -190,9 +230,9 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 	storeHeader := types.CopyHeader(header)
 
 	//根据number区块高度分别处理各段区块的写入，块高height1之前的块和height2（含）之后的块存储区块数据时需要删除多币种冗余数据（重新构建主币种数据即可）
-	if number <= uint64(BlockheaderModifyHeight) && number != 0 { //BlockheaderModifyHeight块高和VersionNumEpsilon块高作为height1和height2的临界点，需要替换成统一的宏配置管理
+	if (number < uint64(manparams.BlockHeaderModifyHeight) && number != 0) || number >= uint64(manversion.VersionNumAIMine) { //BlockheaderModifyHeight块高和VersionNumEpsilon块高作为height1和height2的临界点，需要替换成统一的宏配置管理
 		//组装只有主币种Roots和Sharding的区块头数据（删除多余的区块头其他多币种）
-		//log.Debug("blockchain", "number:", number, "--删除多币种冗余数据，只写入主币种Roots和.Sharding")
+		log.Debug("blockchain", "number:", number, "--删除多币种冗余数据，只写入主币种Roots和.Sharding")
 		storeHeader.Roots = append([]common.CoinRoot{}, header.Roots[0])
 		storeHeader.Sharding = append([]common.Coinbyte{}, header.Sharding[0])
 	}

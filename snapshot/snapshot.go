@@ -21,3 +21,15 @@ type SnapshotDatas struct {
 	Datas      []SnapshotData
 	OtherTries [][]state.CoinTrie
 }
+
+type SnapshotDataV1 struct {
+	CoinTries []state.CoinTrie
+	Td        *big.Int
+	Block     types.BlockV1
+	Seq       uint64 //lb
+}
+
+type SnapshotDatasV1 struct {
+	Datas      []SnapshotDataV1
+	OtherTries [][]state.CoinTrie
+}

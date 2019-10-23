@@ -12,8 +12,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/math"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
@@ -22,7 +20,8 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/params"
-	set "gopkg.in/fatih/set.v0"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
+	"gopkg.in/fatih/set.v0"
 )
 
 // Manash proof-of-work protocol constants.
@@ -58,7 +57,7 @@ func (manash *Manash) Author(header *types.Header) (common.Address, error) {
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Matrix manash engine.
-func (manash *Manash) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (manash *Manash) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool, ai bool) error {
 	// If we're running a full engine faking, accept any input as valid
 	if manash.config.PowMode == ModeFullFake {
 		return nil
@@ -86,7 +85,7 @@ func (manash *Manash) VerifySignatures(signature []common.Signature) (bool, erro
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
-func (manash *Manash) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (manash *Manash) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool, ais []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if manash.config.PowMode == ModeFullFake || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -240,8 +239,10 @@ func (manash *Manash) verifyHeader(chain consensus.ChainReader, header, parent *
 	// super header don't verify difficulty
 	if header.IsSuperHeader() == false {
 		// Verify the block's difficulty based in it's timestamp and parent's difficulty
-		expected := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
-
+		expected, err := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
+		if err != nil {
+			return fmt.Errorf("calc difficulty err : %v", err)
+		}
 		if expected.Cmp(header.Difficulty) != 0 {
 			return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
 		}
@@ -290,26 +291,26 @@ func (manash *Manash) verifyHeader(chain consensus.ChainReader, header, parent *
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (manash *Manash) CalcDifficulty(chain consensus.ChainReader, curVersion string, time uint64, parent *types.Header) *big.Int {
+func (manash *Manash) CalcDifficulty(chain consensus.ChainReader, curVersion string, time uint64, parent *types.Header) (*big.Int, error) {
 	return CalcDifficulty(chain.Config(), curVersion, time, parent)
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, curVersion string, time uint64, parent *types.Header) *big.Int {
+func CalcDifficulty(config *params.ChainConfig, curVersion string, time uint64, parent *types.Header) (*big.Int, error) {
 	logger := log.New("CalcDifficulty block", parent.Number)
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
 	case config.IsByzantium(next):
 		logger.Info("config.IsByzantium")
-		return calcDifficultyByzantium(curVersion, time, parent)
+		return calcDifficultyByzantium(curVersion, time, parent), nil
 	case config.IsHomestead(next):
 		logger.Info("config.IsHomestead")
-		return calcDifficultyHomestead(time, parent)
+		return calcDifficultyHomestead(time, parent), nil
 	default:
 		logger.Info("config.IsHomestead")
-		return calcDifficultyFrontier(time, parent)
+		return calcDifficultyFrontier(time, parent), nil
 	}
 }
 
@@ -344,7 +345,7 @@ func calcDifficultyByzantium(curVersion string, time uint64, parent *types.Heade
 	// (2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9
 	x.Sub(bigTime, bigParentTime)
 	var durationLimit *big.Int
-	if manparams.VersionCmp(curVersion, manparams.VersionGamma) >= 0 {
+	if manversion.VersionCmp(curVersion, manversion.VersionGamma) >= 0 {
 		durationLimit = params.VersionGammaDurationLimit
 	} else {
 		durationLimit = params.DurationLimit
@@ -522,6 +523,14 @@ func (manash *Manash) VerifySeal(chain consensus.ChainReader, header *types.Head
 	return nil
 }
 
+func (manash *Manash) VerifyAISeal(chain consensus.ChainReader, header *types.Header) error {
+	return errors.New("not support interface")
+}
+
+func (manash *Manash) VerifyBasePow(chain consensus.ChainReader, header *types.Header, basePower types.BasePowers) error {
+	return errors.New("not support interface")
+}
+
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the manash protocol. The changes are done inline.
 func (manash *Manash) Prepare(chain consensus.ChainReader, header *types.Header) error {
@@ -529,8 +538,35 @@ func (manash *Manash) Prepare(chain consensus.ChainReader, header *types.Header)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
+
+	difficulty, err := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
+	if err != nil {
+		return fmt.Errorf("calc difficulty err : %v", err)
+	}
+	header.Difficulty = difficulty
 	return nil
+}
+
+// Finalize implements consensus.Engine, accumulating the block and uncle rewards,
+// setting the final state and assembling the block.
+func (manash *Manash) GenOtherCurrencyBlock(chain consensus.ChainReader, header *types.Header, state *state.StateDBManage, uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error) {
+	// Accumulate any block and uncle rewards and commit the final state root
+	//	accumulateRewards(chain.Config(), state, header, uncles)
+	header.Roots, header.Sharding = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+
+	// Header seems complete, assemble into a block and return
+	return types.NewBlockCurrency(header, currencyBlock, uncles), nil
+}
+
+// Finalize implements consensus.Engine, accumulating the block and uncle rewards,
+// setting the final state and assembling the block.
+func (manash *Manash) GenManBlock(chain consensus.ChainReader, header *types.Header, state *state.StateDBManage, uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error) {
+	// Accumulate any block and uncle rewards and commit the final state root
+	//	accumulateRewards(chain.Config(), state, header, uncles)
+	header.Roots, header.Sharding = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+
+	// Header seems complete, assemble into a block and return
+	return types.NewBlockMan(header, currencyBlock, uncles), nil
 }
 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
@@ -576,7 +612,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 func (manash *Manash) verifyCoinbaseRole(chain consensus.ChainReader, header *types.Header) error {
-	//log.DEBUG("seal coinbase", "开始验证coinbase", header.Coinbase.Hex(), "高度", header.Number, "hash", header.Hash().Hex())
+	//log.Debug("seal coinbase", "开始验证coinbase", header.Coinbase.Hex(), "高度", header.Number, "hash", header.Hash().Hex())
 	preTopology, _, err := chain.GetGraphByHash(header.ParentHash)
 	if err != nil {
 		log.Error("seal coinbase", "get pre topology graph err", err)

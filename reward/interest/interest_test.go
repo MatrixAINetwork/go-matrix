@@ -1,3 +1,6 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package interest
 
 import (
@@ -14311,7 +14314,7 @@ func Test_interest_Calc(t *testing.T) {
 		result := interestTest.GetInterest(101, common.Hash{})
 		for _, v := range Deposit {
 			if value, ok := result[v.Address]; ok {
-				log.INFO(PackageName, "地址", v.Address.String(), "抵押", v.Deposit.String(), "利息", value.String())
+				log.Info(PackageName, "地址", v.Address.String(), "抵押", v.Deposit.String(), "利息", value.String())
 			}
 		}
 
@@ -14387,7 +14390,7 @@ func Test_interest_Calc2(t *testing.T) {
 		result := interestTest.GetInterest(101, common.Hash{})
 		for _, v := range Deposit {
 			if value, ok := result[v.Address]; ok {
-				log.INFO(PackageName, "地址", v.Address.String(), "抵押", v.Deposit.String(), "利息", value.String())
+				log.Info(PackageName, "地址", v.Address.String(), "抵押", v.Deposit.String(), "利息", value.String())
 			}
 		}
 
@@ -14504,13 +14507,13 @@ func Test_TestData1(t *testing.T) {
 		for _, v := range cfg.Node {
 			if value, ok := result[common.HexToAddress(v.Address)]; ok {
 				if 0 != v.Reward.Cmp(value) {
-					log.ERROR(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃", v.Address, "璁＄畻缁撴灉", value, "鐩爣缁撴灉", v.Reward.String())
+					log.Error(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃", v.Address, "璁＄畻缁撴灉", value, "鐩爣缁撴灉", v.Reward.String())
 					t.Fail()
 				}
 				sum.Add(sum, value)
 			}
 		}
-		log.INFO(PackageName, "奖励总额为", sum)
+		log.Info(PackageName, "奖励总额为", sum)
 
 	})
 
@@ -14591,10 +14594,10 @@ func Test_interest_Calc5(t *testing.T) {
 		//	if value, ok := result[common.HexToAddress(v.Address)]; ok {
 		//		reward, _ := new(big.Int).SetString(v.Reward, 10)
 		//		if 0 != value.Cmp(reward) {
-		//			log.ERROR(PackageName, "数据不一致,地址", v.Address, "计算结果", value, "目标结果", reward.String())
+		//			log.Error(PackageName, "数据不一致,地址", v.Address, "计算结果", value, "目标结果", reward.String())
 		//			t.Fail()
 		//		}
-		//		log.INFO(PackageName, "地址", v.Address, "抵押", v.Deposit, "利息", value.String())
+		//		log.Info(PackageName, "地址", v.Address, "抵押", v.Deposit, "利息", value.String())
 		//	}
 		//}
 
@@ -14651,7 +14654,7 @@ func Test_interest_Calc3(t *testing.T) {
 		result := interestTest.GetInterest(101, common.Hash{})
 		for _, v := range Deposit {
 			if value, ok := result[v.Address]; ok {
-				log.INFO(PackageName, "地址", v.Address.String(), "抵押", v.Deposit.String(), "利息", value.String())
+				log.Info(PackageName, "地址", v.Address.String(), "抵押", v.Deposit.String(), "利息", value.String())
 			}
 		}
 

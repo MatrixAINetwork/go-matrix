@@ -122,7 +122,7 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 
 	ide.blockChan = make(chan *types.Block)
 	ide.sub, _ = mc.SubscribeEvent(mc.NewBlockMessage, ide.blockChan)
-	log.INFO("CA", "订阅区块事件", "完成")
+	log.Info("CA", "订阅区块事件", "完成")
 	mc.PublishEvent(mc.CA_ReqCurrentBlock, struct{}{})
 
 	for {
@@ -133,7 +133,7 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 			ide.currentHeight = header.Number
 			ide.hash = block.Hash()
 
-			log.INFO("CA", "leader", header.Leader, "height", header.Number.Uint64(), "block hash", hash)
+			log.Info("CA", "leader", header.Leader, "height", header.Number.Uint64(), "block hash", hash)
 
 			// init current height deposit
 			ide.deposit, _ = GetElectedByHeightWithdrawByHash(header.Hash())
@@ -208,8 +208,9 @@ func Start(id discover.NodeID, path string, addr common.Address) {
 			nodesInBuckets := getNodesInBuckets(header.Hash())
 
 			// send role message to elect
-			mc.PublishEvent(mc.CA_RoleUpdated, &mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), BlockHash: hash, Leader: header.Leader, SuperSeq: superSeq})
-			log.Info("ca publish identity", "data", mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), Leader: header.Leader, SuperSeq: superSeq})
+			caMsg := &mc.RoleUpdatedMsg{Role: ide.currentRole, BlockNum: header.Number.Uint64(), BlockHash: hash, Leader: header.Leader, SuperSeq: superSeq, Version: string(header.Version)}
+			mc.PublishEvent(mc.CA_RoleUpdated, caMsg)
+			log.Info("ca publish identity", "data", caMsg)
 			// get nodes in buckets and send to buckets
 			mc.PublishEvent(mc.BlockToBuckets, mc.BlockToBucket{Ms: nodesInBuckets, Height: block.Header().Number, Role: ide.currentRole})
 			// send identity to linker
@@ -240,7 +241,7 @@ func initCurrentTopology() {
 
 	for _, t := range ide.topology.NodeList {
 		if t.Account == ide.addr {
-			log.INFO("initCurrentTopology", "account", t.Account.String(), "type", t.Type)
+			log.Info("initCurrentTopology", "account", t.Account.String(), "type", t.Type)
 			ide.currentRole = t.Type
 			break
 		}

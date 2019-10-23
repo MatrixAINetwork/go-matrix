@@ -103,14 +103,14 @@ func (vp *unverifiedVotePool) addVoteToMap(vote *voteInfo) error {
 
 	_, exist := accountVoteMap[vote.signHash]
 	if exist {
-		//log.ERROR(vp.logInfo, "添加票池失败,已存在票 hash", signHash.TerminalString(), "from", vote.sign.Account.Hex())
+		//log.Error(vp.logInfo, "添加票池失败,已存在票 hash", signHash.TerminalString(), "from", vote.sign.Account.Hex())
 		return errors.Errorf("Vote is already exist")
 	}
 
 	accountVoteMap[vote.signHash] = vote
 	vp.timeIndex.PushBack(vote)
 
-	//log.INFO(vp.logInfo, "加入票池成功 from", vote.fromAccount.Hex(), "sighHash", vote.signHash, "from总票数", len(accountVoteMap))
+	//log.Info(vp.logInfo, "加入票池成功 from", vote.fromAccount.Hex(), "sighHash", vote.signHash, "from总票数", len(accountVoteMap))
 
 	return nil
 }
@@ -126,7 +126,7 @@ func (vp *unverifiedVotePool) fixPoolByTimeout(curTime int64) {
 		vote, OK := e.Value.(*voteInfo)
 		if !OK {
 			vp.timeIndex.Remove(e)
-			log.WARN(vp.logInfo, "VotePool Data conversion error!", e.Value)
+			log.Warn(vp.logInfo, "VotePool Data conversion error!", e.Value)
 			continue
 		}
 
@@ -142,7 +142,7 @@ func (vp *unverifiedVotePool) fixPoolByTimeout(curTime int64) {
 			afterLen := len(accountVoteMap)
 
 			if beforeLen != afterLen {
-				//log.INFO(vp.logInfo, "超时删除投票 hash", vote.signHash.TerminalString(),
+				//log.Info(vp.logInfo, "超时删除投票 hash", vote.signHash.TerminalString(),
 				//"from", vote.sign.Account.Hex(), "times", (curTime-vote.time)/1000, "删前数量", beforeLen, "删后数量", afterLen)
 				if afterLen == 0 {
 					delete(vp.voteMap, vote.from)
@@ -175,7 +175,7 @@ func (vp *unverifiedVotePool) fixPoolByCountLimit(fromAccount common.Address, cu
 			}
 		}
 
-		//log.INFO(vp.logInfo, "数量删除投票 hash", earliest.signHash.TerminalString(),
+		//log.Info(vp.logInfo, "数量删除投票 hash", earliest.signHash.TerminalString(),
 		//	"from", earliest.sign.Account.Hex(), "times", (curTime-earliest.time)/1000, "总数量", len(accountVoteMap))
 
 		delete(accountVoteMap, earliest.signHash)

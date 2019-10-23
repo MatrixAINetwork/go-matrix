@@ -19,7 +19,7 @@ func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
 		return
 	}
 	if p.preVerifyBroadcastMinerResult(result.BlockMainData) == false {
-		log.WARN(p.logExtraInfo(), "广播区块挖矿结果", "预验证失败, 抛弃该消息")
+		log.Warn(p.logExtraInfo(), "广播区块挖矿结果", "预验证失败, 抛弃该消息")
 		return
 	}
 
@@ -27,7 +27,7 @@ func (p *Process) AddBroadcastMinerResult(result *mc.HD_BroadcastMiningRspMsg) {
 	defer p.mu.Unlock()
 
 	// 缓存广播区块挖矿结果
-	log.INFO(p.logExtraInfo(), "缓存广播区块挖矿结果成功，高度", p.number)
+	log.Info(p.logExtraInfo(), "缓存广播区块挖矿结果成功，高度", p.number)
 	p.broadcastRstCache[result.From] = result.BlockMainData
 	p.processMinerResultVerify(p.curLeader, true)
 }
@@ -43,23 +43,23 @@ func (p *Process) preVerifyBroadcastMinerResult(result *mc.BlockData) bool {
 		}
 	}
 	if false == bcInterval.IsBroadcastNumber(result.Header.Number.Uint64()) {
-		log.WARN(p.logExtraInfo(), "预验证广播挖矿结果", "高度不是广播区块高度", "高度", result.Header.Number.Uint64())
+		log.Warn(p.logExtraInfo(), "预验证广播挖矿结果", "高度不是广播区块高度", "高度", result.Header.Number.Uint64())
 		return false
 	}
 	return true
 }
 
 func (p *Process) dealMinerResultVerifyBroadcast() {
-	log.INFO(p.logExtraInfo(), "当前高度为广播区块, 进行广播挖矿结果验证, 高度", p.number)
+	log.Info(p.logExtraInfo(), "当前高度为广播区块, 进行广播挖矿结果验证, 高度", p.number)
 	for _, result := range p.broadcastRstCache {
 		if err := p.blockChain().DPOSEngine(result.Header.Version).VerifyBlock(p.blockChain(), result.Header); err != nil {
-			log.WARN(p.logExtraInfo(), "广播挖矿结果处理", "结果异常", "err", err)
+			log.Warn(p.logExtraInfo(), "广播挖矿结果处理", "结果异常", "err", err)
 			continue
 		}
 
 		state, retTxs, receipts, _, err := p.pm.manblk.VerifyTxsAndState(blkmanage.BroadcastBlk, string(result.Header.Version), result.Header, result.Txs)
 		if nil != err {
-			log.WARN(p.logExtraInfo(), "广播挖矿结果处理", "状态异常", "err", err)
+			log.Warn(p.logExtraInfo(), "广播挖矿结果处理", "状态异常", "err", err)
 			continue
 		}
 		p.blockCache.SaveReadyBlock(&mc.BlockLocalVerifyOK{
@@ -75,7 +75,7 @@ func (p *Process) dealMinerResultVerifyBroadcast() {
 			Header: result.Header,
 			State:  state.Copy(),
 		}
-		log.INFO(p.logExtraInfo(), "广播区块验证完成", "发送新区块准备完毕消息", "高度", p.number, "leader", result.Header.Leader.Hex())
+		log.Info(p.logExtraInfo(), "广播区块验证完成", "发送新区块准备完毕消息", "高度", p.number, "leader", result.Header.Leader.Hex())
 		mc.PublishEvent(mc.BlockGenor_NewBlockReady, readyMsg)
 
 		p.changeState(StateBlockInsert)

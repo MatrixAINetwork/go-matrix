@@ -31,7 +31,7 @@ type RemoteAgent struct {
 	returnCh chan<- *types.Header
 
 	chain       consensus.ChainReader
-	engine      consensus.Engine
+	engine      map[string]consensus.Engine
 	currentWork *Work
 	work        map[common.Hash]*Work
 
@@ -41,7 +41,7 @@ type RemoteAgent struct {
 	running int32 // running indicates whether the agent is active. Call atomically
 }
 
-func NewRemoteAgent(chain consensus.ChainReader, engine consensus.Engine) *RemoteAgent {
+func NewRemoteAgent(chain consensus.ChainReader, engine map[string]consensus.Engine) *RemoteAgent {
 	return &RemoteAgent{
 		chain:    chain,
 		engine:   engine,
@@ -137,7 +137,13 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.Nonce = nonce
 	result.MixDigest = mixDigest
 
-	if err := a.engine.VerifySeal(a.chain, result); err != nil {
+	engine, exist := a.engine[string(result.Version)]
+	if exist == false {
+		log.Warn("SubmitWork err", "header version can't find engine", string(result.Version))
+		return false
+	}
+
+	if err := engine.VerifySeal(a.chain, result); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 		return false
 	}

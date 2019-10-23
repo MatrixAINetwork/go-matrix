@@ -390,7 +390,15 @@ func (api *PrivateDebugAPI) TraceBlockFromFile(ctx context.Context, file string,
 // per transaction, dependent on the requestd tracer.
 func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, config *TraceConfig) ([]*txTraceResult, error) {
 	// Create the parent state database
-	if err := api.man.engine.VerifyHeader(api.man.blockchain, block.Header(), true); err != nil {
+	if item, ok := api.man.engine[string(block.Version())]; ok {
+		if err := item.VerifyHeader(api.man.blockchain, block.Header(), true, false); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, errors.New("区块头未知版本号")
+	}
+
+	if err := api.man.engine[string(block.Version())].VerifyHeader(api.man.blockchain, block.Header(), true, false); err != nil {
 		return nil, err
 	}
 	parent := api.man.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
@@ -645,6 +653,11 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 	}
 
 	for idx, tx := range txs {
+		if tx.GetMatrixType() == common.ExtraUnGasMinerTxType || tx.GetMatrixType() == common.ExtraUnGasValidatorTxType ||
+			tx.GetMatrixType() == common.ExtraUnGasInterestTxType || tx.GetMatrixType() == common.ExtraUnGasTxsType || tx.GetMatrixType() == common.ExtraUnGasLotteryTxType {
+			continue
+		}
+		types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
 		// Assemble the transaction call message and return if the requested offset
 		//msg, _ := tx.AsMessage(signer)
 		context := core.NewEVMContext(tx.From(), tx.GasPrice(), block.Header(), api.man.blockchain, nil)

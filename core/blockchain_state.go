@@ -4,6 +4,11 @@
 package core
 
 import (
+	"fmt"
+	"math/big"
+
+	"github.com/MatrixAINetwork/go-matrix/consensus/amhash"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
 	"github.com/MatrixAINetwork/go-matrix/core/state"
@@ -11,7 +16,9 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/MatrixAINetwork/go-matrix/reward/util"
 	"github.com/pkg/errors"
 )
@@ -169,16 +176,146 @@ func (bd *BlockChain) processStateSwitchDelta(stateDB *state.StateDBManage, t ui
 	return nil
 }
 
+func (bd *BlockChain) processStateSwitchAIMine(stateDB *state.StateDBManage, t uint64) error {
+	err := matrixstate.SetMinDifficulty(stateDB, params.AIManMinimumDifficulty)
+	if nil != err {
+		log.Crit("blockChain", "设置最小挖矿难度失败", err)
+		return err
+	}
+	err = matrixstate.SetMaxDifficulty(stateDB, params.AIManMaxDifficulty)
+	if nil != err {
+		log.Crit("blockChain", "设置最大挖矿难度失败", err)
+		return err
+	}
+	err = matrixstate.SetReelectionDifficulty(stateDB, params.AIManReelectionDifficulty)
+	if nil != err {
+		log.Crit("blockChain", "设置换届初始难度失败", err)
+		return err
+	}
+	err = matrixstate.SetBasePowerSlashCfg(stateDB, &mc.BasePowerSlashCfg{Switcher: true, LowTHR: 2, ProhibitCycleNum: 1})
+	if nil != err {
+		log.Crit("blockChain", "算力黑名单惩罚配置错误", err)
+		return err
+	}
+	electCfg, err := matrixstate.GetElectConfigInfo(stateDB)
+	if nil != err {
+		log.Crit("blockChain", "选举配置错误", err)
+		return err
+	}
+	err = matrixstate.SetElectConfigInfo(stateDB, &mc.ElectConfigInfo{ValidatorNum: electCfg.ValidatorNum, BackValidator: electCfg.BackValidator, ElectPlug: manparams.ElectPlug_layerdDP})
+	if nil != err {
+		log.Crit("blockChain", "选举引擎切换,错误", err)
+		return err
+	}
+	err = matrixstate.SetInterestCalcNum(stateDB, manversion.VersionNumAIMine)
+	if nil != err {
+		log.Crit("blockChain", "利息计算高度设置错误", err)
+		return err
+	}
+	if err = matrixstate.SetSelMinerNum(stateDB, manversion.VersionNumAIMine); err != nil {
+		log.Crit("blockChain", "设置参与矿工奖励状态错误", err)
+		return err
+	}
+	if err = matrixstate.SetBLKSelValidatorNum(stateDB, manversion.VersionNumAIMine); err != nil {
+		log.Crit("blockChain", "设置参与验证者奖励状态错误", err)
+		return err
+	}
+	if err = matrixstate.SetTXSSelValidatorNum(stateDB, manversion.VersionNumAIMine); err != nil {
+		log.Crit("blockChain", "设置交易费参与验证者奖励状态错误", err)
+		return err
+	}
+	err = matrixstate.SetInterestCalc(stateDB, util.CalcEpsilon)
+	if nil != err {
+		log.Crit("blockChain", "利息奖励引擎设置错误", err)
+		return err
+	}
+
+	err = matrixstate.SetBlkCalc(stateDB, util.CalcEpsilon)
+	if nil != err {
+		log.Crit("blockChain", "区块奖励引擎设置错误", err)
+		return err
+	}
+
+	err = matrixstate.SetTxsCalc(stateDB, util.CalcEpsilon)
+	if nil != err {
+		log.Crit("blockChain", "交易奖励引擎设置错误", err)
+		return err
+	}
+
+	leaderCfg, err := matrixstate.GetLeaderConfig(stateDB)
+	if nil != err {
+		log.Crit("blockChain", "读取leader配置错误", err)
+		return err
+	}
+	err = matrixstate.SetLeaderConfig(stateDB, &mc.LeaderConfig{
+		ParentMiningTime:      params.AIMineLeaderSrcParentMiningTime,
+		PosOutTime:            params.AIMineLeaderSrcPosOutTime,
+		ReelectOutTime:        params.AIMineLeaderSrcReelectOutTime,
+		ReelectHandleInterval: leaderCfg.ReelectHandleInterval})
+	if nil != err {
+		log.Crit("blockChain", "出块超时和投票超时改为60秒和40秒,错误", err)
+		return err
+	}
+	err = matrixstate.SetElectDynamicPollingInfo(stateDB, &mc.ElectDynamicPollingInfo{Number: 0, Seq: 0, MinerNum: 0, CandidateList: nil})
+	if nil != err {
+		log.Crit("blockChain", "初始化轮询选举信息错误", err)
+		return err
+	}
+	blkRewardCfg, err := matrixstate.GetBlkRewardCfg(stateDB)
+	if nil != err {
+		log.Crit("blockChain", "读取区块奖励配置错误", err)
+		return err
+	}
+
+	err = matrixstate.SetAIBlkRewardCfg(stateDB, &mc.AIBlkRewardCfg{
+		MinerMount:               blkRewardCfg.MinerMount,
+		MinerAttenuationRate:     blkRewardCfg.MinerAttenuationRate,
+		MinerAttenuationNum:      blkRewardCfg.MinerAttenuationNum,
+		ValidatorMount:           blkRewardCfg.ValidatorMount,
+		ValidatorAttenuationRate: blkRewardCfg.ValidatorAttenuationRate,
+		ValidatorAttenuationNum:  blkRewardCfg.ValidatorAttenuationNum,
+		RewardRate: mc.AIRewardRateCfg{
+			MinerOutRate:        4000, //出块矿工奖励
+			AIMinerOutRate:      1000, //AI矿工奖励
+			ElectedMinerRate:    4000, //当选矿工奖励
+			FoundationMinerRate: 1000, //基金会网络奖励
+
+			LeaderRate:              blkRewardCfg.RewardRate.LeaderRate,              //出块验证者（leader）奖励
+			ElectedValidatorsRate:   blkRewardCfg.RewardRate.ElectedValidatorsRate,   //当选验证者奖励
+			FoundationValidatorRate: blkRewardCfg.RewardRate.FoundationValidatorRate, //基金会网络奖励
+
+			OriginElectOfflineRate: blkRewardCfg.RewardRate.OriginElectOfflineRate, //初选下线验证者奖励
+			BackupRewardRate:       blkRewardCfg.RewardRate.BackupRewardRate,       //当前替补验证者奖励
+		},
+	})
+	if nil != err {
+		log.Crit("blockChain", "设置区块奖励配置错误", err)
+		return err
+	}
+	if err = matrixstate.SetBlockProduceBlackList(stateDB, &mc.BlockProduceSlashBlackList{[]mc.UserBlockProduceSlash{}}); err != nil {
+		log.Crit("blockChain", "清除区块生成黑名单错误", err)
+		return err
+	}
+	if err = matrixstate.SetBlockDuration(stateDB, &mc.BlockDurationStatus{[]uint8{0}}); err != nil {
+		log.Crit("blockChain", "设置出块状态错误", err)
+		return err
+	}
+	return nil
+}
+
 func (bc *BlockChain) ProcessStateVersionSwitch(num uint64, t uint64, stateDB *state.StateDBManage) error {
 	//提前一个块设置各自算法引擎和配置，切换高度生效
 
 	switch num {
-	case manparams.VersionNumGamma - 1:
+	case manversion.VersionNumGamma - 1:
 		log.Info("blockchain", "切换版本Gamma高度", num)
 		return bc.processStateSwitchGamma(stateDB)
-	case manparams.VersionNumDelta - 1:
+	case manversion.VersionNumDelta - 1:
 		log.Info("blockchain", "切换版本Delta 高度", num)
 		return bc.processStateSwitchDelta(stateDB, t)
+	case manversion.VersionNumAIMine - 1:
+		log.Info("blockchain", "切换版本AI Mine 高度", num)
+		return bc.processStateSwitchAIMine(stateDB, t)
 	default:
 		return nil
 	}
@@ -297,7 +434,7 @@ func (bc *BlockChain) GetSuperBlockSeq() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.INFO("blockChain", "超级区块序号", superBlkCfg.Seq)
+	log.Info("blockChain", "超级区块序号", superBlkCfg.Seq)
 	return superBlkCfg.Seq, nil
 }
 
@@ -310,11 +447,11 @@ func (bc *BlockChain) GetSuperBlockNum() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.INFO("blockChain", "超级区块高度", superBlkCfg.Num)
+	log.Info("blockChain", "超级区块高度", superBlkCfg.Num)
 	return superBlkCfg.Num, nil
 }
 
-func (bc *BlockChain) GetBlockSuperBlockInfo(blockHash common.Hash)  (uint64,uint64,error) {
+func (bc *BlockChain) GetBlockSuperBlockInfo(blockHash common.Hash) (uint64, uint64, error) {
 	st, err := bc.StateAtBlockHash(blockHash)
 	if err != nil {
 		return 0, 0, errors.Errorf("get state err by hash(%s) err(%v)", blockHash.Hex(), err)
@@ -323,7 +460,7 @@ func (bc *BlockChain) GetBlockSuperBlockInfo(blockHash common.Hash)  (uint64,uin
 	if err != nil {
 		return 0, 0, err
 	}
-	return superBlkCfg.Num,superBlkCfg.Seq,nil
+	return superBlkCfg.Num, superBlkCfg.Seq, nil
 }
 
 func (bc *BlockChain) GetSuperBlockInfo() (*mc.SuperBlkCfg, error) {
@@ -339,13 +476,83 @@ func (bc *BlockChain) GetSuperBlockInfo() (*mc.SuperBlkCfg, error) {
 	return superBlkCfg, nil
 }
 
-/*func (bc *BlockChain) GetVersionByHash(blockHash common.Hash) (string, error) {
+func (bc *BlockChain) GetMinDifficulty(blockHash common.Hash) (*big.Int, error) {
 	st, err := bc.StateAtBlockHash(blockHash)
 	if err != nil {
-		return "", errors.Errorf("get state by hash(%s) err(%v)", blockHash.Hex(), err)
+		return nil, errors.Errorf("get state by hash(%s) err(%v)", blockHash.Hex(), err)
 	}
-	return matrixstate.GetVersionInfo(st), nil
-}*/
+	return matrixstate.GetMinDifficulty(st)
+}
+
+func (bc *BlockChain) GetMaxDifficulty(blockHash common.Hash) (*big.Int, error) {
+	st, err := bc.StateAtBlockHash(blockHash)
+	if err != nil {
+		return nil, errors.Errorf("get state by hash(%s) err(%v)", blockHash.Hex(), err)
+	}
+	return matrixstate.GetMaxDifficulty(st)
+}
+func (bc *BlockChain) GetReelectionDifficulty(blockHash common.Hash) (*big.Int, error) {
+	st, err := bc.StateAtBlockHash(blockHash)
+	if err != nil {
+		return nil, errors.Errorf("get state by hash(%s) err(%v)", blockHash.Hex(), err)
+	}
+	return matrixstate.GetReelectionDifficulty(st)
+}
+
+func (bc *BlockChain) GetBlockDurationStatus(blockHash common.Hash) (*mc.BlockDurationStatus, error) {
+	st, err := bc.StateAtBlockHash(blockHash)
+	if err != nil {
+		return nil, errors.Errorf("get state by hash(%s) err(%v)", blockHash.Hex(), err)
+	}
+	return matrixstate.GetBlockDuration(st)
+}
+
+func (bc *BlockChain) getMineHeader(number uint64, sonHash common.Hash, bcInterval *mc.BCIntervalInfo) (*types.Header, common.Hash, error) {
+	mineHashNumber := params.GetCurAIBlockNumber(number, bcInterval.GetBroadcastInterval())
+	mineHeaderHash, err := bc.GetAncestorHash(sonHash, mineHashNumber)
+	if err != nil {
+		return nil, common.Hash{}, fmt.Errorf("get mine header hash err: %v", err)
+	}
+	mineHeader := bc.GetHeaderByHash(mineHeaderHash)
+	if mineHeader == nil {
+		return nil, common.Hash{}, fmt.Errorf("get mine header err")
+	}
+
+	return mineHeader, mineHeader.HashNoSignsAndNonce(), nil
+}
+
+func (bc *BlockChain) SetBlockDurationStatus(header *types.Header, state *state.StateDBManage) error {
+	if string(header.Version) < manversion.VersionAIMine {
+		return nil
+	}
+	bcInterval, err := bc.GetBroadcastIntervalByHash(header.ParentHash)
+	if err != nil {
+		return errors.Errorf("get state by hash(%s) err(%v)", header.ParentHash, err)
+	}
+
+	if !header.IsAIHeader(bcInterval.BCInterval) {
+		return nil
+	}
+
+	mineHeader, _, err := bc.getMineHeader(header.Number.Uint64()-1, header.ParentHash, bcInterval)
+	if err != nil {
+		return err
+	}
+	blockDurationStatus := &mc.BlockDurationStatus{[]uint8{0}}
+	if bcInterval.IsReElectionNumber(header.Number.Uint64() - 1) {
+		blockDurationStatus.Status = []uint8{0}
+		return matrixstate.SetBlockDuration(state, blockDurationStatus)
+	}
+	innerMiners, err := bc.GetInnerMinerAccounts(header.ParentHash)
+	isTimeout := amhash.IsPowTimeout(mineHeader.Coinbase, innerMiners)
+	if isTimeout {
+		blockDurationStatus.Status = []uint8{2}
+	}
+	if uint64(header.Time.Uint64())-mineHeader.Time.Uint64() <= new(big.Int).Mul(params.MinBlockInterval, new(big.Int).SetUint64(params.PowBlockPeriod)).Uint64() {
+		blockDurationStatus.Status = []uint8{1}
+	}
+	return matrixstate.SetBlockDuration(state, blockDurationStatus)
+}
 
 func ProduceBroadcastIntervalData(block *types.Block, state *state.StateDBManage, readFn PreStateReadFn) (interface{}, error) {
 	bciData, err := readFn(mc.MSKeyBroadcastInterval)
@@ -377,7 +584,7 @@ func ProduceBroadcastIntervalData(block *types.Block, state *state.StateDBManage
 		bcInterval.SetLastReelectNumber(backupEnableNumber)
 		// 启动备选周期
 		bcInterval.UsingBackupInterval()
-		log.INFO("ProduceBroadcastIntervalData", "old interval", oldInterval, "new interval", bcInterval.GetBroadcastInterval())
+		log.Info("ProduceBroadcastIntervalData", "old interval", oldInterval, "new interval", bcInterval.GetBroadcastInterval())
 		modify = true
 	} else {
 		if bcInterval.IsBroadcastNumber(number) {
@@ -392,9 +599,26 @@ func ProduceBroadcastIntervalData(block *types.Block, state *state.StateDBManage
 	}
 
 	if modify {
-		log.INFO("ProduceBroadcastIntervalData", "生成广播区块内容", "成功", "block number", number, "data", bcInterval)
+		log.Info("ProduceBroadcastIntervalData", "生成广播区块内容", "成功", "block number", number, "data", bcInterval)
 		return bcInterval, nil
 	} else {
 		return nil, nil
 	}
+}
+func (bc *BlockChain) UpdateCurrencyHeaderState(st *state.StateDBManage, version string, Roots []common.CoinRoot, Sharding []common.Coinbyte) error {
+	if manversion.VersionCmp(version, manversion.VersionAIMine) >= 0 {
+		readCurrencyHeader, err := matrixstate.GetCurrenyHeader(st)
+		if nil != err {
+			log.Error("blockchain", "读取多币种区块头错误", err)
+		}
+		readCurrencyHeaderHash := types.RlpHash(readCurrencyHeader)
+		CurrentCurrencyHeader := mc.CurrencyHeader{Roots: Roots, Sharding: Sharding}
+		if readCurrencyHeaderHash != types.RlpHash(CurrentCurrencyHeader) {
+			if err := matrixstate.SetCurrenyHeader(st, &CurrentCurrencyHeader); nil != err {
+				log.Crit("blockchain", "写入多币种区块头错误", err)
+			}
+		}
+	}
+	return nil
+
 }

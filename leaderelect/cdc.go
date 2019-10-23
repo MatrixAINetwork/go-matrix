@@ -330,7 +330,7 @@ func (dc *cdc) GetA2AccountsFromA0Account(a0Account common.Address, blockHash co
 
 func (dc *cdc) GetA0AccountFromAnyAccount(account common.Address, blockHash common.Hash) (common.Address, common.Address, error) {
 	if blockHash == (common.Hash{}) {
-		log.ERROR(common.SignLog, "CDC获取A0账户", "输入的hash为空")
+		log.Error(common.SignLog, "CDC获取A0账户", "输入的hash为空")
 		return common.Address{}, common.Address{}, errors.New("cdc: 输入hash为空")
 	}
 	if blockHash != dc.leaderCal.preHash {
@@ -357,7 +357,7 @@ func (dc *cdc) GetA2AccountsFromA0AccountAtSignHeight(a0Account common.Address, 
 
 func (dc *cdc) GetA0AccountFromAnyAccountAtSignHeight(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error) {
 	if blockHash == (common.Hash{}) {
-		log.ERROR(common.SignLog, "CDC获取A0账户", "输入的hash为空")
+		log.Error(common.SignLog, "CDC获取A0账户", "输入的hash为空")
 		return common.Address{}, common.Address{}, errors.New("cdc: 输入hash为空")
 	}
 	if blockHash != dc.leaderCal.preHash {
@@ -381,7 +381,7 @@ func (dc *cdc) getA2Accounts(a0Account common.Address, blockHash common.Hash, si
 
 	a2Accounts := dc.parentState.GetEntrustFrom(params.MAN_COIN, a1Account, signHeight)
 	if len(a2Accounts) == 0 {
-		log.INFO(common.SignLog, "cdc获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
+		log.Info(common.SignLog, "cdc获得A2账户", "失败", "无委托交易,使用A1账户", a1Account.String(), "签名高度", signHeight)
 	} else {
 		log.Info(common.SignLog, "cdc获得A2账户", "成功", "账户数量", len(a2Accounts), "签名高度", signHeight)
 		for i, account := range a2Accounts {
@@ -394,7 +394,7 @@ func (dc *cdc) getA2Accounts(a0Account common.Address, blockHash common.Hash, si
 
 func (dc *cdc) getA0Account(account common.Address, blockHash common.Hash, signHeight uint64) (common.Address, common.Address, error) {
 	if nil == dc.parentState {
-		log.ERROR(common.SignLog, "CDC获取A0账户", "dc.parentState is nil")
+		log.Error(common.SignLog, "CDC获取A0账户", "dc.parentState is nil")
 		return common.Address{}, common.Address{}, errors.New("cdc: parent stateDB is nil, can't reader data")
 	}
 

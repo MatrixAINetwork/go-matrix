@@ -351,7 +351,7 @@ func (serv *TopNodeService) consensusVoteMsgHandler(msg []mc.HD_ConsensusVote) {
 func (serv *TopNodeService) OnlineConsensusVoteResultMsgHandler(msg *mc.HD_OnlineConsensusVoteResultMsg) {
 	//log.Info(serv.extraInfo, "收到共识结果消息，准备验证存储", "")
 	if msg == nil || msg.Req == nil {
-		log.ERROR(serv.extraInfo, "收到共识结果消息，消息", "为空")
+		log.Error(serv.extraInfo, "收到共识结果消息，消息", "为空")
 		return
 	}
 	curNumber, _ := serv.msgCheck.GetRound()

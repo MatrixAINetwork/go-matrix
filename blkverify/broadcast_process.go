@@ -4,25 +4,33 @@
 package blkverify
 
 import (
+	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 )
 
 func (p *Process) startReqVerifyBC() {
 	if p.checkState(StateStart) == false {
-		log.WARN(p.logExtraInfo(), "广播身份，开启启动阶段，状态错误", p.state.String(), "高度", p.number)
+		log.Warn(p.logExtraInfo(), "广播身份，开启启动阶段，状态错误", p.state.String(), "高度", p.number)
 		return
 	}
 
 	reqList := p.reqCache.GetAllReq()
-	log.INFO(p.logExtraInfo(), "广播身份，启动阶段，请求总数", len(reqList), "高度", p.number)
+	log.Info(p.logExtraInfo(), "广播身份，启动阶段，请求总数", len(reqList), "高度", p.number)
 	for _, req := range reqList {
 		if req.localVerifyResult != localVerifyResultProcessing {
 			continue
 		}
+
+		if p.isProcessedBCBlockHash(req.hash) {
+			log.Warn(p.logExtraInfo(), "广播身份，启动阶段, 已验证过的区块", req.hash.Hex(), "req leader", req.req.Header.Leader.Hex(), "高度", p.number)
+			req.localVerifyResult = localVerifyResultSuccess
+			continue
+		}
+
 		//verify dpos
 		if err := p.blockChain().DPOSEngine(req.req.Header.Version).VerifyBlock(p.blockChain(), req.req.Header); err != nil {
-			log.WARN(p.logExtraInfo(), "广播身份，启动阶段, DPOS共识失败", err, "req leader", req.req.Header.Leader.Hex(), "高度", p.number)
+			log.Warn(p.logExtraInfo(), "广播身份，启动阶段, DPOS共识失败", err, "req leader", req.req.Header.Leader.Hex(), "高度", p.number)
 			req.localVerifyResult = localVerifyResultStateFailed
 			continue
 		}
@@ -33,18 +41,18 @@ func (p *Process) startReqVerifyBC() {
 		return
 	}
 
-	log.INFO(p.logExtraInfo(), "广播身份，启动阶段，未找到合适的请求", "继续等待请求", "高度", p.number)
+	log.Info(p.logExtraInfo(), "广播身份，启动阶段，未找到合适的请求", "继续等待请求", "高度", p.number)
 }
 
 func (p *Process) bcProcessReqVerify() {
 	if p.checkState(StateReqVerify) == false {
-		log.WARN(p.logExtraInfo(), "广播身份，准备开始请求验证阶段，状态错误", p.state.String(), "高度", p.number)
+		log.Warn(p.logExtraInfo(), "广播身份，准备开始请求验证阶段，状态错误", p.state.String(), "高度", p.number)
 		return
 	}
 
 	// verify header
-	if err := p.blockChain().VerifyHeader(p.curProcessReq.req.Header); err != nil {
-		log.ERROR(p.logExtraInfo(), "广播身份，请求验证阶段, 通过DPOS共识的请求，但是预验证头信息错误", err)
+	if err := p.blockChain().Engine(p.curProcessReq.req.Header.Version).VerifyHeader(p.blockChain(), p.curProcessReq.req.Header, false, false); err != nil {
+		log.Error(p.logExtraInfo(), "广播身份，请求验证阶段, 通过DPOS共识的请求，但是预验证头信息错误", err)
 		p.bcFinishedProcess(localVerifyResultStateFailed)
 		return
 	}
@@ -55,7 +63,7 @@ func (p *Process) bcProcessReqVerify() {
 func (p *Process) bcFinishedProcess(lvResult verifyResult) {
 	p.curProcessReq.localVerifyResult = lvResult
 	if lvResult == localVerifyResultProcessing {
-		log.ERROR(p.logExtraInfo(), "req is processing now, process can't finish!", "broadcast role")
+		log.Error(p.logExtraInfo(), "req is processing now, process can't finish!", "broadcast role")
 		return
 	}
 
@@ -77,8 +85,33 @@ func (p *Process) bcFinishedProcess(lvResult verifyResult) {
 		Receipts:    p.curProcessReq.receipts,
 		State:       p.curProcessReq.stateDB,
 	}
-	log.INFO(p.logExtraInfo(), "广播身份", "请求验证完成, 发出区块共识结果消息", "高度", p.number, "block hash", result.BlockHash.TerminalString())
+	log.Info(p.logExtraInfo(), "广播身份", "请求验证完成, 发出区块共识结果消息", "高度", p.number, "block hash", result.BlockHash.TerminalString())
 	mc.PublishEvent(mc.BlkVerify_VerifyConsensusOK, &result)
 
-	p.state = StateEnd
+	posMsg := mc.BlockPOSFinishedV2{
+		Header:      p.curProcessReq.req.Header,
+		BlockHash:   p.curProcessReq.hash,
+		OriginalTxs: p.curProcessReq.originalTxs,
+		FinalTxs:    p.curProcessReq.finalTxs,
+		Receipts:    p.curProcessReq.receipts,
+		State:       p.curProcessReq.stateDB,
+	}
+	mc.PublishEvent(mc.BlkVerify_POSFinishedNotifyV2, &posMsg)
+
+	// 运行完成，再次进入start状态
+	p.saveProcessedBCBlockHash(p.curProcessReq.hash)
+	p.state = StateStart
+}
+
+func (p *Process) isProcessedBCBlockHash(blockHash common.Hash) bool {
+	for _, hash := range p.bcProcessedHash {
+		if blockHash == hash {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Process) saveProcessedBCBlockHash(blockHash common.Hash) {
+	p.bcProcessedHash = append(p.bcProcessedHash, blockHash)
 }

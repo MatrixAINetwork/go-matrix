@@ -142,7 +142,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	b.header.Difficulty = b.engine.CalcDifficulty(b.chainReader, string(b.header.Version), b.header.Time.Uint64(), b.parent.Header())
+	b.header.Difficulty, _ = b.engine.CalcDifficulty(b.chainReader, string(b.header.Version), b.header.Time.Uint64(), b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -165,7 +165,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	genblock := func(i int, parent *types.Block, statedb *state.StateDBManage) (*types.Block, types.Receipts) {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-		blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
+		blockchain, _ := NewBlockChain(db, nil, config, vm.Config{}, nil, nil)
 		defer blockchain.Stop()
 
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
@@ -230,16 +230,16 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		Sharding:   make([]common.Coinbyte, len(sharding)),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(chain, string(parent.Header().Version), time.Uint64(), &types.Header{
-			Number:     parent.Number(),
-			Time:       new(big.Int).Sub(time, big.NewInt(10)),
-			Difficulty: parent.Difficulty(),
-			UncleHash:  parent.UncleHash(),
-		}),
-		GasLimit: CalcGasLimit(parent),
-		Number:   new(big.Int).Add(parent.Number(), common.Big1),
-		Time:     time,
+		GasLimit:   CalcGasLimit(parent),
+		Number:     new(big.Int).Add(parent.Number(), common.Big1),
+		Time:       time,
 	}
+	head.Difficulty, _ = engine.CalcDifficulty(chain, string(parent.Header().Version), time.Uint64(), &types.Header{
+		Number:     parent.Number(),
+		Time:       new(big.Int).Sub(time, big.NewInt(10)),
+		Difficulty: parent.Difficulty(),
+		UncleHash:  parent.UncleHash(),
+	})
 	copy(head.Sharding, sharding)
 	copy(head.Roots, roots)
 	return head
@@ -259,7 +259,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *B
 	)
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewBlockChain(db, nil, params.AllManashProtocolChanges, engine, vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, params.AllManashProtocolChanges, vm.Config{}, nil, nil)
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
@@ -267,7 +267,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (mandb.Database, *B
 	if full {
 		// Full block-chain requested
 		blocks := makeBlockChain(genesis, n, engine, db, canonicalSeed)
-		_, err := blockchain.InsertChain(blocks,0)
+		_, err := blockchain.InsertChain(blocks, 0)
 		return db, blockchain, err
 	}
 	// Header-only chain requested

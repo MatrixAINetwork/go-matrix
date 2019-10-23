@@ -56,9 +56,9 @@ type blockChain interface {
 // Service implements an Matrix netstats reporting daemon that pushes local
 // chain statistics up to a monitoring server.
 type Service struct {
-	server *p2p.Server      // Peer-to-peer server to retrieve networking infos
-	man    *man.Matrix      // Full Matrix service if monitoring a full node
-	engine consensus.Engine // Consensus engine to retrieve variadic block fields
+	server *p2p.Server                 // Peer-to-peer server to retrieve networking infos
+	man    *man.Matrix                 // Full Matrix service if monitoring a full node
+	engine map[string]consensus.Engine // Consensus engine to retrieve variadic block fields
 
 	node string // Name of the node to display on the monitoring page
 	pass string // Password to authorize access to the monitoring page
@@ -77,9 +77,9 @@ func New(url string, manServ *man.Matrix) (*Service, error) {
 		return nil, fmt.Errorf("invalid netstats url: \"%s\", should be nodename:secret@host:port", url)
 	}
 	// Assemble and return the stats service
-	var engine consensus.Engine
+	var engine map[string]consensus.Engine
 	if manServ != nil {
-		engine = manServ.Engine()
+		engine = manServ.EngineAll()
 	}
 	return &Service{
 		man:    manServ,
@@ -532,7 +532,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		uncles = block.Uncles()
 	}
 	// Assemble and return the block stats
-	author, _ := s.engine.Author(header)
+	author, _ := s.engine[string(header.Version)].Author(header)
 
 	return &blockStats{
 		Number:     header.Number,

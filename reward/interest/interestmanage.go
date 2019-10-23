@@ -5,6 +5,7 @@ package interest
 
 import (
 	"math/big"
+	"os"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/matrixstate"
@@ -19,15 +20,24 @@ type InterestOperator interface {
 	CalcReward(state vm.StateDBManager, num uint64, parentHash common.Hash)
 }
 
+const INTERESTDIR = "./interestdir"
+
+func init() {
+	_, e := os.Stat(INTERESTDIR)
+	if e != nil {
+		os.Mkdir(INTERESTDIR, os.ModePerm)
+	}
+}
+
 func ManageNew(st util.StateDB, preSt util.StateDB) InterestOperator {
 	calc, err := matrixstate.GetInterestCalc(preSt)
 	if nil != err {
-		log.ERROR(PackageName, "获取状态树配置错误")
+		log.Error(PackageName, "获取状态树配置错误")
 		return nil
 	}
 
 	if calc == util.Stop {
-		log.ERROR(PackageName, "停止发放区块奖励", "")
+		log.Error(PackageName, "停止发放区块奖励", "")
 		return nil
 	}
 
@@ -36,8 +46,10 @@ func ManageNew(st util.StateDB, preSt util.StateDB) InterestOperator {
 		return New(st, preSt)
 	case util.CalcDelta:
 		return DeltaNew(st, preSt, depositcfg.VersionA)
+	case util.CalcEpsilon:
+		return EpsilonNew(st, preSt, depositcfg.VersionA)
 	default:
-		log.ERROR(PackageName, "获取利息计算引擎不存在", "")
+		log.Error(PackageName, "获取利息计算引擎不存在", "")
 		return nil
 
 	}

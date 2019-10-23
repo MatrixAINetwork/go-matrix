@@ -8,17 +8,20 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/MatrixAINetwork/go-matrix/base58"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/params"
-	"io/ioutil"
-	"os"
 )
 
 const (
-	VotePoolTimeout    = 55 * 1000
-	VotePoolCountLimit = 5
+	VotePoolTimeout     = 55 * 1000
+	VotePoolCountLimit  = 5
+	BasePowerCountLimit = 3
+	AIResultCountLimit  = 3
 
 	BlkPosReqSendInterval   = 5
 	BlkPosReqSendTimes      = 6
@@ -46,6 +49,11 @@ const (
 	ELectPlug_direct    = "direct"
 	ElectPlug_layerdMEP = "layerd_MEP"
 	ElectPlug_layerdBSS = "layerd_BSS"
+	ElectPlug_layerdDP  = "layerd_DP"
+)
+
+const (
+	BlockHeaderModifyHeight = uint64(1342516) //多币种压缩高度
 )
 
 var (
@@ -67,7 +75,7 @@ func init() {
 }
 
 func Config_Init(Config_PATH string) {
-	log.INFO("Config_Init 函数", "Config_PATH", Config_PATH)
+	log.Info("Config_Init 函数", "Config_PATH", Config_PATH)
 
 	JsonParse := NewJsonStruct()
 	v := Config{}
@@ -88,7 +96,7 @@ func Config_Init(Config_PATH string) {
 			}
 		}
 	}
-	log.INFO("MainBootNode", "data", params.MainnetBootnodes)
+	log.Info("MainBootNode", "data", params.MainnetBootnodes)
 }
 
 func ReadBlacklist(path string) {

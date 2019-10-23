@@ -9,7 +9,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/pkg/errors"
 )
 
@@ -54,13 +54,13 @@ func NewLeaderIdentityService(matrix Matrix, extraInfo string) (*LeaderIdentity,
 	}
 
 	if err := server.subEvents(); err != nil {
-		log.ERROR(server.extraInfo, "服务创建失败", err)
+		log.Error(server.extraInfo, "服务创建失败", err)
 		return nil, err
 	}
 
 	go server.run()
 
-	log.INFO(server.extraInfo, "服务创建", "成功")
+	log.Info(server.extraInfo, "服务创建", "成功")
 	return server, nil
 }
 
@@ -136,7 +136,7 @@ func (self *LeaderIdentity) run() {
 
 func (self *LeaderIdentity) newBlockReadyBCHandle(msg *mc.NewBlockReadyMsg) {
 	if msg == nil || msg.Header == nil {
-		log.ERROR(self.extraInfo, "NewBlockReady处理错误", ErrParamsIsNil)
+		log.Error(self.extraInfo, "NewBlockReady处理错误", ErrParamsIsNil)
 		return
 	}
 
@@ -146,7 +146,7 @@ func (self *LeaderIdentity) newBlockReadyBCHandle(msg *mc.NewBlockReadyMsg) {
 	// 获取超级区块序号
 	supBlkState, err := matrixstate.GetSuperBlockCfg(msg.State)
 	if err != nil {
-		log.ERROR(self.extraInfo, "NewBlockReady消息处理", "获取超级区块序号失败", "err", err, "高度", curNumber)
+		log.Error(self.extraInfo, "NewBlockReady消息处理", "获取超级区块序号失败", "err", err, "高度", curNumber)
 		return
 	}
 
@@ -159,25 +159,25 @@ func (self *LeaderIdentity) newBlockReadyBCHandle(msg *mc.NewBlockReadyMsg) {
 
 func (self *LeaderIdentity) roleUpdateMsgHandle(msg *mc.RoleUpdatedMsg) {
 	if msg == nil {
-		log.ERROR(self.extraInfo, "CA身份通知消息处理", ErrParamsIsNil)
+		log.Error(self.extraInfo, "CA身份通知消息处理", ErrParamsIsNil)
 		return
 	}
 	if (msg.Leader == common.Address{}) {
-		log.ERROR(self.extraInfo, "CA身份通知消息处理", ErrMsgAccountIsNull)
+		log.Error(self.extraInfo, "CA身份通知消息处理", ErrMsgAccountIsNull)
 		return
 	}
 
 	log.Debug(self.extraInfo, "CA身份通知消息处理", "开始", "高度", msg.BlockNum, "身份", msg.Role, "block hash", msg.BlockHash.TerminalString())
 	header := self.matrix.BlockChain().GetHeaderByHash(msg.BlockHash)
 	if nil == header {
-		log.ERROR(self.extraInfo, "CA身份通知消息处理", "获取区块header失败", "block hash", msg.BlockHash.TerminalString())
+		log.Error(self.extraInfo, "CA身份通知消息处理", "获取区块header失败", "block hash", msg.BlockHash.TerminalString())
 		return
 	}
 
 	//获取状态树
 	parentState, err := self.matrix.BlockChain().StateAt(header.Roots)
 	if err != nil {
-		log.ERROR(self.extraInfo, "CA身份通知消息处理", "获取区块状态树失败", "err", err, "高度", msg.BlockNum)
+		log.Error(self.extraInfo, "CA身份通知消息处理", "获取区块状态树失败", "err", err, "高度", msg.BlockNum)
 		return
 	}
 
@@ -198,7 +198,7 @@ func (self *LeaderIdentity) blockPOSFinishedMsgHandle(msg *mc.BlockPOSFinishedNo
 		return
 	}
 
-	if manparams.VersionCmp(string(msg.Header.Version), manparams.VersionGamma) < 0 {
+	if manversion.VersionCmp(string(msg.Header.Version), manversion.VersionGamma) < 0 {
 		log.Trace(self.extraInfo, "区块POS完成消息处理", "版本号不匹配, 不处理消息", "header version", string(msg.Header.Version), "number", msg.Header.Number)
 		return
 	}

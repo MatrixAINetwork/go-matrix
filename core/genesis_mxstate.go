@@ -5,6 +5,7 @@ package core
 
 import (
 	"encoding/binary"
+	"math/big"
 	"sort"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
@@ -12,6 +13,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/state"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/pkg/errors"
 )
 
@@ -43,7 +45,7 @@ type GenesisMState struct {
 	InterestCalcCfg              *string                          `json:"InterestCalcCfg,omitempty" gencodec:"required"`
 	LotteryCalcCfg               *string                          `json:"LotteryCalcCfg,omitempty" gencodec:"required"`
 	SlashCalcCfg                 *string                          `json:"SlashCalcCfg,omitempty" gencodec:"required"`
-	BlkRewardCfg                 *mc.BlkRewardCfg                 `json:"BlkRewardCfg,omitempty" gencodec:"required"`
+	BlkRewardCfg                 *mc.AIBlkRewardCfg               `json:"BlkRewardCfg,omitempty" gencodec:"required"`
 	TxsRewardCfg                 *mc.TxsRewardCfg                 `json:"TxsRewardCfg,omitempty" gencodec:"required"`
 	LotteryCfg                   *mc.LotteryCfg                   `json:"LotteryCfg,omitempty" gencodec:"required"`
 	InterestCfg                  *mc.InterestCfg                  `json:"InterestCfg,omitempty" gencodec:"required"`
@@ -59,6 +61,13 @@ type GenesisMState struct {
 	BlockProduceStats            *mc.BlockProduceStats            `json:"BlkProduceStats,omitempty" gencodec:"required"`
 	BlockProduceSlashBlackList   *mc.BlockProduceSlashBlackList   `json:"BlkProduceBlackList,omitempty" gencodec:"required"`
 	BlockProduceSlashStatsStatus *mc.BlockProduceSlashStatsStatus `json:"BlkProduceStatus,omitempty" gencodec:"required"`
+	BasePowerSlashCfg            *mc.BasePowerSlashCfg            `json:"BasePowerSlashCfg,omitempty" gencodec:"required"`
+	BasePowerStats               *mc.BasePowerStats               `json:"BasePowerStats,omitempty" gencodec:"required"`
+	BasePowerSlashBlackList      *mc.BasePowerSlashBlackList      `json:"BasePowerBlackList,omitempty" gencodec:"required"`
+	BasePowerSlashStatsStatus    *mc.BasePowerSlashStatsStatus    `json:"BasePowerStatus,omitempty" gencodec:"required"`
+	MinDifficulty                *big.Int                         `json:"MinDifficulty,omitempty" gencodec:"required"`
+	MaxDifficulty                *big.Int                         `json:"MaxDifficulty,omitempty" gencodec:"required"`
+	ReelectionDifficulty         *big.Int                         `json:"ReelectionDifficulty,omitempty" gencodec:"required"`
 }
 
 func (ms *GenesisMState) setMatrixState(state *state.StateDBManage, netTopology common.NetTopology, nextElect []common.Elect, newVersion string, oldVersion string, num uint64) error {
@@ -171,6 +180,32 @@ func (ms *GenesisMState) setMatrixState(state *state.StateDBManage, netTopology 
 	if err := ms.setBlockProduceSlashCfg(state, num); err != nil {
 		return err
 	}
+
+	if err := ms.setBasePowerSlashStatsStatus(state, num, newVersion); err != nil {
+		return err
+	}
+
+	if err := ms.setBasePowerSlashBlkList(state, num, newVersion); err != nil {
+		return err
+	}
+
+	if err := ms.setBasePowerStats(state, num, newVersion); err != nil {
+		return err
+	}
+
+	if err := ms.setBasePowerSlashCfg(state, num, newVersion); err != nil {
+		return err
+	}
+
+	if err := ms.setMinDifficulty(state, num, newVersion); err != nil {
+		return err
+	}
+	if err := ms.setMaxDifficulty(state, num, newVersion); err != nil {
+		return err
+	}
+	if err := ms.setReelectionDifficulty(state, num, newVersion); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -179,7 +214,7 @@ func (g *GenesisMState) setVersionInfo(state *state.StateDBManage, num uint64, v
 		if num == 0 {
 			return errors.New("版本信息为空")
 		} else {
-			log.INFO("Geneis", "没有配置版本信息", "")
+			log.Info("Geneis", "没有配置版本信息", "")
 			return nil
 		}
 	}
@@ -191,7 +226,7 @@ func (g *GenesisMState) setElectTime(state *state.StateDBManage, num uint64) err
 		if num == 0 {
 			return errors.New("选举配置信息为nil")
 		} else {
-			log.INFO("Geneis", "没有配置选举信息", "")
+			log.Info("Geneis", "没有配置选举信息", "")
 			return nil
 		}
 	}
@@ -210,7 +245,7 @@ func (g *GenesisMState) setElectInfo(state *state.StateDBManage, num uint64) err
 		if num == 0 {
 			return errors.New("electconfig配置信息为nil")
 		} else {
-			log.INFO("Geneis", "没有配置electconfig信息", "")
+			log.Info("Geneis", "没有配置electconfig信息", "")
 			return nil
 		}
 	}
@@ -237,7 +272,7 @@ func (g *GenesisMState) setElectWhiteListSwitcher(state *state.StateDBManage, nu
 		}
 	} else {
 		if g.ElectWhiteListSwitcherCfg == nil {
-			log.INFO("Geneis", "未修改选举白名单开关配置信息为", "")
+			log.Info("Geneis", "未修改选举白名单开关配置信息为", "")
 			return nil
 		}
 	}
@@ -503,7 +538,7 @@ func (g *GenesisMState) setBlkCalcToState(state *state.StateDBManage, num uint64
 		if num == 0 {
 			return errors.New("区块奖励算法配置参数为空")
 		} else {
-			log.INFO("Geneis", "没有配置区块奖励配置信息", "")
+			log.Info("Geneis", "没有配置区块奖励配置信息", "")
 			return nil
 		}
 	}
@@ -516,7 +551,7 @@ func (g *GenesisMState) setTxsCalcToState(state *state.StateDBManage, num uint64
 		if num == 0 {
 			return errors.New("交易费奖励算法配置参数为空")
 		} else {
-			log.INFO("Geneis", "没有配置交易费奖励配置信息", "")
+			log.Info("Geneis", "没有配置交易费奖励配置信息", "")
 			return nil
 		}
 	}
@@ -529,7 +564,7 @@ func (g *GenesisMState) setInterestCalcToState(state *state.StateDBManage, num u
 		if num == 0 {
 			return errors.New("利息奖励算法配置参数为空")
 		} else {
-			log.INFO("Geneis", "没有配置利息奖励配置信息", "")
+			log.Info("Geneis", "没有配置利息奖励配置信息", "")
 			return nil
 		}
 	}
@@ -541,7 +576,7 @@ func (g *GenesisMState) setLotteryCalcToState(state *state.StateDBManage, num ui
 		if num == 0 {
 			return errors.New("彩票奖励算法配置参数为空")
 		} else {
-			log.INFO("Geneis", "没有配置彩票奖励配置信息", "")
+			log.Info("Geneis", "没有配置彩票奖励配置信息", "")
 			return nil
 		}
 	}
@@ -554,7 +589,7 @@ func (g *GenesisMState) setSlashCalcToState(state *state.StateDBManage, num uint
 		if num == 0 {
 			return errors.New("惩罚算法配置参数为空")
 		} else {
-			log.INFO("Geneis", "没有配置惩罚算法配置信息", "")
+			log.Info("Geneis", "没有配置惩罚算法配置信息", "")
 			return nil
 		}
 	}
@@ -563,40 +598,95 @@ func (g *GenesisMState) setSlashCalcToState(state *state.StateDBManage, num uint
 	return matrixstate.SetSlashCalc(state, *g.SlashCalcCfg)
 }
 func (g *GenesisMState) setBlkRewardCfgToState(state *state.StateDBManage, num uint64) error {
-	if g.BlkRewardCfg == nil {
-		if num == 0 {
-			return errors.New("固定区块配置信息为nil")
-		} else {
-			log.INFO("Geneis", "没有配置固定区块配置信息", "")
-			return nil
+	if num >= manversion.VersionNumAIMine {
+		if g.BlkRewardCfg == nil {
+			if num == 0 {
+				return errors.New("固定区块配置信息为nil")
+			} else {
+				log.Info("Geneis", "没有配置固定区块配置信息", "")
+				return nil
+			}
 		}
+
+		rateCfg := g.BlkRewardCfg.RewardRate
+
+		if RewardFullRate != rateCfg.MinerOutRate+rateCfg.ElectedMinerRate+rateCfg.FoundationMinerRate+rateCfg.AIMinerOutRate {
+
+			return errors.Errorf("矿工固定区块奖励比例配置错误")
+		}
+		if RewardFullRate != rateCfg.LeaderRate+rateCfg.ElectedValidatorsRate+rateCfg.FoundationValidatorRate {
+
+			return errors.Errorf("验证者固定区块奖励比例配置错误")
+		}
+
+		if RewardFullRate != rateCfg.OriginElectOfflineRate+rateCfg.BackupRewardRate {
+
+			return errors.Errorf("替补固定区块奖励比例配置错误")
+		}
+		if uint64(g.BlkRewardCfg.MinerAttenuationRate) > RewardFullRate {
+			return errors.Errorf("矿工衰减比例配置错误")
+		}
+
+		if uint64(g.BlkRewardCfg.ValidatorAttenuationRate) > RewardFullRate {
+			return errors.Errorf("验证者衰减比例配置错误")
+		}
+
+		log.Info("Geneis", "BlkRewardCfg", g.BlkRewardCfg)
+		return matrixstate.SetAIBlkRewardCfg(state, g.BlkRewardCfg)
+	} else {
+		if g.BlkRewardCfg == nil {
+			if num == 0 {
+				return errors.New("固定区块配置信息为nil")
+			} else {
+				log.Info("Geneis", "没有配置固定区块配置信息", "")
+				return nil
+			}
+		}
+
+		rateCfg := g.BlkRewardCfg.RewardRate
+
+		if RewardFullRate != rateCfg.MinerOutRate+rateCfg.ElectedMinerRate+rateCfg.FoundationMinerRate {
+
+			return errors.Errorf("矿工固定区块奖励比例配置错误")
+		}
+		if RewardFullRate != rateCfg.LeaderRate+rateCfg.ElectedValidatorsRate+rateCfg.FoundationValidatorRate {
+
+			return errors.Errorf("验证者固定区块奖励比例配置错误")
+		}
+
+		if RewardFullRate != rateCfg.OriginElectOfflineRate+rateCfg.BackupRewardRate {
+
+			return errors.Errorf("替补固定区块奖励比例配置错误")
+		}
+		if uint64(g.BlkRewardCfg.MinerAttenuationRate) > RewardFullRate {
+			return errors.Errorf("矿工衰减比例配置错误")
+		}
+
+		if uint64(g.BlkRewardCfg.ValidatorAttenuationRate) > RewardFullRate {
+			return errors.Errorf("验证者衰减比例配置错误")
+		}
+
+		log.Info("Geneis", "BlkRewardCfg", g.BlkRewardCfg)
+		return matrixstate.SetBlkRewardCfg(state, &mc.BlkRewardCfg{
+			MinerMount:               g.BlkRewardCfg.MinerMount,
+			MinerAttenuationRate:     g.BlkRewardCfg.MinerAttenuationRate,
+			MinerAttenuationNum:      g.BlkRewardCfg.MinerAttenuationNum,
+			ValidatorMount:           g.BlkRewardCfg.ValidatorMount,
+			ValidatorAttenuationRate: g.BlkRewardCfg.ValidatorAttenuationRate,
+			ValidatorAttenuationNum:  g.BlkRewardCfg.ValidatorAttenuationNum,
+			RewardRate: mc.RewardRateCfg{
+				MinerOutRate:        g.BlkRewardCfg.RewardRate.MinerOutRate,        //出块矿工奖励
+				ElectedMinerRate:    g.BlkRewardCfg.RewardRate.ElectedMinerRate,    //当选矿工奖励
+				FoundationMinerRate: g.BlkRewardCfg.RewardRate.FoundationMinerRate, //基金会网络奖励
+
+				LeaderRate:              g.BlkRewardCfg.RewardRate.LeaderRate,              //出块验证者（leader）奖励
+				ElectedValidatorsRate:   g.BlkRewardCfg.RewardRate.ElectedValidatorsRate,   //当选验证者奖励
+				FoundationValidatorRate: g.BlkRewardCfg.RewardRate.FoundationValidatorRate, //基金会网络奖励
+
+				OriginElectOfflineRate: g.BlkRewardCfg.RewardRate.OriginElectOfflineRate, //初选下线验证者奖励
+				BackupRewardRate:       g.BlkRewardCfg.RewardRate.BackupRewardRate,       //当前替补验证者奖励
+			}})
 	}
-
-	rateCfg := g.BlkRewardCfg.RewardRate
-
-	if RewardFullRate != rateCfg.MinerOutRate+rateCfg.ElectedMinerRate+rateCfg.FoundationMinerRate {
-
-		return errors.Errorf("矿工固定区块奖励比例配置错误")
-	}
-	if RewardFullRate != rateCfg.LeaderRate+rateCfg.ElectedValidatorsRate+rateCfg.FoundationValidatorRate {
-
-		return errors.Errorf("验证者固定区块奖励比例配置错误")
-	}
-
-	if RewardFullRate != rateCfg.OriginElectOfflineRate+rateCfg.BackupRewardRate {
-
-		return errors.Errorf("替补固定区块奖励比例配置错误")
-	}
-	if uint64(g.BlkRewardCfg.MinerAttenuationRate) > RewardFullRate {
-		return errors.Errorf("矿工衰减比例配置错误")
-	}
-
-	if uint64(g.BlkRewardCfg.ValidatorAttenuationRate) > RewardFullRate {
-		return errors.Errorf("验证者衰减比例配置错误")
-	}
-
-	log.Info("Geneis", "BlkRewardCfg", g.BlkRewardCfg)
-	return matrixstate.SetBlkRewardCfg(state, g.BlkRewardCfg)
 }
 
 func (g *GenesisMState) setTxsRewardCfgToState(state *state.StateDBManage, num uint64) error {
@@ -604,7 +694,7 @@ func (g *GenesisMState) setTxsRewardCfgToState(state *state.StateDBManage, num u
 		if num == 0 {
 			return errors.New("交易费区块配置信息为nil")
 		} else {
-			log.INFO("Geneis", "没有配置交易费区块配置信息", "")
+			log.Info("Geneis", "没有配置交易费区块配置信息", "")
 			return nil
 		}
 	}
@@ -640,7 +730,7 @@ func (g *GenesisMState) setLotteryCfgToState(state *state.StateDBManage, num uin
 		matrixstate.SetLotteryNum(state, 1)
 	} else {
 		if g.LotteryCfg == nil {
-			log.INFO("Geneis", "没有配置利息配置信息", "")
+			log.Info("Geneis", "没有配置利息配置信息", "")
 			return nil
 		}
 	}
@@ -657,7 +747,7 @@ func (g *GenesisMState) setInterestCfgToState(state *state.StateDBManage, num ui
 		matrixstate.SetInterestPayNum(state, 1)
 	} else {
 		if g.InterestCfg == nil {
-			log.INFO("Geneis", "没有配置利息配置信息", "")
+			log.Info("Geneis", "没有配置利息配置信息", "")
 			return nil
 		}
 	}
@@ -677,7 +767,7 @@ func (g *GenesisMState) setSlashCfgToState(state *state.StateDBManage, num uint6
 		matrixstate.SetUpTimeNum(state, 1)
 	} else {
 		if g.SlashCfg == nil {
-			log.INFO("Geneis", "没有配置惩罚配置信息", "")
+			log.Info("Geneis", "没有配置惩罚配置信息", "")
 			return nil
 		}
 	}
@@ -690,7 +780,7 @@ func (g *GenesisMState) setVIPCfgToState(state *state.StateDBManage, number uint
 		if number == 0 {
 			return errors.New("VIP配置信息为nil")
 		} else {
-			log.INFO("Geneis", "没有配置惩VIP配置信息", "")
+			log.Info("Geneis", "没有配置惩VIP配置信息", "")
 			return nil
 		}
 	}
@@ -717,7 +807,7 @@ func (g *GenesisMState) setLeaderCfgToState(state *state.StateDBManage, num uint
 		if num == 0 {
 			return errors.New("leader配置信息为nil")
 		} else {
-			log.INFO("Geneis", "没有配置leader配置信息", "")
+			log.Info("Geneis", "没有配置leader配置信息", "")
 			return nil
 		}
 	}
@@ -752,7 +842,7 @@ func (g *GenesisMState) SetSuperBlkToState(state *state.StateDBManage, extra []b
 
 		superBlkCfg = &mc.SuperBlkCfg{Seq: seq, Num: num}
 	}
-	log.INFO("Geneis", "超级区块配置", superBlkCfg)
+	log.Info("Geneis", "超级区块配置", superBlkCfg)
 	return matrixstate.SetSuperBlockCfg(state, superBlkCfg)
 }
 
@@ -775,7 +865,7 @@ func (g *GenesisMState) setBCIntervalToState(st *state.StateDBManage, num uint64
 		}
 	} else {
 		if nil == g.BCICfg {
-			log.INFO("Geneis", "没有配置广播周期配置信息", "")
+			log.Info("Geneis", "没有配置广播周期配置信息", "")
 			return nil
 		}
 		if g.BCICfg.BackupBCInterval < 20 {
@@ -790,7 +880,7 @@ func (g *GenesisMState) setBCIntervalToState(st *state.StateDBManage, num uint64
 			return errors.Errorf("获取前广播周期数据失败(%v)", err)
 		}
 		if bcInterval.GetBroadcastInterval() == g.BCICfg.BackupBCInterval {
-			log.INFO("GenesisMState", "广播周期一致，不配置", g.BCICfg.BackupBCInterval)
+			log.Info("GenesisMState", "广播周期一致，不配置", g.BCICfg.BackupBCInterval)
 			return nil
 		}
 		if bcInterval.IsReElectionNumber(g.BCICfg.BackupBCInterval) {
@@ -814,7 +904,7 @@ func (g *GenesisMState) setBlockProduceSlashCfg(state *state.StateDBManage, num 
 		}
 	} else {
 		if g.BlockProduceSlashCfg == nil {
-			log.INFO("Geneis", "未修改区块生产惩罚配置信息为", "")
+			log.Info("Geneis", "未修改区块生产惩罚配置信息为", "")
 			return nil
 		}
 	}
@@ -828,7 +918,7 @@ func (g *GenesisMState) setBlockProduceStats(state *state.StateDBManage, num uin
 		}
 	} else {
 		if g.BlockProduceStats == nil {
-			log.INFO("Geneis", "未修改区块生产惩罚统计信息", "")
+			log.Info("Geneis", "未修改区块生产惩罚统计信息", "")
 			return nil
 		}
 	}
@@ -842,7 +932,7 @@ func (g *GenesisMState) setBlockProduceSlashBlkList(state *state.StateDBManage, 
 		}
 	} else {
 		if g.BlockProduceSlashBlackList == nil {
-			log.INFO("Geneis", "未修改区块生产惩黑名单", "")
+			log.Info("Geneis", "未修改区块生产惩黑名单", "")
 			return nil
 		}
 	}
@@ -856,10 +946,164 @@ func (g *GenesisMState) setBlockProduceSlashStatsStatus(state *state.StateDBMana
 		}
 	} else {
 		if g.BlockProduceSlashStatsStatus == nil {
-			log.INFO("Geneis", "未修改区块生产状态信息", "")
+			log.Info("Geneis", "未修改区块生产状态信息", "")
 			return nil
 		}
 	}
 	log.Info("Geneis", "BlockProduceSlashStatsStatus", g.BlockProduceSlashStatsStatus)
 	return matrixstate.SetBlockProduceStatsStatus(state, g.BlockProduceSlashStatsStatus)
+}
+
+func (g *GenesisMState) setMinDifficulty(state *state.StateDBManage, num uint64, version string) error {
+	if num == 0 {
+		// 创世区块
+		if g.MinDifficulty != nil {
+			log.Error("Geneis", "不支持的参数", "MinDifficulty")
+			return errors.New("不支持的参数 MinDifficulty")
+		}
+		return nil
+	} else {
+		// 超级区块
+		if g.MinDifficulty == nil {
+			return nil
+		} else {
+			if manversion.VersionCmp(version, manversion.VersionAIMine) < 0 {
+				log.Error("Geneis", "setMinDifficulty", "链版本号过低", "version", version)
+				return errors.New("setMinDifficulty: 链版本号过低")
+			}
+			log.Info("Geneis", "setMinDifficulty", g.MinDifficulty)
+			return matrixstate.SetMinDifficulty(state, g.MinDifficulty)
+		}
+	}
+}
+
+func (g *GenesisMState) setMaxDifficulty(state *state.StateDBManage, num uint64, version string) error {
+	if num == 0 {
+		// 创世区块
+		if g.MaxDifficulty != nil {
+			log.Error("Geneis", "不支持的参数", "MaxDifficulty")
+			return errors.New("不支持的参数 MaxDifficulty")
+		}
+		return nil
+	} else {
+		// 超级区块
+		if g.MaxDifficulty == nil {
+			return nil
+		} else {
+			if manversion.VersionCmp(version, manversion.VersionAIMine) < 0 {
+				log.Error("Geneis", "setMaxDifficulty", "链版本号过低", "version", version)
+				return errors.New("setMaxDifficulty: 链版本号过低")
+			}
+			log.Info("Geneis", "setMaxDifficulty", g.MaxDifficulty)
+			return matrixstate.SetMaxDifficulty(state, g.MaxDifficulty)
+		}
+	}
+}
+
+func (g *GenesisMState) setReelectionDifficulty(state *state.StateDBManage, num uint64, version string) error {
+	if num == 0 {
+		// 创世区块
+		if g.ReelectionDifficulty != nil {
+			log.Error("Geneis", "不支持的参数", "ReelectionDifficulty")
+			return errors.New("不支持的参数 ReelectionDifficulty")
+		}
+		return nil
+	} else {
+		// 超级区块
+		if g.ReelectionDifficulty == nil {
+			return nil
+		} else {
+			if manversion.VersionCmp(version, manversion.VersionAIMine) < 0 {
+				log.Error("Geneis", "setReelectionDifficulty", "链版本号过低", "version", version)
+				return errors.New("setReelectionDifficulty: 链版本号过低")
+			}
+			log.Info("Geneis", "setReelectionDifficulty", g.ReelectionDifficulty)
+			return matrixstate.SetReelectionDifficulty(state, g.ReelectionDifficulty)
+		}
+	}
+}
+
+func (g *GenesisMState) setBasePowerSlashCfg(state *state.StateDBManage, num uint64, version string) error {
+	if num == 0 {
+		// 创世区块
+		if g.BasePowerSlashCfg != nil {
+			log.Error("Geneis", "不支持的参数", "setBasePowerSlashCfg")
+			return errors.New("不支持的参数 setBasePowerSlashCfg")
+		}
+		return nil
+	} else {
+		if g.BasePowerSlashCfg == nil {
+			return nil
+		}
+		if manversion.VersionCmp(version, manversion.VersionAIMine) < 0 {
+			log.Error("Geneis", "setBasePowerSlashCfg", "链版本号过低", "version", version)
+			return errors.New("setBasePowerSlashCfg: 链版本号过低")
+		}
+		log.Info("Geneis", "BasePowerSlashCfg", g.BasePowerSlashCfg)
+		return matrixstate.SetBasePowerSlashCfg(state, g.BasePowerSlashCfg)
+	}
+
+}
+func (g *GenesisMState) setBasePowerStats(state *state.StateDBManage, num uint64, version string) error {
+	if num == 0 {
+		// 创世区块
+		if g.BasePowerStats != nil {
+			log.Error("Geneis", "不支持的参数", "BasePowerStats")
+			return errors.New("不支持的参数 BasePowerStats")
+		}
+		return nil
+	} else {
+		if g.BasePowerStats == nil {
+			return nil
+		}
+		if manversion.VersionCmp(version, manversion.VersionAIMine) < 0 {
+			log.Error("Geneis", "setBasePowerStats", "链版本号过低", "version", version)
+			return errors.New("setBasePowerStats: 链版本号过低")
+		}
+		log.Info("Geneis", "BasePowerStats", g.BasePowerStats)
+		return matrixstate.SetBasePowerStats(state, g.BasePowerStats)
+	}
+
+}
+func (g *GenesisMState) setBasePowerSlashBlkList(state *state.StateDBManage, num uint64, version string) error {
+	if num == 0 {
+		// 创世区块
+		if g.BasePowerSlashBlackList != nil {
+			log.Error("Geneis", "不支持的参数", "BasePowerSlashBlackList")
+			return errors.New("不支持的参数 BasePowerSlashBlackList")
+		}
+		return nil
+	} else {
+		if g.BasePowerSlashBlackList == nil {
+			return nil
+		}
+		if manversion.VersionCmp(version, manversion.VersionAIMine) < 0 {
+			log.Error("Geneis", "setBasePowerSlashBlkList", "链版本号过低", "version", version)
+			return errors.New("setBasePowerSlashBlkList: 链版本号过低")
+		}
+		log.Info("Geneis", "BasePowerBlackList", g.BasePowerSlashBlackList)
+		return matrixstate.SetBasePowerBlackList(state, g.BasePowerSlashBlackList)
+	}
+
+}
+func (g *GenesisMState) setBasePowerSlashStatsStatus(state *state.StateDBManage, num uint64, version string) error {
+	if num == 0 {
+		// 创世区块
+		if g.BasePowerSlashStatsStatus != nil {
+			log.Error("Geneis", "不支持的参数", "BasePowerSlashStatsStatus")
+			return errors.New("不支持的参数 BasePowerSlashStatsStatus")
+		}
+		return nil
+	} else {
+		if g.BasePowerSlashStatsStatus == nil {
+			return nil
+		}
+		if manversion.VersionCmp(version, manversion.VersionAIMine) < 0 {
+			log.Error("Geneis", "setBasePowerSlashStatsStatus", "链版本号过低", "version", version)
+			return errors.New("setBasePowerSlashStatsStatus: 链版本号过低")
+		}
+		log.Info("Geneis", "BasePowerSlashStatsStatus", g.BasePowerSlashStatsStatus)
+		return matrixstate.SetBasePowerStatsStatus(state, g.BasePowerSlashStatsStatus)
+	}
+
 }

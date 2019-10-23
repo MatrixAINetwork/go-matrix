@@ -11,6 +11,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/pkg/errors"
 )
 
@@ -109,7 +110,7 @@ func (p *ReElection) verifyChgNetTopology(version string, header *types.Header, 
 	if len(header.NetTopology.NetTopologyData) == 0 {
 		return nil
 	}
-	if manparams.VersionCmp(version, manparams.VersionGamma) >= 0 {
+	if manversion.VersionCmp(version, manversion.VersionGamma) >= 0 {
 		for _, item := range onlineConsensusResults {
 			if item.Req.Node == header.Leader {
 				log.Warn(Module, "verifyChgNetTopology", "leader出块共识中存在自己的下线共识", "leader", header.Leader.Hex())
@@ -119,9 +120,9 @@ func (p *ReElection) verifyChgNetTopology(version string, header *types.Header, 
 	}
 	// get online and offline info from header and prev topology
 	offlineNodes, onlineNods := p.parseOnlineState(header)
-	//log.INFO(Module, "header.NetTop", header.NetTopology, "高度", header.Number.Uint64())
-	//log.INFO(Module, "offlineNodes", offlineNodes)
-	//log.INFO(Module, "onlineNods", onlineNods)
+	//log.Info(Module, "header.NetTop", header.NetTopology, "高度", header.Number.Uint64())
+	//log.Info(Module, "offlineNodes", offlineNodes)
+	//log.Info(Module, "onlineNods", onlineNods)
 
 	for _, node := range offlineNodes {
 		if err := p.checkConsensusResult(node, mc.OffLine, header, onlineConsensusResults); err != nil {
@@ -135,9 +136,9 @@ func (p *ReElection) verifyChgNetTopology(version string, header *types.Header, 
 	}
 
 	// generate topology alter info
-	//log.INFO(Module, "p.number", header.Number.Uint64(), "offlineNodes", offlineNodes, "onlineNods", onlineNods)
+	//log.Info(Module, "p.number", header.Number.Uint64(), "offlineNodes", offlineNodes, "onlineNods", onlineNods)
 	alterInfo, err := p.GetTopoChange(header.ParentHash, offlineNodes, onlineNods)
-	//log.INFO(Module, "alterInfo", alterInfo, "err", err)
+	//log.Info(Module, "alterInfo", alterInfo, "err", err)
 	if err != nil {
 		return err
 	}

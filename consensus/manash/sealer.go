@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sync"
 
+	"errors"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
@@ -59,11 +60,15 @@ func GetdifficultyListAndTargetList(difficultyList []*big.Int) minerDifficultyLi
 	return difficultyListAndTargetList
 }
 
+func (manash *Manash) SealAI(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}) (*types.Header, error) {
+	return nil, errors.New("not support interface")
+}
+
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, isBroadcastNode bool) (*types.Header, error) {
-	log.INFO("seal", "挖矿", "开始", "高度", header.Number.Uint64())
-	defer log.INFO("seal", "挖矿", "结束", "高度", header.Number.Uint64())
+func (manash *Manash) SealPow(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *types.Header, isBroadcastNode bool) (*types.Header, error) {
+	log.Info("seal", "挖矿", "开始", "高度", header.Number.Uint64())
+	defer log.Info("seal", "挖矿", "结束", "高度", header.Number.Uint64())
 
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
@@ -99,7 +104,7 @@ func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, st
 	var result *types.Header
 	select {
 	case <-stop:
-		log.INFO("SEALER", "Sealer receive stop mine, curHeader", curHeader.HashNoSignsAndNonce().TerminalString())
+		log.Info("SEALER", "Sealer receive stop mine, curHeader", curHeader.HashNoSignsAndNonce().TerminalString())
 		// Outside abort, stop all miner threads
 		close(abort)
 	case result = <-found:
@@ -109,7 +114,7 @@ func (manash *Manash) Seal(chain consensus.ChainReader, header *types.Header, st
 		// Thread count was changed on user request, restart
 		close(abort)
 		pend.Wait()
-		return manash.Seal(chain, curHeader, stop, isBroadcastNode)
+		return manash.SealPow(chain, curHeader, stop, resultchan, isBroadcastNode)
 	}
 
 	// Wait for all miners to terminate and return the block
@@ -143,15 +148,15 @@ func (manash *Manash) mine(header *types.Header, id int, seed uint64, abort chan
 		target = maxUint256
 	}
 	// Start generating random nonces until we abort or find a good one
-	log.INFO("SEALER begin mine", "target", target, "isBroadcast", isBroadcastNode, "number", curHeader.Number.Uint64(), "diff", header.Difficulty.Uint64())
-	defer log.INFO("SEALER stop mine", "number", curHeader.Number.Uint64(), "diff", header.Difficulty.Uint64())
+	log.Info("SEALER begin mine", "target", target, "isBroadcast", isBroadcastNode, "number", curHeader.Number.Uint64(), "diff", header.Difficulty.Uint64())
+	defer log.Info("SEALER stop mine", "number", curHeader.Number.Uint64(), "diff", header.Difficulty.Uint64())
 	var (
 		attempts = int64(0)
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
 	logger.Trace("Started ethash search for new nonces", "seed", seed)
-	//log.INFO("SEALER", "Started ethash search for new nonces seed", seed)
+	//log.Info("SEALER", "Started ethash search for new nonces seed", seed)
 search:
 	for {
 		select {

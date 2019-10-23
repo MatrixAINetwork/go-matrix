@@ -9,26 +9,28 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"runtime"
-	"sync/atomic"
-
-	"github.com/MatrixAINetwork/go-matrix/ca"
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-
-	"github.com/MatrixAINetwork/go-matrix/mc"
-	"github.com/MatrixAINetwork/go-matrix/reelection"
+	"sync"
+	"time"
 
 	"github.com/MatrixAINetwork/go-matrix/accounts"
 	"github.com/MatrixAINetwork/go-matrix/accounts/signhelper"
+	"github.com/MatrixAINetwork/go-matrix/baseinterface"
 	"github.com/MatrixAINetwork/go-matrix/blkgenor"
+	"github.com/MatrixAINetwork/go-matrix/blkgenor2.0"
 	"github.com/MatrixAINetwork/go-matrix/blkverify"
 	"github.com/MatrixAINetwork/go-matrix/broadcastTx"
+	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
+	"github.com/MatrixAINetwork/go-matrix/consensus/ai"
+	"github.com/MatrixAINetwork/go-matrix/consensus/amhash"
 	"github.com/MatrixAINetwork/go-matrix/consensus/blkmanage"
 	"github.com/MatrixAINetwork/go-matrix/consensus/clique"
 	"github.com/MatrixAINetwork/go-matrix/consensus/manash"
+	"github.com/MatrixAINetwork/go-matrix/consensus/mtxdpos"
 	"github.com/MatrixAINetwork/go-matrix/core"
 	"github.com/MatrixAINetwork/go-matrix/core/bloombits"
 	"github.com/MatrixAINetwork/go-matrix/core/rawdb"
@@ -37,30 +39,26 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/depoistInfo"
 	"github.com/MatrixAINetwork/go-matrix/event"
 	"github.com/MatrixAINetwork/go-matrix/internal/manapi"
+	"github.com/MatrixAINetwork/go-matrix/leaderelect"
+	"github.com/MatrixAINetwork/go-matrix/leaderelect2.0"
+	"github.com/MatrixAINetwork/go-matrix/lessdisk"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/man/downloader"
 	"github.com/MatrixAINetwork/go-matrix/man/filters"
 	"github.com/MatrixAINetwork/go-matrix/man/gasprice"
 	"github.com/MatrixAINetwork/go-matrix/mandb"
+	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/miner"
 	"github.com/MatrixAINetwork/go-matrix/msgsend"
+	"github.com/MatrixAINetwork/go-matrix/olconsensus"
 	"github.com/MatrixAINetwork/go-matrix/p2p"
+	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/MatrixAINetwork/go-matrix/pod"
+	"github.com/MatrixAINetwork/go-matrix/reelection"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"github.com/MatrixAINetwork/go-matrix/rpc"
-
-	"sync"
-
-	"github.com/MatrixAINetwork/go-matrix/baseinterface"
-	//"github.com/MatrixAINetwork/go-matrix/leaderelect"
-	"time"
-
-	"github.com/MatrixAINetwork/go-matrix/leaderelect"
-	"github.com/MatrixAINetwork/go-matrix/leaderelect2.0"
-	"github.com/MatrixAINetwork/go-matrix/lessdisk"
-	"github.com/MatrixAINetwork/go-matrix/olconsensus"
-	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 )
 
 var MsgCenter *mc.Center
@@ -91,7 +89,8 @@ type Matrix struct {
 	chainDb mandb.Database // Block chain database
 
 	eventMux       *event.TypeMux
-	engine         consensus.Engine
+	engine         map[string]consensus.Engine
+	dposEngine     map[string]consensus.DPOSEngine
 	accountManager *accounts.Manager
 
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
@@ -118,6 +117,7 @@ type Matrix struct {
 	random         *baseinterface.Random
 	olConsensus    *olconsensus.TopNodeService
 	blockGen       *blkgenor.BlockGenor
+	blockGenV2     *blkgenorV2.BlockGenor
 	manBlkManage   *blkmanage.ManBlkManage
 	blockVerify    *blkverify.BlockVerify
 	leaderServer   *leaderelect.LeaderIdentity
@@ -163,7 +163,6 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		hd:             ctx.HD,
 		signHelper:     ctx.SignHelper,
 
-		engine:        CreateConsensusEngine(ctx, &config.Manash, chainConfig, chainDb),
 		shutdownChan:  make(chan bool),
 		networkId:     config.NetworkId,
 		gasPrice:      config.GasPrice,
@@ -171,6 +170,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		bloomRequests: make(chan chan *bloombits.Retrieval),
 		bloomIndexer:  NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
+	man.engine, man.dposEngine = CreateConsensusEngineMap(ctx, &config.Manash, chainConfig, chainDb)
 	log.Info("Initialising Matrix protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
@@ -184,7 +184,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
-	man.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, man.chainConfig, man.engine, vmConfig)
+	man.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, man.chainConfig, vmConfig, man.engine, man.dposEngine)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,10 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
-	man.blockchain.Processor([]byte(manparams.VersionAlpha)).SetRandom(man.random)
+	man.blockchain.Processor([]byte(manversion.VersionAlpha)).SetRandom(man.random)
+	man.blockchain.Processor([]byte(manversion.VersionBeta)).SetRandom(man.random)
+	man.blockchain.Processor([]byte(manversion.VersionDelta)).SetRandom(man.random)
+	man.blockchain.Processor([]byte(manversion.VersionAIMine)).SetRandom(man.random)
 	man.olConsensus = olconsensus.NewTopNodeService(man.blockchain)
 	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
 	man.olConsensus.SetValidatorReader(man.blockchain)
@@ -271,6 +274,10 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	if err != nil {
 		return nil, err
 	}
+	man.blockGenV2, err = blkgenorV2.New(man)
+	if err != nil {
+		return nil, err
+	}
 	man.blockVerify, err = blkverify.NewBlockVerify(man)
 	if err != nil {
 		return nil, err
@@ -311,6 +318,31 @@ func CreateDB(ctx *pod.ServiceContext, config *Config, name string) (mandb.Datab
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Matrix service
+func CreateConsensusEngineMap(ctx *pod.ServiceContext, config *manash.Config, chainConfig *params.ChainConfig, db mandb.Database) (map[string]consensus.Engine, map[string]consensus.DPOSEngine) {
+	ai.Init(filepath.Join(ctx.GetConfig().DataDir, "picstore"))
+
+	engineMap := make(map[string]consensus.Engine)
+	alphaEngine := CreateConsensusEngine(ctx, config, chainConfig, db)
+	aiMineEngine := amhash.New(amhash.Config{PowMode: amhash.ModeNormal, PictureStorePath: filepath.Join(ctx.GetConfig().DataDir, "picstore")})
+	aiMineEngine.SetThreads(-1) // Disable CPU mining
+
+	engineMap[manversion.VersionAlpha] = alphaEngine
+	engineMap[manversion.VersionBeta] = alphaEngine
+	engineMap[manversion.VersionGamma] = alphaEngine
+	engineMap[manversion.VersionDelta] = alphaEngine
+	engineMap[manversion.VersionAIMine] = aiMineEngine
+
+	dposEngineMap := make(map[string]consensus.DPOSEngine)
+	alphaDposEngine := mtxdpos.NewMtxDPOS(chainConfig.SimpleMode)
+	dposEngineMap[manversion.VersionAlpha] = alphaDposEngine
+	dposEngineMap[manversion.VersionBeta] = alphaDposEngine
+	dposEngineMap[manversion.VersionGamma] = alphaDposEngine
+	dposEngineMap[manversion.VersionDelta] = alphaDposEngine
+	dposEngineMap[manversion.VersionAIMine] = alphaDposEngine
+
+	return engineMap, dposEngineMap
+}
+
 func CreateConsensusEngine(ctx *pod.ServiceContext, config *manash.Config, chainConfig *params.ChainConfig, db mandb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
@@ -347,7 +379,7 @@ func (s *Matrix) APIs() []rpc.API {
 	apis := manapi.GetAPIs(s.APIBackend)
 
 	// Append any APIs exposed explicitly by the consensus engine
-	apis = append(apis, s.engine.APIs(s.BlockChain())...)
+	apis = append(apis, s.engine[manversion.VersionAlpha].APIs(s.BlockChain())...)
 
 	// Append all the local APIs and return
 
@@ -446,46 +478,32 @@ func (s *Matrix) Manerbase() (eb common.Address, err error) {
 	return common.Address{}, fmt.Errorf("manbase must be explicitly specified")
 }
 
-func (s *Matrix) StartMining(local bool) error {
-	eb, err := s.Manerbase()
-	if err != nil {
-		log.Error("Cannot start mining without manbase", "err", err)
-		return fmt.Errorf("manbase missing: %v", err)
-	}
-	if clique, ok := s.engine.(*clique.Clique); ok {
-		wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
-		if wallet == nil || err != nil {
-			log.Error("Manerbase account unavailable locally", "err", err)
-			return fmt.Errorf("signer missing: %v", err)
-		}
-		clique.Authorize(eb, wallet.SignHash)
-	}
-	if local {
-		// If local (CPU) mining is started, we can disable the transaction rejection
-		// mechanism introduced to speed sync times. CPU mining on mainnet is ludicrous
-		// so none will ever hit this path, whereas marking sync done on CPU mining
-		// will ensure that private networks work in single miner mode too.
-		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)
-	}
-	go s.miner.Start()
-	return nil
-}
-
-func (s *Matrix) StopMining()         { s.miner.Stop() }
+func (s *Matrix) StartCupMining()     { s.miner.StartCpuMining() }
+func (s *Matrix) StopCupMining()      { s.miner.StopCpuMining() }
 func (s *Matrix) IsMining() bool      { return s.miner.Mining() }
 func (s *Matrix) Miner() *miner.Miner { return s.miner }
 
-func (s *Matrix) AccountManager() *accounts.Manager { return s.accountManager }
-func (s *Matrix) BlockChain() *core.BlockChain      { return s.blockchain }
-func (s *Matrix) TxPool() *core.TxPoolManager       { return s.txPool } //Y
-func (s *Matrix) EventMux() *event.TypeMux          { return s.eventMux }
-func (s *Matrix) Engine() consensus.Engine          { return s.engine }
-func (s *Matrix) DPOSEngine() consensus.DPOSEngine {
-	block := s.blockchain.CurrentBlock()
-	if nil == block {
-		s.blockchain.DPOSEngine([]byte("default"))
+func (s *Matrix) AccountManager() *accounts.Manager      { return s.accountManager }
+func (s *Matrix) BlockChain() *core.BlockChain           { return s.blockchain }
+func (s *Matrix) TxPool() *core.TxPoolManager            { return s.txPool } //Y
+func (s *Matrix) EventMux() *event.TypeMux               { return s.eventMux }
+func (s *Matrix) EngineAll() map[string]consensus.Engine { return s.engine }
+func (s *Matrix) Engine(version string) consensus.Engine {
+	engine, ok := s.engine[version]
+	if ok {
+		return engine
+	} else {
+		return s.engine[manversion.VersionAlpha]
 	}
-	return s.blockchain.DPOSEngine(s.blockchain.CurrentBlock().Version())
+}
+
+func (s *Matrix) DPOSEngine(version string) consensus.DPOSEngine {
+	engine, ok := s.dposEngine[version]
+	if ok {
+		return engine
+	} else {
+		return s.dposEngine[manversion.VersionAlpha]
+	}
 }
 func (s *Matrix) ChainDb() mandb.Database                  { return s.chainDb }
 func (s *Matrix) IsListening() bool                        { return true } // Always listening

@@ -98,16 +98,16 @@ func (p *StateProcessor) getGas(currentState *state.StateDBManage, preState *sta
 		return big.NewInt(0)
 	}
 	allGas := new(big.Int).Mul(gas, new(big.Int).SetUint64(gasprice.Uint64()))
-	log.INFO("奖励", coinType+"交易费奖励总额", allGas.String())
+	log.Info("奖励", coinType+"交易费奖励总额", allGas.String())
 	balance := currentState.GetBalance(coinType, From)
 
 	if len(balance) == 0 {
-		log.WARN("奖励", coinType+"交易费奖励账户余额不合法", "")
+		log.Warn("奖励", coinType+"交易费奖励账户余额不合法", "")
 		return big.NewInt(0)
 	}
 
 	if balance[common.MainAccount].Balance.Cmp(big.NewInt(0)) < 0 || balance[common.MainAccount].Balance.Cmp(allGas) < 0 {
-		log.WARN("奖励", coinType+"交易费奖励账户余额不合法，余额", balance)
+		log.Warn("奖励", coinType+"交易费奖励账户余额不合法，余额", balance)
 		return big.NewInt(0)
 	}
 	return allGas
@@ -146,16 +146,24 @@ func (p *StateProcessor) ProcessReward(st *state.StateDBManage, header *types.He
 		}
 	}
 
-	blkReward := blkreward.New(p.bc, st, preState, ppreState)
+	blkReward := blkreward.New(p.bc, st, preState, ppreState, header.AICoinbase)
 	rewardList := make([]common.RewarTx, 0)
 	if nil != blkReward {
 		minersRewardMap := blkReward.CalcMinerRewards(header.Number.Uint64(), header.ParentHash)
 		if 0 != len(minersRewardMap) {
 			rewardList = append(rewardList, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.BlkMinerRewardAddress, To_Amont: minersRewardMap, RewardTyp: common.RewardMinerType})
 		}
+		canPaySelectReward := blkReward.CanPaySelectValidatorReward(header.Number.Uint64())
+		validatorsRewardMap := blkReward.CalcValidatorRewards(header.Leader, header.Number.Uint64(), canPaySelectReward)
+		if canPaySelectReward {
+			err := blkReward.SetPaySelectValidatorReward(header.Number.Uint64())
+			if nil != err {
+				log.Error("奖励", "设置参与验证者奖励状态错误", err)
+			}
 
-		validatorsRewardMap := blkReward.CalcValidatorRewards(header.Leader, header.Number.Uint64())
+		}
 		if 0 != len(validatorsRewardMap) {
+
 			rewardList = append(rewardList, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.BlkValidatorRewardAddress, To_Amont: validatorsRewardMap, RewardTyp: common.RewardValidatorType})
 		}
 	}
@@ -200,7 +208,8 @@ func (p *StateProcessor) processMultiCoinReward(usedGas map[string]*big.Int, cur
 		gas = value
 	}
 	allGas = p.getGas(currentState, preState, params.MAN_COIN, gas, common.TxGasRewardAddress)
-	txsRewardMap := txsReward.CalcNodesRewards(allGas, header.Leader, header.Number.Uint64(), header.ParentHash, params.MAN_COIN)
+	canPaySelectReward := txsReward.CanPaySelectValidatorReward(header.Number.Uint64())
+	txsRewardMap := txsReward.CalcNodesRewards(allGas, header.Leader, header.Number.Uint64(), header.ParentHash, params.MAN_COIN, canPaySelectReward)
 	if 0 != len(txsRewardMap) {
 
 		rewardList = append(rewardList, common.RewarTx{CoinRange: params.MAN_COIN, CoinType: params.MAN_COIN, Fromaddr: common.TxGasRewardAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
@@ -212,10 +221,17 @@ func (p *StateProcessor) processMultiCoinReward(usedGas map[string]*big.Int, cur
 		} else {
 			allGas = new(big.Int).SetUint64(0)
 		}
-		txsRewardMap := txsReward.CalcNodesRewards(allGas, header.Leader, header.Number.Uint64(), header.ParentHash, config.CoinRange)
+		txsRewardMap := txsReward.CalcNodesRewards(allGas, header.Leader, header.Number.Uint64(), header.ParentHash, config.CoinRange, canPaySelectReward)
 		if 0 != len(txsRewardMap) {
 			rewardList = append(rewardList, common.RewarTx{CoinRange: config.CoinRange, CoinType: config.CoinType, Fromaddr: config.CoinAddress, To_Amont: txsRewardMap, RewardTyp: common.RewardTxsType})
 		}
+	}
+	if canPaySelectReward {
+		err := txsReward.SetPaySelectValidatorReward(header.Number.Uint64())
+		if nil != err {
+			log.Error("奖励", "设置参与验证者奖励状态错误", err)
+		}
+
 	}
 	return util.CointypeCheck(currentState, rewardList)
 }
@@ -610,25 +626,33 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 		log.Trace("BlockChain insertChain in3 Process Block err1")
 		return nil, nil, 0, err
 	}
-
-	uptimeMap, err := p.bc.ProcessUpTime(statedb, block.Header())
-	if err != nil {
+	if err = p.bc.SetBlockDurationStatus(block.Header(), statedb); err != nil {
 		log.Trace("BlockChain insertChain in3 Process Block err2")
-		p.bc.reportBlock(block, nil, err)
 		return nil, nil, 0, err
 	}
-
-	err = p.bc.ProcessBlockGProduceSlash(string(block.Version()), statedb, block.Header())
+	uptimeMap, err := p.bc.ProcessUpTime(statedb, block.Header())
 	if err != nil {
 		log.Trace("BlockChain insertChain in3 Process Block err3")
 		p.bc.reportBlock(block, nil, err)
 		return nil, nil, 0, err
 	}
 
+	err = p.bc.ProcessBlockGProduceSlash(string(block.Version()), statedb, block.Header())
+	if err != nil {
+		log.Trace("BlockChain insertChain in3 Process Block err4")
+		p.bc.reportBlock(block, nil, err)
+		return nil, nil, 0, err
+	}
+	err = p.bc.BasePowerGProduceSlash(string(block.Version()), statedb, block.Header())
+	if err != nil {
+		log.Trace("BlockChain insertChain in3 Process Block err5")
+		p.bc.reportBlock(block, nil, err)
+		return nil, nil, 0, err
+	}
 	// Process block using the parent state as reference point.
 	logs, usedGas, err := p.ProcessTxs(block, statedb, cfg, uptimeMap)
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err4")
+		log.Trace("BlockChain insertChain in3 Process Block err6")
 		p.bc.reportBlock(block, nil, err)
 		return nil, logs, usedGas, err
 	}
@@ -636,10 +660,14 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 	// Process matrix state
 	err = p.bc.matrixProcessor.ProcessMatrixState(block, string(parent.Version()), statedb)
 	if err != nil {
-		log.Trace("BlockChain insertChain in3 Process Block err5")
+		log.Trace("BlockChain insertChain in3 Process Block err7")
 		return nil, logs, usedGas, err
 	}
-
+	err = p.bc.UpdateCurrencyHeaderState(statedb, string(block.Version()), block.Root()[1:], block.Sharding()[1:])
+	if err != nil {
+		log.Trace("BlockChain insertChain in3 Process Block err8")
+		return nil, logs, usedGas, err
+	}
 	return nil, logs, usedGas, nil
 }
 

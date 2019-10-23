@@ -9,15 +9,14 @@ import (
 	"encoding/binary"
 	"io"
 	"math/big"
+	"sort"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
-	"sort"
+	"github.com/MatrixAINetwork/go-matrix/params"
 
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
-	"github.com/MatrixAINetwork/go-matrix/crypto"
 	"github.com/MatrixAINetwork/go-matrix/crypto/sha3"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
@@ -60,185 +59,6 @@ func (n BlockNonce) MarshalText() ([]byte, error) {
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (n *BlockNonce) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("BlockNonce", input, n[:])
-}
-
-//go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
-
-// Header represents a block header in the Matrix blockchain.
-type Header struct {
-	ParentHash  common.Hash        `json:"parentHash"       gencodec:"required"`
-	UncleHash   common.Hash        `json:"sha3Uncles"       gencodec:"required"`
-	Leader      common.Address     `json:"leader"            gencodec:"required"`
-	Coinbase    common.Address     `json:"miner"            gencodec:"required"`
-	Roots       []common.CoinRoot  `json:"stateRoot"        gencodec:"required"`
-	Sharding    []common.Coinbyte  `json:"sharding"        gencodec:"required"`
-	Difficulty  *big.Int           `json:"difficulty"       gencodec:"required"`
-	Number      *big.Int           `json:"number"           gencodec:"required"`
-	GasLimit    uint64             `json:"gasLimit"         gencodec:"required"`
-	GasUsed     uint64             `json:"gasUsed"          gencodec:"required"`
-	Time        *big.Int           `json:"timestamp"        gencodec:"required"`
-	Elect       []common.Elect     `json:"elect"        gencodec:"required"`
-	NetTopology common.NetTopology `json:"nettopology"        gencodec:"required"`
-	Signatures  []common.Signature `json:"signatures"        gencodec:"required"`
-
-	Extra             []byte             `json:"extraData"        gencodec:"required"`
-	MixDigest         common.Hash        `json:"mixHash"          gencodec:"required"`
-	Nonce             BlockNonce         `json:"nonce"            gencodec:"required"`
-	Version           []byte             `json:"version"              gencodec:"required"`
-	VersionSignatures []common.Signature `json:"versionSignatures"              gencodec:"required"`
-	VrfValue          []byte             `json:"vrfvalue"        gencodec:"required"`
-}
-
-// field type overrides for gencodec
-type headerMarshaling struct {
-	Difficulty *hexutil.Big
-	Number     *hexutil.Big
-	GasLimit   hexutil.Uint64
-	GasUsed    hexutil.Uint64
-	Time       *hexutil.Big
-	Extra      hexutil.Bytes
-	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
-}
-
-// Hash returns the block hash of the header, which is simply the keccak256 hash of its
-// RLP encoding.
-func (h *Header) Hash() common.Hash {
-	return rlpHash(h)
-	//return rlpHash([]interface{}{
-	//	h.ParentHash,
-	//	h.UncleHash,
-	//	h.Leader,
-	//	h.Roots,
-	//	h.Difficulty,
-	//	h.Number,
-	//	h.GasLimit,
-	//	h.GasUsed,
-	//	h.Time,
-	//	h.Elect,
-	//	h.NetTopology,
-	//	h.Signatures,
-	//	h.Extra,
-	//	h.Version,
-	//	h.VersionSignatures,
-	//})
-}
-
-// HashNoNonce returns the hash which is used as input for the proof-of-work search.
-func (h *Header) HashNoNonce() common.Hash {
-	return rlpHash([]interface{}{
-		h.ParentHash,
-		h.UncleHash,
-		h.Leader,
-		h.Roots,
-		h.Sharding,
-		//h.TxHash,
-		//h.ReceiptHash,
-		//h.Bloom,
-		h.Difficulty,
-		h.Number,
-		h.GasLimit,
-		h.GasUsed,
-		h.Time,
-		h.Elect,
-		h.NetTopology,
-		h.Signatures,
-		h.Extra,
-		h.Version,
-		h.VersionSignatures,
-	})
-}
-func (h *Header) HashNoSigns() common.Hash {
-	return rlpHash([]interface{}{
-		h.ParentHash,
-		h.UncleHash,
-		h.Leader,
-		h.Coinbase,
-		h.Roots,
-		h.Sharding,
-		//h.TxHash,
-		//h.ReceiptHash,
-		//h.Bloom,
-		h.Difficulty,
-		h.Number,
-		h.GasLimit,
-		h.GasUsed,
-		h.Time,
-		h.Elect,
-		h.NetTopology,
-		h.Extra,
-		h.MixDigest,
-		h.Nonce,
-		h.Version,
-		h.VersionSignatures,
-	})
-}
-func (h *Header) HashNoSignsAndNonce() common.Hash {
-	return rlpHash([]interface{}{
-		h.ParentHash,
-		h.UncleHash,
-		h.Leader,
-		h.Roots,
-		h.Sharding,
-		//h.TxHash,
-		//h.ReceiptHash,
-		//h.Bloom,
-		h.Difficulty,
-		h.Number,
-		h.GasLimit,
-		h.GasUsed,
-		h.Time,
-		h.Elect,
-		h.NetTopology,
-		h.Extra,
-		h.Version,
-		h.VersionSignatures,
-	})
-}
-
-// Size returns the approximate memory used by all internal contents. It is used
-// to approximate and limit the memory consumption of various caches.
-func (h *Header) Size() common.StorageSize {
-	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
-}
-
-func (h *Header) SignAccounts() []common.VerifiedSign {
-	accounts := make([]common.VerifiedSign, 0)
-	hash := h.HashNoSignsAndNonce().Bytes()
-	for i := 0; i < len(h.Signatures); i++ {
-		sign := h.Signatures[i]
-		signAccount, validate, err := crypto.VerifySignWithValidate(hash, sign.Bytes())
-		if err != nil {
-			log.WARN("header SignAccounts", "VerifySignWithValidate err", err, "sign", sign)
-			continue
-		}
-
-		if !validate {
-			log.WARN("header SignAccounts", "VerifySignWithValidate illegal", validate, "sign", sign)
-			continue
-		}
-		accounts = append(accounts, common.VerifiedSign{
-			Sign:     sign,
-			Account:  signAccount,
-			Validate: validate,
-			Stock:    0,
-		})
-	}
-	return accounts
-}
-
-func (h *Header) IsSuperHeader() bool {
-	return h.Leader == common.HexToAddress("0x8111111111111111111111111111111111111111")
-}
-
-func (h *Header) SuperBlockSeq() uint64 {
-	if h.Number.Uint64() == 0 {
-		return 0
-	}
-	if len(h.Extra) < 8 {
-		return 0
-	}
-
-	return uint64(binary.BigEndian.Uint64(h.Extra[:8]))
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
@@ -607,6 +427,122 @@ func NewBlock(header *Header, currencyBlocks []CurrencyBlock, uncles []*Header) 
 	return b
 }
 
+func NewBlockMan(header *Header, currencyBlocks []CurrencyBlock, uncles []*Header) *Block {
+	b := &Block{header: CopyHeader(header), td: new(big.Int)}
+	ischeck := len(b.header.Roots) > 0
+	// TODO: panic if len(txs) != len(receipts)
+	for i := 0; i < len(currencyBlocks); i++ {
+		if currencyBlocks[i].CurrencyName != params.MAN_COIN {
+			continue
+		}
+		if len(currencyBlocks[i].Transactions.GetTransactions()) == 0 {
+			if ischeck {
+				for j, coinRoot := range b.header.Roots {
+					if coinRoot.Cointyp == currencyBlocks[i].CurrencyName {
+						b.header.Roots[j].TxHash = DeriveShaHash(currencyBlocks[i].Transactions.TxHashs)
+						b.header.Roots[j].ReceiptHash = DeriveShaHash(currencyBlocks[i].Receipts.RsHashs)
+						b.header.Roots[j].Bloom = CreateBloom(currencyBlocks[i].Receipts.GetReceipts())
+						b.header.Roots[j].Cointyp = currencyBlocks[i].CurrencyName
+						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+							Receipts: currencyBlocks[i].Receipts})
+					}
+				}
+			} else {
+				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlocks[i].CurrencyName, TxHash: EmptyRootHash, ReceiptHash: EmptyRootHash})
+			}
+		} else {
+			if ischeck {
+				for j, coinRoot := range b.header.Roots {
+					if coinRoot.Cointyp == currencyBlocks[i].CurrencyName {
+						b.header.Roots[j].TxHash = DeriveShaHash(currencyBlocks[i].Transactions.TxHashs)
+						b.header.Roots[j].ReceiptHash = DeriveShaHash(currencyBlocks[i].Receipts.RsHashs)
+						b.header.Roots[j].Bloom = CreateBloom(currencyBlocks[i].Receipts.GetReceipts())
+						b.header.Roots[j].Cointyp = currencyBlocks[i].CurrencyName
+						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+							Receipts: currencyBlocks[i].Receipts})
+					} else {
+						log.Info("coin name different", "header", coinRoot.Cointyp, "block", currencyBlocks[i].CurrencyName)
+					}
+				}
+			} else {
+				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlocks[i].CurrencyName, TxHash: DeriveShaHash(currencyBlocks[i].Transactions.TxHashs),
+					ReceiptHash: DeriveShaHash(currencyBlocks[i].Receipts.RsHashs), Bloom: CreateBloom(currencyBlocks[i].Receipts.GetReceipts())})
+				b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+					Receipts: currencyBlocks[i].Receipts})
+			}
+
+		}
+	}
+
+	if len(uncles) == 0 {
+		b.header.UncleHash = EmptyUncleHash
+	} else {
+		b.header.UncleHash = CalcUncleHash(uncles)
+		b.uncles = make([]*Header, len(uncles))
+		for i := range uncles {
+			b.uncles[i] = CopyHeader(uncles[i])
+		}
+	}
+	return b
+}
+
+// NewBlock creates a new block. The input data is copied,
+// changes to header and to the field values will not affect the
+// block.
+//
+// The values of TxHash, UncleHash, ReceiptHash and Bloom in header
+// are ignored and set to values derived from the given txs, uncles
+// and receipts.
+func NewBlockCurrency(header *Header, currencyBlocks []CurrencyBlock, uncles []*Header) *Block {
+	b := &Block{header: CopyHeader(header), td: new(big.Int)}
+	ischeck := len(b.header.Roots) > 0
+	// TODO: panic if len(txs) != len(receipts)
+	for i := 0; i < len(currencyBlocks); i++ {
+		if currencyBlocks[i].CurrencyName == params.MAN_COIN {
+			continue
+		}
+		if len(currencyBlocks[i].Transactions.GetTransactions()) == 0 {
+			if ischeck {
+				for j, coinRoot := range b.header.Roots {
+					if coinRoot.Cointyp == currencyBlocks[i].CurrencyName {
+						b.header.Roots[j].TxHash = DeriveShaHash(currencyBlocks[i].Transactions.TxHashs)
+						b.header.Roots[j].ReceiptHash = DeriveShaHash(currencyBlocks[i].Receipts.RsHashs)
+						b.header.Roots[j].Bloom = CreateBloom(currencyBlocks[i].Receipts.GetReceipts())
+						b.header.Roots[j].Cointyp = currencyBlocks[i].CurrencyName
+						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+							Receipts: currencyBlocks[i].Receipts})
+					}
+				}
+			} else {
+				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlocks[i].CurrencyName, TxHash: EmptyRootHash, ReceiptHash: EmptyRootHash})
+			}
+		} else {
+			if ischeck {
+				for j, coinRoot := range b.header.Roots {
+					if coinRoot.Cointyp == currencyBlocks[i].CurrencyName {
+						b.header.Roots[j].TxHash = DeriveShaHash(currencyBlocks[i].Transactions.TxHashs)
+						b.header.Roots[j].ReceiptHash = DeriveShaHash(currencyBlocks[i].Receipts.RsHashs)
+						b.header.Roots[j].Bloom = CreateBloom(currencyBlocks[i].Receipts.GetReceipts())
+						b.header.Roots[j].Cointyp = currencyBlocks[i].CurrencyName
+						b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+							Receipts: currencyBlocks[i].Receipts})
+					} else {
+						log.Info("coin name different", "header", coinRoot.Cointyp, "block", currencyBlocks[i].CurrencyName)
+					}
+				}
+			} else {
+				b.header.Roots = append(b.header.Roots, common.CoinRoot{Cointyp: currencyBlocks[i].CurrencyName, TxHash: DeriveShaHash(currencyBlocks[i].Transactions.TxHashs),
+					ReceiptHash: DeriveShaHash(currencyBlocks[i].Receipts.RsHashs), Bloom: CreateBloom(currencyBlocks[i].Receipts.GetReceipts())})
+				b.currencies = append(b.currencies, CurrencyBlock{CurrencyName: currencyBlocks[i].CurrencyName, Transactions: currencyBlocks[i].Transactions,
+					Receipts: currencyBlocks[i].Receipts})
+			}
+
+		}
+	}
+
+	return b
+}
+
 // NewBlockWithHeader creates a block with the given header data. The
 // header data is copied, changes to header and to the field values
 // will not affect the block.
@@ -692,6 +628,10 @@ func CopyHeader(h *Header) *Header {
 		cpy.VrfValue = make([]byte, len(h.VrfValue))
 		copy(cpy.VrfValue, h.VrfValue)
 	}
+	if len(h.BasePowers) > 0 {
+		cpy.BasePowers = make([]BasePowers, len(h.BasePowers))
+		copy(cpy.BasePowers, h.BasePowers)
+	}
 	return &cpy
 }
 
@@ -733,6 +673,13 @@ func (b *Block) SignAccounts() []common.VerifiedSign {
 
 func (b *Block) IsSuperBlock() bool {
 	return b.header.IsSuperHeader()
+}
+
+func (b *Block) IsPowBlock(broadcastInterval uint64) bool {
+	return b.header.IsPowHeader(broadcastInterval)
+}
+func (b *Block) IsAIBlock(broadcastInterval uint64) bool {
+	return b.header.IsAIHeader(broadcastInterval)
 }
 
 // TODO: copies
@@ -782,6 +729,7 @@ func (b *Block) UncleHash() common.Hash               { return b.header.UncleHas
 func (b *Block) Extra() []byte                        { return common.CopyBytes(b.header.Extra) }
 func (b *Block) Version() []byte                      { return b.header.Version }
 func (b *Block) VersionSignature() []common.Signature { return b.header.VersionSignatures }
+func (b *Block) Signatures() []common.Signature       { return b.header.Signatures }
 
 func (b *Block) Header() *Header { return CopyHeader(b.header) }
 

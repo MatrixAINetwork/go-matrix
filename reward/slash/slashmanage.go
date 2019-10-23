@@ -18,12 +18,12 @@ type SlashOperator interface {
 func ManageNew(chain util.ChainReader, st util.StateDB, preSt *state.StateDBManage) SlashOperator {
 	data, err := matrixstate.GetSlashCalc(preSt)
 	if nil != err {
-		log.ERROR(PackageName, "获取状态树配置错误")
+		log.Error(PackageName, "获取状态树配置错误")
 		return nil
 	}
 
 	if data == util.Stop {
-		log.ERROR(PackageName, "停止发放区块奖励", "")
+		log.Error(PackageName, "停止发放区块奖励", "")
 		return nil
 	}
 	switch data {
@@ -32,7 +32,7 @@ func ManageNew(chain util.ChainReader, st util.StateDB, preSt *state.StateDBMana
 	case util.CalcDelta:
 		return DeltaNew(chain, st, preSt)
 	default:
-		log.ERROR(PackageName, "获取惩罚计算引擎不存在")
+		log.Error(PackageName, "获取惩罚计算引擎不存在")
 		return nil
 
 	}

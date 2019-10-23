@@ -115,12 +115,16 @@ func newStatedb(root common.Hash, db Database) (*StateDB, error) {
 		hash1 := common.BytesToHash(b)
 		st.NewBTrie(common.ExtraRevocable)
 		btrie.RestoreBtree(&st.revocablebtrie, nil, hash1, db.TrieDB(), common.ExtraRevocable, st)
+	}else{
+		return nil,err1
 	}
 	b2, err2 := st.tryGetMatrixData(types.RlpHash(common.StateDBTimeBtree))
 	if err2 == nil {
 		hash2 := common.BytesToHash(b2)
 		st.NewBTrie(common.ExtraTimeTxType)
 		btrie.RestoreBtree(&st.timebtrie, nil, hash2, db.TrieDB(), common.ExtraTimeTxType, st)
+	}else{
+		return nil,err2
 	}
 	return st, nil
 }
@@ -533,7 +537,7 @@ func (self *StateDB) GetEntrustFromByTime(authFrom common.Address, time uint64) 
 	}
 	addressList := make([]common.Address, 0)
 	for _, entrustData := range entrustDataList {
-		if entrustData.EnstrustSetType == params.EntrustByTime && entrustData.IsEntrustGas == true && entrustData.StartHeight <= time && entrustData.EndHeight >= time {
+		if entrustData.EnstrustSetType == params.EntrustByTime && entrustData.IsEntrustGas == true && entrustData.StartTime <= time && entrustData.EndTime >= time {
 			entrustFrom, err := base58.Base58DecodeToAddress(entrustData.EntrustAddres) //string地址转0x地址
 			if err != nil {
 				return nil

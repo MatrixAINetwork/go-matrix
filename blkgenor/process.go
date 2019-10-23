@@ -180,12 +180,12 @@ func (p *Process) AddInsertBlockInfo(blockInsert *mc.HD_BlockInsertNotify) {
 
 func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 	if blkInsertMsg == nil || blkInsertMsg.Header == nil {
-		log.WARN(p.logExtraInfo(), "区块插入", "消息为空")
+		log.Warn(p.logExtraInfo(), "区块插入", "消息为空")
 		return
 	}
 
 	blockHash := blkInsertMsg.Header.Hash()
-	log.INFO(p.logExtraInfo(), "区块插入", "启动", "区块 hash", blockHash.TerminalString(), "from", blkInsertMsg.From.Hex(), "高度", p.number)
+	log.Info(p.logExtraInfo(), "区块插入", "启动", "区块 hash", blockHash.TerminalString(), "from", blkInsertMsg.From.Hex(), "高度", p.number)
 
 	if p.checkRepeatInsert(blockHash) {
 		log.Trace(p.logExtraInfo(), "插入区块已处理", p.number, "区块 hash", blockHash.TerminalString())
@@ -194,14 +194,14 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 
 	parentBlock := p.blockChain().GetBlockByHash(blkInsertMsg.Header.ParentHash)
 	if parentBlock == nil {
-		log.WARN(p.logExtraInfo(), "区块插入", "缺少父区块, 进行fetch", "父区块 hash", blkInsertMsg.Header.ParentHash.TerminalString())
+		log.Warn(p.logExtraInfo(), "区块插入", "缺少父区块, 进行fetch", "父区块 hash", blkInsertMsg.Header.ParentHash.TerminalString())
 		p.backend().FetcherNotify(blkInsertMsg.Header.ParentHash, p.number-1, blkInsertMsg.From)
 		return
 	}
 
 	bcInterval, err := p.blockChain().GetBroadcastIntervalByHash(blkInsertMsg.Header.ParentHash)
 	if err != nil {
-		log.ERROR(p.logExtraInfo(), "区块插入", "获取广播周期错误", "err", err)
+		log.Error(p.logExtraInfo(), "区块插入", "获取广播周期错误", "err", err)
 		return
 	}
 
@@ -211,7 +211,7 @@ func (p *Process) startBlockInsert(blkInsertMsg *mc.HD_BlockInsertNotify) {
 	}
 
 	if _, err := p.insertAndBcBlock(false, header.Leader, header); err != nil {
-		log.WARN(p.logExtraInfo(), "区块插入失败, err", err, "fetch 高度", p.number, "fetch hash", blockHash.TerminalString(), "source", blkInsertMsg.From.Hex())
+		log.Warn(p.logExtraInfo(), "区块插入失败, err", err, "fetch 高度", p.number, "fetch hash", blockHash.TerminalString(), "source", blkInsertMsg.From.Hex())
 		p.backend().FetcherNotify(blockHash, p.number, blkInsertMsg.From)
 	}
 
@@ -222,27 +222,27 @@ func (p *Process) canInsertBlock(bcInterval *mc.BCIntervalInfo, header *types.He
 	if bcInterval.IsBroadcastNumber(p.number) {
 		signAccount, _, err := crypto.VerifySignWithValidate(header.HashNoSignsAndNonce().Bytes(), header.Signatures[0].Bytes())
 		if err != nil {
-			log.ERROR(p.logExtraInfo(), "广播区块插入消息非法, 签名解析错误", err)
+			log.Error(p.logExtraInfo(), "广播区块插入消息非法, 签名解析错误", err)
 			return false
 		}
 
 		if signAccount != header.Leader {
-			log.WARN(p.logExtraInfo(), "广播区块插入消息非法, 签名不匹配，签名人", signAccount.Hex(), "Leader", header.Leader.Hex())
+			log.Warn(p.logExtraInfo(), "广播区块插入消息非法, 签名不匹配，签名人", signAccount.Hex(), "Leader", header.Leader.Hex())
 			return false
 		}
 
 		if role, _ := ca.GetAccountOriginalRole(signAccount, header.ParentHash); common.RoleBroadcast != role {
-			log.WARN(p.logExtraInfo(), "广播区块插入消息非法，签名人不是广播身份, 角色", role.String())
+			log.Warn(p.logExtraInfo(), "广播区块插入消息非法，签名人不是广播身份, 角色", role.String())
 			return false
 		}
 	} else {
 		if err := p.blockChain().DPOSEngine(header.Version).VerifyBlock(p.blockChain(), header); err != nil {
-			log.ERROR(p.logExtraInfo(), "区块插入消息DPOS共识失败", err)
+			log.Error(p.logExtraInfo(), "区块插入消息DPOS共识失败", err)
 			return false
 		}
 
 		if err := p.blockChain().Engine(header.Version).VerifySeal(p.blockChain(), header); err != nil {
-			log.ERROR(p.logExtraInfo(), "区块插入消息POW验证失败", err)
+			log.Error(p.logExtraInfo(), "区块插入消息POW验证失败", err)
 			return false
 		}
 	}
@@ -251,7 +251,7 @@ func (p *Process) canInsertBlock(bcInterval *mc.BCIntervalInfo, header *types.He
 
 func (p *Process) startBcBlock() {
 	if p.checkState(StateBlockBroadcast) == false {
-		log.WARN(p.logExtraInfo(), "准备向验证者和广播节点广播区块，状态错误", p.state.String(), "区块高度", p.number-1)
+		log.Warn(p.logExtraInfo(), "准备向验证者和广播节点广播区块，状态错误", p.state.String(), "区块高度", p.number-1)
 		return
 	}
 
@@ -260,11 +260,15 @@ func (p *Process) startBcBlock() {
 	}
 
 	parentHeader := p.blockChain().GetHeaderByNumber(p.number - 1)
+	if parentHeader == nil {
+		log.Error(p.logExtraInfo(), "无法获取父区块", "高度", p.number)
+		return
+	}
 	parentHash := parentHeader.Hash()
 
 	bcInterval, err := p.blockChain().GetBroadcastIntervalByHash(parentHash)
 	if err != nil {
-		log.ERROR(p.logExtraInfo(), "区块广播阶段", "获取广播周期错误", "err", err)
+		log.Error(p.logExtraInfo(), "区块广播阶段", "获取广播周期错误", "err", err)
 		return
 	}
 
@@ -290,11 +294,11 @@ func (p *Process) canBcBlock() bool {
 			return true
 		}
 		if (p.curLeader == common.Address{}) {
-			log.WARN(p.logExtraInfo(), "区块广播阶段", "当前leader为空，等待leader消息", "高度", p.number)
+			log.Warn(p.logExtraInfo(), "区块广播阶段", "当前leader为空，等待leader消息", "高度", p.number)
 			return false
 		}
 	default:
-		log.WARN(p.logExtraInfo(), "区块广播阶段, 错误的身份", p.role.String(), "高度", p.number)
+		log.Warn(p.logExtraInfo(), "区块广播阶段, 错误的身份", p.role.String(), "高度", p.number)
 		return false
 	}
 	return true
@@ -302,7 +306,7 @@ func (p *Process) canBcBlock() bool {
 
 func (p *Process) startHeaderGen() {
 	if p.checkState(StateHeaderGen) == false {
-		log.WARN(p.logExtraInfo(), "准备开始生成验证请求，状态错误", p.state.String(), "高度", p.number)
+		log.Warn(p.logExtraInfo(), "准备开始生成验证请求，状态错误", p.state.String(), "高度", p.number)
 		return
 	}
 
@@ -310,17 +314,17 @@ func (p *Process) startHeaderGen() {
 		return
 	}
 
-	log.INFO(p.logExtraInfo(), "开始生成验证请求, 高度", p.number)
+	log.Info(p.logExtraInfo(), "开始生成验证请求, 高度", p.number)
 	if p.bcInterval.IsBroadcastNumber(p.number) {
 		err := p.processBcHeaderGen()
 		if err != nil {
-			log.ERROR(p.logExtraInfo(), "生成普通区块验证请求错误", err, "高度", p.number)
+			log.Error(p.logExtraInfo(), "生成普通区块验证请求错误", err, "高度", p.number)
 			return
 		}
 	} else {
 		err := p.processHeaderGen()
 		if err != nil {
-			log.ERROR(p.logExtraInfo(), "生成广播区块验证请求错误", err, "高度", p.number)
+			log.Error(p.logExtraInfo(), "生成广播区块验证请求错误", err, "高度", p.number)
 			return
 		}
 	}
@@ -332,33 +336,33 @@ func (p *Process) canGenHeader() bool {
 	switch p.role {
 	case common.RoleBroadcast:
 		if false == p.bcInterval.IsBroadcastNumber(p.number) {
-			log.DEBUG(p.logExtraInfo(), "广播身份，当前不是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
+			log.Debug(p.logExtraInfo(), "广播身份，当前不是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
 			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 	case common.RoleValidator:
 		if p.bcInterval.IsBroadcastNumber(p.number) {
-			log.DEBUG(p.logExtraInfo(), "验证者身份，当前是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
+			log.Debug(p.logExtraInfo(), "验证者身份，当前是广播区块，不生成区块", "直接进入挖矿结果验证阶段", "高度", p.number)
 			p.state = StateMinerResultVerify
 			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 
 		if (p.curLeader == common.Address{}) {
-			log.WARN(p.logExtraInfo(), "准备开始生成验证请求", "当前leader为空，等待leader消息", "高度", p.number)
+			log.Warn(p.logExtraInfo(), "准备开始生成验证请求", "当前leader为空，等待leader消息", "高度", p.number)
 			return false
 		}
 
 		if p.curLeader != ca.GetDepositAddress() {
-			log.DEBUG(p.logExtraInfo(), "自己不是当前leader，进入挖矿结果验证阶段, 高度", p.number, "地址", ca.GetDepositAddress().Hex(), "leader", p.curLeader.Hex())
+			log.Debug(p.logExtraInfo(), "自己不是当前leader，进入挖矿结果验证阶段, 高度", p.number, "地址", ca.GetDepositAddress().Hex(), "leader", p.curLeader.Hex())
 			p.state = StateMinerResultVerify
 			p.processMinerResultVerify(p.curLeader, true)
 			return false
 		}
 
 	default:
-		log.WARN(p.logExtraInfo(), "错误的身份", p.role.String(), "高度", p.number)
+		log.Warn(p.logExtraInfo(), "错误的身份", p.role.String(), "高度", p.number)
 		return false
 	}
 

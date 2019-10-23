@@ -108,14 +108,14 @@ func (md *MtxDPOS) VerifyVersionSigns(reader consensus.StateReader, header *type
 	targetCount := md.calcSuperNodeTarget(len(accounts))
 
 	if len(header.VersionSignatures) < targetCount {
-		log.ERROR("共识引擎", "版本号签名数量不足 size", len(header.Version), "target", targetCount)
+		log.Error("共识引擎", "版本号签名数量不足 size", len(header.Version), "target", targetCount)
 		return errVersionSignCount
 	}
 
 	verifiedVersion := md.verifyHashWithSuperNodes(common.BytesToHash([]byte(header.Version)), header.VersionSignatures, accounts)
 	//log.Debug("共识引擎", "版本", string(header.Version))
 	if len(verifiedVersion) < targetCount {
-		log.ERROR("共识引擎", "验证版本号签名,验证后的签名数量不足 size", len(verifiedVersion), "target", targetCount)
+		log.Error("共识引擎", "验证版本号签名,验证后的签名数量不足 size", len(verifiedVersion), "target", targetCount)
 		return errVersionVerifySign
 	}
 	return nil
@@ -156,7 +156,7 @@ func (md *MtxDPOS) verifyHashWithSuperNodes(hash common.Hash, signatures []commo
 	for _, sigh := range signatures {
 		account, _, err := crypto.VerifySignWithValidate(hash.Bytes(), sigh.Bytes())
 		if nil != err {
-			log.ERROR("共识引擎", "验证版本错误", err)
+			log.Error("共识引擎", "验证版本错误", err)
 			continue
 		}
 		findFlag := 0
@@ -167,7 +167,7 @@ func (md *MtxDPOS) verifyHashWithSuperNodes(hash common.Hash, signatures []commo
 			}
 		}
 		if 0 == findFlag {
-			log.WARN("共识引擎", "验证版本 账户未找到 node", account.Hex(), "签名：", sigh)
+			log.Warn("共识引擎", "验证版本 账户未找到 node", account.Hex(), "签名：", sigh)
 			continue
 		}
 		if _, ok := verifiedSigh[account]; !ok {
@@ -182,7 +182,7 @@ func (md *MtxDPOS) VerifyBlock(reader consensus.StateReader, header *types.Heade
 		return errors.New("header is nil")
 	}
 	if err := md.VerifyVersionSigns(reader, header); err != nil {
-		log.INFO("共识引擎", "验证版本号签名失败", err)
+		log.Info("共识引擎", "验证版本号签名失败", err)
 		return err
 	}
 
@@ -236,13 +236,13 @@ func (md *MtxDPOS) VerifyHashWithStocks(reader consensus.StateReader, signHash c
 
 	// check whether sign count is enough
 	if len(signs) < target.targetCount {
-		log.ERROR("共识引擎", "签名数量不足 size", len(signs), "target", target.targetCount)
+		log.Error("共识引擎", "签名数量不足 size", len(signs), "target", target.targetCount)
 		return nil, errSignCountErr
 	}
 
 	verifiedSigns := md.verifySigns(reader, signHash, signs, stocks, blockHash)
 	if len(verifiedSigns) < target.targetCount {
-		log.ERROR("共识引擎", "验证后的签名数量不足 size", len(verifiedSigns), "target", target.targetCount)
+		log.Error("共识引擎", "验证后的签名数量不足 size", len(verifiedSigns), "target", target.targetCount)
 		return nil, errSignCountErr
 	}
 
@@ -338,25 +338,25 @@ func (md *MtxDPOS) verifySigns(reader consensus.StateReader, signHash common.Has
 		sign := signs[i]
 		signAccount, signValidate, err := crypto.VerifySignWithValidate(signHash.Bytes(), sign.Bytes())
 		if err != nil {
-			log.ERROR("共识引擎", "验证签名 错误", err)
+			log.Error("共识引擎", "验证签名 错误", err)
 			continue
 		}
 
 		accountA0, _, err := reader.GetA0AccountFromAnyAccount(signAccount, blockHash)
 		if err != nil {
-			log.ERROR("共识引擎", "get auth account err", err)
+			log.Error("共识引擎", "get auth account err", err)
 			continue
 		}
 
 		stock, findStock := stocks[accountA0]
 		if findStock == false {
 			// can't find in stock, discard
-			log.ERROR("共识引擎", "验证签名 股权未找到 node", accountA0.Hex(), "签名：", signHash)
+			log.Error("共识引擎", "验证签名 股权未找到 node", accountA0.Hex(), "签名：", signHash)
 			continue
 		}
 
 		if existData, exist := verifiedSign[accountA0]; exist {
-			log.ERROR("共识引擎", "验证签名 重复签名 node", accountA0.Hex())
+			log.Error("共识引擎", "验证签名 重复签名 node", accountA0.Hex())
 			//already exist, replace "disagree" sign with "agree" sign
 			if existData.Validate == false && signValidate == true {
 				existData.Sign = sign

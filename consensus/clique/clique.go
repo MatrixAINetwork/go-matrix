@@ -224,7 +224,7 @@ func (c *Clique) Author(header *types.Header) (common.Address, error) {
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules.
-func (c *Clique) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (c *Clique) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool, ai bool) error {
 	return c.verifyHeader(chain, header, nil)
 }
 func (c *Clique) VerifySignatures(signature []common.Signature) (bool, error) {
@@ -235,7 +235,7 @@ func (c *Clique) VerifySignatures(signature []common.Signature) (bool, error) {
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers. The
 // method returns a quit channel to abort the operations and a results channel to
 // retrieve the async verifications (the order is that of the input slice).
-func (c *Clique) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (c *Clique) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool, ais []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{})
 	results := make(chan error, len(headers))
 
@@ -383,7 +383,7 @@ func (c *Clique) snapshot(chain consensus.ChainReader, number uint64, hash commo
 		// If we're at block zero, make a snapshot
 		if number == 0 {
 			genesis := chain.GetHeaderByNumber(0)
-			if err := c.VerifyHeader(chain, genesis, false); err != nil {
+			if err := c.VerifyHeader(chain, genesis, false, false); err != nil {
 				return nil, err
 			}
 			signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
@@ -449,6 +449,16 @@ func (c *Clique) VerifyUncles(chain consensus.ChainReader, block *types.Block) e
 // in the header satisfies the consensus protocol requirements.
 func (c *Clique) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
 	return c.verifySeal(chain, header, nil)
+}
+
+func (c *Clique) VerifyAISeal(chain consensus.ChainReader, header *types.Header) error {
+	return nil
+}
+
+// VerifySeal implements consensus.Engine, checking whether the signature contained
+// in the header satisfies the consensus protocol requirements.
+func (c *Clique) VerifyBasePow(chain consensus.ChainReader, header *types.Header, basePower types.BasePowers) error {
+	return nil
 }
 
 // verifySeal checks whether the signature contained in the header satisfies the
@@ -570,6 +580,23 @@ func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, sta
 	return types.NewBlock(header, currencyBlock, nil), nil
 }
 
+func (c *Clique) GenOtherCurrencyBlock(chain consensus.ChainReader, header *types.Header, state *state.StateDBManage, uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error) {
+	// No block rewards in PoA, so the state remains as is and uncles are dropped
+	header.Roots, header.Sharding = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.UncleHash = types.CalcUncleHash(nil)
+
+	// Assemble and return the final block for sealing
+	return types.NewBlock(header, currencyBlock, nil), nil
+}
+func (c *Clique) GenManBlock(chain consensus.ChainReader, header *types.Header, state *state.StateDBManage, uncles []*types.Header, currencyBlock []types.CurrencyBlock) (*types.Block, error) {
+	// No block rewards in PoA, so the state remains as is and uncles are dropped
+	header.Roots, header.Sharding = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.UncleHash = types.CalcUncleHash(nil)
+
+	// Assemble and return the final block for sealing
+	return types.NewBlock(header, currencyBlock, nil), nil
+}
+
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
 func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {
@@ -580,9 +607,13 @@ func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {
 	c.signFn = signFn
 }
 
+func (c *Clique) SealAI(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}) (*types.Header, error) {
+	return nil, errors.New("no support interface")
+}
+
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
-func (c *Clique) Seal(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, isBroadcastNode bool) (*types.Header, error) {
+func (c *Clique) SealPow(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *types.Header, isBroadcastNode bool) (*types.Header, error) {
 	//header := block.Header()
 
 	// Sealing the genesis block is not supported
@@ -648,12 +679,12 @@ func (c *Clique) Seal(chain consensus.ChainReader, header *types.Header, stop <-
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
-func (c *Clique) CalcDifficulty(chain consensus.ChainReader, version string, time uint64, parent *types.Header) *big.Int {
+func (c *Clique) CalcDifficulty(chain consensus.ChainReader, version string, time uint64, parent *types.Header) (*big.Int, error) {
 	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return CalcDifficulty(snap, c.signer)
+	return CalcDifficulty(snap, c.signer), nil
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty

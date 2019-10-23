@@ -7,6 +7,7 @@ package types
 import (
 	"io"
 
+	"github.com/MatrixAINetwork/go-matrix/base58"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/common/hexutil"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
@@ -122,4 +123,50 @@ func (l *LogForStorage) DecodeRLP(s *rlp.Stream) error {
 type CoinLogs struct {
 	CoinType string
 	Logs     []*Log
+}
+
+type ManCoinLogs struct {
+	CoinType string
+	Logs     []*ManLog
+}
+
+type ManLog struct {
+	Address     string        `json:"address" gencodec:"required"`
+	Topics      []common.Hash `json:"topics" gencodec:"required"`
+	Data        hexutil.Bytes `json:"data" gencodec:"required"`
+	BlockNumber uint64        `json:"blockNumber"`
+	TxHash      common.Hash   `json:"transactionHash" gencodec:"required"`
+	TxIndex     uint          `json:"transactionIndex" gencodec:"required"`
+	BlockHash   common.Hash   `json:"blockHash"`
+	Index       uint          `json:"logIndex" gencodec:"required"`
+	Removed     bool          `json:"removed"`
+}
+
+func TransferCoinLogs2ManLogs(logs []CoinLogs) []ManCoinLogs {
+	result := make([]ManCoinLogs, len(logs))
+	for i := 0; i < len(logs); i++ {
+		item := &logs[i]
+		result[i].CoinType = item.CoinType
+		result[i].Logs = Log2ManLog(item.CoinType, item.Logs)
+	}
+	return result
+}
+
+func Log2ManLog(coinType string, src []*Log) []*ManLog {
+	rlt := make([]*ManLog, len(src))
+	for i := 0; i < len(src); i++ {
+		log := src[i]
+		rlt[i] = &ManLog{
+			Address:     base58.Base58EncodeToString(coinType, log.Address),
+			Topics:      log.Topics,
+			Data:        log.Data,
+			BlockNumber: log.BlockNumber,
+			TxHash:      log.TxHash,
+			TxIndex:     log.TxIndex,
+			BlockHash:   log.BlockHash,
+			Index:       log.Index,
+			Removed:     log.Removed,
+		}
+	}
+	return rlt
 }

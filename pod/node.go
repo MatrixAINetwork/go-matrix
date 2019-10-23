@@ -157,38 +157,8 @@ type SignatureFile struct {
 func (n *Node) Signature() (signature common.Signature, manAddr common.Address, signTime time.Time) {
 	emptyAddress := common.Address{}
 	if n.config.P2P.ManAddress == emptyAddress {
-		n.log.Info("man input sign address is empty.")
-
-		if !common.FileExist(datadirManSignature) {
-			return common.Signature{}, common.Address{}, time.Now()
-		}
-		fd, err := os.Open(datadirManSignature)
-		if err != nil {
-			n.log.Error("signature open file", "error", err)
-			return common.Signature{}, common.Address{}, time.Now()
-		}
-		defer fd.Close()
-		buf, err := ioutil.ReadAll(fd)
-		if err != nil {
-			n.log.Error("signature read file", "error", err)
-			return common.Signature{}, common.Address{}, time.Now()
-		}
-
-		var fileContent = &SignatureFile{}
-		if err = json.Unmarshal(buf[:], fileContent); err != nil {
-			n.log.Error("json unmarshal file content failed", "error", err)
-			return common.Signature{}, common.Address{}, time.Now()
-		}
-
-		addrByte, err := ioutil.ReadFile(datadirManAddress)
-		if err != nil {
-			n.log.Error("man address read file", "error", err)
-			return common.Signature{}, common.Address{}, time.Now()
-		}
-		n.config.P2P.ManAddress = common.HexToAddress(string(addrByte))
-
-		n.log.Info("signature info", "signature", fileContent.Signature, "sign time", fileContent.Time)
-		return fileContent.Signature, common.HexToAddress(string(addrByte)), fileContent.Time
+		n.log.Info("-----------man input sign address is empty.")
+		return common.Signature{}, common.Address{}, time.Now()
 	}
 
 	wallet, err := n.accman.Find(accounts.Account{Address: n.config.P2P.ManAddress})

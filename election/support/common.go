@@ -4,7 +4,6 @@
 package support
 
 import (
-	"fmt"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
@@ -202,7 +201,7 @@ func ToPoUpdate(allNative AllNative, topoG *mc.TopologyGraph) []mc.Alternative {
 	for index := 0; index < int(allNative.ElectInfo.ValidatorNum); index++ { //算一级下线
 		k := common.GeneratePosition(uint16(index), common.ElectRoleValidator)
 		if KInTop(k, topoG) == false {
-			fmt.Println("一级 该点不在顶层内", "不处理")
+			log.Trace(ModuleLogName, "一级 该点不在顶层内", "不处理")
 			continue
 		}
 		if _, ok := mapMaster[k]; ok == false {

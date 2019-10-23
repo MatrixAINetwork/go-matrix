@@ -109,9 +109,9 @@ func validatorDataCmp(goResult *mc.MasterValidatorReElectionRsq, matlabResult []
 	reshape = append(reshape, goResult.BackUpValidator...)
 	reshape = append(reshape, goResult.CandidateValidator...)
 
-	log.INFO("GO输出")
+	log.Info("GO输出")
 	for _, v := range reshape {
-		log.INFO("GO Result", "Address", v.Account.String(), "Vip", v.VIPLevel, "Stock", v.Stock, "Type", v.Type)
+		log.Info("GO Result", "Address", v.Account.String(), "Vip", v.VIPLevel, "Stock", v.Stock, "Type", v.Type)
 	}
 	if len(reshape) != len(matlabResult) {
 		return false, errors.New("比较长度不一致")
@@ -121,11 +121,11 @@ func validatorDataCmp(goResult *mc.MasterValidatorReElectionRsq, matlabResult []
 		mdata := matlabResult[i]
 		gdata := reshape[i]
 		if !common.HexToAddress(mdata.Account).Equal(gdata.Account) {
-			log.INFO("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String())
+			log.Info("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String())
 			return false, errors.New("地址不一致")
 		}
 		if mdata.Stock != gdata.Stock {
-			log.INFO("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String(), "M Stock", mdata.Stock, "GO Stock", gdata.Stock)
+			log.Info("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String(), "M Stock", mdata.Stock, "GO Stock", gdata.Stock)
 			return false, errors.New("股权不一致")
 		}
 
@@ -183,9 +183,9 @@ func MinerElectProcess(vectorPath string) (bool, error) {
 func minerDataCmp(goResult *mc.MasterMinerReElectionRsp, matlabResult []Election) (bool, error) {
 	var reshape = make([]mc.ElectNodeInfo, 0)
 	reshape = append(reshape, goResult.MasterMiner...)
-	log.INFO("GO输出")
+	log.Info("GO输出")
 	for _, v := range reshape {
-		log.INFO("GO Result", "Address", v.Account.String(), "Vip", v.VIPLevel, "Stock", v.Stock, "Type", v.Type)
+		log.Info("GO Result", "Address", v.Account.String(), "Vip", v.VIPLevel, "Stock", v.Stock, "Type", v.Type)
 	}
 	if len(reshape) != len(matlabResult) {
 		return false, errors.New("比较长度不一致")
@@ -195,11 +195,11 @@ func minerDataCmp(goResult *mc.MasterMinerReElectionRsp, matlabResult []Election
 		mdata := matlabResult[i]
 		gdata := reshape[i]
 		if !common.HexToAddress(mdata.Account).Equal(gdata.Account) {
-			log.INFO("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String())
+			log.Info("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String())
 			return false, errors.New("地址不一致")
 		}
 		if mdata.Stock != gdata.Stock {
-			log.INFO("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String(), "M Stock", mdata.Stock, "GO Stock", gdata.Stock)
+			log.Info("", "索引", i, "M Addr", common.HexToAddress(mdata.Account).String(), "GO Addr", gdata.Account.String(), "M Stock", mdata.Stock, "GO Stock", gdata.Stock)
 			return false, errors.New("股权不一致")
 		}
 	}

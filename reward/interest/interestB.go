@@ -5,7 +5,6 @@ package interest
 
 import (
 	"math/big"
-	"os"
 	"strconv"
 
 	"github.com/MatrixAINetwork/go-matrix/reward/depositcfg"
@@ -27,29 +26,20 @@ type interestDelta struct {
 	depositCfg     depositcfg.DepositCfgInterface
 }
 
-const INTERESTDIR = "./interestdir"
-
-func init() {
-	_, e := os.Stat(INTERESTDIR)
-	if e != nil {
-		os.Mkdir(INTERESTDIR, os.ModePerm)
-	}
-}
-
 func DeltaNew(st util.StateDB, preSt util.StateDB, depositCfgVersion string) *interestDelta {
 
 	IC, err := matrixstate.GetInterestCfg(preSt)
 	if nil != err {
-		log.ERROR(PackageName, "获取利息状态树配置错误", "")
+		log.Error(PackageName, "获取利息状态树配置错误", "")
 		return nil
 	}
 	if IC == nil {
-		log.ERROR(PackageName, "利息配置", "配置为nil")
+		log.Error(PackageName, "利息配置", "配置为nil")
 		return nil
 	}
 
 	if IC.PayInterval == 0 {
-		log.ERROR(PackageName, "利息周期配置错误，支付周期", IC.PayInterval)
+		log.Error(PackageName, "利息周期配置错误，支付周期", IC.PayInterval)
 		return nil
 	}
 
@@ -97,13 +87,13 @@ func (ic *interestDelta) payAllInterest(num uint64, state vm.StateDBManager, tim
 			}
 
 			if originInterest.OperAmount.Cmp(big.NewInt(0)) <= 0 {
-				log.ERROR(PackageName, "获取的利息非法", originInterest, "账户", account.String())
+				log.Error(PackageName, "获取的利息非法", originInterest, "账户", account.String())
 				continue
 			}
 			finalInterest := originInterest
 			finalInterest.OperAmount = new(big.Int).Sub(originInterest.OperAmount, positionSlash.OperAmount)
 			if finalInterest.OperAmount.Cmp(big.NewInt(0)) <= 0 {
-				log.ERROR(PackageName, "支付的的利息非法", finalInterest, "账户", account.String())
+				log.Error(PackageName, "支付的的利息非法", finalInterest, "账户", account.String())
 				continue
 			}
 			if positionSlash.OperAmount.Cmp(big.NewInt(0)) > 0 {
@@ -112,7 +102,7 @@ func (ic *interestDelta) payAllInterest(num uint64, state vm.StateDBManager, tim
 			balance := state.GetBalance(params.MAN_COIN, common.InterestRewardAddress)
 			allInterest = new(big.Int).Add(allInterest, finalInterest.OperAmount)
 			if balance[common.MainAccount].Balance.Cmp(allInterest) < 0 {
-				log.ERROR(PackageName, "利息账户余额不足，余额为", balance[common.MainAccount].Balance.String())
+				log.Error(PackageName, "利息账户余额不足，余额为", balance[common.MainAccount].Balance.String())
 
 				return errors.New("余额不足")
 			}
@@ -133,7 +123,7 @@ func (ic *interestDelta) payAllInterest(num uint64, state vm.StateDBManager, tim
 func (ic *interestDelta) canPayInterest(state vm.StateDBManager, num uint64, payInterestPeriod uint64) bool {
 	latestNum, err := matrixstate.GetInterestPayNum(state)
 	if nil != err {
-		log.ERROR(PackageName, "状态树获取前一计算利息高度错误", err)
+		log.Error(PackageName, "状态树获取前一计算利息高度错误", err)
 		return false
 	}
 	if latestNum >= ic.getLastInterestNumber(num-1, payInterestPeriod)+1 {
@@ -161,18 +151,18 @@ func (ic *interestDelta) GetReward(blockReward *big.Int, depositNodes []common.D
 func (ic *interestDelta) CalcInterestReward(totalWeightDeposit, reward *big.Int, weightDepositMap map[common.Address][]common.OperationalInterestSlash) map[common.Address][]common.OperationalInterestSlash {
 
 	if 0 == len(weightDepositMap) {
-		log.ERROR(PackageName, "利息列表为空", "")
+		log.Error(PackageName, "利息列表为空", "")
 		return nil
 	}
 
 	if totalWeightDeposit.Cmp(big.NewInt(0)) <= 0 {
-		log.ERROR(PackageName, "计算的总利息值非法", totalWeightDeposit)
+		log.Error(PackageName, "计算的总利息值非法", totalWeightDeposit)
 		return nil
 	}
 	log.Trace(PackageName, "计算的总抵押值", totalWeightDeposit)
 
 	if 0 == reward.Cmp(big.NewInt(0)) {
-		log.ERROR(PackageName, "定点化奖励金额为0", "")
+		log.Error(PackageName, "定点化奖励金额为0", "")
 		return nil
 	}
 
@@ -219,7 +209,7 @@ func (ic *interestDelta) SetReward(InterestMap map[common.Address][]common.Opera
 func (ic *interestDelta) GetDeposit(parentHash common.Hash) []common.DepositBase {
 	depositNodes, err := depoistInfo.GetAllDepositByHash_v2(parentHash)
 	if nil != err {
-		log.ERROR(PackageName, "获取的抵押列表错误", err)
+		log.Error(PackageName, "获取的抵押列表错误", err)
 		return nil
 	}
 	log.Debug(PackageName, "抵押账户数目", len(depositNodes), "hash", parentHash.String())
@@ -234,17 +224,17 @@ func (ic *interestDelta) GetWeightDeposit(depositNodes []common.DepositBase) (ma
 		for i, dv := range node.Dpstmsg {
 			cfg := ic.depositCfg.GetDepositPositionCfg(dv.DepositType)
 			if cfg == nil {
-				log.ERROR(PackageName, "获取利率配置错误，抵押类型为", dv.DepositType)
+				log.Error(PackageName, "获取利率配置错误，抵押类型为", dv.DepositType)
 				continue
 			}
 			rate := cfg.GetRate()
 			if 0 == rate {
-				log.ERROR(PackageName, "获取利率错误，抵押类型为", dv.DepositType)
+				log.Error(PackageName, "获取利率错误，抵押类型为", dv.DepositType)
 				continue
 			}
 			weightDeposit := ic.calcWeightDeposit(dv.DepositAmount, rate)
 			if weightDeposit.Cmp(big.NewInt(0)) <= 0 && dv.Position != 0 {
-				log.ERROR(PackageName, "计算的利息非法", weightDeposit)
+				log.Error(PackageName, "计算的利息非法", weightDeposit)
 				continue
 			}
 			//util.LogExtraDebug(PackageName, "账户", node.AddressA0.String(), "仓位", dv.Position, "原始抵押", dv.DepositAmount, "抵押类型", dv.DepositType, "利率", rate)
@@ -256,18 +246,4 @@ func (ic *interestDelta) GetWeightDeposit(depositNodes []common.DepositBase) (ma
 	}
 
 	return InterestMap, totalDeposit
-}
-
-func (ic *interestDelta) canCalcInterest(state vm.StateDBManager, num uint64, calcInterestInterval uint64) bool {
-	latestNum, err := matrixstate.GetInterestCalcNum(state)
-	if nil != err {
-		log.ERROR(PackageName, "状态树获取前一计算利息高度错误", err)
-		return false
-	}
-	if latestNum >= ic.getLastInterestNumber(num-1, calcInterestInterval)+1 {
-		//log.Info(PackageName, "当前利息已计算无须再处理", "")
-		return false
-	}
-	matrixstate.SetInterestCalcNum(state, num)
-	return true
 }

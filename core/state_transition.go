@@ -242,10 +242,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		case common.ExtraTimeTxType:
 			return st.CallTimeNormalTx()
 		case common.ExtraAuthTx:
-			log.INFO("授权交易", "交易类型", txtype)
+			log.Info("授权交易", "交易类型", txtype)
 			return st.CallAuthTx()
 		case common.ExtraCancelEntrust:
-			log.INFO("取消委托", "交易类型", txtype)
+			log.Info("取消委托", "交易类型", txtype)
 			return st.CallCancelAuthTx()
 		case common.ExtraMakeCoinType:
 			return st.CallMakeCoinTx()

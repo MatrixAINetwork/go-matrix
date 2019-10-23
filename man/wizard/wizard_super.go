@@ -72,7 +72,7 @@ func (w *wizard) MakeSuperGenesis(bc *core.BlockChain, db mandb.Database, num ui
 		Signatures:        make([]common.Signature, 0),
 		Timestamp:         uint64(time.Now().Unix()),
 		GasLimit:          parentHeader.GasLimit,
-		Difficulty:        parentHeader.Difficulty,
+		Difficulty:        curHeader.Difficulty,
 		Alloc:             make(core.GenesisAlloc),
 		ExtraData:         make([]byte, 8),
 		Version:           string(parentHeader.Version),

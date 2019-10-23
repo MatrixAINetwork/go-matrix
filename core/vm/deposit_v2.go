@@ -118,13 +118,13 @@ func (md *MatrixDeposit002) GetAllDepositListByInterest(contract *Contract, stat
 	var addrA0list []common.Address
 	err := rlp.DecodeBytes(retbuf, &addrA0list)
 	if err != nil {
-		log.ERROR("getAllDepositInfo KeyDepositA0list", "decode err", err)
+		log.Error("getAllDepositInfo KeyDepositA0list", "decode err", err)
 		return nil
 	}
 	for _, addr := range addrA0list {
 		dpb := md.GetDepositBase(contract, stateDB, addr)
 		if dpb == nil {
-			log.ERROR("GetDepositBase", "GetDepositBase err", "GetDepositBase is nil ")
+			log.Error("GetDepositBase", "GetDepositBase err", "GetDepositBase is nil ")
 			continue
 		}
 
@@ -166,13 +166,13 @@ func (md *MatrixDeposit002) GetAllDepositList(contract *Contract, stateDB StateD
 	var addrA0list []common.Address
 	err := rlp.DecodeBytes(retbuf, &addrA0list)
 	if err != nil {
-		log.ERROR("getAllDepositInfo KeyDepositA0list", "decode err", err)
+		log.Error("getAllDepositInfo KeyDepositA0list", "decode err", err)
 		return nil
 	}
 	for _, addr := range addrA0list {
 		dpb := md.GetDepositBase(contract, stateDB, addr)
 		if dpb == nil {
-			log.ERROR("GetDepositBase", "GetDepositBase err", "GetDepositBase is nil ")
+			log.Error("GetDepositBase", "GetDepositBase err", "GetDepositBase is nil ")
 			continue
 		}
 
@@ -277,13 +277,13 @@ func (md *MatrixDeposit002) GetAllInterest(contract *Contract, stateDB StateDBMa
 	var addrA0list []common.Address
 	err := rlp.DecodeBytes(retbuf, &addrA0list)
 	if err != nil {
-		log.ERROR("getAllDepositInfo KeyDepositA0list", "decode err", err)
+		log.Error("getAllDepositInfo KeyDepositA0list", "decode err", err)
 		return nil
 	}
 	for _, addr := range addrA0list {
 		dpb := md.GetDepositBase(contract, stateDB, addr)
 		if dpb == nil {
-			log.ERROR("GetAllInterest", "GetDepositBase err", "GetDepositBase is nil ")
+			log.Error("GetAllInterest", "GetDepositBase err", "GetDepositBase is nil ")
 			continue
 		}
 		var rutlist common.CalculateDeposit

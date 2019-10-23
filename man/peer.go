@@ -7,20 +7,18 @@ package man
 import (
 	"errors"
 	"fmt"
-	"math/big"
-	"sync"
-	"time"
-
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/p2p"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 	"gopkg.in/fatih/set.v0"
+	"math/big"
+	"sync"
+	"time"
 )
 
 var (
@@ -363,8 +361,8 @@ func (p *peer) SendPongToBroad(data []uint8) error {
 
 // RequestOneHeader is a wrapper around the header query functions to fetch a
 // single header. It is used solely by the fetcher.
-func (p *peer) RequestOneHeader(hash common.Hash,blknum uint64) error {
-	p.Log().Debug("Fetching single header","blknum",blknum, "hash", hash)
+func (p *peer) RequestOneHeader(hash common.Hash, blknum uint64) error {
+	p.Log().Debug("Fetching single header", "blknum", blknum, "hash", hash)
 	return p2p.Send(p.rw, GetBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
@@ -385,7 +383,7 @@ func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, rever
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
 func (p *peer) RequestBodies(hashes []common.Hash) error {
-	p.Log().Debug("peer Fetching batch of block bodies[request body]", "len count", len(hashes),"hashes[0]",hashes[0])
+	p.Log().Debug("peer Fetching batch of block bodies[request body]", "len count", len(hashes), "hashes[0]", hashes[0])
 	return p2p.Send(p.rw, GetBlockBodiesMsg, hashes)
 }
 
@@ -678,7 +676,7 @@ func (ps *peerSet) bestPeerB() *peer {
 func (ps *peerSet) BestPeer() *peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
-	if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+	if manversion.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
 		return ps.bestPeerB()
 	} else {
 		return ps.bestPeerA()

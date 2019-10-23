@@ -128,7 +128,7 @@ func (pm *ProcessManage) fixProcessMap() {
 		delete(pm.processMap, delKey)
 	}
 
-	//log.INFO(pm.logExtraInfo(), "PM 结束修正map, process数量", len(pm.processMap))
+	//log.Info(pm.logExtraInfo(), "PM 结束修正map, process数量", len(pm.processMap))
 }
 
 func (pm *ProcessManage) clearProcessMap() {
@@ -160,7 +160,7 @@ func (pm *ProcessManage) isLegalNumber(number uint64) error {
 func (pm *ProcessManage) getProcess(number uint64) *Process {
 	process, OK := pm.processMap[number]
 	if OK == false {
-		//log.INFO(pm.logExtraInfo(), "PM 创建process，高度", number)
+		//log.Info(pm.logExtraInfo(), "PM 创建process，高度", number)
 		process = newProcess(number, pm)
 		pm.processMap[number] = process
 	}

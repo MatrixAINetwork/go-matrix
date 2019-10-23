@@ -103,7 +103,32 @@ var (
 	MinimumDifficulty         = big.NewInt(10)  // The minimum that the difficulty may ever be.
 	DurationLimit             = big.NewInt(6)   // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 	VersionGammaDurationLimit = big.NewInt(9)   // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
-	FloodTime                 = 1 * time.Second //洪泛时间阈值
+	FloodTime                 = 1 * time.Second // 洪泛时间阈值
+)
+
+// AI Mine Version Params
+var (
+	VersionAIDifficultyNormalDivisor      = big.NewInt(100)
+	VersionAIDifficultyRiseFac            = big.NewInt(10)
+	VersionAIDifficultyFallFac            = big.NewInt(10)
+	VersionAIDifficultyAvgLength          = uint64(10)
+	VersionAIDifficultyQuickTraceNum      = uint64(10)
+	VersionAIDifficultyFirstBoundDivisor  = big.NewInt(10)      // The bound divisor of the difficulty, used in the update calculations.
+	VersionAIDifficultySecondBoundDivisor = big.NewInt(100)     // The bound divisor of the difficulty, used in the update calculations.
+	AIManMinimumDifficulty                = big.NewInt(2e6)     // The minimum that the difficulty may ever be.
+	AIManMaxDifficulty                    = big.NewInt(4e8)     // The minimum that the difficulty may ever be.
+	AIManReelectionDifficulty             = big.NewInt(1e7)     // The minimum that the difficulty may ever be.
+	BasePowerDifficulty                   = big.NewInt(1e6 / 4) // The minimum that the difficulty may ever be.
+	VersionAIDurationLimit                = big.NewInt(11)      // The decision boundary on the blocktime duration used to duration used to determine whether difficulty should go up or not.
+	MinBlockInterval                      = big.NewInt(7)
+	Sm3DifficultyRatio                    = float64(1)
+	InnerMinerAISendDelay                 = int64(100) // 基金会矿工AI结果延迟发送时间(秒)
+	InnerMinerPowSendDelay                = int64(100) // 基金会矿工AI结果延迟发送时间(秒)
+	InnerMinerDifficulty                  = big.NewInt(1e5 / 4)
+	AIMineLeaderSrcParentMiningTime       = uint64(20)
+	AIMineLeaderSrcPosOutTime             = uint64(40)
+	AIMineLeaderSrcReelectOutTime         = uint64(40)
+	AIMineLeaderAIBlockMiningTimeRatio    = uint64(8)
 )
 var (
 	DepositVersionKey_1 = "DepostVersion_1.0"

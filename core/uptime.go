@@ -33,7 +33,7 @@ func (bc *BlockChain) getUpTimeAccounts(parentHash common.Hash, bcInterval *mc.B
 
 	for _, v := range ans {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
-		//log.INFO("v.Address", "v.Address", v.Address)
+		//log.Info("v.Address", "v.Address", v.Address)
 	}
 	//log.Debug(ModuleName, "参选验证节点uptime高度", validatorNum)
 	ans1, err := ca.GetElectedByHeightAndRoleByHash(parentHash, common.RoleValidator)
@@ -43,7 +43,7 @@ func (bc *BlockChain) getUpTimeAccounts(parentHash common.Hash, bcInterval *mc.B
 	//log.Debug(ModuleName, "获取所有uptime账户为", "")
 	for _, v := range ans1 {
 		upTimeAccounts = append(upTimeAccounts, v.Address)
-		//log.INFO("v.Address", "v.Address", v.Address)
+		//log.Info("v.Address", "v.Address", v.Address)
 	}
 
 	return upTimeAccounts, nil
@@ -51,13 +51,13 @@ func (bc *BlockChain) getUpTimeAccounts(parentHash common.Hash, bcInterval *mc.B
 func (bc *BlockChain) getUpTimeData(root []common.CoinRoot, num uint64, parentHash common.Hash) (map[common.Address]uint32, map[common.Address][]byte, error) {
 	heatBeatOriginMap, error := GetBroadcastTxMap(bc, root, mc.Heartbeat)
 	if nil != error {
-		log.WARN(ModuleName, "获取主动心跳交易错误", error)
+		log.Warn(ModuleName, "获取主动心跳交易错误", error)
 	}
 	headerBeatMap := make(map[common.Address][]byte, 0)
 	for k, v := range heatBeatOriginMap {
-		//log.INFO(ModuleName, "主动心跳交易A1/A2", k.Hex())
+		//log.Info(ModuleName, "主动心跳交易A1/A2", k.Hex())
 		account0, _, err := bc.GetA0AccountFromAnyAccount(k, parentHash)
-		//log.INFO(ModuleName, "主动心跳交易A0", account0.Hex())
+		//log.Info(ModuleName, "主动心跳交易A0", account0.Hex())
 		if nil != err {
 			continue
 		}
@@ -67,7 +67,7 @@ func (bc *BlockChain) getUpTimeData(root []common.CoinRoot, num uint64, parentHa
 	//每个广播周期发一次
 	calltherollUnmarshall, error := GetBroadcastTxMap(bc, root, mc.CallTheRoll)
 	if nil != error {
-		log.ERROR(ModuleName, "获取点名心跳交易错误", error)
+		log.Error(ModuleName, "获取点名心跳交易错误", error)
 		return nil, nil, error
 	}
 	calltherollMap := make(map[common.Address]uint32, 0)
@@ -75,13 +75,13 @@ func (bc *BlockChain) getUpTimeData(root []common.CoinRoot, num uint64, parentHa
 		temp := make(map[string]uint32, 0)
 		error := json.Unmarshal(v, &temp)
 		if nil != error {
-			log.ERROR(ModuleName, "序列化点名心跳交易错误", error)
+			log.Error(ModuleName, "序列化点名心跳交易错误", error)
 			return nil, nil, error
 		}
 		for k, v := range temp {
-			//log.INFO(ModuleName, "点名心跳交易A1/A2", k)
+			//log.Info(ModuleName, "点名心跳交易A1/A2", k)
 			account0, _, err := bc.GetA0AccountFromAnyAccount(common.HexToAddress(k), parentHash)
-			//log.INFO(ModuleName, "点名心跳交易A0", account0.Hex())
+			//log.Info(ModuleName, "点名心跳交易A0", account0.Hex())
 			if nil != err {
 				continue
 			}
@@ -256,7 +256,7 @@ func (bc *BlockChain) HandleUpTimeWithSuperBlock(state *state.StateDBManage, acc
 			//log.Debug(ModuleName, "读取状态树", account, "upTime累加", read)
 			if _, ok := originTopologyMap[account]; ok {
 				//updateData := new(big.Int).SetUint64(read.Uint64() / 2)
-				//log.INFO(ModuleName, "是原始拓扑图节点，upTime减半", account, "upTime", read.Uint64())
+				//log.Info(ModuleName, "是原始拓扑图节点，upTime减半", account, "upTime", read.Uint64())
 				//depoistInfo.AddOnlineTime(state, account, updateData)
 			}
 		}
@@ -291,14 +291,14 @@ func (bc *BlockChain) ProcessUpTime(state *state.StateDBManage, header *types.He
 		matrixstate.SetUpTimeNum(state, header.Number.Uint64())
 		upTimeAccounts, err := bc.getUpTimeAccounts(header.ParentHash, bcInterval)
 		if err != nil {
-			log.ERROR("core", "获取所有抵押账户错误!", err, "高度", header.Number.Uint64())
+			log.Error("core", "获取所有抵押账户错误!", err, "高度", header.Number.Uint64())
 			return nil, err
 		}
 		if sbh < bcInterval.GetLastBroadcastNumber() &&
 			sbh >= bcInterval.GetLastBroadcastNumber()-bcInterval.GetBroadcastInterval() {
 			upTimeMap, err := bc.HandleUpTimeWithSuperBlock(state, upTimeAccounts, header.Number.Uint64(), bcInterval)
 			if nil != err {
-				log.ERROR("core", "处理uptime错误", err)
+				log.Error("core", "处理uptime错误", err)
 				return nil, err
 			}
 			return upTimeMap, nil
@@ -311,11 +311,11 @@ func (bc *BlockChain) ProcessUpTime(state *state.StateDBManage, header *types.He
 
 			calltherollMap, heatBeatUnmarshallMMap, err := bc.getUpTimeData(LastStateRoot, header.Number.Uint64(), header.ParentHash)
 			if err != nil {
-				log.WARN("core", "获取心跳交易错误!", err, "高度", header.Number.Uint64())
+				log.Warn("core", "获取心跳交易错误!", err, "高度", header.Number.Uint64())
 			}
 			upTimeMap, err := bc.handleUpTime(BeforeLastStateRoot, state, upTimeAccounts, calltherollMap, heatBeatUnmarshallMMap, header.Number.Uint64(), bcInterval, header.ParentHash)
 			if nil != err {
-				log.ERROR("core", "处理uptime错误", err)
+				log.Error("core", "处理uptime错误", err)
 				return nil, err
 			}
 			return upTimeMap, nil

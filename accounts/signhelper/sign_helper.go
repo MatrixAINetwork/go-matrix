@@ -168,7 +168,7 @@ func (sh *SignHelper) SignVrfByAccount(msg []byte, account common.Address) ([]by
 
 func (sh *SignHelper) SignVrf(msg []byte, blkHash common.Hash) ([]byte, []byte, []byte, error) {
 	signAccount, signPassword, err := sh.getSignAccountAndPassword(sh.authReader, blkHash)
-	//log.ERROR(ModeLog, "signAccount", signAccount, "signPassword", signPassword, "err", err, "blkhash", blkHash)
+	//log.Error(ModeLog, "signAccount", signAccount, "signPassword", signPassword, "err", err, "blkhash", blkHash)
 	if err != nil {
 		return []byte{}, []byte{}, []byte{}, ErrGetAccountAndPassword
 	}

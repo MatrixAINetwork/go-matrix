@@ -13,7 +13,7 @@ import (
 
 	"github.com/MatrixAINetwork/go-matrix/consensus/manash"
 	"github.com/MatrixAINetwork/go-matrix/man"
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -96,7 +96,7 @@ func makedag(ctx *cli.Context) error {
 
 func version(ctx *cli.Context) error {
 	fmt.Println(strings.Title(clientIdentifier))
-	fmt.Println("Version:", manparams.VersionDelta)
+	fmt.Println("Version:", manversion.VersionAIMine)
 	if gitCommit != "" {
 		fmt.Println("Git Commit:", gitCommit)
 	}

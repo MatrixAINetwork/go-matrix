@@ -17,7 +17,7 @@ func (info *BCIntervalInfo) GetReElectionInterval() uint64 {
 
 func (info *BCIntervalInfo) IsBroadcastNumber(number uint64) bool {
 	if number < info.LastBCNumber {
-		log.ERROR("广播周期", "IsBroadcastNumber", "false", "number", number, "period.lastBCNumber", info.LastBCNumber)
+		log.Error("广播周期", "IsBroadcastNumber", "false", "number", number, "period.lastBCNumber", info.LastBCNumber)
 		return false
 	}
 	return (number-info.LastBCNumber)%info.BCInterval == 0
@@ -25,7 +25,7 @@ func (info *BCIntervalInfo) IsBroadcastNumber(number uint64) bool {
 
 func (info *BCIntervalInfo) IsReElectionNumber(number uint64) bool {
 	if number < info.LastReelectNumber {
-		log.ERROR("广播周期", "IsReElectionNumber", "false", "number", number, "period.lastReelectNumber", info.LastReelectNumber)
+		log.Error("广播周期", "IsReElectionNumber", "false", "number", number, "period.lastReelectNumber", info.LastReelectNumber)
 		return false
 	}
 

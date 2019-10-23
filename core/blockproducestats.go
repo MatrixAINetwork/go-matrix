@@ -13,6 +13,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/params/manparams"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/pkg/errors"
 )
 
@@ -70,7 +71,7 @@ func (bc *BlockChain) ProcessBlockGProduceSlash(version string, state *state.Sta
 		statsListAddRecorder(state, statsList, header.Leader)
 		statsListPrint(statsList)
 		if ok := shouldBlockProduceSlash(state, header, slashCfg); ok {
-			if manparams.VersionCmp(version, manparams.VersionGamma) >= 0 {
+			if manversion.VersionCmp(version, manversion.VersionGamma) >= 0 {
 				bc.statsListToBlackListB(state, statsList, slashCfg, header)
 			} else {
 				bc.statsListToBlackListA(state, statsList, slashCfg, header)
@@ -164,7 +165,7 @@ func getSlashStatsList(state *state.StateDBManage) (*mc.BlockProduceStats, error
 
 	statsInfo, err := matrixstate.GetBlockProduceStats(state)
 	if nil != err {
-		log.ERROR(ModuleName, "获取区块惩罚统计信息错误", err)
+		log.Error(ModuleName, "获取区块惩罚统计信息错误", err)
 		return &mc.BlockProduceStats{}, err
 	}
 
@@ -176,7 +177,7 @@ func getLatestInitStatsNum(state *state.StateDBManage) (uint64, error) {
 	}
 	updateInfo, err := matrixstate.GetBlockProduceStatsStatus(state)
 	if nil != err {
-		log.DEBUG(ModuleName, "获取区块生产统计错误", err)
+		log.Debug(ModuleName, "获取区块生产统计错误", err)
 		return 0, err
 	}
 
@@ -206,7 +207,7 @@ func initStatsList(state *state.StateDBManage, updateNumber uint64) {
 	statsList := mc.BlockProduceStats{}
 
 	if nil != err {
-		log.ERROR(ModuleName, "获取状态树选举信息错误", err)
+		log.Error(ModuleName, "获取状态树选举信息错误", err)
 		matrixstate.SetBlockProduceStats(state, &statsList)
 		matrixstate.SetBlockProduceStatsStatus(state, &mc.BlockProduceSlashStatsStatus{updateNumber})
 		return
@@ -258,7 +259,7 @@ func shouldBlockProduceSlash(state *state.StateDBManage, header *types.Header, s
 func getElectTimingCfg(state *state.StateDBManage) (*mc.ElectGenTimeStruct, error) {
 	electTiming, err := matrixstate.GetElectGenTime(state)
 	if nil != err {
-		log.ERROR(ModuleName, "读取选举时序错误", err)
+		log.Error(ModuleName, "读取选举时序错误", err)
 		return nil, err
 	}
 
@@ -268,13 +269,13 @@ func isNextBlockValidatorGenTimming(state *state.StateDBManage, currNum uint64, 
 
 	bcInterval, err := manparams.GetBCIntervalInfoByHash(parentHash)
 	if nil != err {
-		log.ERROR(ModuleName, "获取广播配置 err", err)
+		log.Error(ModuleName, "获取广播配置 err", err)
 		return false
 	}
 
 	electTiming, err := getElectTimingCfg(state)
 	if nil != err {
-		log.ERROR(ModuleName, "获取选举时序错误", err)
+		log.Error(ModuleName, "获取选举时序错误", err)
 		return false
 	}
 

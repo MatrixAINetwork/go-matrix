@@ -58,11 +58,11 @@ func GetOnlineAlter(offline []common.Address, online []common.Address, electonli
 	}
 	for _, v := range offline {
 		if _, ok := mappOnlineStatus[v]; ok == false {
-			log.ERROR(Module, "计算下线节点的alter时 下线节点不在初选列表中 账户", v.String())
+			log.Error(Module, "计算下线节点的alter时 下线节点不在初选列表中 账户", v.String())
 			continue
 		}
 		if mappOnlineStatus[v] == common.PosOffline {
-			log.ERROR(Module, "该节点已处于下线阶段 不需要上块 账户", v.String())
+			log.Error(Module, "该节点已处于下线阶段 不需要上块 账户", v.String())
 			continue
 		}
 		temp := mc.Alternative{
@@ -74,11 +74,11 @@ func GetOnlineAlter(offline []common.Address, online []common.Address, electonli
 
 	for _, v := range online {
 		if _, ok := mappOnlineStatus[v]; ok == false {
-			log.ERROR(Module, "计算上线节点的alter时 上线节点不在初选列表中 账户", v.String())
+			log.Error(Module, "计算上线节点的alter时 上线节点不在初选列表中 账户", v.String())
 			continue
 		}
 		if mappOnlineStatus[v] == common.PosOnline {
-			log.ERROR(Module, "该节点已处于上线阶段，不需要上块 账户", v.String())
+			log.Error(Module, "该节点已处于上线阶段，不需要上块 账户", v.String())
 			continue
 		}
 		temp := mc.Alternative{
@@ -87,14 +87,14 @@ func GetOnlineAlter(offline []common.Address, online []common.Address, electonli
 		}
 		ans = append(ans, temp)
 	}
-	log.INFO(Module, "计算上下线节点结果 online", online, "offline", offline, "ans", ans)
+	log.Info(Module, "计算上下线节点结果 online", online, "offline", offline, "ans", ans)
 	return ans
 }
 
 func (self *ReElection) TopoUpdate(allNative support.AllNative, top *mc.TopologyGraph, hash common.Hash) ([]mc.Alternative, error) {
 	elect, err := self.GetElectPlug(hash)
 	if err != nil {
-		log.ERROR(Module, "获取选举插件")
+		log.Error(Module, "获取选举插件")
 		return []mc.Alternative{}, err
 	}
 
@@ -105,7 +105,7 @@ func (self *ReElection) TopoUpdate(allNative support.AllNative, top *mc.Topology
 	}
 	electInfo, err := matrixstate.GetElectConfigInfo(st)
 	if err != nil || electInfo == nil {
-		log.ERROR("GetElectInfo", "获取选举基础信息失败 err", err)
+		log.Error("GetElectInfo", "获取选举基础信息失败 err", err)
 		return nil, err
 	}
 	allNative.ElectInfo = electInfo
@@ -116,7 +116,7 @@ func (self *ReElection) LastMinerGenTimeStamp(height uint64, types common.RoleTy
 
 	data, err := self.GetElectGenTimes(hash)
 	if err != nil {
-		log.ERROR(Module, "获取配置文件失败 err", err)
+		log.Error(Module, "获取配置文件失败 err", err)
 		return 0, err
 	}
 	minerGenTime := uint64(data.MinerNetChange)
@@ -124,7 +124,7 @@ func (self *ReElection) LastMinerGenTimeStamp(height uint64, types common.RoleTy
 
 	bcInterval, err := self.GetBroadcastIntervalByHash(hash)
 	if err != nil {
-		log.ERROR(Module, "根据hash获取广播周期信息 err", err)
+		log.Error(Module, "根据hash获取广播周期信息 err", err)
 		return 0, err
 	}
 	switch types {

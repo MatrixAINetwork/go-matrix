@@ -372,14 +372,14 @@ func BlackListFilter(tx types.SelfTransaction, state *state.StateDBManage, h *bi
 	//					filtercoinnum.coinNum = make(map[string]uint64)
 	//				}
 	//				if filtercoinnum.coinNum[cointype] >= config.PackNum {
-	//					log.WARN("warning ", "this coin tx count >= pack num.coin type", cointype, "pack num", config.PackNum, "curr tx count", filtercoinnum.coinNum[cointype])
+	//					log.Warn("warning ", "this coin tx count >= pack num.coin type", cointype, "pack num", config.PackNum, "curr tx count", filtercoinnum.coinNum[cointype])
 	//					filtercoinnum.mu.Unlock()
 	//					return false
 	//				}
 	//				filtercoinnum.coinNum[cointype] = filtercoinnum.coinNum[cointype] + 1
 	//				filtercoinnum.mu.Unlock()
 	//			} else if config.PackNum <= 0 {
-	//				log.WARN("warning ", "this coin tx discard. coin type", cointype)
+	//				log.Warn("warning ", "this coin tx discard. coin type", cointype)
 	//				return false
 	//			}
 	//		}

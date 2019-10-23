@@ -82,7 +82,7 @@ func (sr *SelectedReward) GetSelectedRewards(reward *big.Int, state util.StateDB
 
 	//计算选举的拓扑图的高度
 	if reward.Cmp(big.NewInt(0)) <= 0 {
-		//log.WARN(PackageName, "奖励金额不合法", reward)
+		//log.Warn(PackageName, "奖励金额不合法", reward)
 		return nil
 	}
 	//log.Debug(PackageName, "参与奖励大家共发放", reward)

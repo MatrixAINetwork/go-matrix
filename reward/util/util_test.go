@@ -1,3 +1,6 @@
+// Copyright (c) 2018 The MATRIX Authors
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php
 package util
 
 import (
@@ -18692,12 +18695,12 @@ func TestCalcStock1Rate(t *testing.T) {
 	for _, v := range rewardTestFinal {
 		if value, ok := result[v.Address]; ok {
 			if 0 != value.Cmp(v.Reward) {
-				log.ERROR(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃", v.Address.String(), "璁＄畻缁撴灉", value.String(), "鐩爣缁撴灉", v.Reward.String())
+				log.Error(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃", v.Address.String(), "璁＄畻缁撴灉", value.String(), "鐩爣缁撴灉", v.Reward.String())
 				t.Fail()
 
 			}
 		} else {
-			log.ERROR(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃瀛樺湪", v.Address.String())
+			log.Error(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃瀛樺湪", v.Address.String())
 			t.Fail()
 		}
 	}
@@ -18739,12 +18742,12 @@ func TestCalcStock2Rate(t *testing.T) {
 	for _, v := range rewardTestFinal {
 		if value, ok := result[v.Address]; ok {
 			if 0 != value.Cmp(v.Reward) {
-				log.ERROR(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃", v.Address.String(), "璁＄畻缁撴灉", value.String(), "鐩爣缁撴灉", v.Reward.String())
+				log.Error(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃", v.Address.String(), "璁＄畻缁撴灉", value.String(), "鐩爣缁撴灉", v.Reward.String())
 				t.Fail()
 
 			}
 		} else {
-			log.ERROR(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃瀛樺湪", v.Address.String())
+			log.Error(PackageName, "鏁版嵁涓嶄竴鑷?鍦板潃瀛樺湪", v.Address.String())
 			t.Fail()
 		}
 	}

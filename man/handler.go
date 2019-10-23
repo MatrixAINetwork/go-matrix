@@ -14,8 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/MatrixAINetwork/go-matrix/params/manparams"
-
 	"github.com/MatrixAINetwork/go-matrix/ca"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
@@ -32,6 +30,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/p2p"
 	"github.com/MatrixAINetwork/go-matrix/p2p/discover"
 	"github.com/MatrixAINetwork/go-matrix/params"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/MatrixAINetwork/go-matrix/rlp"
 )
 
@@ -90,10 +89,10 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
-	CheckDownloadNum      int
-	LastCheckTime       int64
-	LastCheckBlkNum     uint64
-	Msgcenter *mc.Center
+	CheckDownloadNum int
+	LastCheckTime    int64
+	LastCheckBlkNum  uint64
+	Msgcenter        *mc.Center
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
@@ -101,7 +100,7 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Matrix sub protocol manager. The Matrix sub protocol manages peers capable
 // with the Matrix network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb mandb.Database, MsgCenter *mc.Center) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine map[string]consensus.Engine, blockchain *core.BlockChain, chaindb mandb.Database, MsgCenter *mc.Center) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkId:   networkId,
@@ -169,7 +168,11 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 
 	validator := func(header *types.Header) error {
 		//todo 无法连续验证，下载的区块全部不验证pow
-		return engine.VerifyHeader(blockchain, header, false)
+		if item, ok := engine[string(header.Version)]; ok {
+			return item.VerifyHeader(blockchain, header, false, false)
+		} else {
+			return errors.New("未知版本号")
+		}
 	}
 	heighter := func() uint64 {
 		return blockchain.CurrentBlock().NumberU64()
@@ -181,14 +184,14 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			return 0, nil
 		}
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.blockchain.InsertChain(blocks,1)
+		return manager.blockchain.InsertChain(blocks, 1)
 	}
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
 
 	return manager, nil
 }
 
-func (pm *ProtocolManager) removePeer(id string,flg int) {
+func (pm *ProtocolManager) removePeer(id string, flg int) {
 	// Short circuit if the peer was already removed
 	//	peer := pm.peers.Peer(id)
 	peer := pm.Peers.Peer(id)
@@ -198,7 +201,7 @@ func (pm *ProtocolManager) removePeer(id string,flg int) {
 	log.Debug("Removing Matrix peer", "peer", id)
 
 	// Unregister the peer from the downloader and Matrix peer set
-	pm.downloader.UnregisterPeer(id,flg)
+	pm.downloader.UnregisterPeer(id, flg)
 	//	if err := pm.peers.Unregister(id); err != nil {
 	if err := pm.Peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
@@ -229,7 +232,7 @@ func (pm *ProtocolManager) removePeer(id string,flg int) {
 	for {
 		select {
 		case mcmss := <-P2PSendDisPatcherMsgCH:
-			log.INFO("SendToGroup", "data", mcmss.Role)
+			log.Info("SendToGroup", "data", mcmss.Role)
 			p2p.SendToGroup(mcmss.Role, uint64(mcmss.SubCode), mcmss.NodeInfo)
 		}
 	}
@@ -316,7 +319,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		sbHash  = sbi.Num
 	)
 
-	if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+	if manversion.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
 		if err := p.NewHandshake(pm.networkId, bt, hash, sbs, genesis.Hash(), sbHash, number); err != nil {
 			p.Log().Debug("Matrix handshake failed", "err", err)
 			return err
@@ -339,7 +342,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Error("Matrix peer registration failed", "err", err)
 		return err
 	}
-	defer pm.removePeer(p.id,0)
+	defer pm.removePeer(p.id, 0)
 
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
 	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
@@ -358,7 +361,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		// Start a timer to disconnect if the peer doesn't reply in time
 		p.forkDrop = time.AfterFunc(daoChallengeTimeout, func() {
 			p.Log().Debug("Timed out DAO fork-check, dropping")
-			pm.removePeer(p.id,0)
+			pm.removePeer(p.id, 0)
 		})
 		// Make sure it's cleaned up if the peer dies off
 		defer func() {
@@ -375,6 +378,91 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			return err
 		}
 	}
+}
+func (pm *ProtocolManager) ParseHeaders(msg *p2p.Msg) ([]*types.Header, error) {
+	data := make([]byte, msg.Size)
+	dataSize, err := msg.Payload.Read(data)
+	if err != nil {
+		return nil, errResp(ErrDecode, "msg %v: %s %v", msg, "read data err", err)
+	}
+	if uint32(dataSize) != msg.Size {
+		return nil, errResp(ErrDecode, "msg %v: %s", msg, "data size err")
+	}
+
+	kind, headersData, rest, err := rlp.Split(data)
+	//log.Info("ParseHeaders", "kind", kind, "headersData", len(headersData), "rest", len(rest), "err", err)
+	if err != nil && kind != rlp.List && len(rest) != 0 {
+		log.Error("ParseHeaders", "msg数据split异常", "不是[]header", "err", err, "kind", kind, "rest", len(rest))
+		return nil, errResp(ErrDecode, "msg %v: %s", msg, "msg data split err")
+	}
+
+	var headers []*types.Header
+	for len(headersData) != 0 {
+		one, restData, err := decodeOneHeader(headersData)
+		if err != nil {
+			return nil, errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		headers = append(headers, one)
+		headersData = restData
+	}
+
+	return headers, nil
+}
+
+func decodeOneHeader(data []byte) (header *types.Header, rest []byte, err error) {
+	var kind rlp.Kind
+	kind, _, rest, err = rlp.Split(data)
+	//log.Info("decodeOneHeader", "kind", kind, "data", len(data), "rest", len(rest), "err", err)
+	if err != nil {
+		return nil, nil, err
+	}
+	if kind != rlp.List {
+		return nil, nil, errors.New("header data kind err")
+	}
+
+	var nh types.Header
+	err = rlp.DecodeBytes(data[:len(data)-len(rest)], &nh)
+	if err == nil {
+		return &nh, rest, nil
+	} else {
+		var oh types.HeaderV1
+		err = rlp.DecodeBytes(data[:len(data)-len(rest)], &oh)
+		if err == nil {
+			return oh.TransferHeader(), rest, nil
+		} else {
+			return nil, nil, err
+		}
+	}
+}
+
+func (pm *ProtocolManager) ParseNewBlockData(msg *p2p.Msg) (newBlockData, error) {
+	data := make([]byte, msg.Size)
+	dataSize, err := msg.Payload.Read(data)
+	if err != nil {
+		return newBlockData{}, err
+	}
+	if uint32(dataSize) != msg.Size {
+		return newBlockData{}, errors.New("数据大小不一致")
+	}
+
+	var request newBlockData
+	err = rlp.DecodeBytes(data, &request)
+	if nil == err {
+		return request, nil
+	} else {
+		var oldrequest newOldBlockData
+		err = rlp.DecodeBytes(data, &oldrequest)
+		if nil == err {
+			request.Block = oldrequest.Block.TransferBlock()
+			request.SBS = oldrequest.SBS
+			request.SBH = oldrequest.SBH
+			request.TD = oldrequest.TD
+			return request, nil
+		}
+	}
+
+	return newBlockData{}, errResp(ErrDecode, "msg %v: %v", msg, err)
+
 }
 
 // handleMsg is invoked whenever an inbound message is received from a remote
@@ -482,11 +570,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == BlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
-		var headers []*types.Header
-		if err := msg.Decode(&headers); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		headers, err := pm.ParseHeaders(&msg)
+		if err != nil {
+			return err
 		}
-
 		p.Log().Trace("download handleMsg BlockHeadersMsg", "len", len(headers))
 
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
@@ -507,7 +594,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return nil
 			}
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
-			p.Log().Trace("download handleMsg BlockHeadersMsg fetch","headers",headers[0].Hash(),"number",headers[0].Number.Uint64())
+			p.Log().Trace("download handleMsg BlockHeadersMsg fetch", "headers", headers[0].Hash(), "number", headers[0].Number.Uint64())
 			headers = pm.fetcher.FilterHeaders(p.id, headers, time.Now())
 		}
 		p.Log().Trace("download handleMsg BlockHeadersMsg after", "len", len(headers), "!filter", !filter)
@@ -535,6 +622,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if err := msgStream.Decode(&hash); err == rlp.EOL {
 				break
 			} else if err != nil {
+				p.Log().Trace("download handleMsg GetBlockBodiesMsg msgStream.Decode error")
 				return errResp(ErrDecode, "msg %v: %v", msg, err)
 			}
 			// Retrieve the requested block body, stopping if enough was found
@@ -550,6 +638,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of block bodies arrived to one of our previous requests
 		var request blockBodiesData
 		if err := msg.Decode(&request); err != nil {
+			p.Log().Trace("download handleMsg BlockBodiesMsg msg.Decode error")
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver them all to the downloader for queuing
@@ -677,12 +766,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		if len(announces) > 0 {
 			p.Log().Trace("download fetch handleMsg receive NewBlockHashesMsg0", "BlockNum", announces[0].Number, "hash", announces[0].Hash.String())
-			if (announces[0].Number > pm.fetcher.MaxChainHeight){
+			if announces[0].Number > pm.fetcher.MaxChainHeight {
 				pm.fetcher.MaxChainHeight = announces[0].Number
 			}
-			if pm.blockchain.CurrentBlock().NumberU64() + 20 < announces[0].Number {
-				p.SetHeadPart(announces[0].Hash,announces[0].Number)
-				go pm.synchronise(p,10)//强制检查
+			if pm.blockchain.CurrentBlock().NumberU64()+20 < announces[0].Number {
+				p.SetHeadPart(announces[0].Hash, announces[0].Number)
+				go pm.synchronise(p, 10) //强制检查
 			}
 		}
 		// Schedule all the unknown hashes for retrieval
@@ -694,33 +783,33 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		for _, block := range unknown {
-			if ( block.Number > pm.blockchain.CurrentBlock().NumberU64()) {
-				pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
-			}
+			//if ( block.Number > pm.blockchain.CurrentBlock().NumberU64())去掉重复高度插入判断 {
+			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
 		}
 
 	case msg.Code == NewBlockMsg:
 		// Retrieve and decode the propagated block
-		var request newBlockData
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
+		request, err := pm.ParseNewBlockData(&msg)
+		if err != nil {
+			return err
 		}
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
 
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkBlock(request.Block.Hash())
-		if (request.Block.NumberU64()> pm.fetcher.MaxChainHeight){
+		if request.Block.NumberU64() > pm.fetcher.MaxChainHeight {
 			pm.fetcher.MaxChainHeight = request.Block.NumberU64()
 		}
-		currentBlock := pm.blockchain.CurrentBlock()
+		recvBlockNum := request.Block.NumberU64()
+		curBlockNum := pm.blockchain.CurrentBlock().NumberU64()
 		flg := 0
-		if(pm.fetcher.MaxChainHeight - currentBlock.NumberU64() < 32) && ( request.Block.NumberU64() > currentBlock.NumberU64() ){
+		//if(pm.fetcher.MaxChainHeight-currentBlock.NumberU64() < 32) && (request.Block.NumberU64() > currentBlock.NumberU64()) {//去掉重复高度插入判断
+		if dist := int64(recvBlockNum) - int64(curBlockNum); dist > -7 && dist < 64 {
 			pm.fetcher.Enqueue(p.id, request.Block)
 			flg = 1
 		}
-		p.Log().Trace("download fetch handleMsg receive NewBlockMsg", "number", request.Block.NumberU64(), "request.TD", request.TD,"MaxChainHeight",pm.fetcher.MaxChainHeight,"flg",flg)
-	
+		p.Log().Trace("download fetch handleMsg receive NewBlockMsg", "Recvnumber", recvBlockNum, "curBlockNum", curBlockNum, "request.TD", request.TD, "MaxChainHeight", pm.fetcher.MaxChainHeight, "flg", flg)
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
@@ -732,39 +821,39 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			trueSBS  = request.SBS
 		)
 		_, td, sbs, _, bt, bn := p.Head()
-		if manparams.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
+		if manversion.CanSwitchGammaCanonicalChain(time.Now().Unix()) {
 
-			p.Log().Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs, "高度", request.Block.NumberU64(), "时间", request.Block.Time())
-			if common.IsGreaterLink(common.LinkInfo{Sbs: trueSBS, Bn: request.Block.NumberU64(), Bt: request.Block.Time().Uint64()}, common.LinkInfo{Sbs: sbs, Bn: bn, Bt: bt}) {
-				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(),request.Block.NumberU64())// request.Block.NumberU64()-1)
-				p.Log().Trace("handleMsg receive NewBlockMsg SetHead") 
+			p.Log().Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "缓存序号", sbs, "高度", recvBlockNum, "时间", request.Block.Time())
+			if common.IsGreaterLink(common.LinkInfo{Sbs: trueSBS, Bn: recvBlockNum, Bt: request.Block.Time().Uint64()}, common.LinkInfo{Sbs: sbs, Bn: bn, Bt: bt}) {
+				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(), recvBlockNum) // request.Block.NumberU64()-1)
+				p.Log().Trace("handleMsg receive NewBlockMsg SetHead")
 				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
 				// a singe block (as the true TD is below the propagated block), however this
 				// scenario should easily be covered by the fetcher.
 				//currentBlock := pm.blockchain.CurrentBlock()
 				/*
-				td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-				if td == nil {
-					log.Error("td is nil", "peer", p.id)
-					break
-				}
-				sbs, err := pm.blockchain.GetSuperBlockSeq()
-				if nil != err {
-					log.Error("get super seq error")
-					break
-				}
-
-				if common.IsGreaterLink(common.LinkInfo{Sbs: trueSBS, Bn: request.Block.NumberU64(), Bt: request.Block.Time().Uint64()}, common.LinkInfo{Sbs: sbs, Bn: currentBlock.NumberU64(), Bt: currentBlock.Time().Uint64()}) {
-
-					log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs,
-						"远程高度", request.Block.NumberU64(), "本地高度", currentBlock.NumberU64(), "远程时间", request.Block.Time(), "本地时间", currentBlock.Time())
-					if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
-						go pm.synchronise(p,3)
+					td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+					if td == nil {
+						log.Error("td is nil", "peer", p.id)
+						break
 					}
-				}
+					sbs, err := pm.blockchain.GetSuperBlockSeq()
+					if nil != err {
+						log.Error("get super seq error")
+						break
+					}
+
+					if common.IsGreaterLink(common.LinkInfo{Sbs: trueSBS, Bn: request.Block.NumberU64(), Bt: request.Block.Time().Uint64()}, common.LinkInfo{Sbs: sbs, Bn: currentBlock.NumberU64(), Bt: currentBlock.Time().Uint64()}) {
+
+						log.Trace("handleMsg receive NewBlockMsg", "超级区块序号", trueSBS, "本地序号", sbs,
+							"远程高度", request.Block.NumberU64(), "本地高度", currentBlock.NumberU64(), "远程时间", request.Block.Time(), "本地时间", currentBlock.Time())
+						if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
+							go pm.synchronise(p,3)
+						}
+					}
 				*/
-				if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
-					go pm.synchronise(p,3)
+				if curBlockNum+1 < recvBlockNum {
+					go pm.synchronise(p, 3)
 				}
 			}
 		} else {
@@ -776,7 +865,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 
 			if trueSBS > sbs || trueTD.Cmp(td) > 0 {
-				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(), request.Block.NumberU64())
+				p.SetHead(trueHead, trueTD, trueSBS, request.SBH, request.Block.Time().Uint64(), recvBlockNum)
 
 				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
 				// a singe block (as the true TD is below the propagated block), however this
@@ -799,8 +888,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						go pm.synchronise(p,4)
 					}
 				}*/
-				if currentBlock.NumberU64() + 1 < request.Block.NumberU64(){
-					go pm.synchronise(p,4)
+				if curBlockNum+1 < recvBlockNum {
+					go pm.synchronise(p, 4)
 				}
 			}
 
@@ -829,7 +918,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			hash := tx.Hash()
 			p.MarkTransaction(hash)
-			log.INFO("==tcp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", hash.String(), "sender addr", p2p.ServerP2p.ConvertIdToAddress(p.ID()).String(),
+			log.Info("==tcp tx hash", "from", tx.From().String(), "tx.Nonce", tx.Nonce(), "hash", hash.String(), "sender addr", p2p.ServerP2p.ConvertIdToAddress(p.ID()).String(),
 				"node id", p.ID().String())
 		}
 		pm.txpool.AddRemotes(txs)
@@ -982,7 +1071,7 @@ func (pm *ProtocolManager) AllBroadcastBlock(block *types.Block, propagate bool)
 	hash := block.Hash()
 	sbi, err := pm.blockchain.GetSuperBlockInfo()
 	if nil != err {
-		log.ERROR("get super seq error")
+		log.Error("get super seq error")
 		return
 	}
 	//	peers := pm.peers.PeersWithoutBlock(hash)

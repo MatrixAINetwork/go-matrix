@@ -78,7 +78,7 @@ func (cur *Depositcurrent) CheckwithdrawDeposit(index uint64, deposit *common.De
 		if depositmsg.DepositAmount.Cmp(wdAm) >= 0 && wdAm.Cmp(cur.DepositCur.CruWithDrawAmountMin) >= 0 {
 			return true, nil
 		} else {
-			log.ERROR("CheckwithdrawDeposit", "deposit amount", depositmsg.DepositAmount, "wdAm", wdAm)
+			log.Error("CheckwithdrawDeposit", "deposit amount", depositmsg.DepositAmount, "wdAm", wdAm)
 			return false, errors.New("CheckwithdrawDeposit deposit Amount insufficient or withdraw amount too less")
 		}
 	} else {

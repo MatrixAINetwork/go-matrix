@@ -91,7 +91,7 @@ func (self *controller) run() {
 func (self *controller) publishLeaderMsg() {
 	msg, err := self.dc.PrepareLeaderMsg()
 	if err != nil {
-		log.ERROR(self.logInfo, "公布leader身份消息", "准备消息失败", "err", err)
+		log.Error(self.logInfo, "公布leader身份消息", "准备消息失败", "err", err)
 		return
 	}
 	log.Debug(self.logInfo, "公布leader身份消息, leader", msg.Leader.Hex(), "高度", msg.Number,
