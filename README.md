@@ -4,7 +4,7 @@
 Matrix Mainnet Update Notice
 
 
-##Successful updates
+## Successful updates
 We’ve made the following improvements in the latest update
 1.	Updated the mining process
 2.	Updated the miner election algorithm
@@ -14,7 +14,7 @@ We’ve made the following improvements in the latest update
 6.	storage optimization 
 
 
-###mining process
+### mining process
 Block creation previously occurred with POS and POW running in serial execution. This lead to periods of time when miners were latent and compute was underutilized. This update introduces AI mining while increasing the productivity and utilization of compute.
 
 During each broadcast period the 99 blocks other than the broadcast block will be divided into sets of 33, with each set representing 3 consecutive blocks. In each set the first block will be the AI block, the second will be a POS block, and the third will be a POW block.
