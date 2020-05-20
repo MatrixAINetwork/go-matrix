@@ -91,5 +91,7 @@ const (
 	HD_V2_FullBlockReq
 	HD_V2_FullBlockRsp
 
+	HD_FullBlkReqToBroadcast
+
 	LastEventCode
 )

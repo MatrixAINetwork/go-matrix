@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 
 	"github.com/MatrixAINetwork/go-matrix/consensus"
-	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 )
@@ -21,7 +20,7 @@ type CpuAgent struct {
 	stop   chan struct{}
 
 	quitCurrentOp chan struct{}
-	returnCh      chan<- *types.Header
+	returnCh      chan<- *consensus.SealResult
 
 	chain ChainReader
 
@@ -37,8 +36,8 @@ func NewCpuAgent(chain ChainReader) *CpuAgent {
 	return miner
 }
 
-func (self *CpuAgent) Work() chan<- *Work                  { return self.workCh }
-func (self *CpuAgent) SetReturnCh(ch chan<- *types.Header) { self.returnCh = ch }
+func (self *CpuAgent) Work() chan<- *Work                          { return self.workCh }
+func (self *CpuAgent) SetReturnCh(ch chan<- *consensus.SealResult) { self.returnCh = ch }
 
 func (self *CpuAgent) Stop() {
 	if !atomic.CompareAndSwapInt32(&self.isMining, 1, 0) {
@@ -96,7 +95,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 			self.chain.Engine(work.header.Version).SealPow(self.chain, work.header, stop, self.returnCh, work.isBroadcastNode)
 		} else {
 			if result, err := self.chain.Engine(work.header.Version).SealPow(self.chain, work.header, stop, self.returnCh, work.isBroadcastNode); result != nil {
-				log.Info("Successfully sealed new block", "number", result.Number, "hash", result.Hash())
+				log.Info("Successfully sealed new block", "number", result.Header.Number, "hash", result.Header.Hash())
 				self.returnCh <- result
 			} else {
 				if err != nil {
@@ -107,7 +106,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 		}
 	case mineTaskTypeAI:
 		if result, err := self.chain.Engine(work.header.Version).SealAI(self.chain, work.header, stop); result != nil {
-			log.Info("cup agent", "Successfully sealed new AI result", result.AIHash.TerminalString(), "number", result.Number)
+			log.Info("cup agent", "Successfully sealed new AI result", result.Header.AIHash.TerminalString(), "number", result.Header.Number)
 			self.returnCh <- result
 		} else {
 			if err != nil {

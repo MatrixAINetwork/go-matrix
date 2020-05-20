@@ -16,6 +16,19 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/rpc"
 )
 
+type SealType int
+
+const (
+	SealTypePow     SealType = 1
+	SealTypeBasePow          = 2
+	SealTypeAI               = 3
+)
+
+type SealResult struct {
+	Type   SealType
+	Header *types.Header
+}
+
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
 type ChainReader interface {
@@ -107,12 +120,12 @@ type Engine interface {
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	SealAI(chain ChainReader, header *types.Header, stop <-chan struct{}) (*types.Header, error)
-	SealPow(chain ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *types.Header, isBroadcastNode bool) (*types.Header, error)
+	SealAI(chain ChainReader, header *types.Header, stop <-chan struct{}) (*SealResult, error)
+	SealPow(chain ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *SealResult, isBroadcastNode bool) (*SealResult, error)
 
 	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 	// that a new block should have.
-	CalcDifficulty(chain ChainReader, version string, time uint64, parent *types.Header) (*big.Int, error)
+	CalcDifficulty(chain ChainReader, version string, time uint64, parent *types.Header, header *types.Header) (*big.Int, error)
 
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API

@@ -85,17 +85,25 @@ type ElectDP struct {
 	UpdateSeq   bool
 }
 
-func getAccountListInDeposit(minerList []vm.DepositDetail, candidateList []common.Address) []common.Address {
-	newCandidateList := make([]common.Address, 0, 1024)
-	for i := 0; i < len(minerList); i++ {
-		if FindAddress(minerList[i].Address, candidateList) {
-			newCandidateList = append(newCandidateList, minerList[i].Address)
-		} else {
-			//log.Trace("动态选举方案", "节点不存在", minerList[i].Address)
+func (self *ElectDP) GenUsableCandidateList() []common.Address {
+	addr := make([]common.Address, 0, 1024)
+	nodeUserMap := make(map[common.Address]bool, 1024)
+	for _, v := range self.DepositNode {
+		nodeUserMap[v.Address] = true
+	}
+	//移除算力黑名单，节点
+	for _, v := range self.BpBlackList.BlackList {
+		if v.ProhibitCycleCounter > 0 {
+			nodeUserMap[v.Address] = false
+		}
+	}
+	for _, v := range self.DepositNode {
+		if nodeUserMap[v.Address] {
+			addr = append(addr, v.Address)
 		}
 
 	}
-	return newCandidateList
+	return addr
 }
 
 func (self *ElectDP) getAccountListInDepositMap(candidateList []common.Address) []common.Address {
@@ -122,6 +130,20 @@ func (self *ElectDP) GetUsableNodeList(candidateList, excludeNode []common.Addre
 	log.Info("动态选举方案", "黑白名单处理输入节点个数", len(candidateList), "输出节点个数", len(canUseNodeList))
 	return canUseNodeList
 }
+
+func (self *ElectDP) GetUsableNodeListV2(candidateList, excludeNode []common.Address) []common.Address {
+	var newCandidateList []common.Address
+	if len(candidateList) == 0 {
+           newCandidateList = self.GenUsableCandidateList()
+	} else {
+		newCandidateList = self.getAccountListInDepositMap(candidateList)
+	}
+
+	canUseNodeList := self.NewFilterWhiteBlackList(newCandidateList, excludeNode)
+	log.Info("动态选举方案", "黑白名单处理输入节点个数", len(candidateList), "输出节点个数", len(canUseNodeList))
+	return canUseNodeList
+}
+
 func (self *ElectDP) NewFilterWhiteBlackList(CandidateList, excludeNode []common.Address) []common.Address {
 	nodeUserMap := make(map[common.Address]bool, 1024)
 

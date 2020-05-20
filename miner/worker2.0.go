@@ -6,6 +6,7 @@ package miner
 
 import (
 	"github.com/MatrixAINetwork/go-matrix/common"
+	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
@@ -112,6 +113,7 @@ func (self *workerV2) processStartMining() {
 
 	// 使用最优任务替换当前任务
 	self.curMineTask = bestTask
+	log.Trace(self.logInfo, "processStartMining", "开始新的挖矿任务", "type", self.curMineTask.TaskType(), "number", self.curMineTask.MineNumber(), "hash", self.curMineTask.MineHash().TerminalString())
 	self.worker.CommitNewWorkV2(self.curMineTask)
 }
 
@@ -158,29 +160,31 @@ func (self *workerV2) packBestTask(taskA mineTask, taskB mineTask) mineTask {
 	}
 }
 
-func (self *workerV2) foundHandle(header *types.Header) {
-	log.Trace(self.logInfo, "foundHandle", "begin", "key hash", header.ParentHash.TerminalString(), "ai hash", header.AIHash.TerminalString(), "nonce", header.Nonce, "sm3 nonce", header.Sm3Nonce)
-	defer log.Trace(self.logInfo, "foundHandle", "end", "key hash", header.ParentHash.TerminalString(), "ai hash", header.AIHash.TerminalString(), "nonce", header.Nonce, "sm3 nonce", header.Sm3Nonce)
-	if (header.AICoinbase != common.Address{}) && (header.AIHash != common.Hash{}) {
+func (self *workerV2) foundHandle(result *consensus.SealResult) {
+	header := result.Header
+	log.Trace(self.logInfo, "foundHandle", "begin", "key hash", header.ParentHash.TerminalString(), "type", result.Type, "ai hash", header.AIHash.TerminalString(), "nonce", header.Nonce, "sm3 nonce", header.Sm3Nonce, "miner", header.Coinbase.Hex(), "ai miner", header.AICoinbase.Hex())
+	defer log.Trace(self.logInfo, "foundHandle", "end", "key hash", header.ParentHash.TerminalString(), "type", result.Type)
+
+	switch result.Type {
+	case consensus.SealTypeAI:
 		log.Trace(self.logInfo, "得到AI挖矿结果", header.AIHash.Hex(), "number", header.Number, "parent hash", header.ParentHash.TerminalString())
 		self.handleAIResult(header)
-	}
+	case consensus.SealTypePow:
+		log.Trace(self.logInfo, "得到POW挖矿结果", header.Nonce.Uint64(), "number", header.Number, "parent hash", header.ParentHash.TerminalString())
+		self.handlePowResult(header)
 
-	if (header.Coinbase != common.Address{}) && (header.Nonce != types.BlockNonce{}) {
-		if (header.Sm3Nonce != types.BlockNonce{}) {
-			log.Trace(self.logInfo, "得到POW挖矿结果", header.Nonce.Uint64(), "number", header.Number, "parent hash", header.ParentHash.TerminalString())
-			self.handlePowResult(header)
-		} else {
-			log.Trace(self.logInfo, "得到 Base POW 挖矿结果", header.Nonce.Uint64(), "number", header.Number, "parent hash", header.ParentHash.TerminalString())
-			self.handleBasePowResult(header)
-		}
+	case consensus.SealTypeBasePow:
+		log.Trace(self.logInfo, "得到 Base POW 挖矿结果", header.Nonce.Uint64(), "number", header.Number, "parent hash", header.ParentHash.TerminalString())
+		self.handleBasePowResult(header)
+
+	default:
+		log.Trace(self.logInfo, "异常挖矿结果类型", result.Type)
 	}
 
 	if isNilTask(self.curMineTask) && self.taskManger.CanMining() {
 		// 挖矿结束，且当前可以挖矿，继续开始下个挖矿任务
 		self.processStartMining()
 	}
-
 }
 
 func (self *workerV2) handleBasePowResult(header *types.Header) {
@@ -409,7 +413,7 @@ func (self *workerV2) sendPOWMineResultFunc(data interface{}, times uint32) {
 	}
 
 	self.worker.hd.SendNodeMsg(mc.HD_V2_PowMiningRsp, rsp, common.RoleValidator|common.RoleBroadcast, nil)
-	log.Trace(self.logInfo, "POW挖矿结果", "发送", "parent hash", rsp.BlockHash.TerminalString(), "次数", times, "高度", rsp.Number, "x11 Nonce", rsp.Nonce, "sm3 Nonce", rsp.Sm3Nonce, "difficulty", rsp.Difficulty)
+	log.Trace(self.logInfo, "POW挖矿结果", "发送", "parent hash", rsp.BlockHash.TerminalString(), "次数", times, "高度", rsp.Number, "x11 Nonce", rsp.Nonce, "sm3 Nonce", rsp.Sm3Nonce, "MixDigest", rsp.MixDigest.Hex(), "difficulty", rsp.Difficulty, "miner", rsp.Coinbase.Hex())
 }
 
 func (self *workerV2) innerMinerSendPOWMineResultFunc(data interface{}, times uint32) {
@@ -481,7 +485,7 @@ func (self *workerV2) sendBasePowResultFunc(data interface{}, times uint32) {
 	}
 
 	self.worker.hd.SendNodeMsg(mc.HD_BasePowerResult, rsp, common.RoleValidator|common.RoleBroadcast, nil)
-	log.Trace(self.logInfo, "算力检测结果", "发送", "parent hash", rsp.BlockHash.TerminalString(), "次数", times, "高度", rsp.Number, "Nonce", rsp.Nonce)
+	log.Trace(self.logInfo, "算力检测结果", "发送", "parent hash", rsp.BlockHash.TerminalString(), "次数", times, "高度", rsp.Number, "Nonce", rsp.Nonce, "MixDigest", rsp.MixDigest.Hex())
 }
 
 func (self *workerV2) startAIMineResultSender(task *aiMineTask) {

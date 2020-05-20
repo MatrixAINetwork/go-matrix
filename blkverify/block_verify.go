@@ -38,12 +38,14 @@ type BlockVerify struct {
 	localVerifyReqCh     chan *mc.LocalBlockVerifyConsensusReq
 	voteMsgCh            chan *mc.HD_ConsensusVote
 	recoveryCh           chan *mc.RecoveryStateMsg
+	fullBlkReqCh         chan *mc.HD_FullBlkReqToBroadcastMsg
 	roleUpdatedMsgSub    event.Subscription
 	leaderChangeSub      event.Subscription
 	requestSub           event.Subscription
 	localVerifyReqSub    event.Subscription
 	voteMsgSub           event.Subscription
 	recoverySub          event.Subscription
+	fullBlkReqSub        event.Subscription
 }
 
 func NewBlockVerify(matrix Matrix) (*BlockVerify, error) {
@@ -55,11 +57,13 @@ func NewBlockVerify(matrix Matrix) (*BlockVerify, error) {
 		localVerifyReqCh:     make(chan *mc.LocalBlockVerifyConsensusReq, 1),
 		voteMsgCh:            make(chan *mc.HD_ConsensusVote, 1),
 		recoveryCh:           make(chan *mc.RecoveryStateMsg, 1),
+		fullBlkReqCh:         make(chan *mc.HD_FullBlkReqToBroadcastMsg, 1),
 		roleUpdatedMsgSub:    nil,
 		leaderChangeSub:      nil,
 		requestSub:           nil,
 		localVerifyReqSub:    nil,
 		voteMsgSub:           nil,
+		fullBlkReqSub:        nil,
 	}
 
 	server.processManage = NewProcessManage(matrix)
@@ -81,6 +85,9 @@ func NewBlockVerify(matrix Matrix) (*BlockVerify, error) {
 		return nil, err
 	}
 	if server.recoverySub, err = mc.SubscribeEvent(mc.Leader_RecoveryState, server.recoveryCh); err != nil {
+		return nil, err
+	}
+	if server.fullBlkReqSub, err = mc.SubscribeEvent(mc.HD_FullBlkReqToBroadcast, server.fullBlkReqCh); err != nil {
 		return nil, err
 	}
 
@@ -123,6 +130,9 @@ func (self *BlockVerify) update() {
 
 		case recoveryMsg := <-self.recoveryCh:
 			go self.handleRecoveryMsg(recoveryMsg)
+
+		case fullBlkReqMsg := <-self.fullBlkReqCh:
+			go self.handleFullBlockRequestMsg(fullBlkReqMsg)
 
 		case <-self.quitCh:
 			self.processManage.clearProcessMap()
@@ -278,4 +288,24 @@ func (self *BlockVerify) reloadVerifiedBlocks() {
 
 func (self *BlockVerify) logExtraInfo() string {
 	return "区块验证服务"
+}
+
+func (self *BlockVerify) handleFullBlockRequestMsg(reqMsg *mc.HD_FullBlkReqToBroadcastMsg) {
+	if nil == reqMsg || nil == reqMsg.Header {
+		log.Warn(self.logExtraInfo(), "区块共识请求(全区块)消息", "msg is nil")
+		return
+	}
+	log.Debug(self.logExtraInfo(), "区块共识请求(全区块)消息", "开始处理", "高度", reqMsg.Header.Number, "共识轮次", reqMsg.ConsensusTurn.String(), "Leader", reqMsg.Header.Leader.Hex())
+	if (reqMsg.Header.Leader == common.Address{}) {
+		log.Warn(self.logExtraInfo(), "请求消息", "leader is nil")
+		return
+	}
+	msgNumber := reqMsg.Header.Number.Uint64()
+	process, err := self.processManage.GetProcess(msgNumber)
+	if err != nil {
+		log.Info(self.logExtraInfo(), "请求消息 获取Process失败", err)
+		return
+	}
+
+	process.AddFullBlkReq(reqMsg)
 }

@@ -7,7 +7,35 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"math/rand"
+	"time"
 )
+
+type reqList struct {
+	reqSlice []*reqData
+	myRand   *rand.Rand
+}
+
+func newReqList(reqSlice []*reqData) *reqList {
+	return &reqList{
+		reqSlice: reqSlice,
+		myRand:   rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+func (self *reqList) size() int {
+	return len(self.reqSlice)
+}
+
+func (self *reqList) popRandReq() *reqData {
+	if len(self.reqSlice) == 0 {
+		return nil
+	}
+	i := self.myRand.Intn(len(self.reqSlice))
+	req := self.reqSlice[i]
+	self.reqSlice = append(self.reqSlice[:i], self.reqSlice[i+1:]...)
+	return req
+}
 
 func (p *Process) startReqVerifyBC() {
 	if p.checkState(StateStart) == false {
@@ -15,11 +43,13 @@ func (p *Process) startReqVerifyBC() {
 		return
 	}
 
-	reqList := p.reqCache.GetAllReq()
-	log.Info(p.logExtraInfo(), "广播身份，启动阶段，请求总数", len(reqList), "高度", p.number)
-	for _, req := range reqList {
-		if req.localVerifyResult != localVerifyResultProcessing {
-			continue
+	reqList := newReqList(p.reqCache.GetAllReq())
+	log.Info(p.logExtraInfo(), "广播身份，启动阶段，请求总数", reqList.size(), "高度", p.number)
+	for reqList.size() != 0 {
+		req := reqList.popRandReq()
+		if req == nil {
+			log.Info(p.logExtraInfo(), "广播身份，启动阶段", "req == nil", "高度", p.number)
+			return
 		}
 
 		if p.isProcessedBCBlockHash(req.hash) {

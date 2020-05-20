@@ -44,12 +44,13 @@ const (
 	EveryBroadcastSeed                   = "everybroadcastseed"
 	EveryBroadcastSeed_Plug_MaxNonce     = "MaxNonce"
 
-	ElectPlug_layerd    = "layerd"
-	ElectPlug_stock     = "stock"
-	ELectPlug_direct    = "direct"
-	ElectPlug_layerdMEP = "layerd_MEP"
-	ElectPlug_layerdBSS = "layerd_BSS"
-	ElectPlug_layerdDP  = "layerd_DP"
+	ElectPlug_layerd     = "layerd"
+	ElectPlug_stock      = "stock"
+	ELectPlug_direct     = "direct"
+	ElectPlug_layerdMEP  = "layerd_MEP"
+	ElectPlug_layerdBSS  = "layerd_BSS"
+	ElectPlug_layerdDP   = "layerd_DP"
+	ElectPlug_layerdDPV2 = "layerd_DPV2"
 )
 
 const (

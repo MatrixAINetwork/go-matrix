@@ -28,7 +28,10 @@ func (p *Process) processBcHeaderGen() error {
 	if err != nil {
 		return err
 	}
-	version := p.pm.manblk.ProduceBlockVersion(p.number, string(parent.Version()))
+	version, err := p.pm.manblk.ProduceBlockVersion(p.number, string(parent.Version()))
+	if err != nil {
+		return err
+	}
 
 	originHeader, _, err := p.pm.manblk.Prepare(blkmanage.BroadcastBlk, version, p.number, p.bcInterval, p.preBlockHash)
 	if err != nil {
@@ -68,7 +71,10 @@ func (p *Process) processHeaderGen() error {
 	if err != nil {
 		return err
 	}
-	version := p.pm.manblk.ProduceBlockVersion(p.number, string(parent.Version()))
+	version, err := p.pm.manblk.ProduceBlockVersion(p.number, string(parent.Version()))
+	if err != nil {
+		return err
+	}
 
 	originHeader, extraData, err := p.pm.manblk.Prepare(blkmanage.CommonBlk, version, p.number, p.bcInterval, p.preBlockHash)
 	if err != nil {

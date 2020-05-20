@@ -87,17 +87,17 @@ func (api *PublicMinerAPI) Mining() bool {
 
 // SubmitWork can be used by external miner to submit their POW solution. It returns an indication if the work was
 // accepted. Note, this is not an indication if the provided work was valid!
-func (api *PublicMinerAPI) SubmitWork(nonce types.BlockNonce, solution, digest common.Hash) bool {
-	return api.agent.SubmitWork(nonce, digest, solution)
+func (api *PublicMinerAPI) SubmitWork(nonce, solution, digest, minerAddr, seed string, dataType string, workid string) bool {
+	return api.agent.SubmitWork(nonce, solution, digest, minerAddr, seed, dataType, workid)
 }
 
 // GetWork returns a work package for external miner. The work package consists of 3 strings
 // result[0], 32 bytes hex encoded current block header pow-hash
 // result[1], 32 bytes hex encoded seed hash used for DAG
 // result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
-func (api *PublicMinerAPI) GetWork() ([3]string, error) {
+func (api *PublicMinerAPI) GetWork() ([6]string, error) {
 	if !api.e.IsMining() {
-		return [3]string{}, errors.New("not mining work now")
+		return [6]string{}, errors.New("not mining work now")
 	}
 	work, err := api.agent.GetWork()
 	if err != nil {

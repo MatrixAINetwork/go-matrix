@@ -7,6 +7,8 @@ package params
 import (
 	"math/big"
 	"time"
+
+	"github.com/MatrixAINetwork/go-matrix/common/math"
 )
 
 var (
@@ -129,6 +131,15 @@ var (
 	AIMineLeaderSrcPosOutTime             = uint64(40)
 	AIMineLeaderSrcReelectOutTime         = uint64(40)
 	AIMineLeaderAIBlockMiningTimeRatio    = uint64(8)
+)
+
+// Zeta Version Params
+var (
+	ZetaMinimumDifficulty    = big.NewInt(15e6) // The minimum that the difficulty may ever be.
+	ZetaMaxDifficulty        = math.MaxBig256   // The minimum that the difficulty may ever be.
+	ZetaSM3MaxDifficulty     = big.NewInt(4e8)
+	ZetaReelectionDifficulty = big.NewInt(2e7) // The minimum that the difficulty may ever be.
+	VersionZetaDurationLimit = big.NewInt(12)  // The decision boundary on the blocktime duration used to duration used to determine whether difficulty should go up or not.
 )
 var (
 	DepositVersionKey_1 = "DepostVersion_1.0"

@@ -27,6 +27,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/consensus/ai"
 	"github.com/MatrixAINetwork/go-matrix/consensus/amhash"
+	"github.com/MatrixAINetwork/go-matrix/consensus/amhash_zeta"
 	"github.com/MatrixAINetwork/go-matrix/consensus/blkmanage"
 	"github.com/MatrixAINetwork/go-matrix/consensus/clique"
 	"github.com/MatrixAINetwork/go-matrix/consensus/manash"
@@ -226,6 +227,7 @@ func New(ctx *pod.ServiceContext, config *Config) (*Matrix, error) {
 	man.blockchain.Processor([]byte(manversion.VersionBeta)).SetRandom(man.random)
 	man.blockchain.Processor([]byte(manversion.VersionDelta)).SetRandom(man.random)
 	man.blockchain.Processor([]byte(manversion.VersionAIMine)).SetRandom(man.random)
+	man.blockchain.Processor([]byte(manversion.VersionZeta)).SetRandom(man.random)
 	man.olConsensus = olconsensus.NewTopNodeService(man.blockchain)
 	topNodeInstance := olconsensus.NewTopNodeInstance(man.signHelper, man.hd)
 	man.olConsensus.SetValidatorReader(man.blockchain)
@@ -322,15 +324,21 @@ func CreateConsensusEngineMap(ctx *pod.ServiceContext, config *manash.Config, ch
 	ai.Init(filepath.Join(ctx.GetConfig().DataDir, "picstore"))
 
 	engineMap := make(map[string]consensus.Engine)
+
 	alphaEngine := CreateConsensusEngine(ctx, config, chainConfig, db)
+
 	aiMineEngine := amhash.New(amhash.Config{PowMode: amhash.ModeNormal, PictureStorePath: filepath.Join(ctx.GetConfig().DataDir, "picstore")})
 	aiMineEngine.SetThreads(-1) // Disable CPU mining
+
+	zetaEngine := amhashzeta.New(amhashzeta.Config{PowMode: amhashzeta.ModeNormal, PictureStorePath: filepath.Join(ctx.GetConfig().DataDir, "picstore")})
+	zetaEngine.SetThreads(-1) // Disable CPU mining
 
 	engineMap[manversion.VersionAlpha] = alphaEngine
 	engineMap[manversion.VersionBeta] = alphaEngine
 	engineMap[manversion.VersionGamma] = alphaEngine
 	engineMap[manversion.VersionDelta] = alphaEngine
 	engineMap[manversion.VersionAIMine] = aiMineEngine
+	engineMap[manversion.VersionZeta] = zetaEngine
 
 	dposEngineMap := make(map[string]consensus.DPOSEngine)
 	alphaDposEngine := mtxdpos.NewMtxDPOS(chainConfig.SimpleMode)
@@ -339,6 +347,7 @@ func CreateConsensusEngineMap(ctx *pod.ServiceContext, config *manash.Config, ch
 	dposEngineMap[manversion.VersionGamma] = alphaDposEngine
 	dposEngineMap[manversion.VersionDelta] = alphaDposEngine
 	dposEngineMap[manversion.VersionAIMine] = alphaDposEngine
+	dposEngineMap[manversion.VersionZeta] = alphaDposEngine
 
 	return engineMap, dposEngineMap
 }

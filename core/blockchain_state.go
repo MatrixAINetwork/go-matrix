@@ -176,7 +176,7 @@ func (bd *BlockChain) processStateSwitchDelta(stateDB *state.StateDBManage, t ui
 	return nil
 }
 
-func (bd *BlockChain) processStateSwitchAIMine(stateDB *state.StateDBManage, t uint64) error {
+func (bd *BlockChain) processStateSwitchAIMine(stateDB *state.StateDBManage) error {
 	err := matrixstate.SetMinDifficulty(stateDB, params.AIManMinimumDifficulty)
 	if nil != err {
 		log.Crit("blockChain", "设置最小挖矿难度失败", err)
@@ -302,20 +302,83 @@ func (bd *BlockChain) processStateSwitchAIMine(stateDB *state.StateDBManage, t u
 	}
 	return nil
 }
+func (bd *BlockChain) processStateSwitchZeta(stateDB *state.StateDBManage) error {
+	err := matrixstate.SetMinDifficulty(stateDB, params.ZetaMinimumDifficulty)
+	if nil != err {
+		log.Crit("blockChain", "设置最小挖矿难度失败", err)
+		return err
+	}
+	err = matrixstate.SetMaxDifficulty(stateDB, params.ZetaMaxDifficulty)
+	if nil != err {
+		log.Crit("blockChain", "设置最大挖矿难度失败", err)
+		return err
+	}
+	err = matrixstate.SetReelectionDifficulty(stateDB, params.ZetaReelectionDifficulty)
+	if nil != err {
+		log.Crit("blockChain", "设置换届初始难度失败", err)
+		return err
+	}
 
-func (bc *BlockChain) ProcessStateVersionSwitch(num uint64, t uint64, stateDB *state.StateDBManage) error {
+	electCfg, err := matrixstate.GetElectConfigInfo(stateDB)
+	if nil != err {
+		log.Crit("blockChain", "选举配置错误", err)
+		return err
+	}
+	err = matrixstate.SetElectConfigInfo(stateDB, &mc.ElectConfigInfo{ValidatorNum: electCfg.ValidatorNum, BackValidator: electCfg.BackValidator, ElectPlug: manparams.ElectPlug_layerdDPV2})
+	if nil != err {
+		log.Crit("blockChain", "选举引擎切换,错误", err)
+		return err
+	}
+	if err := matrixstate.SetBlockProduceBlackList(stateDB, &mc.BlockProduceSlashBlackList{[]mc.UserBlockProduceSlash{}}); err != nil {
+		log.Crit("blockChain", "清除区块生成黑名单错误", err)
+		return err
+	}
+	if err := matrixstate.SetBasePowerBlackList(stateDB, &mc.BasePowerSlashBlackList{[]mc.BasePowerSlash{}}); err != nil {
+		log.Crit("blockChain", "清除算力检测黑名单错误", err)
+		return err
+	}
+	err = matrixstate.SetElectDynamicPollingInfo(stateDB, &mc.ElectDynamicPollingInfo{Number: 0, Seq: 0, MinerNum: 0, CandidateList: nil})
+	if nil != err {
+		log.Crit("blockChain", "初始化轮询选举信息错误", err)
+		return err
+	}
+	return nil
+}
+func (bc *BlockChain) ProcessStateVersionSwitch(num uint64, t uint64, version []byte, stateDB *state.StateDBManage) error {
 	//提前一个块设置各自算法引擎和配置，切换高度生效
-
 	switch num {
 	case manversion.VersionNumGamma - 1:
+		if manversion.VersionCmp(string(version), manversion.VersionGamma) >= 0 {
+			log.Info("blockchain", "切换版本Gamma高度", num, "当前版本大于等于Gamma版本, 不设置state", string(version))
+			return nil
+		}
 		log.Info("blockchain", "切换版本Gamma高度", num)
 		return bc.processStateSwitchGamma(stateDB)
+
 	case manversion.VersionNumDelta - 1:
+		if manversion.VersionCmp(string(version), manversion.VersionDelta) >= 0 {
+			log.Info("blockchain", "切换版本Delta高度", num, "当前版本大于等于Delta版本, 不设置state", string(version))
+			return nil
+		}
 		log.Info("blockchain", "切换版本Delta 高度", num)
 		return bc.processStateSwitchDelta(stateDB, t)
+
 	case manversion.VersionNumAIMine - 1:
-		log.Info("blockchain", "切换版本AI Mine 高度", num)
-		return bc.processStateSwitchAIMine(stateDB, t)
+		if manversion.VersionCmp(string(version), manversion.VersionAIMine) >= 0 {
+			log.Info("blockchain", "切换版本AI Mine高度", num, "当前版本大于等于AI Mine版本, 不设置state", string(version))
+			return nil
+		}
+		log.Info("blockchain", "切换版本AI Mine高度", num)
+		return bc.processStateSwitchAIMine(stateDB)
+
+	case manversion.VersionNumZeta - 1:
+		if manversion.VersionCmp(string(version), manversion.VersionZeta) >= 0 {
+			log.Info("blockchain", "切换版本Zeta高度", num, "当前版本大于等于Zeta版本, 不设置state", string(version))
+			return nil
+		}
+		log.Info("blockchain", "切换版本Zeta高度", num)
+		return bc.processStateSwitchZeta(stateDB)
+
 	default:
 		return nil
 	}
@@ -522,7 +585,7 @@ func (bc *BlockChain) getMineHeader(number uint64, sonHash common.Hash, bcInterv
 }
 
 func (bc *BlockChain) SetBlockDurationStatus(header *types.Header, state *state.StateDBManage) error {
-	if string(header.Version) < manversion.VersionAIMine {
+	if string(header.Version) < manversion.VersionAIMine || header.Number.Uint64() == 0 {
 		return nil
 	}
 	bcInterval, err := bc.GetBroadcastIntervalByHash(header.ParentHash)

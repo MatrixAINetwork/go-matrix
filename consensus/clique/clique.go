@@ -607,13 +607,13 @@ func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {
 	c.signFn = signFn
 }
 
-func (c *Clique) SealAI(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}) (*types.Header, error) {
+func (c *Clique) SealAI(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}) (*consensus.SealResult, error) {
 	return nil, errors.New("no support interface")
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
-func (c *Clique) SealPow(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *types.Header, isBroadcastNode bool) (*types.Header, error) {
+func (c *Clique) SealPow(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *consensus.SealResult, isBroadcastNode bool) (*consensus.SealResult, error) {
 	//header := block.Header()
 
 	// Sealing the genesis block is not supported
@@ -673,13 +673,13 @@ func (c *Clique) SealPow(chain consensus.ChainReader, header *types.Header, stop
 	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
 
 	//return block.WithSeal(header), nil
-	return header, nil
+	return &consensus.SealResult{consensus.SealTypePow, header}, nil
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
-func (c *Clique) CalcDifficulty(chain consensus.ChainReader, version string, time uint64, parent *types.Header) (*big.Int, error) {
+func (c *Clique) CalcDifficulty(chain consensus.ChainReader, version string, time uint64, parent *types.Header, _ *types.Header) (*big.Int, error) {
 	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
 	if err != nil {
 		return nil, err

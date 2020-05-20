@@ -34,7 +34,7 @@ const (
 // Agent can register themself with the worker
 type Agent interface {
 	Work() chan<- *Work
-	SetReturnCh(chan<- *types.Header)
+	SetReturnCh(chan<- *consensus.SealResult)
 	Stop()
 	Start()
 	GetHashRate() int64
@@ -76,7 +76,7 @@ type worker struct {
 	mux *event.TypeMux
 
 	agents map[Agent]struct{}
-	recv   chan *types.Header
+	recv   chan *consensus.SealResult
 
 	extra []byte
 
@@ -147,7 +147,7 @@ func newWorker(config *params.ChainConfig, bc ChainReader, mux *event.TypeMux, h
 		miningRequestCh:      make(chan *mc.HD_MiningReqMsg, 100),
 		roleUpdateCh:         make(chan *mc.RoleUpdatedMsg, 100),
 		v2MiningRequestCh:    make(chan *mc.HD_V2_MiningReqMsg, 10),
-		recv:                 make(chan *types.Header, resultQueueSize),
+		recv:                 make(chan *consensus.SealResult, resultQueueSize),
 		localMiningRequestCh: make(chan *mc.BlockGenor_BroadcastMiningReqMsg, 100),
 		registerAgentCh:      make(chan Agent, 2),
 		unRegisterAgentCh:    make(chan Agent, 2),
@@ -235,15 +235,16 @@ func (self *worker) update() {
 		case reqMsg := <-self.v2MiningRequestCh:
 			self.handlerV2.MineReqMsgHandle(reqMsg)
 
-		case minedHeader := <-self.recv:
-			if minedHeader == nil {
+		case minedResult := <-self.recv:
+			if minedResult == nil || minedResult.Header == nil {
+				log.Trace(ModuleMiner, "挖矿结果数据非法", "nil数据")
 				continue
 			}
 
 			if manversion.VersionCmp(self.curVersion, manversion.VersionAIMine) >= 0 {
-				self.handlerV2.foundHandle(minedHeader)
+				self.handlerV2.foundHandle(minedResult)
 			} else {
-				self.foundHandle(minedHeader)
+				self.foundHandle(minedResult)
 			}
 
 		case agent := <-self.registerAgentCh:
@@ -356,7 +357,13 @@ func (self *worker) Stop() {
 	close(self.quitCh)
 }
 
-func (self *worker) foundHandle(header *types.Header) {
+func (self *worker) foundHandle(result *consensus.SealResult) {
+	if result.Type != consensus.SealTypePow {
+		log.Info(ModuleMiner, "挖矿结果类型异常", result.Type)
+		return
+	}
+
+	header := result.Header
 	cache, err := self.mineReqCtrl.SetMiningResult(header)
 	if err != nil {
 		log.Error(ModuleMiner, "结果保存失败", err)
@@ -391,19 +398,21 @@ func (self *worker) pendingBlock() *types.Block {
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
 
-	if atomic.LoadInt32(&self.mining) == 0 {
-		tx, rx := types.GetCoinTXRS(self.current.txs, self.current.receipts)
-		cb := types.MakeCurencyBlock(tx, rx, nil)
-		return types.NewBlock(
-			self.current.header,
-			cb,
-			nil,
-		)
+	if self == nil {
+		return nil
 	}
+	if self.current == nil {
+		return nil
+	}
+	if self.current.header == nil {
+		return nil
+	}
+	return types.NewBlock(
+		self.current.header,
+		nil,
+		nil,
+	)
 
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
-	return self.current.Block
 }
 
 func (self *worker) StartAgent() {
@@ -482,6 +491,7 @@ func (self *worker) makeCurrent(header *types.Header, isBroadcastNode bool) erro
 		header:          types.CopyHeader(header),
 		isBroadcastNode: isBroadcastNode,
 		mineType:        mineTaskTypePow,
+		createdAt:       time.Now(),
 	}
 
 	work.header.Coinbase = ca.GetDepositAddress()
@@ -526,6 +536,7 @@ func (self *worker) makeCurrentV2(task mineTask, version []byte) error {
 		},
 		isBroadcastNode: false,
 		mineType:        task.TaskType(),
+		createdAt:       time.Now(),
 	}
 
 	self.current = work
@@ -543,7 +554,7 @@ func (self *worker) CommitNewWorkV2(task mineTask) {
 		log.Error(ModuleMiner, "创建挖矿work v2失败", err)
 		return
 	}
-	log.Info(ModuleMiner, "挖矿", "开始")
+	log.Info(ModuleMiner, "挖矿", "开始", "coinbase", self.current.header.Coinbase.Hex())
 
 	//// Create the current work task and check any fork transitions needed
 	work := self.current

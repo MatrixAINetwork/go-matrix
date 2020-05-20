@@ -239,7 +239,7 @@ func (manash *Manash) verifyHeader(chain consensus.ChainReader, header, parent *
 	// super header don't verify difficulty
 	if header.IsSuperHeader() == false {
 		// Verify the block's difficulty based in it's timestamp and parent's difficulty
-		expected, err := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
+		expected, err := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent, header)
 		if err != nil {
 			return fmt.Errorf("calc difficulty err : %v", err)
 		}
@@ -291,7 +291,7 @@ func (manash *Manash) verifyHeader(chain consensus.ChainReader, header, parent *
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (manash *Manash) CalcDifficulty(chain consensus.ChainReader, curVersion string, time uint64, parent *types.Header) (*big.Int, error) {
+func (manash *Manash) CalcDifficulty(chain consensus.ChainReader, curVersion string, time uint64, parent *types.Header, _ *types.Header) (*big.Int, error) {
 	return CalcDifficulty(chain.Config(), curVersion, time, parent)
 }
 
@@ -539,7 +539,7 @@ func (manash *Manash) Prepare(chain consensus.ChainReader, header *types.Header)
 		return consensus.ErrUnknownAncestor
 	}
 
-	difficulty, err := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent)
+	difficulty, err := manash.CalcDifficulty(chain, string(header.Version), header.Time.Uint64(), parent, header)
 	if err != nil {
 		return fmt.Errorf("calc difficulty err : %v", err)
 	}

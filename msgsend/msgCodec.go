@@ -43,6 +43,8 @@ func (self *HD) initCodec() {
 	self.registerCodec(mc.HD_V2_PowMiningRsp, new(powMiningRspMsgcV2))
 	self.registerCodec(mc.HD_V2_AIMiningRsp, new(aiMiningRspMsgcV2))
 	self.registerCodec(mc.HD_BasePowerResult, new(basePowerDifficultyMsgcV2))
+
+	self.registerCodec(mc.HD_FullBlkReqToBroadcast, new(fullBlockReqToBroadcastCodecV2))
 }
 
 //每个模块需要自己实现这两个接口

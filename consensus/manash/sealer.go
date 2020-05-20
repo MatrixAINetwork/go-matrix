@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"errors"
+
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/core/types"
@@ -60,13 +61,13 @@ func GetdifficultyListAndTargetList(difficultyList []*big.Int) minerDifficultyLi
 	return difficultyListAndTargetList
 }
 
-func (manash *Manash) SealAI(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}) (*types.Header, error) {
+func (manash *Manash) SealAI(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}) (*consensus.SealResult, error) {
 	return nil, errors.New("not support interface")
 }
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (manash *Manash) SealPow(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *types.Header, isBroadcastNode bool) (*types.Header, error) {
+func (manash *Manash) SealPow(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *consensus.SealResult, isBroadcastNode bool) (*consensus.SealResult, error) {
 	log.Info("seal", "挖矿", "开始", "高度", header.Number.Uint64())
 	defer log.Info("seal", "挖矿", "结束", "高度", header.Number.Uint64())
 
@@ -107,6 +108,8 @@ func (manash *Manash) SealPow(chain consensus.ChainReader, header *types.Header,
 		log.Info("SEALER", "Sealer receive stop mine, curHeader", curHeader.HashNoSignsAndNonce().TerminalString())
 		// Outside abort, stop all miner threads
 		close(abort)
+		pend.Wait()
+		return nil, nil
 	case result = <-found:
 		// One of the threads found a block, abort all others
 		close(abort)
@@ -119,7 +122,7 @@ func (manash *Manash) SealPow(chain consensus.ChainReader, header *types.Header,
 
 	// Wait for all miners to terminate and return the block
 	pend.Wait()
-	return result, nil
+	return &consensus.SealResult{consensus.SealTypePow, result}, nil
 }
 
 func compareDifflist(result []byte, diffList []*big.Int, targets []*big.Int) (int, bool) {

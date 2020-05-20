@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
-package amhash
+package amhashzeta
 
 import (
 	crand "crypto/rand"
@@ -29,8 +29,8 @@ var (
 )
 
 func (amhash *Amhash) SealAI(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}) (*consensus.SealResult, error) {
-	log.Info("amhash sealer", "AI挖矿", "开始", "高度", header.Number.Uint64())
-	defer log.Info("amhash sealer", "AI挖矿", "结束", "高度", header.Number.Uint64())
+	log.Info("amhash zeta sealer", "AI挖矿", "开始", "高度", header.Number.Uint64())
+	defer log.Info("amhash zeta sealer", "AI挖矿", "结束", "高度", header.Number.Uint64())
 
 	curHeader := types.CopyHeader(header)
 	// start ai mining first
@@ -51,8 +51,8 @@ func (amhash *Amhash) SealAI(chain consensus.ChainReader, header *types.Header, 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
 func (amhash *Amhash) SealPow(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultchan chan<- *consensus.SealResult, isBroadcastNode bool) (*consensus.SealResult, error) {
-	log.Info("amhash sealer", "POW挖矿", "开始", "高度", header.Number.Uint64())
-	defer log.Info("amhash sealer", "POW挖矿", "结束", "高度", header.Number.Uint64())
+	log.Info("amhash zeta sealer", "POW挖矿", "开始", "高度", header.Number.Uint64())
+	defer log.Info("amhash zeta sealer", "POW挖矿", "结束", "高度", header.Number.Uint64())
 	curHeader := types.CopyHeader(header)
 	amhash.lock.Lock()
 	if amhash.rand == nil {
@@ -98,12 +98,13 @@ func (amhash *Amhash) SealPow(chain consensus.ChainReader, header *types.Header,
 	return result, nil
 }
 
-func generateMineData(header *types.Header) []byte {
+func generateMineData(header *types.Header, mixDigest common.Hash) []byte {
 	data := header.ParentHash.Bytes()
 	data = append(data, header.Coinbase.Bytes()...)
-	for i := 0; i < 24; i++ {
+	for i := 0; i < 12; i++ {
 		data = append(data, byte(0))
 	}
+	data = append(data, mixDigest[0:12]...)
 	return data
 }
 
@@ -117,7 +118,7 @@ func (amhash *Amhash) aiMineProcess(chain consensus.ChainReader, header *types.H
 	for {
 		select {
 		case <-stop:
-			log.Info("amhash sealer", "Sealer receive stop mine msg", "ai mine stop", "parent hash", header.ParentHash)
+			log.Info("amhash zeta sealer", "Sealer receive stop mine msg", "ai mine stop", "parent hash", header.ParentHash)
 			close(abortCh)
 			return common.Hash{}, true, nil
 
@@ -126,12 +127,12 @@ func (amhash *Amhash) aiMineProcess(chain consensus.ChainReader, header *types.H
 			return amhash.aiMineProcess(chain, header, stop)
 
 		case err := <-errCh:
-			log.Warn("amhash sealer", "ai mining err", err)
+			log.Warn("amhash zeta sealer", "ai mining err", err)
 			return common.Hash{}, false, err
 
 		case result := <-foundCh:
 			aiHash := common.BytesToHash(result)
-			log.Info("amhash sealer", "aiMineProcess", "get ai digging result", "AIHash", aiHash)
+			log.Info("amhash zeta sealer", "aiMineProcess", "get ai digging result", "AIHash", aiHash)
 			return aiHash, false, nil
 		}
 	}
@@ -142,13 +143,14 @@ func (amhash *Amhash) startAIMining(chain consensus.ChainReader, header *types.H
 	vrf := baseinterface.NewVrf()
 	_, vrfValue, _ := vrf.GetVrfInfoFromHeader(header.VrfValue)
 	seed := big.NewInt(0).Add(types.RlpHash(vrfValue).Big(), header.AICoinbase.Big()).Int64()
+	log.Info("amhash zeta sealer", "start ai mining", seed, "vrf", types.RlpHash(vrfValue).Hex(), "coinbase", header.AICoinbase.Hex())
 	ai.Mining(seed, abort, found, errCh)
 }
 
 func (amhash *Amhash) x11MineProcess(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultChan chan<- *consensus.SealResult) (*types.Header, bool, error) {
 	// Create a runner and the multiple search threads it directs
-	log.Info("amhash sealer", "x11 mine process", "begin", "number", header.Number)
-	defer log.Info("amhash sealer", "x11 mine process", "end", "number", header.Number)
+	log.Info("amhash zeta sealer", "x11 mine process", "begin", "number", header.Number)
+	defer log.Info("amhash zeta sealer", "x11 mine process", "end", "number", header.Number)
 	abort := make(chan struct{})
 	found := make(chan *consensus.SealResult)
 	/*amhash.lock.Lock()
@@ -179,7 +181,7 @@ x11seal:
 	for {
 		select {
 		case <-stop:
-			log.Info("amhash sealer", "x11 process", "receive stop mine", "curHeader", header.ParentHash.TerminalString())
+			log.Info("amhash zeta sealer", "x11 process", "receive stop mine", "curHeader", header.ParentHash.TerminalString())
 			// Outside abort, stop all miner threads
 			if nil != abort {
 				close(abort)
@@ -189,12 +191,12 @@ x11seal:
 			pend.Wait()
 			return nil, isStop, nil
 		case result = <-found:
-			log.Info("amhash sealer", "x11 process", "receive result", "type", result.Type, "number", result.Header.Number)
+			log.Info("amhash zeta sealer", "x11 process", "receive result", "type", result.Type, "number", result.Header.Number)
 			// One of the threads found a block, abort all others
 			if result.Type == consensus.SealTypeBasePow {
 				resultChan <- result
 			} else {
-				log.Info("amhash sealer", "x11 process", "Successfully sealed new x11 result", "nonce", result.Header.Nonce)
+				log.Info("amhash zeta sealer", "x11 process", "Successfully sealed new x11 result", "nonce", result.Header.Nonce)
 				if nil != abort {
 					close(abort)
 					abort = nil
@@ -204,7 +206,7 @@ x11seal:
 
 		case <-amhash.update:
 			// Thread count was changed on user request, restart
-			log.Info("amhash sealer", "x11 process", "receive update", "number", header.Number, "cur difficulty", header.Difficulty)
+			log.Info("amhash zeta sealer", "x11 process", "receive update", "number", header.Number, "cur difficulty", header.Difficulty)
 			if nil != abort {
 				close(abort)
 				abort = nil
@@ -224,27 +226,30 @@ func (amhash *Amhash) x11Mine(header *types.Header, id int, seed uint64, abort c
 	// Extract some data from the header
 	var (
 		curHeader         = types.CopyHeader(header)
-		mineData          = generateMineData(curHeader)
+		mixDigest         = types.RlpHash(seed)
+		mineData          = generateMineData(curHeader, mixDigest)
 		target            = new(big.Int).Div(maxUint256, header.Difficulty)
 		basePowerTarget   = new(big.Int).Div(maxUint256, params.BasePowerDifficulty)
 		basePowerFindFlag = false
 		number            = curHeader.Number.Uint64()
 	)
+	curHeader.MixDigest = mixDigest
+
 	logger := log.New("x11 miner", id)
 	// Start generating random nonces until we abort or find a good one
-	logger.Info("amhash sealer", "begin", number, "target", target, "diff", header.Difficulty.Uint64())
-	defer logger.Info("amhash sealer", "end", number, "diff", header.Difficulty.Uint64())
+	logger.Info("amhash zeta sealer", "begin", number, "target", target, "diff", header.Difficulty.Uint64())
+	defer logger.Info("amhash zeta sealer", "end", number, "diff", header.Difficulty.Uint64())
 	var (
 		attempts = int64(0)
 		nonce    = seed
 	)
-	logger.Trace("amhash sealer", "Started x11 mine search for new nonces, seed", seed)
+	logger.Trace("amhash zeta sealer", "Started x11 mine search for new nonces, seed", seed)
 x11search:
 	for {
 		select {
 		case <-abort:
 			// Mining terminated, update stats and abort
-			logger.Trace("amhash sealer", "x11 mine nonce search aborted, attempts", nonce-seed)
+			logger.Trace("amhash zeta sealer", "x11 mine nonce search aborted, attempts", nonce-seed)
 			amhash.hashrate.Mark(attempts)
 			return
 
@@ -265,9 +270,9 @@ x11search:
 				// Seal and return a block (if still needed)
 				select {
 				case found <- &consensus.SealResult{consensus.SealTypePow, resultHeader}:
-					logger.Trace("amhash sealer", "x11 nonce found and reported, attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("amhash zeta sealer", "x11 nonce found and reported, attempts", nonce-seed, "nonce", nonce)
 				case <-abort:
-					logger.Trace("amhash sealer", "x11 nonce found but discarded, attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("amhash zeta sealer", "x11 nonce found but discarded, attempts", nonce-seed, "nonce", nonce)
 				}
 				break x11search
 			} else if resultBigInt.Cmp(basePowerTarget) <= 0 && !basePowerFindFlag {
@@ -280,9 +285,9 @@ x11search:
 				select {
 				case found <- &consensus.SealResult{consensus.SealTypeBasePow, baseHeader}:
 					basePowerFindFlag = true
-					logger.Trace("amhash sealer", "x11 base power nonce found and reported, attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("amhash zeta sealer", "x11 base power nonce found and reported, attempts", nonce-seed, "nonce", nonce)
 				case <-abort:
-					logger.Trace("amhash sealer", "x11 base power nonce found but discarded, attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("amhash zeta sealer", "x11 base power nonce found but discarded, attempts", nonce-seed, "nonce", nonce)
 					break x11search
 				}
 			}
@@ -292,8 +297,8 @@ x11search:
 }
 
 func (amhash *Amhash) sm3MineProcess(chain consensus.ChainReader, header *types.Header, stop <-chan struct{}, resultChan chan<- *consensus.SealResult) (*types.Header, bool, error) {
-	log.Info("amhash sealer", "sm3 mine process", "begin", "number", header.Number)
-	defer log.Info("amhash sealer", "sm3 mine process", "end", "number", header.Number)
+	log.Info("amhash zeta sealer", "sm3 mine process", "begin", "number", header.Number)
+	defer log.Info("amhash zeta sealer", "sm3 mine process", "end", "number", header.Number)
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
 	found := make(chan *types.Header)
@@ -314,7 +319,7 @@ sm3seal:
 	for {
 		select {
 		case <-stop:
-			log.Info("amhash sealer", "sm3 sealer receive stop mine", header.Number, "parent hash", header.ParentHash.TerminalString())
+			log.Info("amhash zeta sealer", "sm3 sealer receive stop mine", header.Number, "parent hash", header.ParentHash.TerminalString())
 			// Outside abort, stop all miner threads
 			if nil != abort {
 				close(abort)
@@ -324,7 +329,7 @@ sm3seal:
 			break sm3seal
 		case result = <-found:
 			// One of the threads found a block, abort all others
-			log.Info("amhash sealer", "successfully sealed new sm3 result", result.Sm3Nonce, "number", result.Number)
+			log.Info("amhash zeta sealer", "successfully sealed new sm3 result", result.Sm3Nonce, "number", result.Number)
 			if nil != abort {
 				close(abort)
 				abort = nil
@@ -346,30 +351,40 @@ sm3seal:
 	return result, isStop, nil
 }
 
+func calcSm3Difficulty(header *types.Header) *big.Int {
+	headerDifficulty := big.NewInt(int64(math.Ceil(float64(header.Difficulty.Uint64()) * params.Sm3DifficultyRatio)))
+	if headerDifficulty.Cmp(params.ZetaSM3MaxDifficulty) > 0 {
+		// headerDifficulty > 	params.ZetaSM3MaxDifficulty 使用最大难度值
+		return params.ZetaSM3MaxDifficulty
+	} else {
+		return headerDifficulty
+	}
+}
+
 func (amhash *Amhash) sm3Mine(header *types.Header, id int, seed uint64, abort chan struct{}, found chan *types.Header) {
 	// Extract some data from the header
 	var (
 		curHeader     = types.CopyHeader(header)
-		mineData      = generateMineData(curHeader)
-		sm3Difficulty = big.NewInt(int64(math.Ceil(float64(header.Difficulty.Uint64()) * params.Sm3DifficultyRatio)))
+		mineData      = generateMineData(curHeader, common.Hash{})
+		sm3Difficulty = calcSm3Difficulty(header)
 		target        = new(big.Int).Div(maxUint256, sm3Difficulty)
 		number        = curHeader.Number.Uint64()
 	)
 	logger := log.New("sm3 miner", id)
 	// Start generating random nonces until we abort or find a good one
-	logger.Info("amhash sealer", "begin sm3 mine", number, "target", target, "diff", sm3Difficulty.Uint64())
-	defer logger.Info("amhash sealer", "stop sm3 mine", number, "diff", sm3Difficulty.Uint64())
+	logger.Info("amhash zeta sealer", "begin sm3 mine", number, "target", target, "diff", sm3Difficulty.Uint64(), "header diff", header.Difficulty)
+	defer logger.Info("amhash zeta sealer", "stop sm3 mine", number, "diff", sm3Difficulty.Uint64())
 	var (
 		attempts = int64(0)
 		nonce    = seed
 	)
-	logger.Trace("amhash sealer", "Started sm3 mine search for new nonces, seed", seed)
+	logger.Trace("amhash zeta sealer", "Started sm3 mine search for new nonces, seed", seed)
 sm3search:
 	for {
 		select {
 		case <-abort:
 			// Mining terminated, update stats and abort
-			logger.Trace("amhash sealer", "pow mine nonce search aborted, attempts", nonce-seed)
+			logger.Trace("amhash zeta sealer", "pow mine nonce search aborted, attempts", nonce-seed)
 			amhash.hashrate.Mark(attempts)
 			return
 
@@ -390,9 +405,9 @@ sm3search:
 				// Seal and return a block (if still needed)
 				select {
 				case found <- resultHeader:
-					logger.Trace("amhash sealer", "sm3 nonce found and reported, attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("amhash zeta sealer", "sm3 nonce found and reported, attempts", nonce-seed, "nonce", nonce)
 				case <-abort:
-					logger.Trace("amhash sealer", "sm3 nonce found but discarded, attempts", nonce-seed, "nonce", nonce)
+					logger.Trace("amhash zeta sealer", "sm3 nonce found but discarded, attempts", nonce-seed, "nonce", nonce)
 				}
 				break sm3search
 			}

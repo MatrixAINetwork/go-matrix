@@ -622,7 +622,7 @@ func (p *StateProcessor) Process(block *types.Block, parent *types.Block, stated
 		return nil, nil, 0, err
 	}
 
-	if err = p.bc.ProcessStateVersionSwitch(block.NumberU64(), block.Time().Uint64(), statedb); err != nil {
+	if err = p.bc.ProcessStateVersionSwitch(block.NumberU64(), block.Time().Uint64(), block.Version(), statedb); err != nil {
 		log.Trace("BlockChain insertChain in3 Process Block err1")
 		return nil, nil, 0, err
 	}

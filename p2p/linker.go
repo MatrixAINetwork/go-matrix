@@ -123,9 +123,13 @@ func (l *Linker) Start() {
 					l.broadcastActive = true
 
 				case r.BroadCastInterval.IsBroadcastNumber(height + 2):
+					Link.mu.Lock()
 					if len(l.linkMap) <= 0 {
+						Link.mu.Unlock()
 						break
 					}
+					Link.mu.Unlock()
+
 					bytes, err := l.encodeData()
 					if err != nil {
 						log.Error("encode error", "error", err)
@@ -295,6 +299,9 @@ func GetTopNodeAliveInfo(roleType common.RoleType) (result []NodeAliveInfo) {
 }
 
 func (l *Linker) ToLink() {
+	Link.mu.Lock()
+	defer Link.mu.Unlock()
+
 	l.linkMap = make(map[common.Address]uint32)
 	h := ca.GetHash()
 	elects, _ := ca.GetElectedByHeightByHash(h)

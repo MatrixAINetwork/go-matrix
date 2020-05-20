@@ -26,17 +26,22 @@ const (
 	VersionAIMine          = "1.0.0.4"
 	VersionSignatureAIMine = "0x5689c3637623697e1923a1dbb6ef888a3ca51d93c72f33af17ce12d2455457064ffb6c3c249fbd48fa36e05bfb45bd0c563b4a6584ab620759fb4be8ce352dff01"
 	VersionNumAIMine       = uint64(1420801) // 版本切换高度必须是换届后的第一个区块
+
+	VersionZeta          = "1.0.0.5"
+	VersionSignatureZeta = "0x442d91b2445562d7634dc8ba2e34bff6a12dce6f715a146f8c63114bcaf3856a2f8df082ec77cb75b6555df9af252ed6ac880a23f62e01246776ae72d403f54701"
+	VersionNumZeta       = uint64(3045001)
 )
 
 var VersionList [][]byte
 var VersionSignatureMap map[string][]common.Signature
 
 func init() {
-	VersionList = [][]byte{[]byte(VersionAlpha), []byte(VersionBeta), []byte(VersionGamma), []byte(VersionDelta), []byte(VersionAIMine)}
+	VersionList = [][]byte{[]byte(VersionAlpha), []byte(VersionBeta), []byte(VersionGamma), []byte(VersionDelta), []byte(VersionAIMine), []byte(VersionZeta)}
 	VersionSignatureMap = make(map[string][]common.Signature)
 	VersionSignatureMap[VersionGamma] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureGamma))}
 	VersionSignatureMap[VersionDelta] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureDelta))}
 	VersionSignatureMap[VersionAIMine] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureAIMine))}
+	VersionSignatureMap[VersionZeta] = []common.Signature{common.BytesToSignature(common.FromHex(VersionSignatureZeta))}
 }
 
 // version1 > version2 return 1

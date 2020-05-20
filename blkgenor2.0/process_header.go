@@ -24,10 +24,13 @@ func (p *Process) processHeaderGen(AIResult *mc.HD_V2_AIMiningRspMsg) error {
 		return errors.New("广播周期信息为空")
 	}
 	if p.parentHeader == nil {
-		log.Error(p.logExtraInfo(), "广播区块生成", "父区块为nil")
+		log.Error(p.logExtraInfo(), "区块生成阶段", "父区块为nil")
 		return errors.New("父区块为nil")
 	}
-	version := p.pm.manblk.ProduceBlockVersion(p.number, string(p.parentHeader.Version))
+	version, err := p.pm.manblk.ProduceBlockVersion(p.number, string(p.parentHeader.Version))
+	if err != nil {
+		return err
+	}
 
 	originHeader, extraData, err := p.pm.manblk.Prepare(blkmanage.CommonBlk, version, p.number, p.bcInterval, p.parentHash, AIResult)
 	if err != nil {
@@ -78,7 +81,7 @@ func (p *Process) startConsensusReqSender(req *mc.HD_BlkConsensusReqMsg) {
 	p.closeMsgSender()
 	sender, err := common.NewResendMsgCtrl(req, p.sendConsensusReqFunc, manparams.BlkPosReqSendInterval, manparams.BlkPosReqSendTimes)
 	if err != nil {
-		log.Error(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
+		log.Error(p.logExtraInfo(), "创建req发送器", "失败", "err", err)
 		return
 	}
 	p.msgSender = sender
@@ -98,24 +101,27 @@ func (p *Process) processBroadcastBlockGen() error {
 	log.Info(p.logExtraInfo(), "processBroadcastBlockGen", "start")
 	defer log.Info(p.logExtraInfo(), "processBroadcastBlockGen", "end")
 	if p.bcInterval == nil {
-		log.Error(p.logExtraInfo(), "区块生成阶段", "广播周期信息为空")
+		log.Error(p.logExtraInfo(), "广播区块生成阶段", "广播周期信息为空")
 		return errors.New("广播周期信息为空")
 	}
 	if p.parentHeader == nil {
-		log.Error(p.logExtraInfo(), "广播区块生成", "父区块为nil")
+		log.Error(p.logExtraInfo(), "广播区块生成阶段", "父区块为nil")
 		return errors.New("父区块为nil")
 	}
-	version := p.pm.manblk.ProduceBlockVersion(p.number, string(p.parentHeader.Version))
+	version, err := p.pm.manblk.ProduceBlockVersion(p.number, string(p.parentHeader.Version))
+	if err != nil {
+		return err
+	}
 
 	originHeader, _, err := p.pm.manblk.Prepare(blkmanage.BroadcastBlk, version, p.number, p.bcInterval, p.parentHash)
 	if err != nil {
-		log.Error(p.logExtraInfo(), "准备区块失败", err)
+		log.Error(p.logExtraInfo(), "广播区块生成阶段", "准备区块失败", err)
 		return err
 	}
 
 	_, stateDB, receipts, _, finalTxs, _, err := p.pm.manblk.ProcessState(blkmanage.BroadcastBlk, version, originHeader, nil)
 	if err != nil {
-		log.Error(p.logExtraInfo(), "运行交易和状态树失败", err)
+		log.Error(p.logExtraInfo(), "广播区块生成阶段, 运行交易和状态树失败", err)
 		return err
 	}
 

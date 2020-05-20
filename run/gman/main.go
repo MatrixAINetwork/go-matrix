@@ -35,6 +35,7 @@ import (
 	_ "github.com/MatrixAINetwork/go-matrix/election/layered"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layeredbss"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layereddp"
+	_ "github.com/MatrixAINetwork/go-matrix/election/layereddp2.0"
 	_ "github.com/MatrixAINetwork/go-matrix/election/layeredmep"
 	_ "github.com/MatrixAINetwork/go-matrix/election/nochoice"
 	_ "github.com/MatrixAINetwork/go-matrix/election/stock"
@@ -103,6 +104,7 @@ var (
 		utils.ManerbaseFlag,
 		utils.GasPriceFlag,
 		utils.MinerThreadsFlag,
+		utils.CPUMiningStopFlag,
 		utils.MiningEnabledFlag,
 		utils.TargetGasLimitFlag,
 		utils.NATFlag,
@@ -199,6 +201,8 @@ func init() {
 		dumpConfigCommand,
 		CommitCommand,
 		AesEncryptCommand,
+		OutputBlockCommand,
+		OutputSimpleBlockCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -350,6 +354,15 @@ func startNode(ctx *cli.Context, stack *pod.Node) {
 				}
 			}
 		}
+	}
+
+	if ctx.GlobalBool(utils.CPUMiningStopFlag.Name) {
+		log.Info("main", "stop cpu mining", true)
+		var matrix *man.Matrix
+		if err := stack.Service(&matrix); err != nil {
+			utils.Fatalf("Matrix service not running: %v", err)
+		}
+		matrix.StopCupMining()
 	}
 }
 func Init_Config_PATH(ctx *cli.Context) {

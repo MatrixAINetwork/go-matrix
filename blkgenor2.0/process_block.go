@@ -37,20 +37,21 @@ func (p *Process) AddPowMinerResult(minerResult *mc.HD_V2_PowMiningRspMsg) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.bcInterval == nil {
-		log.Info(p.logExtraInfo(), "Pow挖矿结果消息处理", "广播周期信息为nil", "number", p.number)
-		return
-	}
-
-	if params.IsPowBlock(p.number, p.bcInterval.GetBroadcastInterval()) == false {
-		log.Debug(p.logExtraInfo(), "Pow挖矿结果消息处理", "非POW区块,抛弃消息", "number", p.number, "bc interval", p.bcInterval.GetBroadcastInterval())
-		return
-	}
-
 	if err := p.powPool.AddMinerResult(minerResult.BlockHash, minerResult.Difficulty, minerResult); err != nil {
 		//log.Trace(p.logExtraInfo(), "Pow挖矿结果消息处理", "加入POW池失败", "err", err)
 		return
 	}
+
+	if p.bcInterval == nil {
+		log.Info(p.logExtraInfo(), "POW结果组合阶段", "广播周期信息为nil", "number", p.number)
+		return
+	}
+
+	if params.IsPowBlock(p.number, p.bcInterval.GetBroadcastInterval()) == false {
+		log.Debug(p.logExtraInfo(), "POW结果组合阶段", "非POW区块", "number", p.number, "bc interval", p.bcInterval.GetBroadcastInterval())
+		return
+	}
+
 	log.Info(p.logExtraInfo(), "Pow挖矿结果消息处理", "开始", "高度", minerResult.Number, "难度", minerResult.Difficulty.Uint64(), "mine hash", minerResult.BlockHash.TerminalString(), "from", minerResult.From.Hex())
 	p.processPowCombine(true)
 }
@@ -116,7 +117,11 @@ func (p *Process) processAIPick() {
 		return
 	}
 
-	version := p.pm.manblk.ProduceBlockVersion(p.number, string(p.parentHeader.Version))
+	version, err := p.pm.manblk.ProduceBlockVersion(p.number, string(p.parentHeader.Version))
+	if err != nil {
+		log.Info(p.logExtraInfo(), "AI结果选取阶段", "获取区块版本号失败", "高度", p.number, "err", err)
+		return
+	}
 
 	for _, aiResult := range aiResultList {
 		if aiResult.verified {

@@ -111,7 +111,8 @@ func (b *ManAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 func (b *ManAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDBManage, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
-		return nil, nil, errors.New("unsupport argument 1: pending")
+		block, state := b.man.miner.Pending()
+		return state, block.Header(), nil
 	}
 	// Otherwise resolve the block number and return its state
 	header, err := b.HeaderByNumber(ctx, blockNr)

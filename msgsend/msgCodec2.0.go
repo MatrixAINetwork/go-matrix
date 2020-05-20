@@ -318,3 +318,49 @@ func (*basePowerDifficultyMsgcV2) DecodeFn(data []byte, from common.Address) (in
 	msg.From = from
 	return msg, nil
 }
+
+////////////////////////////////////////////////////////////////////////
+// msg code = mc.HD_FullBlkReqToBroadcast
+type fullBlockReqToBroadcastCodecV2 struct {
+}
+
+func (*fullBlockReqToBroadcastCodecV2) EncodeFn(msg interface{}) ([]byte, error) {
+	rsp, OK := msg.(*mc.HD_FullBlkReqToBroadcastMsg)
+	if !OK {
+		return nil, errors.New("reflect err! HD_FullBlkReqToBroadcastMsg")
+	}
+	data, err := rlp.EncodeToBytes(rsp)
+	if err != nil {
+		return nil, errors.Errorf("rlp encode failed: %v", err)
+	}
+	return data, nil
+}
+
+func (*fullBlockReqToBroadcastCodecV2) DecodeFn(data []byte, from common.Address) (interface{}, error) {
+	msg := new(mc.HD_FullBlkReqToBroadcastMsg)
+	err := rlp.DecodeBytes(data, &msg)
+	if err == nil {
+		if msg.Header == nil {
+			return nil, errors.Errorf("'header' of the msg is nil")
+		}
+		msg.From = from
+		return msg, nil
+	} else {
+		oldMsg := new(mc.HD_FullBlkReqToBroadcastMsgV1)
+		err = rlp.DecodeBytes(data, &oldMsg)
+		if err == nil {
+			if oldMsg.Header == nil {
+				return nil, errors.Errorf("'header' of the msg is nil")
+			}
+			msg.Header = oldMsg.Header.TransferHeader()
+			msg.ConsensusTurn = oldMsg.ConsensusTurn
+			msg.TxsCode = oldMsg.TxsCode
+			msg.Txs = oldMsg.Txs
+			msg.OnlineConsensusResults = oldMsg.OnlineConsensusResults
+			msg.From = from
+
+			return msg, nil
+		}
+	}
+	return nil, errors.Errorf("rlp decode failed: %s", err)
+}

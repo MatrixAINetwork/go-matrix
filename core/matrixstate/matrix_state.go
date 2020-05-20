@@ -17,6 +17,7 @@ var mangerBeta *Manager
 var mangerGamma *Manager
 var mangerDelta *Manager
 var mangerAIMine *Manager
+var mangerZeta *Manager
 var versionOpt MatrixOperator
 
 func init() {
@@ -25,6 +26,7 @@ func init() {
 	mangerGamma = newManger(manversion.VersionGamma)
 	mangerDelta = newManger(manversion.VersionDelta)
 	mangerAIMine = newManger(manversion.VersionAIMine)
+	mangerZeta = newManger(manversion.VersionZeta)
 	versionOpt = newVersionInfoOpt()
 }
 
@@ -51,6 +53,8 @@ func GetManager(version string) *Manager {
 		return mangerDelta
 	case manversion.VersionAIMine:
 		return mangerAIMine
+	case manversion.VersionZeta:
+		return mangerZeta
 	default:
 		log.Error(logInfo, "get Manger err", "version not exist", "version", version)
 		return nil
@@ -247,7 +251,7 @@ func newManger(version string) *Manager {
 				mc.MSKeySelMinerNum:             newSelMinerNumOpt(),
 			},
 		}
-	case manversion.VersionDelta, manversion.VersionAIMine:
+	case manversion.VersionDelta, manversion.VersionAIMine, manversion.VersionZeta:
 		return &Manager{
 			version: version,
 			operators: map[string]MatrixOperator{

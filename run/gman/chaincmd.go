@@ -10,12 +10,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb/util"
+
+	"github.com/MatrixAINetwork/go-matrix/rlp"
+
+	"github.com/MatrixAINetwork/go-matrix/core/rawdb"
 	"github.com/MatrixAINetwork/go-matrix/params"
 
 	"github.com/MatrixAINetwork/go-matrix/accounts/keystore"
@@ -37,7 +43,6 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/mc"
 	"github.com/MatrixAINetwork/go-matrix/run/utils"
 	"github.com/MatrixAINetwork/go-matrix/trie"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -308,6 +313,34 @@ It expects the genesis file as argument.`,
 		},
 		Category:    "aes commands",
 		Description: "aes commit",
+	}
+
+	OutputBlockCommand = cli.Command{
+		Action:    utils.MigrateFlags(outputBlock),
+		Name:      "outputBlock",
+		Usage:     "output  block data",
+		ArgsUsage: "",
+		Flags: []cli.Flag{
+			utils.DataDirFlag,
+			utils.BLockMemberName,
+			utils.BlockStartNum,
+			utils.BlockEndNum,
+		},
+		Category:    "aes commands",
+		Description: "aes commit",
+	}
+
+	OutputSimpleBlockCommand = cli.Command{
+		Action:    utils.MigrateFlags(outputSimpleBlock),
+		Name:      "outputSimpleBlock",
+		Usage:     "output  block data",
+		ArgsUsage: "",
+		Flags: []cli.Flag{
+			utils.DataDirFlag,
+			utils.BlockEndNum,
+		},
+		Category:    "outputSimpleBlock commands",
+		Description: "outputSimpleBlock commit",
 	}
 )
 
@@ -1020,6 +1053,209 @@ func aesEncrypt(ctx *cli.Context) error {
 	}
 
 	return nil
+}
+
+type OutData struct {
+	Number      uint64
+	BlockMember map[string]interface{}
+}
+
+func outputBlock(ctx *cli.Context) error {
+	inputMember := ctx.StringSlice(utils.BLockMemberName.Name)
+	dataDir := ctx.String(utils.DataDirFlag.Name)
+	startNum := ctx.Uint64(utils.BlockStartNum.Name)
+	endNum := ctx.Uint64(utils.BlockEndNum.Name)
+	fmt.Println(inputMember)
+	if len(dataDir) == 0 {
+		utils.Fatalf("keyfile must be given as argument")
+		return nil
+	}
+	stack, _ := makeConfigNode(ctx)
+	chain, _ := utils.MakeChain(ctx, stack)
+	if chain == nil {
+		utils.Fatalf("make chain err")
+		return errors.New("make chain err")
+	}
+	if endNum == 0 {
+		endNum = chain.CurrentBlock().Number().Uint64()
+	}
+
+	if endNum < startNum {
+		utils.Fatalf("current is less than input number")
+		return errors.New("current is less than input number")
+	}
+	outputData := make([]OutData, 0)
+	for i := startNum; i < endNum+1; i++ {
+		header := chain.GetHeaderByNumber(i)
+		if nil == header {
+			utils.Fatalf("get  header err,startNum", startNum)
+			return errors.New("get parent header err")
+		}
+
+		outputMap := getHeaderMember(header, inputMember)
+
+		outputData = append(outputData, OutData{Number: i, BlockMember: outputMap})
+		fmt.Println("out num", i)
+	}
+	data, err := json.Marshal(outputData)
+	if nil != err {
+		return err
+	}
+	fmt.Println("out to blockdata.json")
+	ioutil.WriteFile("blockdata.json", data, 0644)
+	return nil
+}
+
+func outputSimpleBlock(ctx *cli.Context) error {
+	dataDir := ctx.String(utils.DataDirFlag.Name)
+	outEndNum := ctx.Uint64(utils.BlockEndNum.Name)
+	if len(dataDir) == 0 {
+		utils.Fatalf("datadir must be given as argument")
+		return nil
+	}
+	stack, _ := makeConfigNode(ctx)
+	chain, chaindb := utils.MakeChain(ctx, stack)
+	blockimport := chain.CurrentBlock()
+	outputChainDb := utils.MakeChain1Database(ctx, stack, "chaindata1")
+	outStartNum := uint64(0)
+	headHash := rawdb.ReadHeadBlockHash(outputChainDb)
+	if headHash != (common.Hash{}) {
+		height := rawdb.ReadHeaderNumber(outputChainDb, headHash)
+		if height == nil {
+			utils.Fatalf("missing block number for headHash header hash")
+			return nil
+		}
+		outStartNum = *height
+	}
+	block := chain.CurrentBlock()
+	if outEndNum > block.NumberU64() {
+		outEndNum = block.NumberU64()
+	}
+	fmt.Println("导出数据库的块高", outEndNum)
+	fmt.Println("导入的数据库当前块高:", blockimport.NumberU64())
+	for icount := outStartNum; icount <= outEndNum; icount++ {
+		block1 := chain.GetBlockByNumber(icount)
+		rawdb.WriteBlock(outputChainDb, block1)
+		if icount%100 == 0 {
+			fmt.Println("简化数据生成高度", icount)
+		}
+		if 0 == icount {
+			fmt.Println("区块0写入链配置")
+			rawdb.WriteChainConfig(outputChainDb, block1.Hash(), chain.Config())
+			fmt.Println("区块0写入状态树")
+			statedb1, err := state.NewStateDBManage(block1.Root(), chaindb, state.NewDatabase(chaindb))
+			if nil != err {
+				fmt.Println("区块0写入状态树错误", err)
+				utils.Fatalf("get statedb err", err)
+			}
+			for _, value := range statedb1.RawDumpDB() {
+				if !LoadDumps(value.TrieArry, outputChainDb) {
+					utils.Fatalf("还原状态树出错")
+				}
+			}
+
+		}
+		rawdb.WriteHeadBlockHash(outputChainDb, block1.Hash())
+		rawdb.WriteHeadFastBlockHash(outputChainDb, block1.Hash())
+		rawdb.WriteCanonicalHash(outputChainDb, block1.Hash(), block1.NumberU64())
+	}
+	fmt.Println("简化数据生成完毕")
+
+	return nil
+}
+
+func LoadDumps(dumps []state.DumpDB, chaindb mandb.Database) bool {
+	var crs []common.Hash
+	triedb := trie.NewDatabase(chaindb)
+	for _, dumpTrie := range dumps {
+
+		//code data
+		for _, itc := range dumpTrie.CodeDatas {
+			log.Info("BlockChain synSnapshot", "codehash:-", common.Bytes2Hex(itc.CodeHash), "code:-", common.Bytes2Hex(itc.Code))
+			triedb.Insert(common.BytesToHash(itc.CodeHash), itc.Code)
+			triedb.Commit(common.BytesToHash(itc.CodeHash), false)
+		}
+		log.Info("BlockChain synSnapshot finished code data")
+		mytrie, _ := trie.NewSecure(common.Hash{}, triedb, 0)
+		//matrix data
+		for _, itm := range dumpTrie.Matrix {
+			mytrie.Update(itm.GetKey, itm.Value)
+		}
+		log.Info("BlockChain synSnapshot finished matrix data")
+		//account data
+		for _, ita := range dumpTrie.Account {
+			mytrie.Update(ita.GetKey, ita.Value)
+		}
+		log.Info("BlockChain synSnapshot finished account data")
+
+		root, err := mytrie.Commit(nil)
+		if err != nil {
+			log.Error("BlockChain synSnapshot crs", "commit err: ", err)
+			return false
+		}
+		crs = append(crs, root)
+		if triedb.Commit(root, true) != nil {
+			log.Error("BlockChain synSnapshot", "commit err: ", err)
+			return false
+		}
+
+		log.Info("BlockChain synSnapshot crs root ,", "root", root.String(), "number", 0)
+
+		//storage data
+		for _, itas := range dumpTrie.MapAccount {
+
+			storagetrie, _ := trie.NewSecure(common.Hash{}, triedb, 0)
+			//fmt.Println()
+			for _, it := range itas.DumpData {
+				storagetrie.Update(it.GetKey, it.Value)
+			}
+
+			root4storage, err := storagetrie.Commit(nil)
+			if err != nil {
+				log.Error("BlockChain synSnapshot", "commit err: ", err)
+				return false
+			}
+
+			if triedb.Commit(root4storage, true) != nil {
+				log.Error("BlockChain synSnapshot", "commit err: ", err)
+				return false
+			}
+
+			log.Info("BlockChain synSnapshot root4storage,", "root4storage", root4storage.String())
+
+		}
+	}
+
+	bshash := types.RlpHash(crs)
+	bs, _ := rlp.EncodeToBytes(crs)
+	if err := chaindb.Put(bshash[:], bs); err != nil {
+		log.Error("BlockChain synSnapshot", "commit err: ", err)
+		return false
+	}
+	log.Info("BlockChain synSnapshot shardingRoot", "shardingRoot", bshash.String())
+	return true
+
+}
+func getHeaderMember(header *types.Header, inputMember []string) map[string]interface{} {
+	outputMap := make(map[string]interface{}, 0)
+	v := reflect.ValueOf(header).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		fieldInfo := v.Type().Field(i) // a reflect.StructField
+		tag := fieldInfo.Tag           // a reflect.StructTag
+		name := tag.Get("json")
+
+		if name == "" {
+			name = strings.ToLower(fieldInfo.Name)
+		}
+		//去掉逗号后面内容 如 `json:"miner,omitempty"`
+		name = strings.Split(name, ",")[0]
+		for _, member := range inputMember {
+			if member == name {
+				outputMap[name] = v.Field(i).Interface()
+			}
+		}
+	}
+	return outputMap
 }
 
 type JsonStruct struct {

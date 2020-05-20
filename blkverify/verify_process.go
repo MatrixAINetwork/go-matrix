@@ -264,6 +264,26 @@ func (p *Process) AddVerifiedBlock(block *verifiedBlock) {
 	return
 }
 
+func (p *Process) AddFullBlkReq(reqMsg *mc.HD_FullBlkReqToBroadcastMsg) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	reqData, err := p.reqCache.AddFullBlkReq(reqMsg)
+	if err != nil {
+		if err != reqExistErr {
+			log.Trace(p.logExtraInfo(), "请求添加缓存失败", err, "from", reqMsg.From, "高度", p.number)
+		}
+		return
+	}
+	log.Info(p.logExtraInfo(), "区块共识请求处理", "请求添加缓存成功", "from", reqMsg.From.Hex(), "高度", p.number, "reqHash", reqData.hash.TerminalString(), "leader", reqMsg.Header.Leader.Hex())
+
+	if p.role == common.RoleBroadcast {
+		p.startReqVerifyBC()
+	} else if p.role == common.RoleValidator {
+		p.startReqVerifyCommon()
+	}
+}
+
 func (p *Process) AddReq(reqMsg *mc.HD_BlkConsensusReqMsg) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -435,16 +455,17 @@ func (p *Process) startTxsVerify() {
 
 	p.changeState(StateTxsVerify)
 
-	txsCodeSize := p.curProcessReq.req.TxsCodeCount()
-	if txsCodeSize == 0 || txsCodeSize == len(p.curProcessReq.originalTxs) {
+	txsCodeCount := p.curProcessReq.req.TxsCodeCount()
+	txsCount := p.curProcessReq.originalTxsCount()
+	if txsCodeCount == 0 || txsCodeCount == txsCount {
 		// 交易为空，或者已经得到全交易，跳过交易获取
-		log.Trace(p.logExtraInfo(), "无需获取交易", "直接进入交易及状态验证", "txsCode size", txsCodeSize, "txs size", len(p.curProcessReq.originalTxs))
+		log.Trace(p.logExtraInfo(), "无需获取交易", "直接进入交易及状态验证", "txsCode size", txsCodeCount, "txs size", txsCount)
 		p.verifyTxsAndState()
 	} else {
 		// 开启交易获
 		p.txsAcquireSeq++
 		target := p.curProcessReq.req.From
-		log.Trace(p.logExtraInfo(), "开始交易获取,seq", p.txsAcquireSeq, "数量", p.curProcessReq.req.TxsCodeCount(), "target", target.Hex(), "高度", p.number)
+		log.Trace(p.logExtraInfo(), "开始交易获取,seq", p.txsAcquireSeq, "数量", txsCodeCount, "target", target.Hex(), "高度", p.number, "已有交易数量", txsCount)
 		txAcquireCh := make(chan *core.RetChan, 1)
 		go p.txPool().ReturnAllTxsByN(p.curProcessReq.req.TxsCode, p.txsAcquireSeq, target, txAcquireCh)
 		go p.processTxsAcquire(txAcquireCh, p.txsAcquireSeq)
@@ -674,8 +695,18 @@ func (p *Process) finishedProcess() {
 	p.startSendMineReq(p.curProcessReq.req.Header)
 
 	//给广播节点发送区块验证请求(带签名列表)
-	p.startPosedReqSender(p.curProcessReq.req)
+	p.startSendBroadcastReq()
 	p.state = StateEnd
+}
+
+func (p *Process) startSendBroadcastReq() {
+	bcInterval, _ := p.pm.bc.GetBroadcastIntervalByHash(p.curProcessReq.req.Header.ParentHash)
+	if bcInterval != nil && bcInterval.IsBroadcastNumber(p.number+1) {
+		// 广播前一区块向广播节点发送全区块
+		p.startPosedReqSenderV2(p.curProcessReq)
+	} else {
+		p.startPosedReqSender(p.curProcessReq.req)
+	}
 }
 
 func (p *Process) checkState(state State) bool {
@@ -710,6 +741,16 @@ func (p *Process) verifyVote(signHash common.Hash, vote common.Signature, from c
 }
 
 func (p *Process) resendMineReq() {
+	bcInterval, err := p.pm.bc.GetBroadcastIntervalByNumber(p.number - 1)
+	if err != nil {
+		log.Info(p.logExtraInfo(), "补发挖矿请求处理", "获取广播周期失败", "err", err, "number", p.number)
+		return
+	}
+
+	if bcInterval.IsReElectionNumber(p.number - 1) {
+		log.Trace(p.logExtraInfo(), "补发挖矿请求处理", "换届后第一个区块, 无需补发挖矿请求消息")
+		return
+	}
 	parentHeader := p.pm.bc.GetHeaderByNumber(p.number - 1)
 	if parentHeader == nil {
 		log.Trace(p.logExtraInfo(), "补发挖矿请求处理", "获取区块失败", "number", p.number)
@@ -718,12 +759,6 @@ func (p *Process) resendMineReq() {
 
 	if manversion.VersionCmp(string(parentHeader.Version), manversion.VersionAIMine) < 0 {
 		log.Trace(p.logExtraInfo(), "补发挖矿请求处理", "区块版本号过低", "cur version", string(parentHeader.Version))
-		return
-	}
-
-	bcInterval, err := p.pm.bc.GetBroadcastIntervalByNumber(p.number - 1)
-	if err != nil {
-		log.Info(p.logExtraInfo(), "补发挖矿请求处理", "获取广播周期失败", "err", err, "number", p.number)
 		return
 	}
 

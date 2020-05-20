@@ -400,7 +400,7 @@ func GetPreMinerReward(state StateDB, rewardType uint8) ([]mc.MultiCoinMinerOutR
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)
 				return nil, errors.New("获取矿工交易金额错误")
 			}
-		case manversion.VersionBeta, manversion.VersionGamma, manversion.VersionDelta, manversion.VersionAIMine:
+		case manversion.VersionBeta, manversion.VersionGamma, manversion.VersionDelta, manversion.VersionAIMine, manversion.VersionZeta:
 			multiCoin, err := matrixstate.GetPreMinerMultiCoinTxsReward(state)
 			if err != nil {
 				log.Error(PackageName, "获取矿工交易奖励金额错误", err)

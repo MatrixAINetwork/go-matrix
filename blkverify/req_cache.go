@@ -48,6 +48,14 @@ type reqData struct {
 	votes             []*common.VerifiedSign
 }
 
+func (self *reqData) originalTxsCount() int {
+	txsCount := 0
+	for _, item := range self.originalTxs {
+		txsCount += len(item.Txser)
+	}
+	return txsCount
+}
+
 func newReqData(req *mc.HD_BlkConsensusReqMsg, isDBRecovery bool, reqType reqType) *reqData {
 	data := &reqData{
 		reqType:           reqType,
@@ -64,6 +72,29 @@ func newReqData(req *mc.HD_BlkConsensusReqMsg, isDBRecovery bool, reqType reqTyp
 	if isDBRecovery {
 		data.localVerifyResult = localVerifyResultDBRecovery
 		data.reqType = reqTypeLeaderReq
+	}
+
+	return data
+}
+
+func newReqDataByBullBlkReq(req *mc.HD_FullBlkReqToBroadcastMsg, reqType reqType) *reqData {
+	data := &reqData{
+		reqType: reqType,
+		req: &mc.HD_BlkConsensusReqMsg{
+			From:                   req.From,
+			Header:                 req.Header,
+			ConsensusTurn:          req.ConsensusTurn,
+			TxsCode:                req.TxsCode,
+			OnlineConsensusResults: req.OnlineConsensusResults,
+		},
+		hash:              req.Header.HashNoSignsAndNonce(),
+		originalTxs:       req.Txs,
+		finalTxs:          nil,
+		receipts:          nil,
+		stateDB:           nil,
+		localVerifyResult: localVerifyResultProcessing,
+		posFinished:       false,
+		votes:             make([]*common.VerifiedSign, 0),
 	}
 
 	return data
@@ -194,6 +225,61 @@ func (rc *reqCache) AddReq(req *mc.HD_BlkConsensusReqMsg, isDBRecovery bool) (*r
 	return reqData, nil
 }
 
+func (rc *reqCache) AddFullBlkReq(req *mc.HD_FullBlkReqToBroadcastMsg) (*reqData, error) {
+	if nil == req || nil == req.Header {
+		return nil, paramErr
+	}
+
+	if req.From == (common.Address{}) {
+		log.Error("blk consensus req cache", "req from err", "is empty address")
+		return nil, paramErr
+	}
+
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	if req.ConsensusTurn.Cmp(rc.curTurn) < 0 {
+		return nil, errors.Errorf("区块请求(全区块)消息的轮次高低,消息轮次(%s) < 本地轮次(%s)", req.ConsensusTurn.String(), rc.curTurn.String())
+	}
+
+	count := len(rc.reqCache)
+	fromSize := 0
+	for i := 0; i < count; i++ {
+		if rc.reqCache[i].req.From == req.From && rc.reqCache[i].req.Header.Leader == req.Header.Leader && rc.reqCache[i].req.ConsensusTurn == req.ConsensusTurn {
+			rc.reqCache[i] = newReqDataByBullBlkReq(req, reqTypeUnknownReq)
+			return rc.reqCache[i], nil
+		}
+		if rc.reqCache[i].req.From == req.From {
+			fromSize++
+		}
+	}
+	if fromSize >= rc.fromLimit {
+		return nil, errors.Errorf("req from[%s] is too many(%d)", req.From.Hex(), fromSize)
+	}
+
+	reqType := reqTypeUnknownReq
+	if preBlk := rc.blkChain.GetBlockByHash(req.Header.ParentHash); preBlk != nil {
+		a0Account, _, err := rc.blkChain.GetA0AccountFromAnyAccount(req.From, req.Header.ParentHash)
+		if err != nil {
+			return nil, errors.Errorf("req from[%s] find a0 account err: %v", req.From.Hex(), err)
+		}
+		if a0Account == req.Header.Leader {
+			reqType = reqTypeLeaderReq
+		} else {
+			reqType = reqTypeOtherReq
+		}
+	}
+
+	reqData := newReqDataByBullBlkReq(req, reqType)
+	if count >= rc.reqCountLimit {
+		rc.reqCache = append(rc.reqCache[:rc.reqCountLimit-1], reqData)
+	} else {
+		rc.reqCache = append(rc.reqCache, reqData)
+	}
+	delBadReqAndSort(rc.reqCache, false)
+	return reqData, nil
+}
+
 func (rc *reqCache) AddLocalReq(req *mc.LocalBlockVerifyConsensusReq) (*reqData, error) {
 	if nil == req {
 		return nil, paramErr
@@ -304,7 +390,19 @@ func (rc *reqCache) GetLeaderReqByHash(hash common.Hash) (*reqData, error) {
 func (rc *reqCache) GetAllReq() []*reqData {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	return rc.reqCache[:]
+	rst := make([]*reqData, 0)
+	lastConsensusTurn := mc.ConsensusTurnInfo{}
+	for _, req := range rc.reqCache {
+		if req.localVerifyResult != localVerifyResultProcessing && req.localVerifyResult != localVerifyResultFailedButCanRecover {
+			continue
+		}
+		if req.req.ConsensusTurn.Cmp(lastConsensusTurn) > 0 {
+			lastConsensusTurn = req.req.ConsensusTurn
+			rst = make([]*reqData, 0)
+		}
+		rst = append(rst, req)
+	}
+	return rst
 }
 
 func delBadReqAndSort(cache []*reqData, del bool) []*reqData {

@@ -9,6 +9,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/accounts/signhelper"
 	"github.com/MatrixAINetwork/go-matrix/reelection"
 
+	"fmt"
 	"github.com/MatrixAINetwork/go-matrix/common"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/core"
@@ -165,6 +166,10 @@ func New(support BlKSupport) (*ManBlkManage, error) {
 
 	obj.RegisterManBLkPlugs(BroadcastBlk, manversion.VersionAIMine, manBcplug)
 
+	obj.RegisterManBLkPlugs(CommonBlk, manversion.VersionZeta, aiMinePlug)
+
+	obj.RegisterManBLkPlugs(BroadcastBlk, manversion.VersionZeta, manBcplug)
+
 	return obj, nil
 }
 
@@ -172,48 +177,60 @@ func (bd *ManBlkManage) RegisterManBLkPlugs(types string, version string, plug M
 	bd.mapManBlkPlugs[types+version] = plug
 }
 
-func (bd *ManBlkManage) ProduceBlockVersion(num uint64, preVersion string) string {
-
+func (bd *ManBlkManage) ProduceBlockVersion(num uint64, preVersion string) (string, error) {
 	switch num {
 	case manversion.VersionNumGamma:
-		return manversion.VersionGamma
+		if manversion.VersionCmp(preVersion, manversion.VersionGamma) >= 0 {
+			return preVersion, nil
+		} else {
+			return manversion.VersionGamma, nil
+		}
+
 	case manversion.VersionNumDelta:
-		return manversion.VersionDelta
+		if manversion.VersionCmp(preVersion, manversion.VersionDelta) >= 0 {
+			return preVersion, nil
+		} else {
+			if manversion.VersionCmp(preVersion, manversion.VersionGamma) != 0 {
+				return "", fmt.Errorf("Delta版本切换点(%d), 前一区块版本号(%s)不是Gamma版本(%s), 无法切换版本", manversion.VersionNumDelta, preVersion, manversion.VersionGamma)
+			}
+			return manversion.VersionDelta, nil
+		}
+
 	case manversion.VersionNumAIMine:
-		return manversion.VersionAIMine
+		if manversion.VersionCmp(preVersion, manversion.VersionAIMine) >= 0 {
+			return preVersion, nil
+		} else {
+			if manversion.VersionCmp(preVersion, manversion.VersionDelta) != 0 {
+				return "", fmt.Errorf("AIMine版本切换点(%d), 前一区块版本号(%s)不是Delta版本(%s), 无法切换版本", manversion.VersionNumAIMine, preVersion, manversion.VersionDelta)
+			}
+			return manversion.VersionAIMine, nil
+		}
+
+	case manversion.VersionNumZeta:
+		if manversion.VersionCmp(preVersion, manversion.VersionZeta) >= 0 {
+			return preVersion, nil
+		} else {
+			if manversion.VersionCmp(preVersion, manversion.VersionAIMine) != 0 {
+				return "", fmt.Errorf("Zeta版本切换点(%d), 前一区块版本号(%s)不是AI Mine版本(%s), 无法切换版本", manversion.VersionNumZeta, preVersion, manversion.VersionAIMine)
+			}
+			return manversion.VersionZeta, nil
+		}
+
 	default:
-		return preVersion
+		return preVersion, nil
 	}
 }
 
 func (bd *ManBlkManage) VerifyBlockVersion(num uint64, curVersion string, preVersion string) error {
+	localVersion, err := bd.ProduceBlockVersion(num, preVersion)
+	if err != nil {
+		return fmt.Errorf("ProduceBlockVersion failed(%v)", err)
+	}
 
-	switch num {
-	case manversion.VersionNumGamma:
-		if manversion.VersionCmp(curVersion, manversion.VersionGamma) != 0 {
-			return errors.New("版本号异常")
-		} else {
-			return nil
-		}
-	case manversion.VersionNumDelta:
-		if manversion.VersionCmp(curVersion, manversion.VersionDelta) != 0 {
-			return errors.New("版本号异常")
-		} else {
-			return nil
-		}
-	case manversion.VersionNumAIMine:
-		if manversion.VersionCmp(curVersion, manversion.VersionAIMine) != 0 {
-			return errors.New("版本号异常")
-		} else {
-			return nil
-		}
-	default:
-		if curVersion != preVersion {
-			return errors.New("版本号异常,不等于父区块版本号")
-		} else {
-			return nil
-		}
-
+	if manversion.VersionCmp(localVersion, curVersion) != 0 {
+		return fmt.Errorf("版本号异常, 本地计算版本号(%s) != 被验证的版本号(%s)", localVersion, curVersion)
+	} else {
+		return nil
 	}
 }
 

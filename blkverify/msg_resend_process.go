@@ -104,6 +104,16 @@ func (p *Process) startPosedReqSender(req *mc.HD_BlkConsensusReqMsg) {
 	p.posedReqSender = sender
 }
 
+func (p *Process) startPosedReqSenderV2(req *reqData) {
+	p.closePosedReqSender()
+	sender, err := common.NewResendMsgCtrl(req, p.sendPosedReqFuncV2, manparams.PosedReqSendInterval, 0)
+	if err != nil {
+		log.Error(p.logExtraInfo(), "创建POS完成的req发送器", "失败", "err", err)
+		return
+	}
+	p.posedReqSender = sender
+}
+
 func (p *Process) closePosedReqSender() {
 	if p.posedReqSender == nil {
 		return
@@ -125,6 +135,40 @@ func (p *Process) sendPosedReqFunc(data interface{}, times uint32) {
 		log.Trace(p.logExtraInfo(), "发出POS完成的req(to broadcast) leader", req.Header.Leader.Hex(), "次数", times, "高度", p.number)
 	}
 	p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, req, common.RoleBroadcast, nil)
+}
+
+func (p *Process) sendPosedReqFuncV2(data interface{}, times uint32) {
+	reqInfo, OK := data.(*reqData)
+	if !OK {
+		log.Error(p.logExtraInfo(), "发出POS完成的req", "反射消息失败")
+		return
+	}
+
+	headerTime := reqInfo.req.Header.Time.Int64()
+	curTime := time.Now().Unix()
+	if curTime <= headerTime+120 {
+		//给广播节点发送区块验证请求(带签名列表)
+		if times == 1 {
+			log.Debug(p.logExtraInfo(), "发出POS完成的req(to broadcast) leader", reqInfo.req.Header.Leader.Hex(), "高度", p.number)
+		} else {
+			log.Trace(p.logExtraInfo(), "发出POS完成的req(to broadcast) leader", reqInfo.req.Header.Leader.Hex(), "次数", times, "高度", p.number)
+		}
+		p.pm.hd.SendNodeMsg(mc.HD_BlkConsensusReq, reqInfo.req, common.RoleBroadcast, nil)
+	} else {
+		if times%2 != 0 {
+			return
+		}
+		// 2分钟后，每2个间隔发送一次全区块请求
+		req := &mc.HD_FullBlkReqToBroadcastMsg{
+			Header:        reqInfo.req.Header,
+			ConsensusTurn: reqInfo.req.ConsensusTurn,
+			TxsCode:       reqInfo.req.TxsCode,
+			Txs:           reqInfo.originalTxs,
+			OnlineConsensusResults: reqInfo.req.OnlineConsensusResults,
+		}
+		log.Trace(p.logExtraInfo(), "发出POS完成的req(完整区块)(to broadcast) leader", req.Header.Leader.Hex(), "次数", times, "高度", p.number)
+		p.pm.hd.SendNodeMsg(mc.HD_FullBlkReqToBroadcast, req, common.RoleBroadcast, nil)
+	}
 }
 
 func (p *Process) startVoteMsgSender(vote *mc.HD_ConsensusVote) {

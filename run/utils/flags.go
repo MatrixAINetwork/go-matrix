@@ -25,6 +25,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/common/fdlimit"
 	"github.com/MatrixAINetwork/go-matrix/consensus"
 	"github.com/MatrixAINetwork/go-matrix/consensus/amhash"
+	"github.com/MatrixAINetwork/go-matrix/consensus/amhash_zeta"
 	"github.com/MatrixAINetwork/go-matrix/consensus/clique"
 	"github.com/MatrixAINetwork/go-matrix/consensus/manash"
 	"github.com/MatrixAINetwork/go-matrix/consensus/mtxdpos"
@@ -320,6 +321,10 @@ var (
 		Value: int(state.MaxTrieCacheGen),
 	}
 	// Miner settings
+	CPUMiningStopFlag = cli.BoolFlag{
+		Name:  "stopcpu",
+		Usage: "Stop cpu mining",
+	}
 	MiningEnabledFlag = cli.BoolFlag{
 		Name:  "mine",
 		Usage: "Enable mining",
@@ -599,6 +604,22 @@ var (
 		Name:  "loadsnapfile",
 		Usage: "load snap withName and start matrix with it",
 		Value: man.SnapLoadFile,
+	}
+
+	BLockMemberName = cli.StringSliceFlag{
+		Name:  "blockmembername",
+		Usage: "block member",
+	}
+
+	BlockStartNum = cli.Uint64Flag{
+		Name:  "blockstart",
+		Usage: "output block member start number",
+		Value: 0,
+	}
+	BlockEndNum = cli.Uint64Flag{
+		Name:  "blockend",
+		Usage: "output block member end number",
+		Value: 0,
 	}
 )
 
@@ -1382,6 +1403,22 @@ func MakeChainDatabase(ctx *cli.Context, stack *pod.Node) mandb.Database {
 	return chainDb
 }
 
+func MakeChain1Database(ctx *cli.Context, stack *pod.Node, name string) mandb.Database {
+	var (
+		cache   = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
+		handles = makeDatabaseHandles()
+	)
+
+	if ctx.GlobalBool(LightModeFlag.Name) {
+		name = "lightchaindata"
+	}
+	chainDb, err := stack.OpenDatabase(name, cache, handles)
+	if err != nil {
+		Fatalf("Could not open database: %v", err)
+	}
+	return chainDb
+}
+
 func MakeGenesis(ctx *cli.Context) *core.Genesis {
 	var genesis *core.Genesis
 	switch {
@@ -1448,11 +1485,15 @@ func createEngineMap(ctx *cli.Context, stack *pod.Node, config *params.ChainConf
 	aiMineEngine := amhash.New(amhash.Config{PowMode: amhash.ModeNormal, PictureStorePath: stack.ResolvePath("picstore")})
 	aiMineEngine.SetThreads(-1) // Disable CPU mining
 
+	zetaEngine := amhashzeta.New(amhashzeta.Config{PowMode: amhashzeta.ModeNormal, PictureStorePath: stack.ResolvePath("picstore")})
+	zetaEngine.SetThreads(-1) // Disable CPU mining
+
 	engineMap[manversion.VersionAlpha] = alphaEngine
 	engineMap[manversion.VersionBeta] = alphaEngine
 	engineMap[manversion.VersionGamma] = alphaEngine
 	engineMap[manversion.VersionDelta] = alphaEngine
 	engineMap[manversion.VersionAIMine] = aiMineEngine
+	engineMap[manversion.VersionZeta] = zetaEngine
 
 	dposEngineMap := make(map[string]consensus.DPOSEngine)
 	alphaDposEngine := mtxdpos.NewMtxDPOS(config.SimpleMode)
@@ -1461,6 +1502,7 @@ func createEngineMap(ctx *cli.Context, stack *pod.Node, config *params.ChainConf
 	dposEngineMap[manversion.VersionGamma] = alphaDposEngine
 	dposEngineMap[manversion.VersionDelta] = alphaDposEngine
 	dposEngineMap[manversion.VersionAIMine] = alphaDposEngine
+	dposEngineMap[manversion.VersionZeta] = alphaDposEngine
 
 	return engineMap, dposEngineMap
 }

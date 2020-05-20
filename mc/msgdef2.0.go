@@ -112,3 +112,21 @@ type HD_V2_FullBlockRspMsg struct {
 }
 
 type HD_BasePowerDifficulty HD_V2_PowMiningRspMsg
+
+type HD_FullBlkReqToBroadcastMsg struct {
+	From                   common.Address
+	Header                 *types.Header
+	ConsensusTurn          ConsensusTurnInfo
+	TxsCode                []*common.RetCallTxN
+	Txs                    []types.CoinSelfTransaction
+	OnlineConsensusResults []*HD_OnlineConsensusVoteResultMsg
+}
+
+type HD_FullBlkReqToBroadcastMsgV1 struct {
+	From                   common.Address
+	Header                 *types.HeaderV1
+	ConsensusTurn          ConsensusTurnInfo
+	TxsCode                []*common.RetCallTxN
+	Txs                    []types.CoinSelfTransaction
+	OnlineConsensusResults []*HD_OnlineConsensusVoteResultMsg
+}

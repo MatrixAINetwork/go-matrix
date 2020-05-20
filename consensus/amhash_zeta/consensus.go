@@ -2,12 +2,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php
 
-package amhash
+package amhashzeta
 
 import (
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"runtime"
 	"time"
@@ -318,13 +317,20 @@ func (amhash *Amhash) verifyHeaderTime(chain consensus.ChainReader, header, pare
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (amhash *Amhash) CalcDifficulty(chain consensus.ChainReader, _ string, curTime uint64, parent *types.Header, _ *types.Header) (*big.Int, error) {
+func (amhash *Amhash) CalcDifficulty(chain consensus.ChainReader, _ string, curTime uint64, parent *types.Header, header *types.Header) (*big.Int, error) {
+
+	if header == nil {
+		return nil, errors.New("当前区块为空")
+	}
+
 	if parent == nil {
 		return nil, errors.New("父区块为空")
 	}
+
 	if curTime < parent.Time.Uint64() {
 		return nil, errors.New("当前时间戳错误")
 	}
+
 	if chain == nil {
 		return nil, errors.New("传入的chain 为空")
 	}
@@ -362,31 +368,90 @@ func (amhash *Amhash) CalcDifficulty(chain consensus.ChainReader, _ string, curT
 
 	innerMiners, err := chain.GetInnerMinerAccounts(parent.Hash())
 	isTimeout := IsPowTimeout(parent.Coinbase, innerMiners)
+	isContextChange, err := isContainChangeEvent(header, chain, bcInterval)
+	if nil != err {
+		return nil, err
+	}
+
 	mineHeader, _, err := amhash.getMineHeader(parent.Number.Uint64(), parent.Hash(), bcInterval, chain)
 	if err != nil {
 		return nil, err
 	}
+
 	durationLimit := amhash.getDurationLimit()
 	mineHeaderDuration, err := chain.GetBlockDurationStatus(mineHeader.Hash())
 	if err != nil || len(mineHeaderDuration.Status) == 0 {
 		log.Warn("难度计算", "获取难度状态出错", "")
 		mineHeaderDuration = &mc.BlockDurationStatus{[]uint8{0}}
 	}
-	difficultyInfors, err := amhash.getDifficultyInfors(parent.Hash(), curNumber, curTime, bcInterval, chain)
+
+	difficultyInfors, err := amhash.getDifficultyInfors(parent.Hash(), curNumber, curTime, bcInterval, chain, innerMiners)
 	if err != nil {
 		return nil, err
 	}
-	return FastTrackEMAAlg(bcInterval.GetReElectionInterval(), curNumber, difficultyInfors, mineHeader, minDifficulty, maxDifficulty, isTimeout, curTime, amhash.getBlockMinDuration(), durationLimit, mineHeaderDuration)
+
+	return FastTrackEMAAlg(bcInterval.GetReElectionInterval(), curNumber, difficultyInfors, mineHeader, minDifficulty, maxDifficulty, isTimeout, isContextChange, curTime, getBlockMinDuration(), durationLimit, mineHeaderDuration)
+}
+func getContainHeaders(header *types.Header, chain consensus.ChainReader, bcInterval *mc.BCIntervalInfo) ([]*types.Header, error) {
+	//获取难度计算区块头列表高度必须大于4
+	if header.Number.Uint64() < params.PowBlockPeriod+1 {
+
+		return nil, fmt.Errorf("获取区块错误,区块高度小于:%v", params.PowBlockPeriod+1)
+	}
+	headerList := []*types.Header{header}
+	var parent *types.Header
+	for {
+		if len(headerList) >= params.PowBlockPeriod+1 {
+			break
+		}
+		parent = chain.GetHeaderByHash(header.ParentHash)
+		if parent == nil {
+			return nil, fmt.Errorf("获取区块错误,区块hash:%v", header.ParentHash.TerminalString())
+		}
+		header = parent
+		if bcInterval.IsBroadcastNumber(parent.Number.Uint64()) {
+			continue
+		}
+		headerList = append([]*types.Header{parent}, headerList...)
+	}
+	return headerList, nil
 }
 
-func (amhash *Amhash) getDifficultyInfors(parentHash common.Hash, curNumber, curTime uint64, bcInterval *mc.BCIntervalInfo, chain consensus.ChainReader) ([]DifficultyInfo, error) {
+func isContainChangeEvent(header *types.Header, chain consensus.ChainReader, bcInterval *mc.BCIntervalInfo) (bool, error) {
+	if header.IsSuperHeader() {
+		return true, nil
+	}
+
+	headerList, err := getContainHeaders(header, chain, bcInterval)
+	if nil != err {
+		return false, err
+	}
+	for i := 0; i < len(headerList)-1; i++ {
+
+		if headerList[i].IsSuperHeader() {
+			return true, nil
+		}
+		topologyGraph, _, err := chain.GetGraphByHash(headerList[i].Hash())
+		if err != nil {
+			return false, err
+		}
+		nextLeader := topologyGraph.FindNextValidator(headerList[i].Leader)
+		if nextLeader != headerList[i+1].Leader {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (amhash *Amhash) getDifficultyInfors(parentHash common.Hash, curNumber, curTime uint64, bcInterval *mc.BCIntervalInfo, chain consensus.ChainReader, innerMiners []common.Address) ([]DifficultyInfo, error) {
 	headers := make([]*types.Header, 0)
 
 	if curNumber%bcInterval.GetReElectionInterval() < params.PowBlockPeriod*params.VersionAIDifficultyQuickTraceNum+1 {
 		return nil, nil
 	}
-
-	for i := curNumber - 1; i > bcInterval.LastReelectNumber; i-- {
+	durationLimit := amhash.getDurationLimit()
+	for i := curNumber - 1; i > bcInterval.LastReelectNumber+params.PowBlockPeriod*(params.VersionAIDifficultyQuickTraceNum-1); i-- {
 
 		if params.VersionAIDifficultyAvgLength == uint64(len(headers)) {
 			break
@@ -403,12 +468,37 @@ func (amhash *Amhash) getDifficultyInfors(parentHash common.Hash, curNumber, cur
 	difficultyInfors := make([]DifficultyInfo, 0)
 	for i := 1; i < len(headers); i++ {
 		if headers[i].Difficulty.Uint64() != 0 {
-			difficultyInfo := []DifficultyInfo{{difficulty: headers[i].Difficulty, Duration: headers[i-1].Time.Uint64() - headers[i].Time.Uint64()}}
+			parent := chain.GetHeaderByHash(headers[i-1].ParentHash)
+			if nil == parent {
+				return nil, errors.New("难度计算，获取区块为空")
+			}
+			isContainChange, err := isContainChangeEvent(headers[i-1], chain, bcInterval)
+			if nil != err {
+				return nil, errors.New("leader 更换计算出错")
+			}
+			isTimeout := IsPowTimeout(parent.Coinbase, innerMiners)
+			var difficultyInfo []DifficultyInfo
+			if isContainChange && !isTimeout {
+				//在Pow过程中，如果存在Leader更换，我们认为这个数据是一个坏数据。使用期望出块时间代替
+				log.Trace("难度调整算法跟踪", "高度", headers[i].Number, "Leader更换", isContainChange)
+				difficultyInfo = []DifficultyInfo{{difficulty: headers[i].Difficulty, Duration: durationLimit.Uint64()}}
+			} else {
+				difficultyInfo = []DifficultyInfo{{difficulty: headers[i].Difficulty, Duration: headers[i-1].Time.Uint64() - headers[i].Time.Uint64()}}
+			}
 			log.Trace("难度调整算法跟踪", "高度", headers[i].Number, "Difficulty", headers[i].Difficulty, "Cost", headers[i-1].Time.Uint64()-headers[i].Time.Uint64())
 			difficultyInfors = append(difficultyInfo, difficultyInfors...)
 		}
 	}
 	difficultyInfors = append(difficultyInfors, DifficultyInfo{headers[0].Difficulty, curTime - headers[0].Time.Uint64()})
+	//快速建立和连续迭代的衔接问题 使用最后一个快速建立替换
+	difficultyLength := len(difficultyInfors)
+	for i := 0; i < int(params.VersionAIDifficultyAvgLength)-difficultyLength; i++ {
+		difficultyInfo := []DifficultyInfo{difficultyInfors[0]}
+		difficultyInfors = append(difficultyInfo, difficultyInfors...)
+	}
+	for _, v := range difficultyInfors {
+		log.Info("难度调整算法跟踪", "难度", v.difficulty, "时间", v.Duration)
+	}
 	return difficultyInfors, nil
 }
 
@@ -421,32 +511,26 @@ func (amhash *Amhash) isHasSuperBLock(parent *types.Header, grandParent *types.H
 }
 
 func (amhash *Amhash) isHasBroadcast(bcInterval *mc.BCIntervalInfo, parent *types.Header) bool {
-	var isHasBroadCast bool
-	if bcInterval.IsBroadcastNumber(parent.Number.Uint64()) {
-		isHasBroadCast = true
-	}
-	return isHasBroadCast
+
+	return bcInterval.IsBroadcastNumber(parent.Number.Uint64())
 }
 
 func (amhash *Amhash) ShoudEqualReelectionDifficulty(bcInterval *mc.BCIntervalInfo, parent *types.Header) bool {
-	var isHasReelection bool
-	if bcInterval.IsReElectionNumber(parent.Number.Uint64()) {
-		isHasReelection = true
-	}
-	return isHasReelection
+
+	return bcInterval.IsReElectionNumber(parent.Number.Uint64())
 }
 
 func (amhash *Amhash) getDurationLimit() *big.Int {
-	return new(big.Int).Mul(params.VersionAIDurationLimit, new(big.Int).SetUint64(params.PowBlockPeriod))
+	return new(big.Int).Mul(params.VersionZetaDurationLimit, new(big.Int).SetUint64(params.PowBlockPeriod))
 }
-func (amhash *Amhash) getBlockMinDuration() uint64 {
+func getBlockMinDuration() uint64 {
 	return new(big.Int).Mul(params.MinBlockInterval, new(big.Int).SetUint64(params.PowBlockPeriod)).Uint64()
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func FastTrackEMAAlg(reelectionNumber, curNumber uint64, difficultyInfors []DifficultyInfo, parentAIHeader *types.Header, minimumDifficulty, maxDifficulty *big.Int, isTimeout bool, curTime, blockMinInterval uint64, durationLimit *big.Int, mineHeaderDuration *mc.BlockDurationStatus) (x *big.Int, err error) {
+func FastTrackEMAAlg(reelectionNumber, curNumber uint64, difficultyInfors []DifficultyInfo, parentAIHeader *types.Header, minimumDifficulty, maxDifficulty *big.Int, isTimeout, isContainChange bool, curTime, blockMinInterval uint64, durationLimit *big.Int, mineHeaderDuration *mc.BlockDurationStatus) (x *big.Int, err error) {
 
 	defer func() {
 		if x.Cmp(minimumDifficulty) < 0 {
@@ -493,7 +577,7 @@ func FastTrackEMAAlg(reelectionNumber, curNumber uint64, difficultyInfors []Diff
 			return x, nil
 		}
 
-		return computeDifficultyQuickTrace(curTime, parentAIHeader, durationLimit), nil
+		return computeDifficultyQuickTrace(curTime, parentAIHeader, durationLimit, isContainChange), nil
 	}
 
 	return EMAAlg(difficultyInfors, durationLimit)
@@ -565,20 +649,22 @@ func (amhash *Amhash) VerifySeal(chain consensus.ChainReader, header *types.Head
 		return errInvalidDifficulty
 	}
 
-	verifyData := generateMineData(verifiedHeader)
-
 	// verify x11 pow
-	x11Result := x11PowHash(verifyData, header.Nonce.Uint64())
+	x11VerifyData := generateMineData(verifiedHeader, header.MixDigest)
+	x11Result := x11PowHash(x11VerifyData, header.Nonce.Uint64())
 	x11Target := new(big.Int).Div(maxUint256, verifiedHeader.Difficulty)
 	if new(big.Int).SetBytes(Reverse(x11Result)).Cmp(x11Target) > 0 {
+		log.Error("amhash zeta", "VerifySeal", "x11 pow verify failed", "verifyData", common.ToHex(x11VerifyData), "header.Nonce.Uint64()", header.Nonce.Uint64(), "MixDigest", header.MixDigest.Hex(), "header hash", verifiedHeader.ParentHash.Hex())
 		return errX11InvalidPoW
 	}
 
 	// verify sm3 pow
-	sm3Difficulty := big.NewInt(int64(math.Ceil(float64(verifiedHeader.Difficulty.Uint64()) * params.Sm3DifficultyRatio)))
+	sm3VerifyData := generateMineData(verifiedHeader, common.Hash{})
+	sm3Difficulty := calcSm3Difficulty(verifiedHeader)
 	sm3Target := new(big.Int).Div(maxUint256, sm3Difficulty)
-	sm3Result := sm3PowHash(verifyData, header.Sm3Nonce.Uint64())
+	sm3Result := sm3PowHash(sm3VerifyData, header.Sm3Nonce.Uint64())
 	if new(big.Int).SetBytes(sm3Result).Cmp(sm3Target) > 0 {
+		log.Error("amhash zeta", "VerifySeal", "sm3 pow verify failed", "string(verifyData)", string(sm3VerifyData), "common.ToHex(verifyData)", common.ToHex(sm3VerifyData), "header difficulty", verifiedHeader.Difficulty, "sm3 difficulty", sm3Difficulty)
 		return errSm3InvalidPoW
 	}
 
@@ -677,7 +763,7 @@ func (amhash *Amhash) verifyBasePow(chain consensus.ChainReader, basePower types
 		Coinbase:   basePower.Miner,
 	}
 
-	result := x11PowHash(generateMineData(verifiedHeader), basePower.Nonce.Uint64())
+	result := x11PowHash(generateMineData(verifiedHeader, basePower.MixDigest), basePower.Nonce.Uint64())
 	target := new(big.Int).Div(maxUint256, params.BasePowerDifficulty)
 	if new(big.Int).SetBytes(Reverse(result)).Cmp(target) > 0 {
 		return errInvalidBasePow
@@ -775,28 +861,6 @@ func IsPowTimeout(coinbase common.Address, innerMiners []common.Address) bool {
 	}
 	return false
 }
-func isLeaderReelection(chain consensus.ChainReader, grandparent, parent *types.Header, bcInterval *mc.BCIntervalInfo, topologyGraph *mc.TopologyGraph) (bool, error) {
-
-	if bcInterval.IsBroadcastNumber(parent.Number.Uint64()) || bcInterval.IsReElectionNumber(parent.Number.Uint64()-1) {
-		return false, nil
-	}
-
-	cmpHeader := grandparent
-	cmpNumber := parent.Number.Uint64() - 1
-	for bcInterval.IsBroadcastNumber(uint64(cmpNumber)) || cmpHeader.IsSuperHeader() {
-		if cmpNumber == 0 {
-			return false, errors.New("无对比区块")
-		}
-		cmpNumber--
-		cmpHeader = chain.GetHeaderByHash(cmpHeader.ParentHash)
-		if cmpHeader == nil {
-			return false, errors.New("获取不到父区块")
-		}
-	}
-	nextLeader := topologyGraph.FindNextValidator(cmpHeader.Leader)
-	return nextLeader != parent.Leader, nil
-
-}
 
 func isLessBlockMinInterval(curTime uint64, parentAIHeader *types.Header, blockMinInterval uint64) bool {
 	return uint64(curTime)-parentAIHeader.Time.Uint64() <= blockMinInterval
@@ -807,12 +871,16 @@ type DifficultyInfo struct {
 	Duration   uint64
 }
 
-func computeDifficultyQuickTrace(curTime uint64, parent *types.Header, durationLimit *big.Int) *big.Int {
+func computeDifficultyQuickTrace(curTime uint64, parent *types.Header, durationLimit *big.Int, isContainChange bool) *big.Int {
 	x := new(big.Int)
 	defer log.Info("cal Diff", "x", x)
 	bigParentDifficulty := new(big.Int).Set(parent.Difficulty)
 	parentTime := parent.Time.Int64()
 	duration := int64(curTime) - parentTime
+	if isContainChange {
+		duration = durationLimit.Int64()
+		log.Info("难度调整算法跟踪", "存在Leader更换,快速跟踪使用目标时间", duration)
+	}
 	diffTime := duration - durationLimit.Int64()
 
 	if diffTime > 0 {
@@ -834,6 +902,14 @@ func computeDifficultyQuickTrace(curTime uint64, parent *types.Header, durationL
 	}
 
 	return x
+}
+
+const (
+	AlgPosCalcMinTime = uint64(3)
+)
+
+func getAlgPosCalcMinDuration() uint64 {
+	return AlgPosCalcMinTime * params.PowBlockPeriod
 }
 
 func EMAAlg(difficultyInfos []DifficultyInfo, durationLimit *big.Int) (*big.Int, error) {
@@ -861,7 +937,11 @@ func EMAAlg(difficultyInfos []DifficultyInfo, durationLimit *big.Int) (*big.Int,
 
 	actualTime := uint64(0)
 	for i := uint64(0); i < params.VersionAIDifficultyAvgLength; i++ {
-		actualTime += difficultyInfos[i].Duration
+		if difficultyInfos[i].Duration <= getBlockMinDuration() {
+			actualTime += getAlgPosCalcMinDuration()
+		} else {
+			actualTime += difficultyInfos[i].Duration
+		}
 	}
 	targetTime := durationLimit.Uint64() * params.VersionAIDifficultyAvgLength
 

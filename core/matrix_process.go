@@ -11,6 +11,7 @@ import (
 	"github.com/MatrixAINetwork/go-matrix/core/types"
 	"github.com/MatrixAINetwork/go-matrix/log"
 	"github.com/MatrixAINetwork/go-matrix/mc"
+	"github.com/MatrixAINetwork/go-matrix/params/manversion"
 	"github.com/pkg/errors"
 )
 
@@ -44,7 +45,7 @@ func (mp *MatrixProcessor) ProcessStateVersion(version []byte, state *state.Stat
 
 	curVersion := matrixstate.GetVersionInfo(state)
 	newVersion := string(version)
-	if curVersion != newVersion {
+	if manversion.VersionCmp(curVersion, newVersion) < 0 {
 		log.Info("MatrixProcessor", "版本号更新", "开始", "旧版本", curVersion, "新版本", newVersion)
 		curVersion = newVersion
 		if err := matrixstate.SetVersionInfo(state, curVersion); err != nil {

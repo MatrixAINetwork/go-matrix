@@ -181,6 +181,7 @@ var AppHelpFlagGroups = []flagGroup{
 	{
 		Name: "MINER",
 		Flags: []cli.Flag{
+			utils.CPUMiningStopFlag,
 			utils.MiningEnabledFlag,
 			utils.MinerThreadsFlag,
 			utils.ManerbaseFlag,

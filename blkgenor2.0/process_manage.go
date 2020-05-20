@@ -150,7 +150,7 @@ func (pm *ProcessManage) isLegalNumber(number uint64) error {
 		return errors.Errorf("高度(%d) 过于小于当前高度 范围(%d)", number, pm.curChainState.CurNumber())
 	}
 
-	if number > pm.curChainState.CurNumber()+2 {
+	if number > pm.curChainState.CurNumber()+3 {
 		return errors.Errorf("高度(%d) 过于大于当前高度 范围(%d)", number, pm.curChainState.CurNumber())
 	}
 
