@@ -248,7 +248,7 @@ Step 3: Start gman
     gman --datadir chaindata  --networkid 1 --outputinfo 1 -- syncmode full
 
 ### License
-Copyright 2018-2019 The MATRIX Authors
+Copyright 2018-2020 The MATRIX Authors
 
 The go-matrix library is licensed under MIT.
 
