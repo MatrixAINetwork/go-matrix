@@ -109,7 +109,7 @@ You can also obtain our compiled gman from github [https://github.com/MatrixAINe
 
 ### Starting up your member nodes (Linux & Mac) - for deposited users
 
-Step 1: Check out what you need to prepare (most of them can be obtaind from go-matrix repository)
+Step 1: Check out what you need to prepare (most of them can be obtained from go-matrix repository)
 
     /gman: exe file
 
